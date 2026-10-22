@@ -137,6 +137,13 @@ public class SkeletonRenderer
 		}
 		return null;
 	}
+	public void DrawImages(SKCanvas canvas, Skeleton skeleton)
+	{
+		var highlight = Highlight;
+		Highlight = null;
+		DrawSlots(canvas, skeleton);
+		Highlight = highlight;
+	}
 
 	// Matrix3x2 (row-vector) -> SKMatrix. Same numbers, different names.
 	private static SKMatrix ToSk(Matrix3x2 m) => new()

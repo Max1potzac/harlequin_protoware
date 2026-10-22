@@ -4,3 +4,4 @@ global using Animator.Core.Editing;
 global using Animator.Core.Keyframing;
 global using Animator.Core.Rigging;
 global using Animator.Core.Utilities;
+global using Animator.Core.Serialization;

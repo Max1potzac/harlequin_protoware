@@ -19,6 +19,7 @@ public class Skeleton
         }
         return null;
     }
+
 	// Every attachment in the default and active skins
 	public IEnumerable<Attachment> AllAttachments()
 	{
@@ -86,8 +87,25 @@ public class Skeleton
         UpdateWorld();                                  // FK pose first
         foreach (var c in IkConstraints) c.Solve();     // list order = solve order
     }
+	// Takes over another skeleton's contents. Everything that holds a reference to
+	// THIS skeleton (renderer, tools, timeline, paint editor) keeps working.
+	public void ReplaceWith(Skeleton other)
+	{
+		Roots.Clear();
+		Roots.AddRange(other.Roots);
+		Slots.Clear();
+		Slots.AddRange(other.Slots);
+		Assets.Clear();
+		foreach (var (id, asset) in other.Assets) Assets[id] = asset;
+		IkConstraints.Clear();
+		IkConstraints.AddRange(other.IkConstraints);
+		DefaultSkin.ReplaceWith(other.DefaultSkin);
+		ActiveSkin = other.ActiveSkin == other.DefaultSkin ? DefaultSkin : other.ActiveSkin;
+	}
 
-    public void UpdateWorld()
+	public void Clear() => ReplaceWith(new Skeleton());
+
+	public void UpdateWorld()
     {
         foreach (var root in Roots) root.UpdateWorld();
     }

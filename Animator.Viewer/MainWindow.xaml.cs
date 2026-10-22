@@ -163,6 +163,9 @@ public partial class MainWindow : Window
 		if (HandlePaintKey(e.Key)) { e.Handled = true; return; }
 		// No undo/redo/copy/paste in the middle of a stroke
 		if (ctrl && _paintCanvas.IsBusy) { e.Handled = true; return; }
+		if (ctrl && e.Key == Key.S) { if (shift) SaveProjectAs(); else SaveProject(); e.Handled = true; return; }
+		if (ctrl && e.Key == Key.O) { OpenProject(); e.Handled = true; return; }
+		if (ctrl && e.Key == Key.N) { NewProject(); e.Handled = true; return; }
 
 		if (ctrl && e.Key == Key.Z && !shift)
 		{
@@ -190,9 +193,9 @@ public partial class MainWindow : Window
 					if (!_timeline.DeleteSelected()) DeleteKeysAtFrame();
 					break;
 				case Key.I when shift: SwitchIkHere(); break;
-				case Key.I: _ik.SetupMix = _ik.SetupMix > 0.5f ? 0f : 1f; break;
+				case Key.I: ToggleIkMode(); break;
 				case Key.T: MatchIk(bake: shift); break;
-				case Key.B: _ik.BendDirection = -_ik.BendDirection; break;
+				case Key.B: FlipElbow(); break;
 				case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
 				case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
 				case Key.F: _camera.Reset(); break;
@@ -302,15 +305,40 @@ public partial class MainWindow : Window
 		EditRig($"Switch {c.Name} to {(toIk ? "IK" : "FK")} @ frame {frame}",
 			() => IkMatching.SwitchMode(_skeleton, _state.Animation, c, frame, _state.Fps, toIk));
 	}
+	private void ToggleIkMode()
+	{
+		if (ActiveIk() is not { } ik) return;
+		float before = ik.SetupMix;
+		float after = before > 0.5f ? 0f : 1f;
+		ik.SetupMix = after;
+		_state.Undo.Push(new SnapshotCommand<float>($"{ik.Name}: {(after > 0.5f ? "IK" : "FK")}",
+			before, after, v => ik.SetupMix = v));
+	}
 
-	private void UpdateStatus() =>
+	private void FlipElbow()
+	{
+		if (ActiveIk() is not { } ik) return;
+		int before = ik.BendDirection;
+		ik.BendDirection = -before;
+		_state.Undo.Push(new SnapshotCommand<int>($"Flip {ik.Name} bend",
+			before, -before, v => ik.BendDirection = v));
+	}
+
+	private void UpdateStatus()
+	{
+		bool ikOn = (ActiveIk()?.SetupMix ?? 0f) > 0.5f;
+
 		Status.Text =
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
 			$"Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
 			"Viewport: drag joint = move, drag bone = rotate, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
-			"Paint: double-click a part. Over the canvas: M select, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag straight line, Ctrl+A / Ctrl+D select all / none, Alt+click pick. Right-click palette = secondary color\n" + 
+			"Paint: double-click a part. Over the canvas: M select, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick\n" +
 			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   " +
-			$"I: IK/FK ({(_ik.SetupMix > 0.5f ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})";
+			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
+			"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as";
+
+		UpdateTitle();
+	}
 }

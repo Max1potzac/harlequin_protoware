@@ -8,3 +8,5 @@ global using Animator.Viewer.Rendering;
 global using Animator.Viewer.Tools;
 global using Animator.Viewer.Painting;
 global using Animator.Viewer.Dialogs;
+global using Animator.Core.Serialization;
+global using Animator.Viewer.Files;

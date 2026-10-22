@@ -51,7 +51,33 @@ public class AssetStore
 		using var bmp = SKBitmap.Decode(path);
 		if (bmp != null) Set(asset, bmp);
 	}
+	// For loading: gives an existing layer description its pixels (null = empty layer)
+	public void AttachLayer(Asset asset, AssetLayer layer, SKBitmap? pixels)
+	{
+		var bmp = new SKBitmap(InfoFor(asset.Width, asset.Height));
+		bmp.Erase(SKColors.Transparent);
+		if (pixels != null)
+		{
+			using var canvas = new SKCanvas(bmp);
+			canvas.DrawBitmap(pixels, 0, 0, Nearest, null);   // also converts to our pixel format
+		}
+		_layers[layer.Id] = bmp;
+		asset.MarkEdited();
+	}
 
+	// Takes over another store's pixels (used when opening a file)
+	public void ReplaceWith(AssetStore other)
+	{
+		_layers.Clear();
+		foreach (var (id, bmp) in other._layers) _layers[id] = bmp;
+		_composites.Clear();
+	}
+
+	public void Clear()
+	{
+		_layers.Clear();
+		_composites.Clear();
+	}
 	public SKBitmap? GetLayer(AssetLayer layer) =>
 		_layers.TryGetValue(layer.Id, out var b) ? b : null;
 

@@ -3,8 +3,21 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
         Title="Animator" Height="860" Width="1450"
+        Closing="Window_Closing"
         PreviewKeyDown="Window_KeyDown">
-    <Grid>
+        <DockPanel>
+            <Menu DockPanel.Dock="Top">
+                <MenuItem Header="_File">
+                    <MenuItem Header="_New" InputGestureText="Ctrl+N" Click="New_Click" />
+                    <MenuItem Header="_Open…" InputGestureText="Ctrl+O" Click="Open_Click" />
+                    <Separator />
+                    <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="Save_Click" />
+                    <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S" Click="SaveAs_Click" />
+                    <Separator />
+                    <MenuItem Header="E_xit" Click="Exit_Click" />
+                </MenuItem>
+            </Menu>
+        <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="180" />
@@ -144,4 +157,5 @@
                         MouseDown="Timeline_MouseDown" MouseMove="Timeline_MouseMove"
                         MouseUp="Timeline_MouseUp" />
     </Grid>
+    </DockPanel>
 </Window>

@@ -7,7 +7,6 @@ public interface IEditCommand
 	void Redo();
 }
 
-// A command that can absorb the command pushed right after it
 public interface IMergeableCommand
 {
 	bool TryMerge(IEditCommand next);
@@ -21,9 +20,6 @@ public sealed class SnapshotCommand<T> : IEditCommand, IMergeableCommand
 	private DateTime _lastChange = DateTime.UtcNow;
 
 	public string Name { get; }
-
-	// Commands with the same MergeKey pushed back-to-back (within a second)
-	// become a single undo step, e.g. one whole slider drag
 	public string? MergeKey { get; }
 
 	public SnapshotCommand(string name, T before, T after, Action<T> restore, string? mergeKey = null)
@@ -41,9 +37,8 @@ public sealed class SnapshotCommand<T> : IEditCommand, IMergeableCommand
 	public bool TryMerge(IEditCommand next)
 	{
 		if (MergeKey == null || next is not SnapshotCommand<T> other || other.MergeKey != MergeKey) return false;
-		if (DateTime.UtcNow - _lastChange > TimeSpan.FromSeconds(1)) return false;   // a pause starts a new step
-
-		_after = other._after;   // keep our "before", take their "after"
+		if (DateTime.UtcNow - _lastChange > TimeSpan.FromSeconds(1)) return false;
+		_after = other._after;
 		_lastChange = DateTime.UtcNow;
 		return true;
 	}
@@ -51,29 +46,34 @@ public sealed class SnapshotCommand<T> : IEditCommand, IMergeableCommand
 
 public class UndoStack
 {
-	// A linked list instead of a Stack, so the OLDEST entry can be dropped cheaply
 	private readonly LinkedList<IEditCommand> _undo = new();
 	private readonly Stack<IEditCommand> _redo = new();
+
+	private IEditCommand? _savedAt;   // the command on top when the file was last saved
+	private bool _blockMerge;         // don't let the saved command absorb new edits
 
 	public int Limit { get; set; } = 300;
 
 	public event Action? Changed;
 	public string? NextUndoName => _undo.Last?.Value.Name;
 
+	// "Unsaved changes" = the top of the history is not where it was at save time
+	public bool IsDirty => _undo.Last?.Value != _savedAt;
+
 	public void Push(IEditCommand cmd)
 	{
 		bool hadRedo = _redo.Count > 0;
 		_redo.Clear();
 
-		// Merge only with a command that is genuinely the latest edit (not one exposed by undo)
-		if (!hadRedo && _undo.Last?.Value is IMergeableCommand top && top.TryMerge(cmd))
+		if (!hadRedo && !_blockMerge && _undo.Last?.Value is IMergeableCommand top && top.TryMerge(cmd))
 		{
 			Changed?.Invoke();
 			return;
 		}
 
+		_blockMerge = false;
 		_undo.AddLast(cmd);
-		while (_undo.Count > Limit) _undo.RemoveFirst();   // forget the oldest steps
+		while (_undo.Count > Limit) _undo.RemoveFirst();
 		Changed?.Invoke();
 	}
 
@@ -83,6 +83,7 @@ public class UndoStack
 		_undo.RemoveLast();
 		node.Value.Undo();
 		_redo.Push(node.Value);
+		_blockMerge = true;
 		Changed?.Invoke();
 	}
 
@@ -92,6 +93,23 @@ public class UndoStack
 		var cmd = _redo.Pop();
 		cmd.Redo();
 		_undo.AddLast(cmd);
+		_blockMerge = true;
+		Changed?.Invoke();
+	}
+
+	public void MarkSaved()
+	{
+		_savedAt = _undo.Last?.Value;
+		_blockMerge = true;
+		Changed?.Invoke();
+	}
+
+	public void Clear()
+	{
+		_undo.Clear();
+		_redo.Clear();
+		_savedAt = null;
+		_blockMerge = false;
 		Changed?.Invoke();
 	}
 }

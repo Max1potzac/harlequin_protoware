@@ -9,4 +9,14 @@ public class Skin
     public Attachment? Get(string slot, string name) =>
         _map.TryGetValue((slot, name), out var a) ? a : null;
 	public IEnumerable<Attachment> Attachments => _map.Values;
+	// (slot name, attachment) pairs, for saving
+	public IEnumerable<(string Slot, Attachment Attachment)> Entries =>
+		_map.Select(kv => (kv.Key.Slot, kv.Value));
+
+	// Takes over another skin's contents (used when opening a file)
+	public void ReplaceWith(Skin other)
+	{
+		_map.Clear();
+		foreach (var kv in other._map) _map[kv.Key] = kv.Value;
+	}
 }
