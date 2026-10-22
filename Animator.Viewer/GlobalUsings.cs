@@ -1,0 +1,10 @@
+﻿global using Animator.Core.Assets;
+global using Animator.Core.Editing;
+global using Animator.Core.Keyframing;
+global using Animator.Core.Rigging;
+global using Animator.Core.Utilities;
+global using Animator.Viewer.Panels;
+global using Animator.Viewer.Rendering;
+global using Animator.Viewer.Tools;
+global using Animator.Viewer.Painting;
+global using Animator.Viewer.Dialogs;
