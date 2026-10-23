@@ -29,7 +29,7 @@ public static class ThrowBake
 		// Checked before changing anything, so "nothing to do" really changes nothing.
 		int lastFrame = (int)MathF.Floor(animation.Duration * fps + 1e-3f);
 		bool caught = false;
-		if (SpaceSwitching.NextSwitchTime(animation, bone, time) is { } next)
+		if (SpaceSwitching.NextSwitchAway(animation, bone, time, SpaceTimeline.World) is { } next)
 		{
 			int beforeCatch = (int)MathF.Round(next * fps) - 1;
 			caught = beforeCatch <= lastFrame;
@@ -50,10 +50,13 @@ public static class ThrowBake
 		var translate = animation.GetOrCreate(bone.Name, n => new TranslateTimeline(n));
 		var rotate = animation.GetOrCreate(bone.Name, n => new RotateTimeline(n));
 
-		// The flight replaces whatever this bone did after the launch.
-		// The launch frame itself gets a key, so removing later keys can't shift where it starts.
-		translate.Track.Keys.RemoveAll(k => k.Time > time + KeyHelpers.Epsilon && k.Time <= end + KeyHelpers.Epsilon);
-		rotate.Track.Keys.RemoveAll(k => k.Time > time + KeyHelpers.Epsilon && k.Time <= end + KeyHelpers.Epsilon);
+		// The flight replaces whatever this bone did after the launch (including detach keys
+		// that only repeat "detached"). The launch frame itself gets a key, so removing later
+		// keys can't shift where it starts.
+		bool InFlight(float keyTime) => keyTime > time + KeyHelpers.Epsilon && keyTime <= end + KeyHelpers.Epsilon;
+		translate.Track.Keys.RemoveAll(k => InFlight(k.Time));
+		rotate.Track.Keys.RemoveAll(k => InFlight(k.Time));
+		animation.Find<SpaceTimeline>(bone.Name)?.Track.Keys.RemoveAll(k => InFlight(k.Time));
 		translate.Track.Add(time, position - bone.SetupPosition, CurveType.Linear);
 		rotate.Track.Add(time, rotation - bone.SetupRotation, CurveType.Linear);
 

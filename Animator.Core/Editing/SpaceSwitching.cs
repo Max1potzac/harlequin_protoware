@@ -18,13 +18,18 @@ public static class SpaceSwitching
 		return timeline.Track.TrySample(time, out var space) ? space : null;
 	}
 
-	// The time of the next space key after `time`, if there is one
-	public static float? NextSwitchTime(Animation animation, Bone bone, float time)
+	// The time of the next switch after `time`: the next space key that makes the bone follow
+	// something else than it does at `time`. (A key that repeats the same space isn't a switch.)
+	public static float? NextSwitchTime(Animation animation, Bone bone, float time) =>
+		NextSwitchAway(animation, bone, time, SpaceAt(animation, bone, time));
+
+	// The time of the next space key after `time` that makes the bone follow anything but `space`
+	public static float? NextSwitchAway(Animation animation, Bone bone, float time, string? space)
 	{
 		var timeline = animation.Find<SpaceTimeline>(bone.Name);
 		if (timeline == null) return null;
 		foreach (var key in timeline.Track.Keys)
-			if (key.Time > time + KeyHelpers.Epsilon) return key.Time;
+			if (key.Time > time + KeyHelpers.Epsilon && key.Value != space) return key.Time;
 		return null;
 	}
 
@@ -99,10 +104,13 @@ public static class SpaceSwitching
 		foreach (var other in chainPose.Keys)
 			KeyHelpers.PinBefore(animation.GetOrCreate(other.Name, n => new RotateTimeline(n)), frame, fps, 0f);
 
-		// 3. Clear the bone's old-space keys between this switch and the next one
-		float? next = NextSwitchTime(animation, bone, time);
+		// 3. This switch lasts until the next one that changes the space again. Clear the bone's
+		//    old-space keys up to there. Space keys in between can only repeat the new space,
+		//    so they merge into this switch (detaching earlier replaces a later detach).
+		float? next = NextSwitchAway(animation, bone, time, newSpace);
 		float end = next ?? float.MaxValue;
 		bool Later(float t) => t > time + KeyHelpers.Epsilon && t < end - KeyHelpers.Epsilon;
+		space.Track.Keys.RemoveAll(k => Later(k.Time));
 		translate.Track.Keys.RemoveAll(k => Later(k.Time));
 		rotate.Track.Keys.RemoveAll(k => Later(k.Time));
 		scale?.Track.Keys.RemoveAll(k => Later(k.Time));
