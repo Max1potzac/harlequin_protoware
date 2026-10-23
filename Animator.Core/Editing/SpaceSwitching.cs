@@ -28,12 +28,19 @@ public static class SpaceSwitching
 		return null;
 	}
 
-	// A bone can't follow itself or anything below it: that would be a loop
+	// A bone can't follow itself, or anything that follows it (directly or further up,
+	// like its own children): that would be a loop. Goes by what every bone follows in
+	// the pose the skeleton is in right now, so pose the frame first.
 	public static bool CanFollow(Skeleton skeleton, Bone bone, string? space)
 	{
 		if (space == null || space == SpaceTimeline.World) return true;
 		var holder = skeleton.FindBone(space);
-		return holder != null && holder != bone && !holder.IsDescendantOf(bone);
+		if (holder == null) return false;
+
+		var seen = new HashSet<Bone>();   // in case a loop was already made somewhere else
+		for (var b = holder; b != null && seen.Add(b); b = b.SpaceParent)
+			if (b == bone) return false;
+		return true;
 	}
 
 	// Switches what `bone` follows from `frame` on. Returns false if nothing changed.
@@ -47,11 +54,11 @@ public static class SpaceSwitching
 							  int frame, int fps, string? newSpace)
 	{
 		float time = frame / (float)fps;
-		if (!CanFollow(skeleton, bone, newSpace)) return false;
 		if (SpaceAt(animation, bone, time) == newSpace) return false;
 
 		// 1. Measure the pose at the switch, as the animation is now
 		IkMatching.Evaluate(skeleton, animation, time);
+		if (!CanFollow(skeleton, bone, newSpace)) return false;
 		var target = Measure(skeleton, bone, newSpace);
 		// Keep the new rotation within half a turn of the old one, so nothing spins
 		float rotation = target.Rotation + MathUtil.ShortestAngle(target.RotationShift);
@@ -65,6 +72,13 @@ public static class SpaceSwitching
 						 c.Mix > 0f && c.Bones.Contains(bone) && !c.Bones.Any(b => b.SpaceOverridden)))
 				foreach (var other in ik.Bones.Where(b => b != bone))
 					chainPose[other] = other.Rotation;
+
+		// Re-attaching mends such a chain, and IK would yank it toward its target on this
+		// frame. So the chain stays on FK from here; Shift+I hands it back to IK without a jump.
+		var mended = newSpace == null
+			? skeleton.IkConstraints.Where(c => c.Mix > 0f && c.Bones.Contains(bone)
+											   && c.Bones.All(b => b == bone || !b.SpaceOverridden)).ToList()
+			: new List<IkConstraint>();
 
 		var translate = animation.GetOrCreate(bone.Name, n => new TranslateTimeline(n));
 		var rotate = animation.GetOrCreate(bone.Name, n => new RotateTimeline(n));
@@ -116,6 +130,14 @@ public static class SpaceSwitching
 		foreach (var (other, otherRotation) in chainPose)
 			animation.GetOrCreate(other.Name, n => new RotateTimeline(n))
 					 .Track.Add(time, otherRotation - other.SetupRotation);
+
+		// 7. A mended chain stays on FK
+		foreach (var c in mended)
+		{
+			var mix = animation.GetOrCreate(c.Name, n => new IkMixTimeline(n));
+			KeyHelpers.PinBefore(mix, frame, fps, c.SetupMix);
+			mix.Track.Add(time, 0f, CurveType.Stepped);
+		}
 		return true;
 	}
 

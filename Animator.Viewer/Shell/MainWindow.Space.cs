@@ -30,7 +30,8 @@ public partial class MainWindow
 				choices.Add(new SpaceChoice(null, "nothing (root bone)"));
 			}
 
-			// Any other bone can hold it, except itself and the bones below it (that would be a loop)
+			// Any other bone can hold it, except itself and the bones below it (that would be a loop;
+			// loops through other held bones are refused when you pick them)
 			choices.AddRange(_skeleton.AllBones()
 				.Where(b => b != bone && b != bone.Parent && !b.IsDescendantOf(bone))
 				.Select(b => new SpaceChoice(b.Name, $"held by {b.Name}")));
@@ -74,7 +75,11 @@ public partial class MainWindow
 				? $"{bone.Name} follows {choice.Label} @ frame {frame}"
 				: null);
 
-		if (!changed) SyncSpaceChoice();   // put the dropdown back to what's really there
+		if (changed) return;
+		SyncSpaceChoice();   // put the dropdown back to what's really there
+		if (choice.Space is { Length: > 0 } holder)
+			RigHint.Text = $"{holder} can't hold {bone.Name} at this frame: {holder} itself follows " +
+						   $"{bone.Name} here, so they would go round in a loop.";
 	}
 
 	private void Throw_Click(object sender, RoutedEventArgs e)
