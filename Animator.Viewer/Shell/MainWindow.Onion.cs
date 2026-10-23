@@ -71,18 +71,12 @@ public partial class MainWindow
 
 	private bool DrawGhostsAt(SKCanvas canvas, List<SceneObject> ghosted, int frame, int now, bool before, int distance, int count)
 	{
-		if (Editing)
-		{
-			// Frames of the animation being edited: a loop wraps around
-			int frames = _state.FrameCount;
-			if (frames <= 0) return false;
-			if (_state.Animation.Loop) frame = (frame % frames + frames) % frames;
-			else if (frame < 0 || frame > frames) return false;
-		}
-		else if (frame < 0)
-		{
-			return false;   // the scene clock starts at 0
-		}
+		// Frames of the animation being edited, or of the scene timeline: a loop wraps around
+		int frames = Editing ? _state.FrameCount : (int)MathF.Round(_scene.Duration * _state.Fps);
+		bool loops = Editing ? _state.Animation.Loop : _scene.Loop;
+		if (frames <= 0) return false;
+		if (loops) frame = (frame % frames + frames) % frames;
+		else if (frame < 0 || frame > frames) return false;
 		if (frame == now) return false;
 
 		PoseScene(frame / (float)_state.Fps);   // all of it, so attached objects follow their holders

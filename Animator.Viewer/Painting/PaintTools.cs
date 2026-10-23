@@ -60,8 +60,9 @@ public sealed class FillTool : PaintTool
 		var sample = s.SampleAllLayers && s.Composite is { } merged ? PixelBuffer.Read(merged) : before;
 		if (s.Color.Alpha == 255 && sample.Data[y * w + x] == PixelBuffer.Encode(s.Color)) return;   // already that colour
 
-		// The same search as the wand (connected, similar pixels), kept inside the selection
-		var area = MagicWand.Select(sample, x, y, s.Tolerance, contiguous: true, allowed: s.InSelection);
+		// The same search as the wand (similar pixels: connected ones, or with Contiguous off
+		// every one on the layer), kept inside the selection
+		var area = MagicWand.Select(sample, x, y, s.Tolerance, s.Contiguous, allowed: s.InSelection);
 		using var mask = new SKBitmap(AssetStore.InfoFor(w, h));
 		mask.Erase(SKColors.Transparent);
 		var maskPixels = PixelBuffer.Read(mask);

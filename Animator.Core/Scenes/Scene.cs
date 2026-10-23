@@ -2,11 +2,27 @@ using System.Numerics;
 
 namespace Animator.Core.Scenes;
 
+// Character: one character (or prop) and its animations, for games. Animation: a whole scene
+// played over time on the scene timeline, for a video or GIF. Same file, different starting
+// points; exporting (milestone 10) treats them differently.
+public enum ProjectKind { Character, Animation }
+
 // A project: objects drawn in list order (first = furthest back), all at one frame rate
 public class Scene
 {
 	public List<SceneObject> Objects { get; } = new();
 	public int Fps { get; set; } = 30;
+	public ProjectKind Kind { get; set; } = ProjectKind.Character;
+
+	// The scene timeline: how long it runs, and whether it starts over at the end
+	public float Duration { get; set; } = 5f;   // seconds
+	public bool Loop { get; set; } = true;
+
+	// The picture the scene is made for (its frame when exported), centred on the scene's
+	// origin, in scene units. 0 × 0 = none.
+	public int StageWidth { get; set; }
+	public int StageHeight { get; set; }
+	public bool HasStage => StageWidth > 0 && StageHeight > 0;
 
 	public SceneObject? Find(string name) => Objects.Find(o => o.Name == name);
 

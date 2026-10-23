@@ -8,7 +8,7 @@
         <DockPanel>
             <Menu DockPanel.Dock="Top">
                 <MenuItem Header="_File">
-                    <MenuItem Header="_New" InputGestureText="Ctrl+N" Click="New_Click" />
+                    <MenuItem Header="_New…" InputGestureText="Ctrl+N" Click="New_Click" />
                     <MenuItem Header="_Open…" InputGestureText="Ctrl+O" Click="Open_Click" />
                     <Separator />
                     <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="Save_Click" />
@@ -61,6 +61,7 @@
                     <Grid>
                         <!-- Scene level: the selected object's place and settings -->
                         <ScrollViewer x:Name="ObjectProps" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                            <StackPanel>
                             <Grid x:Name="ObjectFields" Margin="6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -129,11 +130,65 @@
                   SelectionChanged="ObjectAttach_Changed"
                   ToolTip="Carried by another object's bone (a sword in a hand, a hat on a head): it moves, turns and scales with that bone. It stays where it is when you attach or free it." />
 
-                                <Button Grid.Row="9" Grid.ColumnSpan="3" Content="Edit this object ▸" Margin="0,6,0,4"
-                Click="EditSelected_Click" ToolTip="Opens the object to edit its rig, drawings and animations (double-click or Enter)" />
+                                <UniformGrid Grid.Row="9" Grid.ColumnSpan="3" Columns="2" Margin="0,6,0,4">
+                                    <Button Content="Edit this object ▸" Margin="0,0,3,0" Click="EditSelected_Click"
+                    ToolTip="Opens the object to edit its rig, drawings and animations (double-click or Enter)" />
+                                    <Button Content="+ Clip at playhead ▾" Margin="3,0,0,0" Click="AddClipAtPlayhead_Click"
+                    ToolTip="Puts one of its animations on the scene timeline, starting at the playhead (or right-click its row in the scene timeline)" />
+                                </UniformGrid>
 
                                 <TextBlock x:Name="ObjectHint" Grid.Row="10" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
                             </Grid>
+
+                            <!-- The clip picked in the scene timeline -->
+                            <Grid x:Name="ClipFields" Margin="6,0,6,6" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock x:Name="ClipTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
+                   TextWrapping="Wrap" Margin="0,8,0,6" />
+
+                                <TextBlock Grid.Row="1" Text="Animation" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <ComboBox x:Name="ClipAnimation" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                  DisplayMemberPath="Name" SelectionChanged="ClipAnimation_Changed"
+                  ToolTip="Which of the object's animations this clip plays" />
+
+                                <TextBlock Grid.Row="2" Text="Start / Length" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <TextBox x:Name="ClipStart" Grid.Row="2" Grid.Column="1" Margin="0,0,2,4"
+                 Tag="CStart" KeyDown="ClipField_KeyDown" LostFocus="ClipField_LostFocus"
+                 ToolTip="The scene frame the clip starts on" />
+                                <TextBox x:Name="ClipLength" Grid.Row="2" Grid.Column="2" Margin="2,0,0,4"
+                 Tag="CLength" KeyDown="ClipField_KeyDown" LostFocus="ClipField_LostFocus"
+                 ToolTip="How many scene frames it lasts. Longer than the animation: it loops, or holds its last frame." />
+
+                                <TextBlock Grid.Row="3" Text="From frame" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <TextBox x:Name="ClipOffset" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
+                 Tag="COffset" KeyDown="ClipField_KeyDown" LostFocus="ClipField_LostFocus"
+                 ToolTip="The animation's frame the clip starts on (the frames before it are trimmed off)" />
+                                <CheckBox x:Name="ClipLoop" Grid.Row="3" Grid.Column="2" Content="Loop" Foreground="White"
+                  VerticalAlignment="Center" Margin="6,0,0,4" Click="ClipLoop_Click"
+                  ToolTip="On: a clip longer than its animation plays it again. Off: it holds the last frame." />
+
+                                <UniformGrid Grid.Row="4" Grid.ColumnSpan="3" Columns="2" Margin="0,4,0,4">
+                                    <Button Content="Edit in place ▸" Margin="0,0,3,0" Click="ClipEdit_Click"
+                    ToolTip="Opens the object at this clip's animation and frame; the rest of the scene plays along (or double-click the clip)" />
+                                    <Button Content="Delete clip" Margin="3,0,0,0" Click="ClipDelete_Click" ToolTip="Del" />
+                                </UniformGrid>
+
+                                <TextBlock x:Name="ClipHint" Grid.Row="5" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                            </Grid>
+                            </StackPanel>
                         </ScrollViewer>
 
                         <!-- Inside an object: its rig. The splitter between the tree and the properties can be dragged. -->
@@ -463,6 +518,7 @@
                              Style="{StaticResource {x:Type ToggleButton}}" Padding="6,2" Margin="0,0,4,4" />
             </WrapPanel>
 
+            <!-- Colours, and the selection (it limits what every tool paints) -->
             <WrapPanel DockPanel.Dock="Top" Margin="6,0,6,6">
                 <Grid Width="38" Height="34" Margin="0,0,4,0"
           ToolTip="Primary (front) and secondary (back). Click one to pick any colour, with transparency. Right-click a palette colour to set the secondary.">
@@ -480,63 +536,80 @@
                 <Button Content="⇄" ToolTip="Swap colors (S)" Padding="5,0" Margin="0,0,6,0" Click="SwapColors_Click" />
                 <TextBox x:Name="ColorHex" Width="86" VerticalContentAlignment="Center"
              LostFocus="ColorHex_Commit" KeyDown="ColorHex_KeyDown" ToolTip="#RRGGBB or #AARRGGBB" />
-                <TextBlock Text="Size" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0" />
-                <Slider x:Name="SizeSlider" Width="110" Minimum="1" Maximum="64" Value="4"
-            IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
-            ValueChanged="SizeSlider_Changed" />
-                <TextBlock x:Name="SizeLabel" Foreground="White" Width="24" Margin="4,0,0,0" VerticalAlignment="Center" />
-                <TextBlock Text="Tolerance" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0"
-               ToolTip="How different a colour may be and still count as the same (Fill and Wand)" />
-                <Slider x:Name="ToleranceSlider" Width="120" Minimum="0" Maximum="255" Value="24"
-            IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
-            ValueChanged="ToleranceSlider_Changed"
-            ToolTip="0 = only that exact colour. 255 = everything that isn't fully see-through" />
-                <TextBlock x:Name="ToleranceLabel" Foreground="White" Width="26" Margin="4,0,0,0" VerticalAlignment="Center" />
-                <CheckBox x:Name="SampleAllBox" Content="Sample all layers" Foreground="White"
-              VerticalAlignment="Center" Margin="12,0,0,0" Click="SampleAll_Click"
-              ToolTip="Fill, Mixer and Wand read the merged image instead of only this layer" />
-                <CheckBox x:Name="GradientTransparentBox" Content="Gradient to transparent" Foreground="White"
-              VerticalAlignment="Center" Margin="12,0,0,0" Click="GradientTransparent_Click"
-              ToolTip="Off: primary → secondary. On: primary → transparent." />
-            </WrapPanel>
-
-            <WrapPanel DockPanel.Dock="Top" Margin="6,0,6,6">
-                <TextBlock Text="Mixer:  Wet" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
-                <Slider x:Name="WetSlider" Width="100" Minimum="0" Maximum="100" Value="50"
-                        VerticalAlignment="Center" ValueChanged="MixSliders_Changed"
-                        ToolTip="How much paint the brush picks up from the canvas" />
-                <TextBlock Text="Load" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0" />
-                <Slider x:Name="LoadSlider" Width="100" Minimum="0" Maximum="100" Value="20"
-                        VerticalAlignment="Center" ValueChanged="MixSliders_Changed"
-                        ToolTip="How quickly the brush refills with your color (0 = smudge)" />
-            </WrapPanel>
-
-            <WrapPanel DockPanel.Dock="Top" Margin="6,0,6,6">
-                <TextBlock Text="Selection:" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
-                <ComboBox x:Name="SelectShapeBox" Width="100" SelectionChanged="SelectShape_Changed"
-                          ToolTip="The Select tool's shape. Polyline and Curve: click points, double-click or Enter to finish" />
-                <ComboBox x:Name="SelectModeBox" Width="90" Margin="8,0,0,0" SelectionChanged="SelectMode_Changed"
-                          ToolTip="How a new selection combines with the current one. Holding Shift (add), Alt (subtract) or both (intersect) overrides this" />
-                <CheckBox x:Name="ContiguousBox" Content="Contiguous" Foreground="White" IsChecked="True"
-                          VerticalAlignment="Center" Margin="12,0,0,0" Click="Contiguous_Click"
-                          ToolTip="Wand: only the connected area you click. Off: that colour everywhere on the layer" />
-                <Button Content="Invert" Padding="6,0" Margin="12,0,0,0" Click="InvertSelection_Click"
+                <Button Content="Invert selection" Padding="6,0" Margin="12,0,0,0" Click="InvertSelection_Click"
                         ToolTip="Select everything that isn't selected (Ctrl+Shift+I)" />
                 <Button Content="Deselect" Padding="6,0" Margin="4,0,0,0" Click="Deselect_Click"
-                        ToolTip="Ctrl+D" />
+                        ToolTip="Drop the selection, so tools work everywhere again (Ctrl+D)" />
             </WrapPanel>
 
-            <WrapPanel DockPanel.Dock="Top" Margin="6,0,6,6">
-                <TextBlock Text="Figure:" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
-                <ComboBox x:Name="FigureShapeBox" Width="100" SelectionChanged="FigureShape_Changed" />
-                <ComboBox x:Name="FigureStyleBox" Width="120" Margin="8,0,0,0" SelectionChanged="FigureStyle_Changed" />
-                <CheckBox x:Name="FigureSmoothBox" Content="Smooth edges" Foreground="White" IsChecked="True"
-                          VerticalAlignment="Center" Margin="12,0,0,0" Click="FigureOption_Click" />
-                <TextBlock Text="Polygon sides" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0" />
-                <Slider x:Name="SidesSlider" Width="80" Minimum="3" Maximum="12" Value="5"
-                        IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
-                        ValueChanged="SidesSlider_Changed" />
-                <TextBlock x:Name="SidesLabel" Foreground="White" Width="20" Margin="4,0,0,0" VerticalAlignment="Center" />
+            <!-- The current tool's options: only the ones it uses are shown -->
+            <WrapPanel x:Name="ToolOptions" DockPanel.Dock="Top" Margin="6,0,6,2" MinHeight="26">
+                <TextBlock x:Name="ToolOptionsTitle" Foreground="#9AA4B2" VerticalAlignment="Center" Margin="0,0,10,4" />
+
+                <StackPanel x:Name="SizeOption" Orientation="Horizontal" Margin="0,0,14,4">
+                    <TextBlock Text="Size" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <Slider x:Name="SizeSlider" Width="110" Minimum="1" Maximum="64" Value="4"
+                IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
+                ValueChanged="SizeSlider_Changed" ToolTip="[ and ] change it too" />
+                    <TextBlock x:Name="SizeLabel" Foreground="White" Width="24" Margin="4,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel x:Name="ToleranceOption" Orientation="Horizontal" Margin="0,0,14,4">
+                    <TextBlock Text="Tolerance" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0"
+                   ToolTip="How different a colour may be and still count as the same" />
+                    <Slider x:Name="ToleranceSlider" Width="120" Minimum="0" Maximum="255" Value="24"
+                IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
+                ValueChanged="ToleranceSlider_Changed"
+                ToolTip="0 = only that exact colour. 255 = everything that isn't fully see-through" />
+                    <TextBlock x:Name="ToleranceLabel" Foreground="White" Width="26" Margin="4,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <CheckBox x:Name="ContiguousBox" Content="Contiguous" Foreground="White" IsChecked="True"
+              VerticalAlignment="Center" Margin="0,0,14,4" Click="Contiguous_Click"
+              ToolTip="On: only the area connected to where you click. Off: that colour everywhere on the layer (Photoshop's &quot;Contiguous&quot;)" />
+                <CheckBox x:Name="SampleAllBox" Content="Sample all layers" Foreground="White"
+              VerticalAlignment="Center" Margin="0,0,14,4" Click="SampleAll_Click"
+              ToolTip="Look at the merged image instead of only this layer (the result still goes on this layer)" />
+
+                <StackPanel x:Name="MixOptions" Orientation="Horizontal" Margin="0,0,14,4">
+                    <TextBlock Text="Wet" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <Slider x:Name="WetSlider" Width="100" Minimum="0" Maximum="100" Value="50"
+                VerticalAlignment="Center" ValueChanged="MixSliders_Changed"
+                ToolTip="How much paint the brush picks up from the canvas" />
+                    <TextBlock Text="Load" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0" />
+                    <Slider x:Name="LoadSlider" Width="100" Minimum="0" Maximum="100" Value="20"
+                VerticalAlignment="Center" ValueChanged="MixSliders_Changed"
+                ToolTip="How quickly the brush refills with your colour (0 = smudge)" />
+                </StackPanel>
+
+                <CheckBox x:Name="GradientTransparentBox" Content="To transparent" Foreground="White"
+              VerticalAlignment="Center" Margin="0,0,14,4" Click="GradientTransparent_Click"
+              ToolTip="Off: primary → secondary colour. On: primary → transparent." />
+
+                <StackPanel x:Name="SelectShapeOption" Orientation="Horizontal" Margin="0,0,14,4">
+                    <TextBlock Text="Shape" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox x:Name="SelectShapeBox" Width="100" SelectionChanged="SelectShape_Changed"
+                  ToolTip="Polygon, Polyline and Curve: click points, double-click or Enter to finish" />
+                </StackPanel>
+                <StackPanel x:Name="SelectModeOption" Orientation="Horizontal" Margin="0,0,14,4">
+                    <TextBlock Text="Mode" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox x:Name="SelectModeBox" Width="90" SelectionChanged="SelectMode_Changed"
+                  ToolTip="How a new selection combines with the current one. Holding Shift (add), Alt (subtract) or both (intersect) overrides this" />
+                </StackPanel>
+
+                <StackPanel x:Name="FigureOptions" Orientation="Horizontal" Margin="0,0,14,4">
+                    <ComboBox x:Name="FigureShapeBox" Width="100" SelectionChanged="FigureShape_Changed" />
+                    <ComboBox x:Name="FigureStyleBox" Width="120" Margin="8,0,0,0" SelectionChanged="FigureStyle_Changed" />
+                    <CheckBox x:Name="FigureSmoothBox" Content="Smooth edges" Foreground="White" IsChecked="True"
+                  VerticalAlignment="Center" Margin="12,0,0,0" Click="FigureOption_Click" />
+                    <StackPanel x:Name="SidesOption" Orientation="Horizontal" Margin="12,0,0,0">
+                        <TextBlock Text="Sides" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <Slider x:Name="SidesSlider" Width="80" Minimum="3" Maximum="12" Value="5"
+                    IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
+                    ValueChanged="SidesSlider_Changed" />
+                        <TextBlock x:Name="SidesLabel" Foreground="White" Width="20" Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </StackPanel>
             </WrapPanel>
 
             <WrapPanel x:Name="Palette" DockPanel.Dock="Top" Margin="6,0,6,6" />
@@ -588,6 +661,25 @@
                      Tag="Length" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus" />
                         <CheckBox x:Name="AnimLoop" Content="Loop" Foreground="White" VerticalAlignment="Center"
                       Margin="0,4,12,4" Click="AnimLoop_Click" />
+                    </StackPanel>
+                    <!-- At scene level: the scene timeline's settings -->
+                    <StackPanel x:Name="SceneControls" Orientation="Horizontal" Visibility="Collapsed">
+                        <TextBlock Text="Scene" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="8,4,10,4" />
+                        <TextBlock Text="Length (frames)" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
+                        <TextBox x:Name="SceneLength" Width="50" Margin="0,4,6,4" VerticalContentAlignment="Center"
+                     Tag="SLength" KeyDown="SceneField_KeyDown" LostFocus="SceneField_LostFocus"
+                     ToolTip="How long the scene timeline runs" />
+                        <Button Content="Fit to clips" Padding="6,1" Margin="0,4,12,4" Click="FitSceneToClips_Click"
+                    ToolTip="Makes the scene end where its last clip ends" />
+                        <CheckBox x:Name="SceneLoopBox" Content="Loop" Foreground="White" VerticalAlignment="Center"
+                      Margin="0,4,12,4" Click="SceneLoop_Click" ToolTip="Plays the scene again from the start when it ends" />
+                        <TextBlock Text="Stage" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4"
+                       ToolTip="The picture the scene is made for (its video size), centred on the scene's origin. 0 × 0 = none." />
+                        <TextBox x:Name="StageWidthBox" Width="50" Margin="0,4,2,4" VerticalContentAlignment="Center"
+                     Tag="SWidth" KeyDown="SceneField_KeyDown" LostFocus="SceneField_LostFocus" ToolTip="Stage width (0 = no stage)" />
+                        <TextBlock Text="×" Foreground="White" VerticalAlignment="Center" Margin="2,4,2,4" />
+                        <TextBox x:Name="StageHeightBox" Width="50" Margin="2,4,12,4" VerticalContentAlignment="Center"
+                     Tag="SHeight" KeyDown="SceneField_KeyDown" LostFocus="SceneField_LostFocus" ToolTip="Stage height (0 = no stage)" />
                     </StackPanel>
                     <TextBlock Text="FPS" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
                     <TextBox x:Name="AnimFps" Width="40" Margin="0,4,12,4" VerticalContentAlignment="Center"

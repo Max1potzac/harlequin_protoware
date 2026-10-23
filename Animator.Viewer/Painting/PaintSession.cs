@@ -23,10 +23,12 @@ public class PaintSession
 	public SelectionMask? Selection { get; set; }
 
 	// Selection tools: how a new shape combines with the current selection
-	// (Shift / Alt / Shift+Alt override this while you click), and what the wand takes
+	// (Shift / Alt / Shift+Alt override this while you click)
 	public SelectMode SelectMode { get; set; } = SelectMode.New;
 	public SelectShape SelectShape { get; set; } = SelectShape.Rectangle;
-	public bool WandContiguous { get; set; } = true;
+
+	// Wand and Fill: only the area connected to the click (true), or that colour everywhere
+	public bool Contiguous { get; set; } = true;
 
 	// Mixer
 	public float MixWet { get; set; } = 0.5f;

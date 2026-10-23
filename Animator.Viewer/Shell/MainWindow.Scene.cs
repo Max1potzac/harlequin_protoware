@@ -13,32 +13,45 @@ namespace Animator.Viewer;
 // One object is open for editing at a time. Its rig is _skeleton (and _state.Skeleton), its
 // animations are _state.Animations, and every rig panel, tool and the timeline work on those.
 // Opening another object just points them somewhere else: each object keeps its own rig.
-// At scene level (Esc) the viewport moves whole objects instead, and every object plays its
-// preview animation on the scene's own clock.
+// At scene level (Esc) the viewport moves whole objects instead, and the bottom panel is the
+// scene timeline: every object plays its clips there (one with no clips loops its preview).
 public partial class MainWindow
 {
 	private Scene _scene = new();
+	private readonly SceneState _sceneState = new();   // the scene playhead, selected object and clip
 	private SceneObject? _active;          // the object open for editing (at scene level: the last one open)
 	private bool _sceneLevel;              // true = working on whole objects
-	private float _sceneTime;              // the clock at scene level; each preview loops on its own
+	private float _sceneTimeAtZero;        // inside an object: the scene time its timeline's 0 stands for
 	private ObjectTool _objectTool = null!;
+	private SceneTimelinePanel _sceneTimeline = null!;
 	private bool _objectDrag;              // the current viewport press went to the object tool
 	private bool _syncingScene;
 	private object? _shownObject;          // the object the properties show
+	private SceneClip? _shownClip;         // the clip the properties show
 	private const float FadedOpacity = 0.35f;
 
 	private bool Editing => !_sceneLevel && _active != null;
 
-	// The time everything is shown at: the timeline's inside an object, the scene clock outside
-	private float ClockTime => _sceneLevel ? _sceneTime : _state.Time;
+	// The time the panels and tools work at: the timeline's inside an object, the scene playhead outside
+	private float ClockTime => _sceneLevel ? _sceneState.Time : _state.Time;
+
+	// The scene time everything else is shown at. Inside an object it follows the object's
+	// timeline, so the rest of the scene plays along in context.
+	private float SceneTimeNow => _sceneLevel ? _sceneState.Time : _sceneTimeAtZero + _state.Time;
+
+	// One frame, in seconds
+	private float FrameTime => 1f / Math.Max(1, _state.Fps);
 
 	// The object the panel's buttons work on: the selected one at scene level, else the open one
 	private SceneObject? CurrentObject => _sceneLevel ? _objectTool.Selected : _active;
 
 	private void InitScene()
 	{
-		_objectTool = new ObjectTool(() => _scene, _camera, _renderer, _state.Undo);
+		_objectTool = new ObjectTool(() => _scene, _sceneState, _camera, _renderer, _state.Undo);
 		_objectTool.EnterRequested += EnterObject;
+		_sceneTimeline = new SceneTimelinePanel(() => _scene, _sceneState, _state);
+		_sceneTimeline.ClipOpened += (obj, clip) => EnterObject(obj, clip);
+		_sceneTimeline.MenuRequested += ShowClipMenu;
 		// Subscribed before the other panels: an undo can remove the open object, and they
 		// must refresh with whichever object is open afterwards
 		_state.Undo.Changed += RefreshScenePanel;
@@ -84,10 +97,26 @@ public partial class MainWindow
 		UpdateCameraSpace();
 	}
 
-	private void EnterObject(SceneObject obj)
+	private void EnterObject(SceneObject obj) => EnterObject(obj, null);
+
+	// Opens an object in place: if a clip of it plays at this moment of the scene (or `via` was
+	// double-clicked), its animation opens at the matching frame, and the rest of the scene
+	// keeps playing along with its timeline.
+	private void EnterObject(SceneObject obj, SceneClip? via)
 	{
+		float sceneTime = SceneTimeNow;
+		if (via != null && !via.Covers(sceneTime)) sceneTime = via.Start;   // opened away from the playhead
+		var clip = via ?? (obj.ClipAt(sceneTime) is { } playing && playing.Covers(sceneTime) ? playing : null);
+
 		_sceneLevel = false;
 		EditObject(obj);
+		if (clip != null && obj.Animations.Contains(clip.Animation))
+		{
+			_state.Animation = clip.Animation;
+			_state.Time = MathF.Round(clip.AnimationTime(sceneTime) * _state.Fps) / _state.Fps;
+			_state.SelectedKeys.Clear();
+		}
+		_sceneTimeAtZero = sceneTime - _state.Time;
 		_objectTool.Selected = obj;
 		PoseScene(ClockTime);   // the panels show the pose you're about to edit
 		UpdateCameraSpace();
@@ -98,8 +127,8 @@ public partial class MainWindow
 	{
 		if (_sceneLevel) return;
 		ClosePaintEditor();
+		_sceneState.Time = WrapSceneTime(SceneTimeNow);   // the scene goes on from where the timeline was
 		_sceneLevel = true;
-		_sceneTime = _state.Time;   // the scene goes on from where the timeline was
 		_objectTool.Selected = _active;
 		_state.Selected = null;
 		_state.SelectedSlot = null;
@@ -121,21 +150,47 @@ public partial class MainWindow
 
 	// ======================= posing & drawing =======================
 
-	// Every object at one time: the open one with the animation being edited, the others
-	// (at scene level, all of them) with their preview animation
+	// Every object at one time (ClockTime's kind): the open one with the animation being edited,
+	// the others (at scene level, all of them) as the scene timeline has them then
 	private void PoseScene(float time)
 	{
+		float sceneTime = Editing ? _sceneTimeAtZero + time : time;
 		foreach (var obj in _scene.Objects)
 		{
-			if (Editing && obj == _active)
-			{
-				PoseAt(time);
-				continue;
-			}
-			obj.Skeleton.SetToSetupPose();
-			PreviewOf(obj)?.Apply(obj.Skeleton, time);
-			obj.Skeleton.UpdatePose();
+			if (Editing && obj == _active) PoseAt(time);
+			else PoseOnTimeline(obj, sceneTime);
 		}
+	}
+
+	// What an object shows at a scene time: its clip there (held before and after), or, with
+	// no clips at all, its preview animation looping
+	private static void PoseOnTimeline(SceneObject obj, float sceneTime)
+	{
+		obj.Skeleton.SetToSetupPose();
+		if (obj.ClipAt(sceneTime) is { } clip) clip.Animation.Apply(obj.Skeleton, clip.AnimationTime(sceneTime));
+		else if (obj.Clips.Count == 0) PreviewOf(obj)?.Apply(obj.Skeleton, sceneTime);
+		obj.Skeleton.UpdatePose();
+	}
+
+	// Scene time kept inside the scene: wrapped when it loops, held at the end when it doesn't
+	private float WrapSceneTime(float t)
+	{
+		float d = _scene.Duration;
+		if (d <= 0) return 0;
+		if (t >= 0 && t <= d) return t;
+		return _scene.Loop ? ((t % d) + d) % d : Math.Clamp(t, 0, d);
+	}
+
+	// Playing at scene level: the scene playhead runs, and loops or stops at the scene's end
+	private void AdvanceScene(float dt)
+	{
+		float t = _sceneState.Time + dt;
+		if (t > _scene.Duration && !_scene.Loop)
+		{
+			t = _scene.Duration;
+			_state.Playing = false;
+		}
+		_sceneState.Time = WrapSceneTime(t);
 	}
 
 	private static Animation? PreviewOf(SceneObject obj) =>
@@ -147,6 +202,7 @@ public partial class MainWindow
 	{
 		// The axes the panel's numbers are measured from: the open object's origin, or the scene's
 		DrawInSpace(canvas, Editing ? _camera.Space : Matrix3x2.Identity, () => _renderer.DrawAxes(canvas));
+		if (Editing) DrawStage(canvas);   // inside an object: just the frame's outline, behind
 		DrawOnionGhosts(canvas);
 
 		foreach (var obj in _scene.Objects)
@@ -168,6 +224,8 @@ public partial class MainWindow
 			return;
 		}
 
+		DrawStage(canvas);   // at scene level, what's outside the frame is dimmed
+
 		// Scene level: every object's origin as a faint cross (so even an empty one can be found)
 		foreach (var obj in _scene.Objects.Where(o => o.Visible))
 			ObjectGizmo.DrawOrigin(canvas, Vector2.Transform(Vector2.Zero, _scene.WorldTransform(obj)), _camera.Zoom);
@@ -182,6 +240,30 @@ public partial class MainWindow
 					Vector2.Transform(bone.World.Translation, _scene.WorldTransform(holder)),
 					Vector2.Transform(Vector2.Zero, _scene.WorldTransform(selected)), _camera.Zoom);
 		}
+	}
+
+	// The stage: the frame the scene is made for (an animation project's video size), centred on
+	// the scene's origin. At scene level everything outside it is dimmed.
+	private void DrawStage(SKCanvas canvas)
+	{
+		if (!_scene.HasStage) return;
+		float w = _scene.StageWidth / 2f, h = _scene.StageHeight / 2f, px = 1f / _camera.Zoom, far = 1e6f;
+		if (!Editing)
+		{
+			using var dim = new SKPaint { Color = new SKColor(0, 0, 0, 100) };
+			canvas.DrawRect(new SKRect(-far, h, far, far), dim);     // above (y points up)
+			canvas.DrawRect(new SKRect(-far, -far, far, -h), dim);   // below
+			canvas.DrawRect(new SKRect(-far, -h, -w, h), dim);       // left
+			canvas.DrawRect(new SKRect(w, -h, far, h), dim);         // right
+		}
+		using var edge = new SKPaint
+		{
+			Color = new SKColor(255, 255, 255, Editing ? (byte)45 : (byte)120),
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1.5f * px,
+			IsAntialias = true
+		};
+		canvas.DrawRect(new SKRect(-w, -h, w, h), edge);
 	}
 
 	// F: zoom 1, centred on the open object's origin (at scene level, on the scene's)
@@ -225,10 +307,11 @@ public partial class MainWindow
 		switch (key)
 		{
 			case Key.Space: _state.Playing = !_state.Playing; break;
-			case Key.R: _sceneTime = 0; break;
+			case Key.R: _sceneState.Time = 0; break;
 			case Key.Left: StepScene(-1); break;
 			case Key.Right: StepScene(+1); break;
 			case Key.Enter when _objectTool.Selected is { } obj: EnterObject(obj); break;
+			case Key.Delete when _sceneState.SelectedClip != null: DeleteSelectedClip(); break;
 			case Key.Delete: DeleteCurrentObject(); break;
 			case Key.Escape: _objectTool.Selected = null; break;
 			case Key.F: ResetView(); break;
@@ -243,8 +326,9 @@ public partial class MainWindow
 	private void StepScene(int frames)
 	{
 		_state.Playing = false;
-		int frame = (int)MathF.Round(_sceneTime * _state.Fps) + frames;
-		_sceneTime = Math.Max(0, frame) / (float)_state.Fps;
+		int last = (int)MathF.Round(_scene.Duration * _state.Fps);
+		int frame = (int)MathF.Round(_sceneState.Time * _state.Fps) + frames;
+		_sceneState.Time = Math.Clamp(frame, 0, last) / (float)_state.Fps;
 	}
 
 	// ======================= Objects panel =======================
@@ -254,6 +338,8 @@ public partial class MainWindow
 		// An undo may have removed the open object, or the selected one
 		if (_active == null || !_scene.Objects.Contains(_active)) EditObject(_scene.Objects[0]);
 		if (_objectTool.Selected != null && !_scene.Objects.Contains(_objectTool.Selected)) _objectTool.Selected = null;
+		if (_sceneState.SelectedClip is { } picked && _objectTool.Selected?.Clips.Contains(picked) != true)
+			_sceneState.SelectedClip = null;   // undone, or its object isn't selected any more
 
 		// The list is only rebuilt when something in it changed, so picking with the arrow keys keeps working
 		_syncingScene = true;
@@ -272,8 +358,10 @@ public partial class MainWindow
 		// Scene level: object settings instead of the rig, and no timeline (it belongs to one object)
 		RigSection.Visibility = _sceneLevel ? Visibility.Collapsed : Visibility.Visible;
 		ObjectProps.Visibility = _sceneLevel ? Visibility.Visible : Visibility.Collapsed;
-		AnimControls.IsEnabled = TimelineView.IsEnabled = !_sceneLevel;
-		TimelineView.Opacity = _sceneLevel ? 0.35 : 1;
+		// The bottom panel: the open object's animations, or at scene level the scene timeline
+		AnimControls.Visibility = _sceneLevel ? Visibility.Collapsed : Visibility.Visible;
+		SceneControls.Visibility = _sceneLevel ? Visibility.Visible : Visibility.Collapsed;
+		ShowSceneSettings();
 
 		SceneButton.Content = _sceneLevel ? "Edit ▸" : "◂ Scene (Esc)";
 		SceneButton.IsEnabled = !_sceneLevel || _objectTool.Selected != null;
@@ -305,7 +393,7 @@ public partial class MainWindow
 	private void SyncScenePanel()
 	{
 		if (!_sceneLevel) return;
-		if (!Equals(_objectTool.Selected, _shownObject)) RefreshScenePanel();
+		if (!Equals(_objectTool.Selected, _shownObject) || _sceneState.SelectedClip != _shownClip) RefreshScenePanel();
 		else RefreshObjectValues();
 	}
 
@@ -529,6 +617,7 @@ public partial class MainWindow
 		_syncingScene = false;
 
 		RefreshObjectValues();
+		ShowClipProperties();
 	}
 
 	private void RefreshObjectValues()
@@ -539,6 +628,7 @@ public partial class MainWindow
 		SetField(ObjectRotation, obj != null ? Num(Deg(obj.Rotation)) : "");
 		SetField(ObjectScaleX, obj != null ? Num(obj.Scale.X) : "");
 		SetField(ObjectScaleY, obj != null ? Num(obj.Scale.Y) : "");
+		RefreshClipValues();
 	}
 
 	private void ObjectField_KeyDown(object sender, KeyEventArgs e)

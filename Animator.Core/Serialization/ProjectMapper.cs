@@ -30,7 +30,12 @@ public static class ProjectMapper
 	public static ProjectDto SceneToDto(Scene scene) => new()
 	{
 		Fps = scene.Fps,
-		Objects = scene.Objects.Select(ObjectToDto).ToList()
+		Objects = scene.Objects.Select(ObjectToDto).ToList(),
+		Kind = scene.Kind,
+		SceneDuration = scene.Duration,
+		SceneLoop = scene.Loop,
+		StageWidth = scene.HasStage ? scene.StageWidth : null,
+		StageHeight = scene.HasStage ? scene.StageHeight : null
 	};
 
 	public static ObjectDto ObjectToDto(SceneObject o)
@@ -48,7 +53,13 @@ public static class ProjectMapper
 			Onion = o.Onion,
 			PreviewAnimation = o.PreviewAnimation,
 			AttachObject = o.AttachObject,
-			AttachBone = o.AttachBone
+			AttachBone = o.AttachBone,
+			Clips = o.LiveClips.Any()
+				? o.LiveClips.Select(c => new ClipDto
+				{
+					Animation = c.Animation.Name, Start = c.Start, Length = c.Length, Offset = c.Offset, Loop = c.Loop
+				}).ToList()
+				: null
 		};
 		WriteRig(dto, o.Skeleton, o.Animations);
 		return dto;
@@ -57,7 +68,15 @@ public static class ProjectMapper
 	// Reads a scene. Files from before scenes (one rig, no objects) become one object.
 	public static Scene SceneFromDto(ProjectDto dto, string singleObjectName = "Character")
 	{
-		var scene = new Scene { Fps = dto.Fps };
+		var scene = new Scene
+		{
+			Fps = dto.Fps,
+			Kind = dto.Kind ?? ProjectKind.Character,
+			Duration = dto.SceneDuration is float d && d > 0 ? d : 5f,
+			Loop = dto.SceneLoop ?? true,
+			StageWidth = Math.Max(0, dto.StageWidth ?? 0),
+			StageHeight = Math.Max(0, dto.StageHeight ?? 0)
+		};
 		if (dto.Objects is not { Count: > 0 } objects)
 		{
 			var (skeleton, animations) = FromDto(dto);
@@ -92,6 +111,12 @@ public static class ProjectMapper
 			AttachBone = o.AttachBone
 		};
 		obj.Animations.AddRange(animations);
+
+		// Clips name their animation; a clip whose animation isn't there is dropped
+		foreach (var c in o.Clips ?? new List<ClipDto>())
+			if (obj.FindAnimation(c.Animation) is { } animation && c.Length > 0)
+				obj.Clips.Add(new SceneClip(animation, Math.Max(0f, c.Start), c.Length) { Offset = Math.Max(0f, c.Offset), Loop = c.Loop });
+		obj.Clips.Sort((a, b) => a.Start.CompareTo(b.Start));
 		return obj;
 	}
 

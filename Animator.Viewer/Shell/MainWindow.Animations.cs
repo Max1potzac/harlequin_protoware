@@ -138,9 +138,12 @@ public partial class MainWindow
 						box.Text = anim.Name;
 						return;
 					}
-					_state.EditStructure(() =>
+					// The object's preview names its animation, so it follows (clips point at the animation itself)
+					string oldName = anim.Name;
+					EditStructureAndScene(() =>
 					{
 						anim.Name = name;
+						if (_active != null && _active.PreviewAnimation == oldName) _active.PreviewAnimation = name;
 						return $"Rename animation to {name}";
 					});
 					break;
