@@ -176,6 +176,11 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <TextBlock x:Name="PartTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
@@ -221,7 +226,36 @@
                 ToolTip="Draw this part earlier (behind more parts)" />
                         </UniformGrid>
 
-                        <TextBlock x:Name="PartHint" Grid.Row="8" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                        <!-- Frame-by-frame: the part's drawings -->
+                        <TextBlock Grid.Row="8" Grid.ColumnSpan="3" Text="Drawings (frame by frame)" Foreground="#9AA4B2" Margin="0,8,0,4" />
+
+                        <TextBlock Grid.Row="9" Text="Drawing" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <ComboBox x:Name="DrawingBox" Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+              SelectionChanged="DrawingBox_Changed"
+              ToolTip="Animate mode: the drawing shown from this frame on (picking one keys it here). Setup mode: the part's rest drawing. (hidden) shows nothing." />
+
+                        <UniformGrid Grid.Row="10" Grid.ColumnSpan="3" Columns="3" Margin="0,0,0,4">
+                            <Button Content="New (F7)" Margin="0,0,3,0" Click="NewDrawing_Click"
+                ToolTip="A new, empty drawing with the same size and layers. Animate mode: shown from this frame on. Setup mode: becomes the rest drawing." />
+                            <Button Content="Copy (F6)" Margin="3,0,3,0" Click="DuplicateDrawing_Click"
+                ToolTip="A copy of the current drawing, to change a little: the usual way to make the next frame" />
+                            <Button x:Name="DeleteDrawingButton" Content="Delete" Margin="3,0,0,0" Click="DeleteDrawing_Click"
+                ToolTip="Removes this drawing from the part, and its keys in every animation (undoable)" />
+                        </UniformGrid>
+
+                        <TextBlock Grid.Row="11" Text="Rename" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="DrawingName" Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+             KeyDown="DrawingName_KeyDown" LostFocus="DrawingName_LostFocus"
+             ToolTip="The current drawing's name (Enter to apply)" />
+
+                        <UniformGrid Grid.Row="12" Grid.ColumnSpan="3" Columns="2" Margin="0,0,0,4">
+                            <Button x:Name="ShorterButton" Content="◂ Shorter" Margin="0,0,3,0" Click="Shorter_Click"
+                ToolTip="Shift+F5: this drawing stays one frame less; the part's later drawings move one frame earlier (Animate mode)" />
+                            <Button x:Name="LongerButton" Content="Longer ▸" Margin="3,0,0,0" Click="Longer_Click"
+                ToolTip="F5: this drawing stays one frame more; the part's later drawings move one frame later (Animate mode)" />
+                        </UniformGrid>
+
+                        <TextBlock x:Name="PartHint" Grid.Row="13" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
                     </Grid>
 
                     <!-- Bone hierarchy (fills the remaining space) -->

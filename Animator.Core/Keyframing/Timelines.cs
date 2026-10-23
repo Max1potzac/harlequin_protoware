@@ -124,6 +124,8 @@ public class AttachmentTimeline : TrackTimeline<string?>
 
     public void Add(float time, string? name) => Track.Add(time, name, CurveType.Stepped);
 
+    public override string Label => $"{Target} (drawing)";
+
     public override void Apply(Skeleton skeleton, float time)
     {
         var slot = skeleton.FindSlot(Target);

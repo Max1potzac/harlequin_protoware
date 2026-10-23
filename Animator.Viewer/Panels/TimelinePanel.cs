@@ -103,9 +103,13 @@ public class TimelinePanel
 
             var tl = timelines[i];
             float cy = y + RowHeight / 2;
-            bool boneRow = _state.Selected != null && RigOps.TargetsBone(tl) && tl.Target == _state.Selected.Name;
+            // The selected part's rows, or else the selected bone's (a part also selects its bone)
+            var part = _state.SelectedSlot;
+            bool boneRow = part == null && _state.Selected != null && RigOps.TargetsBone(tl) && tl.Target == _state.Selected.Name;
+            bool partRow = part != null && PartOps.TargetsPart(tl) && tl.Target == part.Name;
+            bool mine = boneRow || partRow;
 
-            if (boneRow) canvas.DrawRect(0, y, size.X, RowHeight, rowSel);
+            if (mine) canvas.DrawRect(0, y, size.X, RowHeight, rowSel);
             canvas.DrawLine(0, y + RowHeight, size.X, y + RowHeight, divider);
 
             canvas.Save();
@@ -126,6 +130,9 @@ public class TimelinePanel
                 continue;
             }
 
+            if (tl is AttachmentTimeline drawings)
+                DrawExposures(canvas, drawings, y, frames, smallFont);
+
             var keys = tl.KeyInfos.ToList();
 
             // Faint line = "this segment interpolates". No line = stepped (holds).
@@ -139,7 +146,7 @@ public class TimelinePanel
                 int f = TimeToFrame(t);
                 var paint = Sel.Contains((tl, f)) ? keyPicked
                           : tl is SpaceTimeline ? spaceKey
-                          : boneRow ? keyRow
+                          : mine ? keyRow
                           : key;
                 DrawKey(canvas, FrameToX(f), cy, curve, paint);
             }
@@ -184,6 +191,66 @@ public class TimelinePanel
                 canvas.Restore();
                 break;
         }
+    }
+
+    // A part's drawing row: every drawing is a block from its key to the next key, with its
+    // name inside. The same drawing always gets the same color, so repeats stand out (lip sync).
+    private void DrawExposures(SKCanvas canvas, AttachmentTimeline row, float y, int frames, SKFont font)
+    {
+        var keys = row.Track.Keys;
+        float top = y + 3, height = RowHeight - 6;
+
+        using var fill = new SKPaint { IsAntialias = true };
+        using var outline = new SKPaint
+        {
+            Color = new SKColor(255, 255, 255, 60), Style = SKPaintStyle.Stroke, StrokeWidth = 1, IsAntialias = true
+        };
+        using var label = new SKPaint { Color = new SKColor(240, 240, 240), IsAntialias = true };
+        using var faintLabel = new SKPaint { Color = new SKColor(240, 240, 240, 110), IsAntialias = true };
+
+        void Block(int from, int to, string? drawing, bool faint)
+        {
+            float x0 = FrameToX(from), x1 = FrameToX(to);
+            if (x1 - x0 < 1) return;
+            var rect = new SKRect(x0, top, x1, top + height);
+            if (drawing == null)
+            {
+                canvas.DrawRoundRect(rect, 3, 3, outline);   // hidden: an empty outline
+                return;
+            }
+
+            fill.Color = SKColor.FromHsl(HueOf(drawing), 45, 38).WithAlpha(faint ? (byte)60 : (byte)170);
+            canvas.DrawRoundRect(rect, 3, 3, fill);
+            canvas.Save();
+            canvas.ClipRect(rect);
+            canvas.DrawText(drawing, x0 + 7, top + height - 4, SKTextAlign.Left, font, faint ? faintLabel : label);
+            canvas.Restore();
+        }
+
+        // Before the row's first key, the part shows its rest drawing: drawn faint
+        int first = keys.Count > 0 ? TimeToFrame(keys[0].Time) : frames;
+        if (first > 0 && _state.Skeleton.FindSlot(row.Target) is { } slot)
+            Block(0, Math.Min(first, frames), slot.SetupAttachment, faint: true);
+
+        for (int k = 0; k < keys.Count; k++)
+        {
+            int from = TimeToFrame(keys[k].Time);
+            if (from >= frames) break;
+            int to = k + 1 < keys.Count ? TimeToFrame(keys[k + 1].Time) : frames;
+            Block(from, Math.Min(to, frames), keys[k].Value, faint: false);
+        }
+    }
+
+    // The same color for the same drawing name, every time (FNV-1a hash → hue)
+    private static float HueOf(string name)
+    {
+        uint hash = 2166136261;
+        foreach (char c in name)
+        {
+            hash ^= c;
+            hash *= 16777619;
+        }
+        return hash % 360;
     }
 
     // A little flag: a pole with a pennant at the top

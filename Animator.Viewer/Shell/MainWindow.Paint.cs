@@ -71,25 +71,35 @@ public partial class MainWindow
 		if (_renderer.Pick(_skeleton, _camera.ScreenToWorld(screen)) is not { } hit) return false;
 		_state.Selected = hit.Slot.Bone;
 		_state.SelectedSlot = hit.Slot;
-		OpenPaintEditor(hit.Asset);
+		OpenPaintEditor(hit.Asset, hit.Slot);
 		return true;
 	}
 
-	private void OpenPaintEditor(Asset asset)
+	// slot: the part this drawing belongs to, so the editor can follow its drawings
+	// along the timeline. fit: zoom to fit (off when stepping between same-size drawings).
+	private void OpenPaintEditor(Asset asset, Slot? slot, bool fit = true)
 	{
 		_paint.Tool.Deactivate(_paint);   // finish any half-placed figure first
-		_paint.Open(asset);
+		// Another drawing of the same part: stay on the same layer number (lines, colors…)
+		int layer = slot != null && slot == _paintSlot && _paint.Asset is { } previous && _paint.Layer is { } current
+			? previous.Layers.IndexOf(current)
+			: -1;
+		_paint.Open(asset, layer);
+		_paintSlot = slot;
+		_paintFollowed = slot != null ? PartData(slot).Asset : null;
 		_renderer.Highlight = asset;
 		PaintColumn.Width = new GridLength(1, GridUnitType.Star);
 		PaintSplitter.Visibility = Visibility.Visible;
 		PaintPanel.Visibility = Visibility.Visible;
-		_paintCanvas.RequestFit();
+		if (fit) _paintCanvas.RequestFit();
 	}
 
 	private void ClosePaintEditor()
 	{
 		_paint.Tool.Deactivate(_paint);
 		_paint.Close();
+		_paintSlot = null;
+		_paintFollowed = null;
 		_renderer.Highlight = null;
 		PaintColumn.Width = new GridLength(0);
 		PaintSplitter.Visibility = Visibility.Collapsed;
@@ -340,7 +350,8 @@ public partial class MainWindow
 		if (_paint.Asset is not { } asset) return;
 		_syncingUi = true;
 
-		PaintTitle.Text = $"Editing: {asset.Name}  ({asset.Width}×{asset.Height})";
+		string part = _paintSlot != null && _paintSlot.Name != asset.Name ? $" of {_paintSlot.Name}" : "";
+		PaintTitle.Text = $"Editing: {asset.Name}{part}  ({asset.Width}×{asset.Height})";
 		ColorSwatch.Background = new SolidColorBrush(ToWpf(_paint.Color));
 		SecondarySwatch.Background = new SolidColorBrush(ToWpf(_paint.SecondaryColor));
 		if (!ColorHex.IsKeyboardFocused) ColorHex.Text = Hex(_paint.Color);
