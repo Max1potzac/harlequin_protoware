@@ -43,7 +43,7 @@ internal static class MaskCompositor
 	}
 }
 
-internal static class ShapePaths
+public static class ShapePaths
 {
 	// Your SkiaSharp version marks SKPath's building methods as obsolete in favor of a newer
 	// builder class. They still work, so we silence that warning for just this block.
@@ -81,6 +81,20 @@ internal static class ShapePaths
 			path.CubicTo(c1.X, c1.Y, c2.X, c2.Y, p2.X, p2.Y);
 		}
 		if (closed) path.Close();
+		return path;
+	}
+
+	public static SKPath Rect(SKRect rect)
+	{
+		var path = new SKPath();
+		path.AddRect(rect);
+		return path;
+	}
+
+	public static SKPath Oval(SKRect rect)
+	{
+		var path = new SKPath();
+		path.AddOval(rect);
 		return path;
 	}
 

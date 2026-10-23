@@ -14,7 +14,8 @@ public partial class MainWindow
 	private PaintCanvas _paintCanvas = null!;
 	private bool _syncingUi;
 
-	private readonly RectSelectTool _select = new();
+	private readonly ShapeSelectTool _select = new();
+	private readonly MagicWandTool _wand = new();
 	private readonly MoveTool _move = new();
 	private readonly StrokeTool _pencil = new(StrokeTool.Kind.Pencil);
 	private readonly StrokeTool _brush = new(StrokeTool.Kind.Brush);
@@ -60,6 +61,10 @@ public partial class MainWindow
 		FigureShapeBox.SelectedItem = _paint.Figure;
 		FigureStyleBox.ItemsSource = Enum.GetValues<FigureStyle>();
 		FigureStyleBox.SelectedItem = _paint.FigureStyle;
+		SelectShapeBox.ItemsSource = Enum.GetValues<SelectShape>();
+		SelectShapeBox.SelectedItem = _paint.SelectShape;
+		SelectModeBox.ItemsSource = Enum.GetValues<SelectMode>();
+		SelectModeBox.SelectedItem = _paint.SelectMode;
 
 		SelectTool("Brush");
 	}
@@ -164,6 +169,7 @@ public partial class MainWindow
 		PaintTool tool = name switch
 		{
 			"Select" => _select,
+			"Wand" => _wand,
 			"Move" => _move,
 			"Pencil" => _pencil,
 			"Brush" => _brush,
@@ -192,19 +198,28 @@ public partial class MainWindow
 		if (Keyboard.Modifiers == ModifierKeys.Control)
 		{
 			if (key == Key.A) { _paint.SelectAll(); return true; }
-			if (key == Key.D) { _paint.Selection = null; return true; }
+			if (key == Key.D) { _paint.Deselect(); return true; }
+			return false;
+		}
+		if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+		{
+			if (key == Key.I) { _paint.InvertSelection(); return true; }
 			return false;
 		}
 		if (Keyboard.Modifiers != ModifierKeys.None) return false;
 
 		switch (key)
 		{
-			// Figure in progress: Enter finishes, Backspace removes a point, Esc cancels
+			// Figure or selection shape in progress: Enter finishes, Backspace removes a point, Esc cancels
 			case Key.Enter when _figure.InProgress: _figure.Finish(_paint); return true;
 			case Key.Back when _figure.InProgress: _figure.RemoveLastPoint(_paint); return true;
 			case Key.Escape when _figure.InProgress: _figure.Cancel(_paint); return true;
+			case Key.Enter when _select.PlacingPoints: _select.Finish(_paint); return true;
+			case Key.Back when _select.PlacingPoints: _select.RemoveLastPoint(_paint); return true;
+			case Key.Escape when _select.PlacingPoints: _select.Cancel(); return true;
 
 			case Key.M: SelectTool("Select"); return true;
+			case Key.W: SelectTool("Wand"); return true;
 			case Key.V: SelectTool("Move"); return true;
 			case Key.N: SelectTool("Pencil"); return true;
 			case Key.B: SelectTool("Brush"); return true;
@@ -218,7 +233,7 @@ public partial class MainWindow
 			case Key.OemOpenBrackets: SetBrushSize(_paint.Size - 1); return true;
 			case Key.OemCloseBrackets: SetBrushSize(_paint.Size + 1); return true;
 			case Key.Delete when _paint.Selection != null: _paint.DeleteSelectedPixels(); return true;
-			case Key.Escape when _paint.Selection != null: _paint.Selection = null; return true;
+			case Key.Escape when _paint.Selection != null: _paint.Deselect(); return true;
 			default: return false;
 		}
 	}
@@ -283,6 +298,46 @@ public partial class MainWindow
 	}
 
 	private void SwapColors_Click(object sender, RoutedEventArgs e) => _paint.SwapColors();
+
+	// ---------- colour picker ----------
+
+	private void ColorSwatch_Click(object sender, MouseButtonEventArgs e)
+	{
+		var dialog = new ColorPickerDialog(_paint.Color, "Primary colour") { Owner = this };
+		if (dialog.ShowDialog() == true) _paint.SetColor(dialog.Color);
+	}
+
+	private void SecondarySwatch_Click(object sender, MouseButtonEventArgs e)
+	{
+		var dialog = new ColorPickerDialog(_paint.SecondaryColor, "Secondary colour") { Owner = this };
+		if (dialog.ShowDialog() == true) _paint.SetSecondaryColor(dialog.Color);
+	}
+
+	// ---------- selection options ----------
+
+	private void SelectShape_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingUi || _paint is null || SelectShapeBox.SelectedItem is not SelectShape shape) return;
+		_select.Cancel();   // a shape half-made with the old setting is dropped
+		_paint.SelectShape = shape;
+		SelectTool("Select");
+	}
+
+	private void SelectMode_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingUi || _paint is null || SelectModeBox.SelectedItem is not SelectMode mode) return;
+		_paint.SelectMode = mode;
+	}
+
+	private void Contiguous_Click(object sender, RoutedEventArgs e)
+	{
+		if (_paint is null) return;
+		_paint.WandContiguous = ContiguousBox.IsChecked == true;
+		SelectTool("Wand");
+	}
+
+	private void InvertSelection_Click(object sender, RoutedEventArgs e) => _paint.InvertSelection();
+	private void Deselect_Click(object sender, RoutedEventArgs e) => _paint.Deselect();
 
 	private void GradientTransparent_Click(object sender, RoutedEventArgs e)
 	{
@@ -352,8 +407,8 @@ public partial class MainWindow
 
 		string part = _paintSlot != null && _paintSlot.Name != asset.Name ? $" of {_paintSlot.Name}" : "";
 		PaintTitle.Text = $"Editing: {asset.Name}{part}  ({asset.Width}×{asset.Height})";
-		ColorSwatch.Background = new SolidColorBrush(ToWpf(_paint.Color));
-		SecondarySwatch.Background = new SolidColorBrush(ToWpf(_paint.SecondaryColor));
+		ColorSwatch.Fill = new SolidColorBrush(ToWpf(_paint.Color));
+		SecondarySwatch.Fill = new SolidColorBrush(ToWpf(_paint.SecondaryColor));
 		if (!ColorHex.IsKeyboardFocused) ColorHex.Text = Hex(_paint.Color);
 		SizeSlider.Value = _paint.Size;
 		SizeLabel.Text = _paint.Size.ToString();
@@ -367,6 +422,9 @@ public partial class MainWindow
 		FigureSmoothBox.IsChecked = _paint.FigureSmooth;
 		SidesSlider.Value = _paint.PolygonSides;
 		SidesLabel.Text = _paint.PolygonSides.ToString();
+		SelectShapeBox.SelectedItem = _paint.SelectShape;
+		SelectModeBox.SelectedItem = _paint.SelectMode;
+		ContiguousBox.IsChecked = _paint.WandContiguous;
 
 		LayerList.Items.Clear();
 		for (int i = asset.Layers.Count - 1; i >= 0; i--)

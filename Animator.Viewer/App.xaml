@@ -4,6 +4,14 @@
              xmlns:local="clr-namespace:Animator.Viewer"
              StartupUri="Shell/MainWindow.xaml">
     <Application.Resources>
-         
+        <!-- Grey checkerboard, shown behind colours so transparency is visible -->
+        <DrawingBrush x:Key="CheckerBrush" TileMode="Tile" Viewport="0,0,10,10" ViewportUnits="Absolute">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#C8C8C8" Geometry="M0,0 H2 V2 H0 Z" />
+                    <GeometryDrawing Brush="#A0A0A0" Geometry="M0,0 H1 V1 H0 Z M1,1 H2 V2 H1 Z" />
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
     </Application.Resources>
 </Application>

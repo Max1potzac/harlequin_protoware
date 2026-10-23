@@ -289,7 +289,11 @@
 
             <WrapPanel x:Name="ToolButtons" DockPanel.Dock="Top" Margin="6,0,6,6">
                 <RadioButton Content="Select (M)" Tag="Select" GroupName="PaintTools" Click="Tool_Click"
-                             Style="{StaticResource {x:Type ToggleButton}}" Padding="6,2" Margin="0,0,4,4" />
+                             Style="{StaticResource {x:Type ToggleButton}}" Padding="6,2" Margin="0,0,4,4"
+                             ToolTip="Select by shape (rectangle, ellipse, polygon, freehand…). Shift = add, Alt = subtract" />
+                <RadioButton Content="Wand (W)" Tag="Wand" GroupName="PaintTools" Click="Tool_Click"
+                             Style="{StaticResource {x:Type ToggleButton}}" Padding="6,2" Margin="0,0,4,4"
+                             ToolTip="Magic wand: click a colour to select it (uses Tolerance). Shift = add, Alt = subtract" />
                 <RadioButton Content="Move (V)" Tag="Move" GroupName="PaintTools" Click="Tool_Click"
                              Style="{StaticResource {x:Type ToggleButton}}" Padding="6,2" Margin="0,0,4,4" />
                 <RadioButton Content="Pencil (N)" Tag="Pencil" GroupName="PaintTools" Click="Tool_Click"
@@ -312,11 +316,17 @@
 
             <WrapPanel DockPanel.Dock="Top" Margin="6,0,6,6">
                 <Grid Width="38" Height="34" Margin="0,0,4,0"
-          ToolTip="Primary (front) and secondary (back). Right-click a palette color to set the secondary.">
-                    <Border x:Name="SecondarySwatch" Width="22" Height="22" HorizontalAlignment="Right"
-                VerticalAlignment="Bottom" BorderBrush="White" BorderThickness="1" />
-                    <Border x:Name="ColorSwatch" Width="22" Height="22" HorizontalAlignment="Left"
-                VerticalAlignment="Top" BorderBrush="White" BorderThickness="1" />
+          ToolTip="Primary (front) and secondary (back). Click one to pick any colour, with transparency. Right-click a palette colour to set the secondary.">
+                    <Border Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                BorderBrush="White" BorderThickness="1" Background="{StaticResource CheckerBrush}"
+                Cursor="Hand" MouseLeftButtonUp="SecondarySwatch_Click">
+                        <Rectangle x:Name="SecondarySwatch" />
+                    </Border>
+                    <Border Width="22" Height="22" HorizontalAlignment="Left" VerticalAlignment="Top"
+                BorderBrush="White" BorderThickness="1" Background="{StaticResource CheckerBrush}"
+                Cursor="Hand" MouseLeftButtonUp="ColorSwatch_Click">
+                        <Rectangle x:Name="ColorSwatch" />
+                    </Border>
                 </Grid>
                 <Button Content="⇄" ToolTip="Swap colors (S)" Padding="5,0" Margin="0,0,6,0" Click="SwapColors_Click" />
                 <TextBox x:Name="ColorHex" Width="86" VerticalContentAlignment="Center"
@@ -326,13 +336,14 @@
             IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
             ValueChanged="SizeSlider_Changed" />
                 <TextBlock x:Name="SizeLabel" Foreground="White" Width="24" Margin="4,0,0,0" VerticalAlignment="Center" />
-                <TextBlock Text="Fill tolerance" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0" />
+                <TextBlock Text="Tolerance" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0"
+               ToolTip="How different a colour may be and still count as the same (Fill and Wand)" />
                 <Slider x:Name="ToleranceSlider" Width="90" Minimum="0" Maximum="128" Value="24"
             IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
             ValueChanged="ToleranceSlider_Changed" />
                 <CheckBox x:Name="SampleAllBox" Content="Sample all layers" Foreground="White"
               VerticalAlignment="Center" Margin="12,0,0,0" Click="SampleAll_Click"
-              ToolTip="Fill and Mixer read the merged image instead of only this layer" />
+              ToolTip="Fill, Mixer and Wand read the merged image instead of only this layer" />
                 <CheckBox x:Name="GradientTransparentBox" Content="Gradient to transparent" Foreground="White"
               VerticalAlignment="Center" Margin="12,0,0,0" Click="GradientTransparent_Click"
               ToolTip="Off: primary → secondary. On: primary → transparent." />
@@ -347,6 +358,21 @@
                 <Slider x:Name="LoadSlider" Width="100" Minimum="0" Maximum="100" Value="20"
                         VerticalAlignment="Center" ValueChanged="MixSliders_Changed"
                         ToolTip="How quickly the brush refills with your color (0 = smudge)" />
+            </WrapPanel>
+
+            <WrapPanel DockPanel.Dock="Top" Margin="6,0,6,6">
+                <TextBlock Text="Selection:" Foreground="White" VerticalAlignment="Center" Margin="0,0,4,0" />
+                <ComboBox x:Name="SelectShapeBox" Width="100" SelectionChanged="SelectShape_Changed"
+                          ToolTip="The Select tool's shape. Polyline and Curve: click points, double-click or Enter to finish" />
+                <ComboBox x:Name="SelectModeBox" Width="90" Margin="8,0,0,0" SelectionChanged="SelectMode_Changed"
+                          ToolTip="How a new selection combines with the current one. Holding Shift (add), Alt (subtract) or both (intersect) overrides this" />
+                <CheckBox x:Name="ContiguousBox" Content="Contiguous" Foreground="White" IsChecked="True"
+                          VerticalAlignment="Center" Margin="12,0,0,0" Click="Contiguous_Click"
+                          ToolTip="Wand: only the connected area you click. Off: that colour everywhere on the layer" />
+                <Button Content="Invert" Padding="6,0" Margin="12,0,0,0" Click="InvertSelection_Click"
+                        ToolTip="Select everything that isn't selected (Ctrl+Shift+I)" />
+                <Button Content="Deselect" Padding="6,0" Margin="4,0,0,0" Click="Deselect_Click"
+                        ToolTip="Ctrl+D" />
             </WrapPanel>
 
             <WrapPanel DockPanel.Dock="Top" Margin="6,0,6,6">

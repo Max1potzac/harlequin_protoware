@@ -18,14 +18,21 @@ public class PaintSession
 	public int Size { get; set; } = 4;
 	public int Tolerance { get; set; } = 24;
 
-	// Rectangular selection in image pixels; null = everything
-	public SKRectI? Selection { get; set; }
+	// The selected pixels; null = nothing selected (then every tool works on the whole layer).
+	// Set it through SetSelection to make the change undoable.
+	public SelectionMask? Selection { get; set; }
+
+	// Selection tools: how a new shape combines with the current selection
+	// (Shift / Alt / Shift+Alt override this while you click), and what the wand takes
+	public SelectMode SelectMode { get; set; } = SelectMode.New;
+	public SelectShape SelectShape { get; set; } = SelectShape.Rectangle;
+	public bool WandContiguous { get; set; } = true;
 
 	// Mixer
 	public float MixWet { get; set; } = 0.5f;
 	public float MixLoad { get; set; } = 0.2f;
 
-	// Fill and Mixer read from the merged image instead of the active layer
+	// Fill, Mixer and Wand read from the merged image instead of the active layer
 	public bool SampleAllLayers { get; set; }
 
 	// Figure tool
@@ -37,6 +44,7 @@ public class PaintSession
 	// Input state, updated by the canvas before every tool call
 	public bool ShiftHeld { get; set; }
 	public bool CtrlHeld { get; set; }
+	public bool AltHeld { get; set; }
 	public int ClickCount { get; set; }
 	public float ViewZoom { get; set; } = 1f;
 
@@ -110,15 +118,66 @@ public class PaintSession
 
 	public void ClipToSelection(SKCanvas canvas)
 	{
-		if (Selection is { } r)
-			canvas.ClipRect(SKRect.Create(r.Left, r.Top, r.Width, r.Height));
+		if (Selection is { } mask) canvas.ClipRegion(mask.Region);
 	}
 
-	public bool InSelection(int x, int y) => Selection is not { } r || r.Contains(x, y);
+	public bool InSelection(int x, int y) => Selection is not { } mask || mask.Contains(x, y);
+
+	// The mode a selection tool uses for this click: the modifier keys win over the mode box
+	public SelectMode ModeForClick() => (ShiftHeld, AltHeld) switch
+	{
+		(true, true) => SelectMode.Intersect,
+		(true, false) => SelectMode.Add,
+		(false, true) => SelectMode.Subtract,
+		_ => SelectMode
+	};
+
+	// Changes the selection as one undo step (like Photoshop, so a misclick can be taken back)
+	public void SetSelection(SelectionMask? mask, string name)
+	{
+		if (Asset is not { } asset || ReferenceEquals(mask, Selection)) return;
+		var before = Selection;
+		Selection = mask;
+		Undo.Push(new SnapshotCommand<SelectionMask?>(name, before, mask, m => RestoreSelection(asset, m)));
+	}
+
+	// Combines a new shape with the current selection, as one undo step
+	public void ApplySelection(SelectionMask shape, SelectMode mode, string name) =>
+		SetSelection(SelectionMask.Combine(Selection, shape, mode), name);
+
+	private void RestoreSelection(Asset asset, SelectionMask? mask)
+	{
+		if (Asset != asset) return;   // another drawing is open: its selection isn't this one
+		Selection = mask != null && mask.Width == asset.Width && mask.Height == asset.Height ? mask : null;
+	}
 
 	public void SelectAll()
 	{
-		if (Asset != null) Selection = new SKRectI(0, 0, Asset.Width, Asset.Height);
+		if (Asset is { } asset) SetSelection(SelectionMask.All(asset.Width, asset.Height), "Select all");
+	}
+
+	public void Deselect() => SetSelection(null, "Deselect");
+
+	public void InvertSelection()
+	{
+		if (Asset is not { } asset) return;
+		var inverted = Selection == null ? SelectionMask.All(asset.Width, asset.Height) : Selection.Inverted();
+		SetSelection(inverted, "Invert selection");
+	}
+
+	// Pixels and selection together, as one undo step (the Move tool carries both)
+	public void CommitMove(PixelBuffer pixelsBefore, SelectionMask? selectionBefore)
+	{
+		if (Asset is not { } asset || LayerBitmap is not { } bmp) return;
+		var before = (pixelsBefore, selectionBefore);
+		var after = (PixelBuffer.Read(bmp), Selection);
+		Undo.Push(new SnapshotCommand<(PixelBuffer Pixels, SelectionMask? Selection)>(
+			$"Move on {asset.Name}", before, after, state =>
+			{
+				state.Pixels.WriteTo(bmp);
+				asset.MarkEdited();
+				RestoreSelection(asset, state.Selection);
+			}));
 	}
 
 	public void DeleteSelectedPixels()
