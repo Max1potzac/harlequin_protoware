@@ -78,6 +78,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock x:Name="ObjectTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
@@ -123,10 +124,15 @@
                   SelectionChanged="ObjectPreview_Changed"
                   ToolTip="The animation this object plays at scene level, and while you edit other objects" />
 
-                                <Button Grid.Row="8" Grid.ColumnSpan="3" Content="Edit this object ▸" Margin="0,6,0,4"
+                                <TextBlock Grid.Row="8" Text="Attached to" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <ComboBox x:Name="ObjectAttach" Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                  SelectionChanged="ObjectAttach_Changed"
+                  ToolTip="Carried by another object's bone (a sword in a hand, a hat on a head): it moves, turns and scales with that bone. It stays where it is when you attach or free it." />
+
+                                <Button Grid.Row="9" Grid.ColumnSpan="3" Content="Edit this object ▸" Margin="0,6,0,4"
                 Click="EditSelected_Click" ToolTip="Opens the object to edit its rig, drawings and animations (double-click or Enter)" />
 
-                                <TextBlock x:Name="ObjectHint" Grid.Row="9" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                                <TextBlock x:Name="ObjectHint" Grid.Row="10" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
                             </Grid>
                         </ScrollViewer>
 
@@ -139,9 +145,14 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="3*" MinHeight="80" />
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Rig" Foreground="White" FontWeight="Bold" Margin="8,2,8,4" />
+                            <DockPanel Grid.Row="0" Margin="8,2,6,4">
+                                <CheckBox x:Name="SnapJointsBox" DockPanel.Dock="Right" Content="Snap to ends" Foreground="White"
+                          IsChecked="True" VerticalAlignment="Center" Click="SnapJoints_Click"
+                          ToolTip="Setup mode: a new bone started near the selected bone's end (Ctrl+drag), or a joint dragged near its parent's end, snaps exactly onto it and stays there (&quot;On parent's end&quot; in the bone panel). Pull it further away to free it." />
+                                <TextBlock x:Name="RigTitle" Text="Rig" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" />
+                            </DockPanel>
                             <UniformGrid Grid.Row="1" Columns="3" Margin="6,0,6,6">
-                                <Button Content="+ Bone" Margin="0,0,3,0" Click="AddBone_Click"
+                                <Button x:Name="AddBoneButton" Content="+ Bone" Margin="0,0,3,0" Click="AddBone_Click"
                             ToolTip="Adds a child of the selected bone (or a root bone). Tip: Ctrl+drag in the viewport draws one." />
                                 <Button Content="+ Part ▾" Margin="3,0,3,0" Click="AddPart_Click"
                             ToolTip="Adds a part (blank, or from an image) to the selected bone" />
@@ -158,6 +169,8 @@
                             <!-- Properties of the selected bone or part (one shows at a time) -->
                             <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
+                                    <TextBlock x:Name="DrawnHint" Margin="8,6,8,6" Foreground="#9AA4B2" TextWrapping="Wrap" Visibility="Collapsed"
+                       Text="A drawn object has no bones, just parts (layers): click one in the list above or in the viewport. + Part ▾ adds one, ▲ Front / ▼ Back change their order. Double-click a part to paint it." />
                                     <Grid x:Name="BoneProps" Margin="6">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -220,12 +233,15 @@
                              Tag="Tilt" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
                              ToolTip="Depth rotation across the bone: it foreshortens, and mirrors along itself at 180°" />
 
-                                        <StackPanel Grid.Row="7" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,2,0,6">
+                                        <WrapPanel Grid.Row="7" Grid.ColumnSpan="3" Margin="0,2,0,6">
                                             <CheckBox x:Name="BoneInheritRotation" Content="Inherit rotation" Foreground="White"
-                                  Margin="0,0,10,0" Click="BoneInherit_Click" />
+                                  Margin="0,0,10,4" Click="BoneInherit_Click" />
                                             <CheckBox x:Name="BoneInheritScale" Content="Inherit scale" Foreground="White"
-                                  Click="BoneInherit_Click" />
-                                        </StackPanel>
+                                  Margin="0,0,10,4" Click="BoneInherit_Click" />
+                                            <CheckBox x:Name="BoneConnected" Content="On parent's end" Foreground="White"
+                                  Click="BoneConnected_Click"
+                                  ToolTip="The joint sits exactly on the parent bone's end, and stays there when the parent gets longer or shorter or the bone gets a new parent. Untick it, type X / Y, or drag the joint away to free it." />
+                                        </WrapPanel>
 
                                         <TextBlock Grid.Row="8" Text="Look at" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
                                         <ComboBox x:Name="LookTarget" Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
@@ -305,7 +321,7 @@
                                         <TextBox x:Name="PartName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
                              Tag="PName" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
 
-                                        <TextBlock Grid.Row="2" Text="Bone" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBlock x:Name="PartBoneLabel" Grid.Row="2" Text="Bone" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
                                         <ComboBox x:Name="PartBone" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
                               SelectionChanged="PartBone_Changed"
                               ToolTip="Moves the part to another bone; it stays where it is on screen" />

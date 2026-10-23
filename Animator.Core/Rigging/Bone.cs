@@ -77,7 +77,19 @@ public class Bone
     public bool InheritScale { get; set; } = true;
 
     // Rest pose. Animation offsets are applied relative to these.
-    public Vector2 SetupPosition { get; set; }
+    // A connected bone's rest position is always its parent's end (see Connected).
+    public Vector2 SetupPosition
+    {
+        get => Connected && Parent != null ? new Vector2(Parent.Length, 0) : _setupPosition;
+        set => _setupPosition = value;
+    }
+    private Vector2 _setupPosition;
+
+    // Snapped to the parent's end: the joint sits exactly where the parent bone ends, and stays
+    // there when the parent gets longer or shorter or the bone gets a new parent. Rest pose only:
+    // animation keys can still move it away. (Free it with RigOps.SetConnected, which keeps its place.)
+    public bool Connected { get; set; }
+
     public float SetupRotation { get; set; }
     public Vector2 SetupScale { get; set; } = Vector2.One;
 

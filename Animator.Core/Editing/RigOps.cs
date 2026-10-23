@@ -106,10 +106,24 @@ public static class RigOps
 		return true;
 	}
 
+	// Snaps a bone's joint onto its parent's end, or frees it right where it is.
+	// false = nothing changed (or a root bone, which has no parent's end to snap to).
+	public static bool SetConnected(Bone bone, bool connected)
+	{
+		if (bone.Connected == connected || (connected && bone.Parent == null)) return false;
+		var place = bone.SetupPosition;   // the parent's end, while it's connected
+		bone.Connected = connected;
+		if (!connected) bone.SetupPosition = place;
+		return true;
+	}
+
+	// A connected bone moves onto its new parent's end; it keeps its world angle and size.
+	// Made a root bone, it lets go (there's no parent's end any more) and stays where it is.
 	public static bool Reparent(Skeleton skeleton, Bone bone, Bone? newParent)
 	{
 		if (newParent == bone.Parent) return false;
 		if (newParent != null && (newParent == bone || newParent.IsDescendantOf(bone))) return false;
+		if (newParent == null) SetConnected(bone, false);
 
 		skeleton.SetToSetupPose();
 		skeleton.UpdateWorld();

@@ -30,7 +30,10 @@ public static class IkMatching
 			animation.GetOrCreate(target.Name, n => new TranslateTimeline(n))
 					 .Track.Add(time, local - target.SetupPosition);
 		else
+		{
+			RigOps.SetConnected(target, false);   // a target snapped to its parent's end lets go to move
 			target.SetupPosition += local - target.Position;   // same delta trick as dragging
+		}
 	}
 
 	// IK -> FK match: store the solved rotations as FK values

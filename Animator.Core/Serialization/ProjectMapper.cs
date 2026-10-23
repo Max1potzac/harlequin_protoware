@@ -143,6 +143,7 @@ public static class ProjectMapper
 				MaxOffset = b.MaxOffset is { } max ? Vec.From(max) : null,
 				Turn = b.SetupTurn,
 				Tilt = b.SetupTilt,
+				Connected = b.Connected && b.Parent != null ? true : null,
 			});
 		}
 
@@ -342,6 +343,7 @@ public static class ProjectMapper
 				MaxOffset = b.MaxOffset?.ToVector2(),
 				SetupTurn = b.Turn,
 				SetupTilt = b.Tilt,
+				Connected = b.Connected ?? false,
 			};
 			if (!bones.TryAdd(b.Name, bone))
 				throw new InvalidDataException($"Two bones are named '{b.Name}'.");

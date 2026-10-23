@@ -73,11 +73,22 @@ public partial class MainWindow
 
 	private bool TryOpenPaintAt(Vector2 screen)
 	{
-		if (_renderer.Pick(_skeleton, _camera.ScreenToWorld(screen)) is not { } hit) return false;
-		_state.Selected = hit.Slot.Bone;
-		_state.SelectedSlot = hit.Slot;
-		OpenPaintEditor(hit.Asset, hit.Slot);
-		return true;
+		var world = _camera.ScreenToWorld(screen);
+		if (_renderer.Pick(_skeleton, world) is { } hit)
+		{
+			_state.Selected = hit.Slot.Bone;
+			_state.SelectedSlot = hit.Slot;
+			OpenPaintEditor(hit.Asset, hit.Slot);
+			return true;
+		}
+
+		// A blank (or see-through) part has no pixels to hit: inside the selected part's box will do
+		if (_state.SelectedSlot is { } slot && PartData(slot).Asset is { } asset && _tool.InsidePart(slot, world))
+		{
+			OpenPaintEditor(asset, slot);
+			return true;
+		}
+		return false;
 	}
 
 	// slot: the part this drawing belongs to, so the editor can follow its drawings

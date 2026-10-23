@@ -8,9 +8,17 @@ public partial class NewPartDialog : Window
 	public int PartWidth { get; private set; } = 64;
 	public int PartHeight { get; private set; } = 64;
 
-	public NewPartDialog()
+	public NewPartDialog() : this(null, null, null) { }
+
+	// The same dialog for other blank canvases (a new drawn object): its own title, name, hint and size
+	public NewPartDialog(string? title, string? name, string? hint, int width = 64, int height = 64)
 	{
 		InitializeComponent();
+		if (title != null) Title = title;
+		if (name != null) PartName = name;
+		if (hint != null) HintText.Text = hint;
+		PartWidth = width;
+		PartHeight = height;
 		NameBox.Text = PartName;
 		WidthBox.Text = PartWidth.ToString();
 		HeightBox.Text = PartHeight.ToString();
@@ -24,7 +32,7 @@ public partial class NewPartDialog : Window
 		if (!int.TryParse(WidthBox.Text, out int w) || !int.TryParse(HeightBox.Text, out int h) ||
 			w < 1 || h < 1 || w > 4096 || h > 4096)
 		{
-			MessageBox.Show(this, "Width and height must be whole numbers from 1 to 4096.", "New Part");
+			MessageBox.Show(this, "Width and height must be whole numbers from 1 to 4096.", Title);
 			return;
 		}
 		PartName = string.IsNullOrWhiteSpace(NameBox.Text) ? "part" : NameBox.Text.Trim();

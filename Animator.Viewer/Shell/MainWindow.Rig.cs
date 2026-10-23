@@ -25,6 +25,9 @@ public partial class MainWindow
 
 	private object? CurrentSelection => _state.SelectedSlot != null ? _state.SelectedSlot : _state.Selected;
 
+	// A drawn object's one bone is hidden: the panel shows its parts, like layers
+	private bool IsDrawn => _active?.Kind == ObjectKind.Drawn;
+
 	private void InitRigPanel()
 	{
 		LookShapeBox.ItemsSource = Enum.GetValues<LookShape>();
@@ -49,12 +52,31 @@ public partial class MainWindow
 		BoneTree.Items.Clear();
 		_treeItems.Clear();
 		_slotItems.Clear();
-		foreach (var root in _skeleton.Roots)
-			BoneTree.Items.Add(MakeTreeItem(root));
+		if (IsDrawn)
+		{
+			for (int i = _skeleton.Slots.Count - 1; i >= 0; i--)   // front first, like layers
+				BoneTree.Items.Add(MakeSlotItem(_skeleton.Slots[i]));
+		}
+		else
+		{
+			foreach (var root in _skeleton.Roots)
+				BoneTree.Items.Add(MakeTreeItem(root));
+		}
 		SelectTreeItem();
 		_syncingRig = false;
 
+		SyncRigMode();
 		ShowProperties();
+	}
+
+	// Rigged object: bones and parts. Drawn object: parts only (no bone tools, no snapping).
+	private void SyncRigMode()
+	{
+		bool drawn = IsDrawn;
+		RigTitle.Text = drawn ? "Parts" : "Rig";
+		AddBoneButton.IsEnabled = !drawn;
+		SnapJointsBox.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
+		PartBoneLabel.Visibility = PartBone.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
 	}
 
 	private TreeViewItem MakeTreeItem(Bone bone)
@@ -67,20 +89,23 @@ public partial class MainWindow
 
 		// Parts on this bone; the number is the draw order (higher = in front)
 		foreach (var slot in _skeleton.Slots.Where(s => s.Bone == bone))
-		{
-			var slotItem = new TreeViewItem
-			{
-				Header = $"▣ {slot.Name}   #{_skeleton.Slots.IndexOf(slot) + 1}",
-				Tag = slot,
-				Foreground = new SolidColorBrush(Color.FromRgb(255, 190, 110)),
-				FontStyle = FontStyles.Italic
-			};
-			_slotItems[slot] = slotItem;
-			item.Items.Add(slotItem);
-		}
+			item.Items.Add(MakeSlotItem(slot));
 
 		foreach (var child in bone.Children)
 			item.Items.Add(MakeTreeItem(child));
+		return item;
+	}
+
+	private TreeViewItem MakeSlotItem(Slot slot)
+	{
+		var item = new TreeViewItem
+		{
+			Header = $"▣ {slot.Name}   #{_skeleton.Slots.IndexOf(slot) + 1}",
+			Tag = slot,
+			Foreground = new SolidColorBrush(Color.FromRgb(255, 190, 110)),
+			FontStyle = FontStyles.Italic
+		};
+		_slotItems[slot] = item;
 		return item;
 	}
 
@@ -147,10 +172,13 @@ public partial class MainWindow
 		_shownSelection = CurrentSelection;
 		bool part = _state.SelectedSlot != null;
 
+		bool drawn = IsDrawn;
+
 		PartProps.Visibility = part ? Visibility.Visible : Visibility.Collapsed;
-		BoneProps.Visibility = part ? Visibility.Collapsed : Visibility.Visible;
-		DeleteButton.Content = part ? "Delete part" : "Delete bone";
-		DeleteButton.IsEnabled = part || _state.Selected != null;
+		BoneProps.Visibility = part || drawn ? Visibility.Collapsed : Visibility.Visible;
+		DrawnHint.Visibility = !part && drawn ? Visibility.Visible : Visibility.Collapsed;
+		DeleteButton.Content = part || drawn ? "Delete part" : "Delete bone";
+		DeleteButton.IsEnabled = part || (_state.Selected != null && !drawn);
 
 		if (part) ShowPartProperties();
 		else ShowBoneProperties();
@@ -178,6 +206,8 @@ public partial class MainWindow
 		SetField(BoneName, bone?.Name ?? "");
 		BoneInheritRotation.IsChecked = bone?.InheritRotation ?? true;
 		BoneInheritScale.IsChecked = bone?.InheritScale ?? true;
+		BoneConnected.IsChecked = bone is { Connected: true, Parent: not null };
+		BoneConnected.IsEnabled = bone?.Parent != null;   // a root bone has no parent's end
 
 		var parents = BoneChoices(bone, "(none: root bone)");
 		BoneParent.ItemsSource = parents;
@@ -289,8 +319,13 @@ public partial class MainWindow
 		{
 			string newName = box.Text.Trim();
 			if (newName == bone.Name) return;
-			bool renamed = _state.EditStructure(() =>
-				RigOps.RenameBone(_skeleton, _state.Animations, bone, newName) ? $"Rename bone to {newName}" : null);
+			string oldName = bone.Name;
+			bool renamed = EditStructureAndScene(() =>
+			{
+				if (!RigOps.RenameBone(_skeleton, _state.Animations, bone, newName)) return null;
+				if (_active != null) SceneOps.RenameHolderBone(_scene, _active, oldName, newName);   // attached objects follow
+				return $"Rename bone to {newName}";
+			});
 			if (!renamed)
 			{
 				RigHint.Text = $"Can't rename to \"{newName}\": names must be unique and not empty.";
@@ -321,8 +356,14 @@ public partial class MainWindow
 		{
 			switch (field)
 			{
-				case "X": bone.SetupPosition = new Vector2(v, bone.SetupPosition.Y); break;
-				case "Y": bone.SetupPosition = new Vector2(bone.SetupPosition.X, v); break;
+				case "X":
+					RigOps.SetConnected(bone, false);   // typing a place frees it from the parent's end
+					bone.SetupPosition = new Vector2(v, bone.SetupPosition.Y);
+					break;
+				case "Y":
+					RigOps.SetConnected(bone, false);
+					bone.SetupPosition = new Vector2(bone.SetupPosition.X, v);
+					break;
 				case "Rotation": bone.SetupRotation = Rad(v); break;
 				case "Length": bone.Length = MathF.Max(0, v); break;
 				case "ScaleX": bone.SetupScale = new Vector2(v, bone.SetupScale.Y); break;
@@ -385,6 +426,17 @@ public partial class MainWindow
 		});
 	}
 
+	private void BoneConnected_Click(object sender, RoutedEventArgs e)
+	{
+		if (_syncingRig || _shownBone is not { Parent: { } parent } bone) return;
+		bool connected = BoneConnected.IsChecked == true;
+		_state.EditStructure(() => RigOps.SetConnected(bone, connected)
+			? (connected ? $"Snap {bone.Name} to the end of {parent.Name}" : $"Free {bone.Name} from the end of {parent.Name}")
+			: null);
+	}
+
+	private void SnapJoints_Click(object sender, RoutedEventArgs e) => _tool.SnapJoints = SnapJointsBox.IsChecked == true;
+
 	private void BoneInherit_Click(object sender, RoutedEventArgs e)
 	{
 		if (_syncingRig || _shownBone is not { } bone) return;
@@ -433,6 +485,7 @@ public partial class MainWindow
 		{
 			var position = parent == null ? Vector2.Zero : new Vector2(parent.Length, 0);
 			var bone = RigOps.AddBone(_skeleton, parent, "bone", position, 0f, 50f);
+			if (parent != null && _tool.SnapJoints) bone.Connected = true;   // on the parent's end, and it stays there
 			_state.Selected = bone;
 			_state.SelectedSlot = null;
 			return $"Add bone {bone.Name}";
@@ -442,7 +495,7 @@ public partial class MainWindow
 	private void Delete_Click(object sender, RoutedEventArgs e)
 	{
 		if (_state.SelectedSlot is { } slot) DeletePart(slot);
-		else DeleteSelectedBone();
+		else if (!IsDrawn) DeleteSelectedBone();   // a drawn object's one bone stays
 	}
 
 	private void DeleteSelectedBone()
@@ -451,8 +504,11 @@ public partial class MainWindow
 		var parent = bone.Parent;
 		_state.SelectedKeys.Clear();
 		ClosePaintEditor();   // it may be showing a part that's about to disappear
-		_state.EditStructure(() =>
+		EditStructureAndScene(() =>
 		{
+			// Objects carried by these bones let go first, staying where they are
+			var doomed = _skeleton.AllBones().Where(b => b == bone || b.IsDescendantOf(bone)).Select(b => b.Name).ToHashSet();
+			if (_active != null) SceneOps.ReleaseFromBones(_scene, _active, doomed);
 			RigOps.DeleteBone(_skeleton, _state.Animations, bone);
 			_state.Selected = parent;
 			return $"Delete bone {bone.Name}";

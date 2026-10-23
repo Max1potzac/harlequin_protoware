@@ -259,6 +259,20 @@ public class SkeletonRenderer
 		}
 		return null;
 	}
+	// Inside any part's rectangle, see-through pixels included (a blank drawing can be grabbed too)
+	public bool InsidePartBox(Skeleton skeleton, Vector2 world)
+	{
+		foreach (var slot in skeleton.Slots)
+		{
+			var att = skeleton.ResolveAttachment(slot);
+			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
+			if (!Matrix3x2.Invert(ImageToWorld(slot, att, asset.Width, asset.Height), out var toImage)) continue;
+			var p = Vector2.Transform(world, toImage);
+			if (p.X >= 0 && p.Y >= 0 && p.X <= asset.Width && p.Y <= asset.Height) return true;
+		}
+		return false;
+	}
+
 	public void DrawImages(SKCanvas canvas, Skeleton skeleton)
 	{
 		var highlight = Highlight;
