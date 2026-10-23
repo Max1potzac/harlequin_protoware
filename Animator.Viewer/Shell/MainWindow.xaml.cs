@@ -73,7 +73,11 @@ public partial class MainWindow : Window
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
 		SyncRigSelection();
-		if (PaintPanel.Visibility == Visibility.Visible) PaintView.InvalidateVisual();
+		if (PaintPanel.Visibility == Visibility.Visible)
+		{
+			FollowPaintDrawing();
+			PaintView.InvalidateVisual();
+		}
 	}
 
 	// ---------- painting ----------
@@ -222,6 +226,10 @@ public partial class MainWindow : Window
 				case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
 				case Key.F: _camera.Reset(); break;
 				case Key.E: AddEventAt(_state.Frame); break;
+				case Key.F5 when shift: ChangeHold(-1); break;
+				case Key.F5: ChangeHold(+1); break;
+				case Key.F6: NewDrawing(copy: true); break;
+				case Key.F7: NewDrawing(copy: false); break;
 				case Key.Escape: ClosePaintEditor(); break;
 				default: return;
 			}
@@ -231,22 +239,26 @@ public partial class MainWindow : Window
 		UpdateStatus();
 	}
 
-	// Deletes all keys on the selected bone at the current frame (undoable)
+	// Deletes the selected part's keys at the current frame, or else the selected bone's (undoable)
 	private void DeleteKeysAtFrame()
 	{
-		var bone = _state.Selected;
-		if (bone == null) return;
+		var slot = _state.SelectedSlot;
+		string? target = slot?.Name ?? _state.Selected?.Name;
+		if (target == null) return;
+
+		// A part and a bone can share a name, so the kind of row matters too
+		Func<Timeline, bool> mine = slot != null ? PartOps.TargetsPart : RigOps.TargetsBone;
 
 		var before = AnimationSnapshot.Capture(_state.Animation);
 		bool removed = false;
 		foreach (var tl in _state.Animation.Timelines)
-			if (tl.Target == bone.Name)
+			if (tl.Target == target && mine(tl))
 				removed |= tl.RemoveKey(_state.Time);
 		if (!removed) return;
 
 		var after = AnimationSnapshot.Capture(_state.Animation);
 		_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
-			$"Delete key on {bone.Name} @ frame {_state.Frame}", before, after, s => s.Restore()));
+			$"Delete key on {target} @ frame {_state.Frame}", before, after, s => s.Restore()));
 	}
 	// The constraint the selected bone belongs to (as target or chain), else the first one
 	private IkConstraint? ActiveIk()
@@ -329,6 +341,7 @@ public partial class MainWindow : Window
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
+			"Frame by frame (select a part): F7 = new drawing, F6 = copy drawing, F5 / Shift+F5 = hold longer / shorter, Del = its key here\n" +
 			"Paint: double-click a part. Over the canvas: M select, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick\n" +
 			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   " +
 			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +

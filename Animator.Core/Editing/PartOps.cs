@@ -5,6 +5,9 @@ namespace Animator.Core.Editing;
 // Part (slot) edits. Like RigOps: changes the model directly; the editor adds undo.
 public static class PartOps
 {
+	// Rows that animate a part (as opposed to a bone; parts and bones can share names)
+	public static bool TargetsPart(Timeline t) => t is AttachmentTimeline;
+
 	public static string UniqueSlotName(Skeleton skeleton, string baseName)
 	{
 		var used = skeleton.Slots.Select(s => s.Name).ToHashSet();

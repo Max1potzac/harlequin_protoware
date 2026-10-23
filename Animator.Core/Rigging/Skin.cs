@@ -22,6 +22,16 @@ public class Skin
 	public IEnumerable<Attachment> AttachmentsFor(string slot) =>
 	_map.Where(kv => kv.Key.Slot == slot).Select(kv => kv.Value);
 
+	public bool Remove(string slot, string name) => _map.Remove((slot, name));
+
+	// Gives one attachment a new name (the same object, so everything holding it stays valid)
+	public void RenameAttachment(string slot, string oldName, string newName)
+	{
+		if (!_map.Remove((slot, oldName), out var attachment)) return;
+		attachment.Name = newName;
+		_map[(slot, newName)] = attachment;
+	}
+
 	public void RemoveSlot(string slot)
 	{
 		foreach (var key in _map.Keys.Where(k => k.Slot == slot).ToList())

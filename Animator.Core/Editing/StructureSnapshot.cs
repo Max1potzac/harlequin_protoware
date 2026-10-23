@@ -30,6 +30,7 @@ public sealed class StructureSnapshot
 	private readonly Skin? _activeSkin;
 	private readonly List<AttachmentState> _attachments;
 	private readonly List<KeyValuePair<Guid, Asset>> _assets;
+	private readonly List<(Asset Asset, string Name)> _assetNames;   // drawings rename their pixels too
 	private readonly List<IkState> _ik;
 	private readonly List<LookState> _looks;
 	private readonly List<Animation> _animationList;
@@ -52,6 +53,7 @@ public sealed class StructureSnapshot
 			.Select(a => new AttachmentState(a, a.Name, a.AssetId, a.Offset, a.Rotation, a.Scale, a.Pivot))
 			.ToList();
 		_assets = skeleton.Assets.ToList();
+		_assetNames = skeleton.Assets.Values.Select(a => (a, a.Name)).ToList();
 
 		_ik = skeleton.IkConstraints.Select(c => new IkState(
 			c, c.Name, c.Bones.ToList(), c.Target, c.SetupMix, c.BendDirection)).ToList();
@@ -108,6 +110,7 @@ public sealed class StructureSnapshot
 
 		_skeleton.Assets.Clear();
 		foreach (var (id, asset) in _assets) _skeleton.Assets[id] = asset;
+		foreach (var (asset, name) in _assetNames) asset.Name = name;
 
 		_skeleton.IkConstraints.Clear();
 		foreach (var s in _ik)

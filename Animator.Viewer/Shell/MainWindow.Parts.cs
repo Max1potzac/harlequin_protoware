@@ -41,6 +41,7 @@ public partial class MainWindow
 		PartFront.IsEnabled = index < _skeleton.Slots.Count - 1;
 		PartBack.IsEnabled = index > 0;
 		EditPixelsButton.IsEnabled = asset != null;
+		ShowDrawingChoices(slot);
 
 		_syncingRig = false;
 		RefreshPartValues();
@@ -52,6 +53,7 @@ public partial class MainWindow
 		var (att, asset) = PartData(_shownSlot);
 		foreach (var box in new[] { PartX, PartY, PartRotation, PartScaleX, PartScaleY, PartPivotX, PartPivotY })
 			SetField(box, att != null ? Num(PartValue(att, asset, (string)box.Tag)) : "");
+		SyncDrawingChoice();
 	}
 
 	private static float? PartValue(Attachment att, Asset? asset, string field) => field switch
@@ -153,7 +155,7 @@ public partial class MainWindow
 
 	private void EditPixels_Click(object sender, RoutedEventArgs e)
 	{
-		if (PartData(_state.SelectedSlot).Asset is { } asset) OpenPaintEditor(asset);
+		if (_state.SelectedSlot is { } slot && PartData(slot).Asset is { } asset) OpenPaintEditor(asset, slot);
 	}
 
 	// ======================= creating & deleting =======================

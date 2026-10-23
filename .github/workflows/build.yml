@@ -1,5 +1,5 @@
-# Builds the whole solution on a Windows machine every time something is pushed,
-# so compile errors show up on GitHub (and on pull requests) before anyone pulls them.
+# Builds the whole solution on a Windows machine every time something is pushed, then runs
+# the tests, so compile errors and broken logic show up on GitHub before anyone pulls them.
 name: Build
 
 on:
@@ -18,3 +18,7 @@ jobs:
 
       - name: Build
         run: dotnet build Harlequin.sln --configuration Release
+
+      # The automatic checks in Animator.Tests (a red X on GitHub means one of them failed)
+      - name: Test
+        run: dotnet test Harlequin.sln --configuration Release --no-build --logger "console;verbosity=normal"

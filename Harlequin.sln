@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Core", "Animator.C
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Sandbox", "Animator.Sandbox\Animator.Sandbox.csproj", "{B135A41E-050B-4C7E-A025-618BDDB23CDD}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Tests", "Animator.Tests\Animator.Tests.csproj", "{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{D39D75D9-F0BF-4589-8020-8BAE9D038A38}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D39D75D9-F0BF-4589-8020-8BAE9D038A38}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D39D75D9-F0BF-4589-8020-8BAE9D038A38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

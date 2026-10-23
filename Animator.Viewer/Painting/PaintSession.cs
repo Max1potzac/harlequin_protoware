@@ -56,10 +56,14 @@ public class PaintSession
 	public SKBitmap? LayerBitmap => Layer == null ? null : Store.GetLayer(Layer);
 	public SKBitmap? Composite => Asset == null ? null : Store.Get(Asset);
 
-	public void Open(Asset asset)
+	// preferredLayer: keep painting on the same layer number when switching between drawings
+	// that share a layer setup (lines, colors…); -1 = the top layer
+	public void Open(Asset asset, int preferredLayer = -1)
 	{
 		Asset = asset;
-		Layer = asset.Layers.LastOrDefault();
+		Layer = preferredLayer >= 0 && preferredLayer < asset.Layers.Count
+			? asset.Layers[preferredLayer]
+			: asset.Layers.LastOrDefault();
 		Selection = null;
 		LastPoint = null;
 		Changed?.Invoke();
