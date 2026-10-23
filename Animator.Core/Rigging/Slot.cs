@@ -17,6 +17,23 @@ public class Slot
 	public float Rotation { get; set; }                   // radians, around the pivot
 	public Vector2 Scale { get; set; } = Vector2.One;     // multiplies, around the pivot
 
+	// Effects (milestone 9.4): how the part blends with what's behind it (a rest setting),
+	// and a tint and opacity, which colour keys can animate. White and 1 = drawn as is.
+	public BlendMode Blend { get; set; } = BlendMode.Normal;
+	public Vector3 SetupColor { get; set; } = Vector3.One;   // multiplies red, green, blue (0..1 each)
+	public float SetupOpacity { get; set; } = 1f;
+	public Vector3 Color { get; set; } = Vector3.One;        // animated, back to the rest values every frame
+	public float Opacity { get; set; } = 1f;
+
+	// Everything animated back to rest: drawing, placement, colour
+	public void ResetToSetup()
+	{
+		ActiveAttachment = SetupAttachment;
+		ResetPlacement();
+		Color = SetupColor;
+		Opacity = SetupOpacity;
+	}
+
 	public void ResetPlacement()
 	{
 		Offset = Vector2.Zero;

@@ -45,6 +45,16 @@ public class SlotDto
 	public string Name { get; set; } = "";
 	public string Bone { get; set; } = "";
 	public string? Attachment { get; set; }
+	public BlendMode? Blend { get; set; }    // null = Normal
+	public Rgb? Color { get; set; }          // null = white (drawn as is)
+	public float? Opacity { get; set; }      // null = 1
+}
+
+// A colour as red, green, blue, 0..1 each
+public record Rgb(float R, float G, float B)
+{
+	public static Rgb From(Vector3 v) => new(v.X, v.Y, v.Z);
+	public Vector3 ToVector3() => new(R, G, B);
 }
 
 public class AssetDto
@@ -102,12 +112,13 @@ public class AnimationDto
 public class TimelineDto
 {
 	public string Type { get; set; } = "";    // rotate, translate, scale, depth, attachment, ikMix, space, events,
-	                                          // partTranslate, partRotate, partScale
+	                                          // partTranslate, partRotate, partScale, partColor, partOpacity
 	public string Target { get; set; } = "";
 	public List<KeyDto> Keys { get; set; } = new();
 }
 
-// One shape for every key type: rotate/ikMix/partRotate use X, translate/scale/depth/partTranslate/partScale use X+Y,
+// One shape for every key type: rotate/ikMix/partRotate/partOpacity use X,
+// translate/scale/depth/partTranslate/partScale use X+Y, partColor uses X+Y+Z (red, green, blue),
 // attachment uses Name (null = hide the slot), space uses Name (null = own parent,
 // "" = detached, otherwise the holding bone), events use Name + Data
 public class KeyDto
@@ -116,6 +127,7 @@ public class KeyDto
 	public CurveType Curve { get; set; }
 	public float? X { get; set; }
 	public float? Y { get; set; }
+	public float? Z { get; set; }
 	public string? Name { get; set; }
 	public string? Data { get; set; }
 }

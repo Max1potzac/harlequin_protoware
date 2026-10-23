@@ -181,6 +181,9 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <TextBlock x:Name="PartTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
@@ -255,7 +258,25 @@
                 ToolTip="F5: this drawing stays one frame more; the part's later drawings move one frame later (Animate mode)" />
                         </UniformGrid>
 
-                        <TextBlock x:Name="PartHint" Grid.Row="13" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                        <!-- Effects (VFX): blend mode, tint and opacity -->
+                        <TextBlock Grid.Row="13" Grid.ColumnSpan="3" Text="Effects (VFX)" Foreground="#9AA4B2" Margin="0,8,0,4" />
+
+                        <TextBlock Grid.Row="14" Text="Blend" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <ComboBox x:Name="BlendBox" Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+              SelectionChanged="BlendBox_Changed"
+              ToolTip="How the part mixes with what's behind it. Add = glow (sparks, flashes, magic), Multiply = shadow, Screen = soft light. Applies to the whole animation." />
+
+                        <TextBlock Grid.Row="15" Text="Colour / %" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <Border Grid.Row="15" Grid.Column="1" Height="22" Margin="0,0,2,4" BorderBrush="White" BorderThickness="1"
+            Background="{StaticResource CheckerBrush}" Cursor="Hand" MouseLeftButtonUp="PartColorSwatch_Click"
+            ToolTip="Tint: multiplies the drawing's colours (white = as drawn). Click to pick. Animate mode: sets a colour key here.">
+                            <Rectangle x:Name="PartColorSwatch" />
+                        </Border>
+                        <TextBox x:Name="PartOpacity" Grid.Row="15" Grid.Column="2" Margin="2,0,0,4"
+             KeyDown="PartOpacity_KeyDown" LostFocus="PartOpacity_LostFocus"
+             ToolTip="Opacity in %: 100 = solid, 0 = invisible. Animate mode: typing sets a key here (fade in / out)." />
+
+                        <TextBlock x:Name="PartHint" Grid.Row="16" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
                     </Grid>
 
                     <!-- Bone hierarchy (fills the remaining space) -->

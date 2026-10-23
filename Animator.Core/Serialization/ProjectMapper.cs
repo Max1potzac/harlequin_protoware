@@ -42,7 +42,17 @@ public static class ProjectMapper
 		}
 
 		foreach (var s in skeleton.Slots)
-			dto.Slots.Add(new SlotDto { Name = s.Name, Bone = s.Bone.Name, Attachment = s.SetupAttachment });
+		{
+			dto.Slots.Add(new SlotDto
+			{
+				Name = s.Name,
+				Bone = s.Bone.Name,
+				Attachment = s.SetupAttachment,
+				Blend = s.Blend == BlendMode.Normal ? null : s.Blend,
+				Color = s.SetupColor == Vector3.One ? null : Rgb.From(s.SetupColor),
+				Opacity = s.SetupOpacity >= 1f ? null : s.SetupOpacity
+			});
+		}
 
 		foreach (var a in skeleton.Assets.Values)
 		{
@@ -185,6 +195,18 @@ public static class ProjectMapper
 			Target = ps.Target,
 			Keys = ps.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
 		},
+		PartColorTimeline pc => new TimelineDto
+		{
+			Type = "partColor",
+			Target = pc.Target,
+			Keys = pc.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y, Z = k.Value.Z }).ToList()
+		},
+		PartOpacityTimeline po => new TimelineDto
+		{
+			Type = "partOpacity",
+			Target = po.Target,
+			Keys = po.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value }).ToList()
+		},
 		EventTimeline ev => new TimelineDto
 		{
 			Type = "events",
@@ -229,7 +251,15 @@ public static class ProjectMapper
 			bones.TryGetValue(name, out var bone) ? bone : throw new InvalidDataException($"Unknown bone '{name}'.");
 
 		foreach (var s in dto.Slots)
-			skeleton.Slots.Add(new Slot(s.Name, FindBone(s.Bone)) { SetupAttachment = s.Attachment });
+		{
+			skeleton.Slots.Add(new Slot(s.Name, FindBone(s.Bone))
+			{
+				SetupAttachment = s.Attachment,
+				Blend = s.Blend ?? BlendMode.Normal,
+				SetupColor = s.Color?.ToVector3() ?? Vector3.One,
+				SetupOpacity = s.Opacity ?? 1f
+			});
+		}
 
 		foreach (var a in dto.Assets)
 		{
@@ -359,6 +389,18 @@ public static class ProjectMapper
 				{
 					var tl = new PartScaleTimeline(t.Target);
 					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 1f, k.Y ?? 1f), k.Curve);
+					return tl;
+				}
+			case "partColor":
+				{
+					var tl = new PartColorTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector3(k.X ?? 1f, k.Y ?? 1f, k.Z ?? 1f), k.Curve);
+					return tl;
+				}
+			case "partOpacity":
+				{
+					var tl = new PartOpacityTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 1f, k.Curve);
 					return tl;
 				}
 			case "events":

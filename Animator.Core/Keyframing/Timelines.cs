@@ -172,6 +172,32 @@ public class PartScaleTimeline : TrackTimeline<Vector2>
     public override string Label => $"{Target} (part scale)";
 }
 
+// Effect keys: a part's tint (red, green, blue, 0..1 each, multiplying the drawing's colours)
+// and its opacity (0 = invisible, 1 = as drawn). Fades, flashes, glows that pulse.
+public class PartColorTimeline : TrackTimeline<Vector3>
+{
+    public PartColorTimeline(string slot) : base(slot, Vector3.Lerp) { }
+
+    public override void Apply(Skeleton skeleton, float time)
+    {
+        if (skeleton.FindSlot(Target) is { } slot && Track.TrySample(time, out var v)) slot.Color = v;
+    }
+
+    public override string Label => $"{Target} (part colour)";
+}
+
+public class PartOpacityTimeline : TrackTimeline<float>
+{
+    public PartOpacityTimeline(string slot) : base(slot, (a, b, t) => a + (b - a) * t) { }
+
+    public override void Apply(Skeleton skeleton, float time)
+    {
+        if (skeleton.FindSlot(Target) is { } slot && Track.TrySample(time, out var v)) slot.Opacity = v;
+    }
+
+    public override string Label => $"{Target} (part opacity)";
+}
+
 public class IkMixTimeline : TrackTimeline<float>
 {
     public IkMixTimeline(string constraint) : base(constraint, (a, b, t) => a + (b - a) * t) { }

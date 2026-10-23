@@ -64,6 +64,7 @@ public partial class MainWindow
 			SetField(box, att != null ? Num(PartValue(slot, att, asset, (string)box.Tag, pose)) : "");
 		PartPivotX.IsEnabled = PartPivotY.IsEnabled = !pose;   // the pivot is part of the rest setup
 		SyncDrawingChoice();
+		SyncEffects(slot);
 	}
 
 	private static float? PartValue(Slot slot, Attachment att, Asset? asset, string field, bool pose) => field switch
