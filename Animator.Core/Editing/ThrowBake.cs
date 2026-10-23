@@ -28,8 +28,13 @@ public static class ThrowBake
 		// Fly until the animation ends, or until the bone is attached again (caught).
 		// Checked before changing anything, so "nothing to do" really changes nothing.
 		int lastFrame = (int)MathF.Floor(animation.Duration * fps + 1e-3f);
+		bool caught = false;
 		if (SpaceSwitching.NextSwitchTime(animation, bone, time) is { } next)
-			lastFrame = Math.Min(lastFrame, (int)MathF.Round(next * fps) - 1);
+		{
+			int beforeCatch = (int)MathF.Round(next * fps) - 1;
+			caught = beforeCatch <= lastFrame;
+			lastFrame = Math.Min(lastFrame, beforeCatch);
+		}
 		if (lastFrame <= frame) return false;
 		float end = lastFrame / (float)fps;
 
@@ -49,8 +54,8 @@ public static class ThrowBake
 		// The launch frame itself gets a key, so removing later keys can't shift where it starts.
 		translate.Track.Keys.RemoveAll(k => k.Time > time + KeyHelpers.Epsilon && k.Time <= end + KeyHelpers.Epsilon);
 		rotate.Track.Keys.RemoveAll(k => k.Time > time + KeyHelpers.Epsilon && k.Time <= end + KeyHelpers.Epsilon);
-		translate.Track.Add(time, position - bone.SetupPosition);
-		rotate.Track.Add(time, rotation - bone.SetupRotation);
+		translate.Track.Add(time, position - bone.SetupPosition, CurveType.Linear);
+		rotate.Track.Add(time, rotation - bone.SetupRotation, CurveType.Linear);
 
 		var velocity = s.Velocity;
 		float spin = s.SpinDegrees * MathF.PI / 180f;
@@ -94,9 +99,12 @@ public static class ThrowBake
 
 			if ((f - frame) % keyEvery == 0 || f == lastFrame)
 			{
+				// The key just before a catch is stepped: the catch's keys are in the
+				// catcher's space, so the flight mustn't slide toward them
 				float t = f / (float)fps;
-				translate.Track.Add(t, position - bone.SetupPosition, CurveType.Linear);
-				rotate.Track.Add(t, rotation - bone.SetupRotation, CurveType.Linear);
+				var curve = f == lastFrame && caught ? CurveType.Stepped : CurveType.Linear;
+				translate.Track.Add(t, position - bone.SetupPosition, curve);
+				rotate.Track.Add(t, rotation - bone.SetupRotation, curve);
 			}
 		}
 		return true;

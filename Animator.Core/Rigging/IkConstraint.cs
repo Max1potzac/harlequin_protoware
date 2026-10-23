@@ -25,6 +25,10 @@ public class IkConstraint
     {
         if (Mix <= 0f || Bones.Count == 0) return;   // pure FK: nothing to do
 
+        // While a bone of the chain is detached or held by another bone, the chain is broken:
+        // IK lets go and the bones play their FK keys (a severed arm shouldn't keep reaching)
+        if (Bones.Any(b => b.SpaceOverridden)) return;
+
         var target = Target.World.Translation;
 
         // Remember the FK result so we can blend back toward it
@@ -45,9 +49,9 @@ public class IkConstraint
 
     private static float WorldAngle(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
 
-    // Angle of the bone's parent (or whatever it follows right now), as seen by this bone
+    // Angle of the bone's parent, as seen by this bone
     private static float ParentAngle(Bone b) =>
-        b.SpaceParent != null && b.InheritRotation ? WorldAngle(b.SpaceParent.World) : 0f;
+        b.Parent != null && b.InheritRotation ? WorldAngle(b.Parent.World) : 0f;
 
     // Exact solution using the law of cosines on the triangle
     // (root → elbow → target).
@@ -81,7 +85,7 @@ public class IkConstraint
 
         // Convert world angles back into local rotations
         b1.Rotation = world1 - ParentAngle(b1);
-        b2.Rotation = world2 - (b2.SpaceParent == b1 ? (b2.InheritRotation ? world1 : 0f) : ParentAngle(b2));
+        b2.Rotation = world2 - (b2.InheritRotation ? world1 : 0f);
     }
 
     // CCD (Cyclic Coordinate Descent): working from the tip back to the root,

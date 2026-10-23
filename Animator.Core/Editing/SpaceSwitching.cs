@@ -37,6 +37,12 @@ public static class SpaceSwitching
 	}
 
 	// Switches what `bone` follows from `frame` on. Returns false if nothing changed.
+	//
+	// At the switch frame nothing moves: compensating keys re-express the bone's current
+	// on-screen position, rotation and scale in the new space. After it, the bone's own
+	// position, rotation and scale keys (up to the next switch) are removed, because they were
+	// made for the old space: the bone simply stays where it is in its new space (lying still
+	// when detached, carried along when held) until you animate it, or throw it.
 	public static bool Switch(Skeleton skeleton, Animation animation, Bone bone,
 							  int frame, int fps, string? newSpace)
 	{
@@ -44,49 +50,31 @@ public static class SpaceSwitching
 		if (!CanFollow(skeleton, bone, newSpace)) return false;
 		if (SpaceAt(animation, bone, time) == newSpace) return false;
 
-		// Keys after this frame, up to the next switch, were made in the old space.
-		// They get re-expressed in the new one, so the motion you already see stays the same.
-		float end = NextSwitchTime(animation, bone, time) ?? float.MaxValue;
+		// 1. Measure the pose at the switch, as the animation is now
+		IkMatching.Evaluate(skeleton, animation, time);
+		var target = Measure(skeleton, bone, newSpace);
+		// Keep the new rotation within half a turn of the old one, so nothing spins
+		float rotation = target.Rotation + MathUtil.ShortestAngle(target.RotationShift);
+
+		// Detaching (or handing over) a bone breaks any IK chain it's in, and IK lets go
+		// of a broken chain. So the chain's other bones keep their IK pose as FK keys.
+		// (A chain that is already broken has nothing to keep: it's playing FK already.)
+		var chainPose = new Dictionary<Bone, float>();
+		if (newSpace != null)
+			foreach (var ik in skeleton.IkConstraints.Where(c =>
+						 c.Mix > 0f && c.Bones.Contains(bone) && !c.Bones.Any(b => b.SpaceOverridden)))
+				foreach (var other in ik.Bones.Where(b => b != bone))
+					chainPose[other] = other.Rotation;
 
 		var translate = animation.GetOrCreate(bone.Name, n => new TranslateTimeline(n));
 		var rotate = animation.GetOrCreate(bone.Name, n => new RotateTimeline(n));
 		var scale = animation.Find<ScaleTimeline>(bone.Name);
+		bool needScale = scale != null || Vector2.DistanceSquared(target.Scale, bone.SetupScale) > 1e-8f;
+		var space = animation.GetOrCreate(bone.Name, n => new SpaceTimeline(n));
 
-		var times = new SortedSet<float> { time };
-		foreach (Timeline? timeline in new Timeline?[] { translate, rotate, scale })
-			if (timeline != null)
-				foreach (float t in timeline.KeyTimes)
-					if (t > time + KeyHelpers.Epsilon && t < end - KeyHelpers.Epsilon &&
-						t <= animation.Duration + KeyHelpers.Epsilon)   // keys past the end never play
-						times.Add(t);
-
-		// 1. Measure, with the animation as it is now, what each of those moments looks like
-		//    and what the bone's values must become in the new space to look the same
-		var targets = new Dictionary<float, LocalPose>();
-		foreach (float t in times)
-		{
-			IkMatching.Evaluate(skeleton, animation, t);
-			targets[t] = Measure(skeleton, bone, newSpace);
-		}
-
-		// The rotation changes by the difference between the old and new space's angles.
-		// Rotation keys interpolate as plain numbers, so that difference is kept continuous
-		// from key to key; the bone's own turns (even a 720° spin) are left exactly as they were.
-		var rotations = new Dictionary<float, float>();
-		float? previousShift = null;
-		foreach (float t in times)
-		{
-			float shift = previousShift is { } prev
-				? prev + MathUtil.ShortestAngle(targets[t].RotationShift - prev)
-				: MathUtil.ShortestAngle(targets[t].RotationShift);
-			previousShift = shift;
-			rotations[t] = targets[t].Rotation + shift;
-		}
-
-		bool needScale = scale != null ||
-						 targets.Values.Any(p => Vector2.DistanceSquared(p.Scale, bone.SetupScale) > 1e-8f);
-
-		// 2. Pin everything one frame earlier, so the frames before the switch don't change
+		// 2. Pin everything one frame earlier, so the frames before the switch don't change.
+		//    (The space row needs no pin: a space key never reaches back before itself,
+		//    and a pin there would look like one more switch.)
 		KeyHelpers.PinBefore(translate, frame, fps, Vector2.Zero);
 		KeyHelpers.PinBefore(rotate, frame, fps, 0f);
 		if (needScale)
@@ -94,29 +82,46 @@ public static class SpaceSwitching
 			scale ??= animation.GetOrCreate(bone.Name, n => new ScaleTimeline(n));
 			KeyHelpers.PinBefore(scale, frame, fps, Vector2.One);
 		}
-		var space = animation.GetOrCreate(bone.Name, n => new SpaceTimeline(n));
-		KeyHelpers.PinBefore(space, frame, fps, (string?)null);
+		foreach (var other in chainPose.Keys)
+			KeyHelpers.PinBefore(animation.GetOrCreate(other.Name, n => new RotateTimeline(n)), frame, fps, 0f);
 
-		// 3. Re-express the later keys
-		foreach (float t in times)
-		{
-			if (t <= time + KeyHelpers.Epsilon) continue;
-			KeyHelpers.SetValueAt(translate, t, targets[t].Position - bone.SetupPosition);
-			KeyHelpers.SetValueAt(rotate, t, rotations[t] - bone.SetupRotation);
-			if (scale != null) KeyHelpers.SetValueAt(scale, t, Ratio(targets[t].Scale, bone.SetupScale));
-		}
+		// 3. Clear the bone's old-space keys between this switch and the next one
+		float? next = NextSwitchTime(animation, bone, time);
+		float end = next ?? float.MaxValue;
+		bool Later(float t) => t > time + KeyHelpers.Epsilon && t < end - KeyHelpers.Epsilon;
+		translate.Track.Keys.RemoveAll(k => Later(k.Time));
+		rotate.Track.Keys.RemoveAll(k => Later(k.Time));
+		scale?.Track.Keys.RemoveAll(k => Later(k.Time));
 
 		// 4. The switch itself
-		translate.Track.Add(time, targets[time].Position - bone.SetupPosition);
-		rotate.Track.Add(time, rotations[time] - bone.SetupRotation);
-		if (scale != null) scale.Track.Add(time, Ratio(targets[time].Scale, bone.SetupScale));
+		var position = target.Position - bone.SetupPosition;
+		float turn = rotation - bone.SetupRotation;
+		var stretch = Ratio(target.Scale, bone.SetupScale);
+		translate.Track.Add(time, position);
+		rotate.Track.Add(time, turn);
+		scale?.Track.Add(time, stretch);
 		space.Track.Add(time, newSpace, CurveType.Stepped);
+
+		// 5. Hold still until the next switch. Its keys are in the space it starts, so nothing
+		//    may slide toward them before it (that's why the last key before it is stepped).
+		if (next is { } nextTime)
+		{
+			float hold = MathF.Max(time, (MathF.Round(nextTime * fps) - 1) / fps);
+			translate.Track.Add(hold, position, CurveType.Stepped);
+			rotate.Track.Add(hold, turn, CurveType.Stepped);
+			scale?.Track.Add(hold, stretch, CurveType.Stepped);
+		}
+
+		// 6. The rest of a broken IK chain holds the pose IK gave it at this frame
+		foreach (var (other, otherRotation) in chainPose)
+			animation.GetOrCreate(other.Name, n => new RotateTimeline(n))
+					 .Track.Add(time, otherRotation - other.SetupRotation);
 		return true;
 	}
 
 	// What the bone's local values must become, measured from `newSpace` instead of what it
 	// follows now, to keep its current on-screen transform. The new rotation is
-	// Rotation + RotationShift (kept apart so the caller can keep the shift continuous).
+	// Rotation + RotationShift (kept apart so the shift can be kept small).
 	private readonly record struct LocalPose(Vector2 Position, float Rotation, float RotationShift, Vector2 Scale);
 
 	private static LocalPose Measure(Skeleton skeleton, Bone bone, string? newSpace)
