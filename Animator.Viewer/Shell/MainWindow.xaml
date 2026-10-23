@@ -413,6 +413,16 @@
                  ToolTip="Frames per second for the whole project. Timing is kept in seconds." />
                     <CheckBox x:Name="AnimLoop" Content="Loop" Foreground="White" VerticalAlignment="Center"
                   Margin="0,4,12,4" Click="AnimLoop_Click" />
+                    <CheckBox x:Name="OnionBox" Content="Onion skin (O)" Foreground="White" VerticalAlignment="Center"
+                  Margin="0,4,6,4" Click="Onion_Click"
+                  ToolTip="Faint copies of the neighbouring frames: red = before, blue = after. In the paint editor: the part's previous and next drawings, under the one you paint." />
+                    <TextBlock Text="before" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
+                    <ComboBox x:Name="OnionBefore" Width="42" Margin="0,4,6,4" SelectionChanged="OnionSettings_Changed" />
+                    <TextBlock Text="after" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
+                    <ComboBox x:Name="OnionAfter" Width="42" Margin="0,4,6,4" SelectionChanged="OnionSettings_Changed" />
+                    <TextBlock Text="every" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
+                    <ComboBox x:Name="OnionStep" Width="42" Margin="0,4,12,4" SelectionChanged="OnionSettings_Changed"
+                  ToolTip="Viewport ghosts: every Nth frame (2 = for animating on twos)" />
                     <TextBlock x:Name="AnimHint" Foreground="#FF8080" VerticalAlignment="Center" Margin="0,4,8,4" />
                 </WrapPanel>
 

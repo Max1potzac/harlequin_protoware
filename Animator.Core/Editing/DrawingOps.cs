@@ -172,6 +172,40 @@ public static class DrawingOps
 		return HoldChange.Done;
 	}
 
+	// Onion skin for drawings: the drawings of the part's previous and next exposures around
+	// `time`, nearest first. Hidden stretches and repeats of the current drawing are skipped
+	// (there's nothing new to see in them).
+	public static (List<string> Before, List<string> After) Neighbors(
+		Animation animation, Slot slot, float time, int before, int after)
+	{
+		var exposures = Exposures(animation, slot);
+		int current = Math.Max(0, exposures.FindLastIndex(e => e.Time <= time + KeyHelpers.Epsilon));
+		string? shown = exposures[current].Drawing;
+
+		var earlier = new List<string>();
+		for (int i = current - 1; i >= 0 && earlier.Count < before; i--)
+			if (exposures[i].Drawing is { } name && name != shown) earlier.Add(name);
+
+		var later = new List<string>();
+		for (int i = current + 1; i < exposures.Count && later.Count < after; i++)
+			if (exposures[i].Drawing is { } name && name != shown) later.Add(name);
+
+		return (earlier, later);
+	}
+
+	// The part's exposures in order: when each one starts, and what it shows.
+	// Before the row's first key (or without a row) the rest drawing shows.
+	private static List<(float Time, string? Drawing)> Exposures(Animation animation, Slot slot)
+	{
+		var exposures = new List<(float Time, string? Drawing)>();
+		var keys = animation.Find<AttachmentTimeline>(slot.Name)?.Track.Keys;
+		if (keys == null || keys.Count == 0 || keys[0].Time > KeyHelpers.Epsilon)
+			exposures.Add((0f, slot.SetupAttachment));
+		if (keys != null)
+			foreach (var key in keys) exposures.Add((key.Time, key.Value));
+		return exposures;
+	}
+
 	// ---------- helpers ----------
 
 	private static IEnumerable<AttachmentTimeline> Rows(IEnumerable<Animation> animations, Slot slot) =>
