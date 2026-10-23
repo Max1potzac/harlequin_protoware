@@ -3,7 +3,10 @@
   <!-- Automatic checks of the core logic. GitHub runs them after every build;
        in Visual Studio: Test > Run All Tests. -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- Windows, because some tests check the paint tools of the (WPF) viewer -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -18,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Animator.Core\Animator.Core.csproj" />
+    <ProjectReference Include="..\Animator.Viewer\Animator.Viewer.csproj" />
   </ItemGroup>
 
 </Project>

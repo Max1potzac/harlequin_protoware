@@ -135,19 +135,28 @@ public class PaintCanvas
 		}
 	}
 
+	// Marching ants around the selection, and around a selection shape still being made
 	private void DrawSelection(SKCanvas c)
 	{
-		if (_s.Selection is not { } r) return;
-		var a = ImageToScreen(new Vector2(r.Left, r.Top));
-		var b = ImageToScreen(new Vector2(r.Right, r.Bottom));
-		var rect = new SKRect(a.X, a.Y, b.X, b.Y);
+		if (_s.Selection is { } mask) DrawAnts(c, mask.Outline);
+		if (_s.Tool is ShapeSelectTool { Preview: { } preview }) DrawAnts(c, preview);
+	}
 
+	private void DrawAnts(SKCanvas c, SKPath path)
+	{
+		float px = 1f / Zoom;   // one screen pixel, in image pixels
 		float phase = Environment.TickCount64 / 60 % 8;
-		using var dash = SKPathEffect.CreateDash(new[] { 4f, 4f }, phase);
-		using var black = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
-		using var white = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = 1, PathEffect = dash };
-		c.DrawRect(rect, black);
-		c.DrawRect(rect, white);
+		using var dash = SKPathEffect.CreateDash(new[] { 4 * px, 4 * px }, phase * px);
+		using var black = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = px };
+		using var white = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Stroke, StrokeWidth = px, PathEffect = dash };
+
+		c.Save();
+		c.Translate(ViewSize.X / 2, ViewSize.Y / 2);
+		c.Scale(Zoom);
+		c.Translate(-Pan.X, -Pan.Y);
+		c.DrawPath(path, black);
+		c.DrawPath(path, white);
+		c.Restore();
 	}
 
 	private void DrawGradientGuide(SKCanvas c)
@@ -161,15 +170,22 @@ public class PaintCanvas
 		c.DrawCircle(a.X, a.Y, 3, dot);
 	}
 
-	// Small squares on placed polyline/curve points. The first one is bigger: click it to close.
+	// Small squares on placed polyline/curve points (Figure and Select tools).
+	// The first one is bigger: click it to close.
 	private void DrawFigureGuide(SKCanvas c)
 	{
-		if (_s.Tool is not FigureTool { PlacingPoints: true } f) return;
+		var points = _s.Tool switch
+		{
+			FigureTool { PlacingPoints: true } f => f.Points,
+			ShapeSelectTool { PlacingPoints: true } sel => sel.Points,
+			_ => null
+		};
+		if (points == null) return;
 		using var fill = new SKPaint { Color = SKColors.White };
 		using var edge = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
-		for (int i = 0; i < f.Points.Count; i++)
+		for (int i = 0; i < points.Count; i++)
 		{
-			var p = ImageToScreen(f.Points[i]);
+			var p = ImageToScreen(points[i]);
 			float r = i == 0 ? 5f : 3.5f;
 			c.DrawRect(p.X - r, p.Y - r, r * 2, r * 2, fill);
 			c.DrawRect(p.X - r, p.Y - r, r * 2, r * 2, edge);
@@ -209,6 +225,7 @@ public class PaintCanvas
 		var m = Keyboard.Modifiers;
 		_s.ShiftHeld = m.HasFlag(ModifierKeys.Shift);
 		_s.CtrlHeld = m.HasFlag(ModifierKeys.Control);
+		_s.AltHeld = m.HasFlag(ModifierKeys.Alt);
 	}
 
 	public void MouseDown(Vector2 screen, MouseButton button, bool alt, int clickCount)
@@ -219,7 +236,7 @@ public class PaintCanvas
 
 		ReadModifiers();
 		_s.ClickCount = clickCount;
-		_active = alt ? _altPicker : _s.Tool;
+		_active = alt && !_s.Tool.UsesAlt ? _altPicker : _s.Tool;   // Alt+click picks a color, except with tools that use Alt
 		_active.Down(_s, ScreenToImage(screen));
 	}
 

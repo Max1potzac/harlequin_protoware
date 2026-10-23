@@ -1,0 +1,128 @@
+<Window x:Class="Animator.Viewer.Dialogs.ColorPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Pick a colour" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" Background="#24272E" ShowInTaskbar="False">
+    <Grid Margin="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Saturation (left to right) and brightness (top to bottom) for the chosen hue -->
+        <Grid x:Name="SvArea" Grid.Column="0" Width="230" Height="230" Cursor="Cross" ClipToBounds="True"
+              MouseLeftButtonDown="Area_MouseDown" MouseMove="Area_MouseMove" MouseLeftButtonUp="Area_MouseUp">
+            <Rectangle x:Name="HueFill" Fill="Red" />
+            <Rectangle>
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="White" Offset="0" />
+                        <GradientStop Color="#00FFFFFF" Offset="1" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Rectangle>
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00000000" Offset="0" />
+                        <GradientStop Color="Black" Offset="1" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Canvas IsHitTestVisible="False">
+                <Ellipse x:Name="SvMarker" Width="12" Height="12" Stroke="White" StrokeThickness="2" />
+            </Canvas>
+        </Grid>
+
+        <!-- Hue: the colour wheel unrolled, top to bottom -->
+        <Grid x:Name="HueArea" Grid.Column="1" Width="22" Height="230" Margin="10,0,0,0" Cursor="Hand" ClipToBounds="True"
+              MouseLeftButtonDown="Area_MouseDown" MouseMove="Area_MouseMove" MouseLeftButtonUp="Area_MouseUp">
+            <Rectangle>
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#FF0000" Offset="0" />
+                        <GradientStop Color="#FFFF00" Offset="0.1667" />
+                        <GradientStop Color="#00FF00" Offset="0.3333" />
+                        <GradientStop Color="#00FFFF" Offset="0.5" />
+                        <GradientStop Color="#0000FF" Offset="0.6667" />
+                        <GradientStop Color="#FF00FF" Offset="0.8333" />
+                        <GradientStop Color="#FF0000" Offset="1" />
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+            <Canvas IsHitTestVisible="False">
+                <Rectangle x:Name="HueMarker" Width="22" Height="4" Stroke="White" StrokeThickness="1.5" />
+            </Canvas>
+        </Grid>
+
+        <!-- Opacity: opaque at the top, transparent at the bottom -->
+        <Grid x:Name="AlphaArea" Grid.Column="2" Width="22" Height="230" Margin="10,0,0,0" Cursor="Hand" ClipToBounds="True"
+              ToolTip="Opacity (transparency)"
+              MouseLeftButtonDown="Area_MouseDown" MouseMove="Area_MouseMove" MouseLeftButtonUp="Area_MouseUp">
+            <Rectangle Fill="{StaticResource CheckerBrush}" />
+            <Rectangle x:Name="AlphaFill" />
+            <Canvas IsHitTestVisible="False">
+                <Rectangle x:Name="AlphaMarker" Width="22" Height="4" Stroke="White" StrokeThickness="1.5" />
+            </Canvas>
+        </Grid>
+
+        <!-- Numbers and the before / after preview -->
+        <StackPanel Grid.Column="3" Margin="14,0,0,0" Width="150">
+            <TextBlock Text="New / before" Foreground="#9AA4B2" Margin="0,0,0,4" />
+            <Grid Height="40" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Rectangle Grid.ColumnSpan="2" Fill="{StaticResource CheckerBrush}" />
+                <Rectangle x:Name="NewPreview" Grid.Column="0" />
+                <Rectangle x:Name="OldPreview" Grid.Column="1" />
+                <Border Grid.ColumnSpan="2" BorderBrush="White" BorderThickness="1" />
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Hex" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,6" />
+                <TextBox x:Name="HexBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,6" Tag="Hex"
+                         KeyDown="Field_KeyDown" LostFocus="Field_LostFocus"
+                         ToolTip="#RRGGBB, or #AARRGGBB with transparency (AA: 00 = invisible, FF = solid)" />
+
+                <TextBlock Grid.Row="1" Text="Red" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,6" />
+                <TextBox x:Name="RedBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" Tag="R"
+                         KeyDown="Field_KeyDown" LostFocus="Field_LostFocus" />
+                <TextBlock Grid.Row="2" Text="Green" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,6" />
+                <TextBox x:Name="GreenBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,6" Tag="G"
+                         KeyDown="Field_KeyDown" LostFocus="Field_LostFocus" />
+                <TextBlock Grid.Row="3" Text="Blue" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,6" />
+                <TextBox x:Name="BlueBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,6" Tag="B"
+                         KeyDown="Field_KeyDown" LostFocus="Field_LostFocus" />
+                <TextBlock Grid.Row="4" Text="Opacity %" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,6" />
+                <TextBox x:Name="AlphaBox" Grid.Row="4" Grid.Column="1" Margin="0,0,0,6" Tag="A"
+                         KeyDown="Field_KeyDown" LostFocus="Field_LostFocus"
+                         ToolTip="100 = solid, 0 = invisible" />
+            </Grid>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.ColumnSpan="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="OK" Width="80" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click" />
+            <Button Content="Cancel" Width="80" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

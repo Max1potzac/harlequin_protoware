@@ -19,6 +19,9 @@ public abstract class PaintTool
 
 	// Called when switching away from this tool, to finish any pending work
 	public virtual void Deactivate(PaintSession s) { }
+
+	// Alt+click picks a color with most tools; tools that use Alt themselves say so here
+	public virtual bool UsesAlt => false;
 }
 
 
@@ -70,7 +73,7 @@ public sealed class FillTool : PaintTool
 			if (visited[i]) continue;
 			visited[i] = true;
 			if (!s.InSelection(cx, cy)) continue;
-			if (!Similar(sample.Data[i], target, s.Tolerance)) continue;
+			if (!MagicWand.Similar(sample.Data[i], target, s.Tolerance)) continue;
 
 			result.Data[i] = fill;
 			stack.Push((cx + 1, cy));
@@ -83,48 +86,17 @@ public sealed class FillTool : PaintTool
 		s.Asset.MarkEdited();
 		s.CommitPixels("Fill", before);
 	}
-
-	// Every channel within `tolerance` of the other (byte order doesn't matter)
-	private static bool Similar(int a, int b, int tolerance)
-	{
-		for (int shift = 0; shift < 32; shift += 8)
-			if (Math.Abs(((a >> shift) & 0xFF) - ((b >> shift) & 0xFF)) > tolerance)
-				return false;
-		return true;
-	}
 }
 
-public sealed class RectSelectTool : PaintTool
-{
-	public override string Name => "Select";
-	private Vector2 _start;
-
-	public override void Down(PaintSession s, Vector2 p)
-	{
-		_start = p;
-		s.Selection = null;   // a click without dragging deselects
-	}
-
-	public override void Move(PaintSession s, Vector2 p)
-	{
-		if (s.Asset is not { } a) return;
-		int x0 = Math.Clamp((int)MathF.Floor(MathF.Min(_start.X, p.X)), 0, a.Width);
-		int y0 = Math.Clamp((int)MathF.Floor(MathF.Min(_start.Y, p.Y)), 0, a.Height);
-		int x1 = Math.Clamp((int)MathF.Ceiling(MathF.Max(_start.X, p.X)), 0, a.Width);
-		int y1 = Math.Clamp((int)MathF.Ceiling(MathF.Max(_start.Y, p.Y)), 0, a.Height);
-		s.Selection = x1 > x0 && y1 > y0 ? new SKRectI(x0, y0, x1, y1) : null;
-	}
-}
-
-// Moves the selected pixels, or the whole layer when nothing is selected
+// Moves the selected pixels (any shape), or the whole layer when nothing is selected.
+// The selection travels with them; pixels and selection undo together.
 public sealed class MoveTool : PaintTool
 {
 	public override string Name => "Move";
 
 	private PixelBuffer? _before;
-	private SKBitmap? _floating;          // the pixels being carried
-	private SKRectI _region;
-	private SKRectI? _selectionAtStart;
+	private SKBitmap? _floating;          // the pixels being carried (the rest transparent)
+	private SelectionMask? _maskAtStart;
 	private Vector2 _start;
 	private (int X, int Y) _offset;
 
@@ -132,16 +104,16 @@ public sealed class MoveTool : PaintTool
 	{
 		if (s.LayerBitmap is not { } layer) return;
 		_before = PixelBuffer.Read(layer);
-		_region = s.Selection ?? new SKRectI(0, 0, layer.Width, layer.Height);
-		_selectionAtStart = s.Selection;
+		_maskAtStart = s.Selection;
 		_start = p;
 		_offset = (0, 0);
 
-		// Copy the region out of the layer, so it can be lifted and dropped elsewhere
-		_floating = new SKBitmap(AssetStore.InfoFor(_region.Width, _region.Height));
+		// Copy the selected pixels out of the layer, so they can be lifted and dropped elsewhere
+		_floating = new SKBitmap(AssetStore.InfoFor(layer.Width, layer.Height));
 		_floating.Erase(SKColors.Transparent);
 		using var c = new SKCanvas(_floating);
-		c.DrawBitmap(layer, -_region.Left, -_region.Top, AssetStore.Nearest, null);
+		if (_maskAtStart is { } mask) c.ClipRegion(mask.Region);
+		c.DrawBitmap(layer, 0, 0, AssetStore.Nearest, null);
 	}
 
 	public override void Move(PaintSession s, Vector2 p)
@@ -159,24 +131,25 @@ public sealed class MoveTool : PaintTool
 		using (var c = new SKCanvas(layer))
 		{
 			c.Save();
-			c.ClipRect(SKRect.Create(_region.Left, _region.Top, _region.Width, _region.Height));
+			if (_maskAtStart is { } mask) c.ClipRegion(mask.Region);
 			c.Clear(SKColors.Transparent);    // leave a hole where the pixels were
 			c.Restore();
-			c.DrawBitmap(_floating, _region.Left + dx, _region.Top + dy, AssetStore.Nearest, null);
+			c.DrawBitmap(_floating, dx, dy, AssetStore.Nearest, null);
 		}
 
-		if (_selectionAtStart is { } r)       // the selection travels with its pixels
-			s.Selection = new SKRectI(r.Left + dx, r.Top + dy, r.Right + dx, r.Bottom + dy);
+		if (_maskAtStart is { } selection)    // the selection travels with its pixels
+			s.Selection = selection.Offset(dx, dy);
 
 		s.Asset.MarkEdited();
 	}
 
 	public override void Up(PaintSession s)
 	{
-		if (_before != null && _offset != (0, 0)) s.CommitPixels("Move", _before);
+		if (_before != null && _offset != (0, 0)) s.CommitMove(_before, _maskAtStart);
 		_floating?.Dispose();
 		_floating = null;
 		_before = null;
+		_maskAtStart = null;
 	}
 }
 
