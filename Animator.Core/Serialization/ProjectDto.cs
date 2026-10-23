@@ -11,9 +11,35 @@ public record Vec(float X, float Y)
 	public Vector2 ToVector2() => new(X, Y);
 }
 
-public class ProjectDto
+// The whole file. Since format 6 a project is a scene: a list of objects, each with its own
+// rig and animations. Older files kept a single rig at the top level (the RigDto fields),
+// and still load: as one object.
+public class ProjectDto : RigDto
 {
 	public int Fps { get; set; } = 30;
+	public List<ObjectDto>? Objects { get; set; }
+}
+
+// One object in the scene: its place and settings, plus its rig and animations
+public class ObjectDto : RigDto
+{
+	public string Name { get; set; } = "";
+	public ObjectKind Kind { get; set; }
+	public Vec Position { get; set; } = new(0, 0);
+	public float Rotation { get; set; }
+	public Vec Scale { get; set; } = new(1, 1);
+	public bool Visible { get; set; } = true;
+	public bool Locked { get; set; }
+	public bool Export { get; set; } = true;
+	public bool Onion { get; set; } = true;
+	public string? PreviewAnimation { get; set; }
+	public string? AttachObject { get; set; }   // attached to this object's bone (null = free)
+	public string? AttachBone { get; set; }
+}
+
+// A rig: bones, parts, pixels, skins, constraints and its animations
+public class RigDto
+{
 	public List<BoneDto> Bones { get; set; } = new();
 	public List<SlotDto> Slots { get; set; } = new();
 	public List<AssetDto> Assets { get; set; } = new();

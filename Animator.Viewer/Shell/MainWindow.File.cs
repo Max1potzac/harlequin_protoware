@@ -45,6 +45,7 @@ public partial class MainWindow
 		_state.Animations.Clear();
 		_state.Animations.Add(_anim);
 		_state.Animation = _anim;
+		_scene = SingleObjectScene();
 
 		_projectPath = null;
 		ResetEditorState();
@@ -71,14 +72,10 @@ public partial class MainWindow
 		}
 
 		ClosePaintEditor();
-		_skeleton.ReplaceWith(loaded.Skeleton);
+		_scene = loaded.Scene;
 		_assets.ReplaceWith(loaded.Store);
-		_state.Animations.Clear();
-		_state.Animations.AddRange(loaded.Animations);
-		if (_state.Animations.Count == 0)
-			_state.Animations.Add(new Animation { Name = "animation", Duration = 2f, Loop = true });
-		_state.Animation = _state.Animations[0];
-		_state.Fps = loaded.Fps;
+		_state.Fps = _scene.Fps;
+		EditObject(_scene.Objects[0]);
 
 		_projectPath = dialog.FileName;
 		ResetEditorState();
@@ -118,7 +115,8 @@ public partial class MainWindow
 		try
 		{
 			using var thumbnail = RenderThumbnail(256);
-			ProjectFile.Save(path, _skeleton, _state.Animations, _state.Fps, _assets, thumbnail);
+			_scene.Fps = _state.Fps;
+			ProjectFile.Save(path, _scene, _assets, thumbnail);
 			_projectPath = path;
 			_state.Undo.MarkSaved();   // fires Undo.Changed, which refreshes the title
 			return true;
