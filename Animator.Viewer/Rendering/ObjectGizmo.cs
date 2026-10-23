@@ -58,7 +58,8 @@ public static class ObjectGizmo
 		return new SKRect(minX, minY, maxX, maxY);
 	}
 
-	public static void Draw(SKCanvas canvas, ObjectHandles h, float zoom)
+	// handles: false = just the box (a locked object can't be moved, turned or scaled)
+	public static void Draw(SKCanvas canvas, ObjectHandles h, float zoom, bool handles = true)
 	{
 		float px = 1f / zoom;
 		using var line = new SKPaint { Color = Green, Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f * px, IsAntialias = true };
@@ -70,6 +71,7 @@ public static class ObjectGizmo
 			var b = h.Corners[(i + 1) % 4];
 			canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
 		}
+		if (!handles) return;
 		float s = 4 * px;
 		foreach (var c in h.Corners) canvas.DrawRect(c.X - s, c.Y - s, s * 2, s * 2, fill);
 		canvas.DrawLine(h.Top.X, h.Top.Y, h.Rotate.X, h.Rotate.Y, line);

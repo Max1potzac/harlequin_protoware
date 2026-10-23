@@ -40,7 +40,12 @@ public class AssetStore
 	// For copied objects: the new layer gets its own copy of the old layer's pixels
 	public void CopyPixels(Guid fromLayer, Guid toLayer)
 	{
-		if (_layers.TryGetValue(fromLayer, out var source)) _layers[toLayer] = source.Copy();
+		if (!_layers.TryGetValue(fromLayer, out var source)) return;
+		var copy = new SKBitmap(source.Info);
+		copy.Erase(SKColors.Transparent);
+		using (var canvas = new SKCanvas(copy))
+			canvas.DrawBitmap(source, 0, 0, Nearest, null);   // over transparent = an exact copy
+		_layers[toLayer] = copy;
 	}
 
 	// Single-image convenience: replaces all layers with one "Base" layer

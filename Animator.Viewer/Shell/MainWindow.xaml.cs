@@ -258,7 +258,7 @@ public partial class MainWindow : Window
 				case Key.B: FlipElbow(); break;
 				case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
 				case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
-				case Key.F: _camera.Reset(); break;
+				case Key.F: ResetView(); break;
 				case Key.E: AddEventAt(_state.Frame); break;
 				case Key.F5 when shift: ChangeHold(-1); break;
 				case Key.F5: ChangeHold(+1); break;
@@ -390,7 +390,7 @@ public partial class MainWindow : Window
 		Status.Text =
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
 			$"Object: {_active?.Name ?? "-"}    Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
-			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
+			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view (centred on this object)\n" +
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +

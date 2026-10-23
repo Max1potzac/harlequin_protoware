@@ -161,8 +161,16 @@ public partial class MainWindow
 
 		if (Editing)
 			DrawInSpace(canvas, _camera.Space, () => _renderer.DrawOverlays(canvas, _skeleton));
-		else if (_objectTool.Selected is { } selected && _scene.Objects.Contains(selected))
-			ObjectGizmo.Draw(canvas, ObjectGizmo.For(_scene, selected, _renderer, _camera.Zoom), _camera.Zoom);
+		else if (_objectTool.Selected is { Visible: true } selected && _scene.Objects.Contains(selected))
+			ObjectGizmo.Draw(canvas, ObjectGizmo.For(_scene, selected, _renderer, _camera.Zoom), _camera.Zoom,
+							 handles: !selected.Locked);
+	}
+
+	// F: zoom 1, centred on the open object's origin (at scene level, on the scene's)
+	private void ResetView()
+	{
+		_camera.Reset();
+		if (Editing) _camera.Pan = _camera.Space.Translation;
 	}
 
 	// Draws in an object's space. The renderer keeps lines and handles the same size on screen.
@@ -205,7 +213,7 @@ public partial class MainWindow
 			case Key.Enter when _objectTool.Selected is { } obj: EnterObject(obj); break;
 			case Key.Delete: DeleteCurrentObject(); break;
 			case Key.Escape: _objectTool.Selected = null; break;
-			case Key.F: _camera.Reset(); break;
+			case Key.F: ResetView(); break;
 			case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
 			case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
 			case Key.O: ToggleOnion(); break;
