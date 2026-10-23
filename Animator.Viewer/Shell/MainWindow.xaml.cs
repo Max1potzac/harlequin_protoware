@@ -40,6 +40,7 @@ public partial class MainWindow : Window
 		BuildDemoAnimation();
 
 		_state = new EditorState(_skeleton, _anim);
+		_scene = SingleObjectScene();
 		_tool = new BoneTool(_state, _camera, _renderer);
 		_timeline = new TimelinePanel(_state);
 		_state.Undo.Changed += UpdateStatus;

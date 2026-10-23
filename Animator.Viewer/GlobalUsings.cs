@@ -10,3 +10,4 @@ global using Animator.Viewer.Painting;
 global using Animator.Viewer.Dialogs;
 global using Animator.Core.Serialization;
 global using Animator.Viewer.Files;
+global using Animator.Core.Scenes;

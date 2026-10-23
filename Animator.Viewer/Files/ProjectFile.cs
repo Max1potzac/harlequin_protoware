@@ -10,8 +10,9 @@ public static class ProjectFile
 {
 	public const string Extension = ".hqnap";
 	public const string Filter = "Harlequin Animation Project (*.hqnap)|*.hqnap";
-	public const int FormatVersion = 5;   // 2: depth rotation, look constraints. 3: detach/attach keys, events.
-	                                      // 4: placement keys. 5: blend modes, part colour and opacity
+	public const int FormatVersion = 6;   // 2: depth rotation, look constraints. 3: detach/attach keys, events.
+	                                      // 4: placement keys. 5: blend modes, part colour and opacity.
+	                                      // 6: a scene of objects, each with its own rig and animations
 
 	private sealed class Manifest
 	{
@@ -21,14 +22,13 @@ public static class ProjectFile
 		public DateTime SavedUtc { get; set; } = DateTime.UtcNow;
 	}
 
-	public sealed record LoadedProject(Skeleton Skeleton, List<Animation> Animations, int Fps, AssetStore Store);
+	public sealed record LoadedProject(Scene Scene, AssetStore Store);
 
 	// ======================= save =======================
 
-	public static void Save(string path, Skeleton skeleton, IEnumerable<Animation> animations,
-							int fps, AssetStore store, SKBitmap? thumbnail)
+	public static void Save(string path, Scene scene, AssetStore store, SKBitmap? thumbnail)
 	{
-		var dto = ProjectMapper.ToDto(skeleton, animations, fps);
+		var dto = ProjectMapper.SceneToDto(scene);
 
 		// Write a temporary file first: a crash mid-save can't damage the existing project
 		string temp = path + ".saving";
@@ -38,7 +38,7 @@ public static class ProjectFile
 			WriteJson(zip, "manifest.json", new Manifest());
 			WriteJson(zip, "project.json", dto);
 
-			foreach (var asset in skeleton.Assets.Values)
+			foreach (var asset in scene.Objects.SelectMany(o => o.Skeleton.Assets.Values))
 				foreach (var layer in asset.Layers)
 					if (store.GetLayer(layer) is { } bmp)
 						WritePng(zip, $"layers/{layer.Id}.png", bmp);
@@ -84,17 +84,17 @@ public static class ProjectFile
 		var dto = ReadJson<ProjectDto>(zip, "project.json")
 			?? throw new InvalidDataException("The project data (project.json) is missing.");
 
-		var (skeleton, animations) = ProjectMapper.FromDto(dto);
+		var scene = ProjectMapper.SceneFromDto(dto);
 
 		var store = new AssetStore();
-		foreach (var asset in skeleton.Assets.Values)
+		foreach (var asset in scene.Objects.SelectMany(o => o.Skeleton.Assets.Values))
 			foreach (var layer in asset.Layers)
 			{
 				using var pixels = ReadPng(zip, $"layers/{layer.Id}.png");   // missing = empty layer
 				store.AttachLayer(asset, layer, pixels);
 			}
 
-		return new LoadedProject(skeleton, animations, dto.Fps, store);
+		return new LoadedProject(scene, store);
 	}
 
 	private static T? ReadJson<T>(ZipArchive zip, string name)

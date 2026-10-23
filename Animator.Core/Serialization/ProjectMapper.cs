@@ -18,9 +18,79 @@ public static class ProjectMapper
 
 	// ======================= model -> file =======================
 
+	// A single rig in the old (format 5 and earlier) shape. Kept for tests and old-style callers.
 	public static ProjectDto ToDto(Skeleton skeleton, IEnumerable<Animation> animations, int fps)
 	{
 		var dto = new ProjectDto { Fps = fps };
+		WriteRig(dto, skeleton, animations);
+		return dto;
+	}
+
+	// The whole scene (format 6): every object with its rig and animations
+	public static ProjectDto SceneToDto(Scene scene)
+	{
+		var dto = new ProjectDto { Fps = scene.Fps, Objects = new List<ObjectDto>() };
+		foreach (var o in scene.Objects)
+		{
+			var objectDto = new ObjectDto
+			{
+				Name = o.Name,
+				Kind = o.Kind,
+				Position = Vec.From(o.Position),
+				Rotation = o.Rotation,
+				Scale = Vec.From(o.Scale),
+				Visible = o.Visible,
+				Locked = o.Locked,
+				Export = o.Export,
+				Onion = o.Onion,
+				PreviewAnimation = o.PreviewAnimation,
+				AttachObject = o.AttachObject,
+				AttachBone = o.AttachBone
+			};
+			WriteRig(objectDto, o.Skeleton, o.Animations);
+			dto.Objects.Add(objectDto);
+		}
+		return dto;
+	}
+
+	// Reads a scene. Files from before scenes (one rig, no objects) become one object.
+	public static Scene SceneFromDto(ProjectDto dto, string singleObjectName = "Character")
+	{
+		var scene = new Scene { Fps = dto.Fps };
+		if (dto.Objects is not { Count: > 0 } objects)
+		{
+			var (skeleton, animations) = FromDto(dto);
+			var only = new SceneObject(singleObjectName, ObjectKind.Rigged, skeleton);
+			only.Animations.AddRange(animations);
+			scene.Objects.Add(only);
+			return scene;
+		}
+
+		foreach (var o in objects)
+		{
+			if (scene.Find(o.Name) != null) throw new InvalidDataException($"Two objects are named '{o.Name}'.");
+			var (skeleton, animations) = FromDto(o);
+			var obj = new SceneObject(o.Name, o.Kind, skeleton)
+			{
+				Position = o.Position.ToVector2(),
+				Rotation = o.Rotation,
+				Scale = o.Scale.ToVector2(),
+				Visible = o.Visible,
+				Locked = o.Locked,
+				Export = o.Export,
+				Onion = o.Onion,
+				PreviewAnimation = o.PreviewAnimation,
+				AttachObject = o.AttachObject,
+				AttachBone = o.AttachBone
+			};
+			obj.Animations.AddRange(animations);
+			scene.Objects.Add(obj);
+		}
+		return scene;
+	}
+
+	private static void WriteRig(RigDto dto, Skeleton skeleton, IEnumerable<Animation> animations)
+	{
 
 		foreach (var b in skeleton.AllBones())   // parents always come before their children
 		{
@@ -115,7 +185,6 @@ public static class ProjectMapper
 			});
 		}
 
-		return dto;
 	}
 
 	private static SkinDto SkinToDto(Skin skin) => new()
@@ -218,7 +287,7 @@ public static class ProjectMapper
 
 	// ======================= file -> model =======================
 
-	public static (Skeleton Skeleton, List<Animation> Animations) FromDto(ProjectDto dto)
+	public static (Skeleton Skeleton, List<Animation> Animations) FromDto(RigDto dto)
 	{
 		var skeleton = new Skeleton();
 		var bones = new Dictionary<string, Bone>();
