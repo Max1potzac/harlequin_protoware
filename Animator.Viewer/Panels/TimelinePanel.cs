@@ -16,6 +16,8 @@ public class TimelinePanel
     private const float KeyPickPx = 7f;
 
     private float _frameWidth = 10f;
+    private float _scroll;          // how far the rows are scrolled up, in pixels
+    private float _viewHeight;
 
     private enum Drag { None, Scrub, Keys }
     private Drag _drag;
@@ -38,17 +40,31 @@ public class TimelinePanel
     private float FrameToTime(int frame) => frame / (float)_state.Fps;
     private int TimeToFrame(float time) => (int)MathF.Round(time * _state.Fps);
 
+    private float RowTop(int row) => RulerHeight + row * RowHeight - _scroll;
+    private int RowAt(float y) => (int)MathF.Floor((y - RulerHeight + _scroll) / RowHeight);
+
+    // The frame under an x position, kept inside the animation
+    public int FrameAt(float x) => Math.Clamp(XToFrame(x), 0, _state.FrameCount);
+
+    // Over the keys (not the row names or the ruler)
+    public bool IsInKeyArea(Vector2 p) => p.X >= LabelWidth && p.Y >= RulerHeight;
+
     // ======================= drawing =======================
 
     public void Draw(SKCanvas canvas, Vector2 size)
     {
+        _viewHeight = size.Y;
+        ClampScroll();
+
         int frames = Math.Max(1, _state.FrameCount);
         _frameWidth = Math.Max(4f, (size.X - LabelWidth - LeftPad * 2) / frames);
 
         canvas.Clear(new SKColor(30, 33, 39));
 
         using var font = new SKFont { Size = 12 };
+        using var smallFont = new SKFont { Size = 11 };
         using var text = new SKPaint { Color = new SKColor(200, 200, 200), IsAntialias = true };
+        using var eventText = new SKPaint { Color = new SKColor(140, 230, 160), IsAntialias = true };
         using var tick = new SKPaint { Color = new SKColor(255, 255, 255, 90), StrokeWidth = 1 };
         using var divider = new SKPaint { Color = new SKColor(255, 255, 255, 30), StrokeWidth = 1 };
         using var segment = new SKPaint { Color = new SKColor(255, 200, 60, 70), StrokeWidth = 2 };
@@ -56,7 +72,10 @@ public class TimelinePanel
         using var key = new SKPaint { Color = new SKColor(255, 200, 60), IsAntialias = true };
         using var keyRow = new SKPaint { Color = new SKColor(80, 220, 255), IsAntialias = true };
         using var keyPicked = new SKPaint { Color = SKColors.White, IsAntialias = true };
+        using var spaceKey = new SKPaint { Color = new SKColor(190, 130, 255), IsAntialias = true };
+        using var eventKey = new SKPaint { Color = new SKColor(120, 220, 140), IsAntialias = true, StrokeWidth = 1.5f };
         using var playhead = new SKPaint { Color = new SKColor(255, 90, 90), StrokeWidth = 2 };
+        using var scrollbar = new SKPaint { Color = new SKColor(255, 255, 255, 50), IsAntialias = true };
 
         if (_state.AnimateMode)
             canvas.DrawRect(0, 0, size.X, 3, playhead);
@@ -72,22 +91,40 @@ public class TimelinePanel
         }
         canvas.DrawLine(0, RulerHeight, size.X, RulerHeight, divider);
 
-        // Rows
+        // Rows, scrolled, and clipped so they never cover the ruler
+        canvas.Save();
+        canvas.ClipRect(new SKRect(0, RulerHeight, size.X, size.Y));
+
         var timelines = _state.Animation.Timelines;
         for (int i = 0; i < timelines.Count; i++)
         {
+            float y = RowTop(i);
+            if (y + RowHeight < RulerHeight || y > size.Y) continue;   // scrolled out of view
+
             var tl = timelines[i];
-            float y = RulerHeight + i * RowHeight;
             float cy = y + RowHeight / 2;
-            bool boneRow = _state.Selected != null && tl.Target == _state.Selected.Name;
+            bool boneRow = _state.Selected != null && RigOps.TargetsBone(tl) && tl.Target == _state.Selected.Name;
 
             if (boneRow) canvas.DrawRect(0, y, size.X, RowHeight, rowSel);
             canvas.DrawLine(0, y + RowHeight, size.X, y + RowHeight, divider);
 
             canvas.Save();
             canvas.ClipRect(new SKRect(0, y, LabelWidth - 4, y + RowHeight));
-            canvas.DrawText(tl.Label, 8, y + 14, SKTextAlign.Left, font, text);
+            canvas.DrawText(tl.Label, 8, y + 14, SKTextAlign.Left, font, tl is EventTimeline ? eventText : text);
             canvas.Restore();
+
+            if (tl is EventTimeline events)
+            {
+                // Events: a flag per marker, with its name beside it
+                foreach (var k in events.Track.Keys)
+                {
+                    int f = TimeToFrame(k.Time);
+                    float x = FrameToX(f);
+                    DrawFlag(canvas, x, cy, Sel.Contains((tl, f)) ? keyPicked : eventKey);
+                    canvas.DrawText(k.Value.Name, x + 7, y + 14, SKTextAlign.Left, smallFont, eventText);
+                }
+                continue;
+            }
 
             var keys = tl.KeyInfos.ToList();
 
@@ -100,10 +137,25 @@ public class TimelinePanel
             foreach (var (t, curve) in keys)
             {
                 int f = TimeToFrame(t);
-                var paint = Sel.Contains((tl, f)) ? keyPicked : boneRow ? keyRow : key;
+                var paint = Sel.Contains((tl, f)) ? keyPicked
+                          : tl is SpaceTimeline ? spaceKey
+                          : boneRow ? keyRow
+                          : key;
                 DrawKey(canvas, FrameToX(f), cy, curve, paint);
             }
         }
+
+        // A thin scrollbar when there are more rows than fit
+        float content = timelines.Count * RowHeight;
+        float visible = size.Y - RulerHeight;
+        if (content > visible && visible > 0)
+        {
+            float barHeight = MathF.Max(16, visible * visible / content);
+            float barTop = RulerHeight + (visible - barHeight) * (_scroll / (content - visible));
+            canvas.DrawRoundRect(size.X - 6, barTop, 4, barHeight, 2, 2, scrollbar);
+        }
+
+        canvas.Restore();
 
         canvas.DrawLine(LabelWidth, 0, LabelWidth, size.Y, divider);
 
@@ -134,17 +186,51 @@ public class TimelinePanel
         }
     }
 
+    // A little flag: a pole with a pennant at the top
+    private static void DrawFlag(SKCanvas canvas, float x, float y, SKPaint paint)
+    {
+        canvas.DrawLine(x, y - 7, x, y + 7, paint);
+        canvas.DrawRect(x, y - 7, 6, 5, paint);
+    }
+
+    // ======================= scrolling =======================
+
+    public void Wheel(int delta)
+    {
+        _scroll -= delta / 120f * RowHeight * 2;   // one wheel notch = two rows
+        ClampScroll();
+    }
+
+    private void ClampScroll()
+    {
+        float content = _state.Animation.Timelines.Count * RowHeight;
+        float visible = MathF.Max(0, _viewHeight - RulerHeight);
+        _scroll = Math.Clamp(_scroll, 0, MathF.Max(0, content - visible));
+    }
+
     // ======================= mouse =======================
 
     public void MouseDown(Vector2 p, bool shift)
     {
-        // Clicking a row's name selects that row's bone
+        // Clicking a row's name selects what that row animates (a bone, or a part)
         if (p.X < LabelWidth && p.Y > RulerHeight)
         {
-            int row = (int)((p.Y - RulerHeight) / RowHeight);
+            int row = RowAt(p.Y);
             var timelines = _state.Animation.Timelines;
-            if (row < timelines.Count)
-                _state.Selected = _state.Skeleton.FindBone(timelines[row].Target);
+            if (row >= 0 && row < timelines.Count)
+            {
+                switch (timelines[row])
+                {
+                    case AttachmentTimeline a when _state.Skeleton.FindSlot(a.Target) is { } slot:
+                        _state.SelectedSlot = slot;
+                        _state.Selected = slot.Bone;
+                        break;
+                    case var t when RigOps.TargetsBone(t):
+                        _state.SelectedSlot = null;
+                        _state.Selected = _state.Skeleton.FindBone(t.Target);
+                        break;
+                }
+            }
             return;
         }
 
@@ -240,9 +326,9 @@ public class TimelinePanel
     {
         if (p.X < LabelWidth || p.Y < RulerHeight) return null;
 
-        int row = (int)((p.Y - RulerHeight) / RowHeight);
+        int row = RowAt(p.Y);
         var timelines = _state.Animation.Timelines;
-        if (row >= timelines.Count) return null;
+        if (row < 0 || row >= timelines.Count) return null;
 
         var tl = timelines[row];
         (Timeline Tl, int Frame)? best = null;
@@ -255,6 +341,19 @@ public class TimelinePanel
         }
         return best;
     }
+
+    // ======================= events =======================
+
+    // The event marker under the mouse, if any
+    public (EventTimeline Events, int Frame)? EventAt(Vector2 p) =>
+        HitKey(p) is { Tl: EventTimeline events } hit ? (events, hit.Frame) : null;
+
+    // True when every selected key is an event marker (the right-click menu differs)
+    public bool SelectionIsEvents => Sel.Count > 0 && Sel.All(k => k.Tl is EventTimeline);
+
+    // The one selected event marker, if exactly one is selected
+    public (EventTimeline Events, int Frame)? SingleSelectedEvent =>
+        Sel.Count == 1 && Sel.First() is { Tl: EventTimeline events } only ? (events, only.Frame) : null;
 
     // ======================= key operations (all undoable) =======================
 

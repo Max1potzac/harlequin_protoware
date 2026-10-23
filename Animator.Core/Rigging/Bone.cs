@@ -28,6 +28,26 @@ public class Bone
 	// Scale including the depth rotation
 	public Vector2 EffectiveScale => new(Scale.X * MathF.Cos(Tilt), Scale.Y * MathF.Cos(Turn));
 
+	// ----- space: which bone this bone's transform is measured from -----
+	// Normally that's its parent in the hierarchy. A space key (detach / attach) can switch it,
+	// for the current frame only, to the world (the bone follows nothing) or to another bone
+	// that "holds" it. The hierarchy itself never changes: children still follow this bone.
+	private Bone? _spaceParent;
+	public bool SpaceOverridden { get; private set; }
+	public Bone? SpaceParent => SpaceOverridden ? _spaceParent : Parent;
+
+	public void SetSpace(Bone? holder)   // null = the world (detached)
+	{
+		SpaceOverridden = true;
+		_spaceParent = holder;
+	}
+
+	public void ClearSpace()
+	{
+		SpaceOverridden = false;
+		_spaceParent = null;
+	}
+
 	public void AddChild(Bone child)
     {
         child.Parent = this;
@@ -70,16 +90,18 @@ public class Bone
     public float WorldRotation => MathF.Atan2(World.M12, World.M11);
 
     // Converts a world-space point into this bone's Position space
-    // (the parent's local space). Used when dragging a bone around.
+    // (the space it follows: usually the parent's). Used when dragging a bone around.
     public Vector2 WorldToParentLocal(Vector2 world)
     {
-        if (Parent == null) return world;
-        if (!Matrix3x2.Invert(Parent.World, out var inv)) return Position; // parent scaled to zero
+        var space = SpaceParent;
+        if (space == null) return world;
+        if (!Matrix3x2.Invert(space.World, out var inv)) return Position; // space scaled to zero
         return Vector2.Transform(world, inv);
     }
 
     public void ApplyLimits()
     {
+        if (SpaceOverridden) return;   // limits are relative to the parent; a detached bone roams freely
         var offset = Position - SetupPosition;
         if (MinOffset is { } min) offset = Vector2.Max(offset, min);
         if (MaxOffset is { } max) offset = Vector2.Min(offset, max);
@@ -93,13 +115,15 @@ public class Bone
 		Scale = SetupScale;
 		Turn = SetupTurn;
 		Tilt = SetupTilt;
+		ClearSpace();
 	}
 
 	public void UpdateWorld()
 	{
 		var scale = EffectiveScale;   // includes the depth rotation
+		var parent = SpaceParent;     // usually Parent; differs while detached or held
 
-		if (Parent == null)
+		if (parent == null)
 		{
 			World = Matrix3x2.CreateScale(scale)
 				  * Matrix3x2.CreateRotation(Rotation)
@@ -110,11 +134,11 @@ public class Bone
 			var local = Matrix3x2.CreateScale(scale)
 					  * Matrix3x2.CreateRotation(Rotation)
 					  * Matrix3x2.CreateTranslation(Position);
-			World = local * Parent.World;
+			World = local * parent.World;
 		}
 		else
 		{
-			var p = Parent.World;
+			var p = parent.World;
 			var worldPos = Vector2.Transform(Position, p);
 
 			var parentLinear = Matrix3x2.Identity;

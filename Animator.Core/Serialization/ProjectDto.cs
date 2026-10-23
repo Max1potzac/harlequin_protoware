@@ -101,13 +101,14 @@ public class AnimationDto
 
 public class TimelineDto
 {
-	public string Type { get; set; } = "";    // rotate, translate, scale, attachment, ikMix
+	public string Type { get; set; } = "";    // rotate, translate, scale, depth, attachment, ikMix, space, events
 	public string Target { get; set; } = "";
 	public List<KeyDto> Keys { get; set; } = new();
 }
 
-// One shape for every key type: rotate/ikMix use X, translate/scale use X+Y,
-// attachment uses Name (null = hide the slot)
+// One shape for every key type: rotate/ikMix use X, translate/scale/depth use X+Y,
+// attachment uses Name (null = hide the slot), space uses Name (null = own parent,
+// "" = detached, otherwise the holding bone), events use Name + Data
 public class KeyDto
 {
 	public float T { get; set; }
@@ -115,6 +116,7 @@ public class KeyDto
 	public float? X { get; set; }
 	public float? Y { get; set; }
 	public string? Name { get; set; }
+	public string? Data { get; set; }
 }
 public class LookDto
 {

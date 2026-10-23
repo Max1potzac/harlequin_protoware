@@ -23,7 +23,7 @@ public abstract class Timeline
     public abstract void RestoreKeys(object keys);
 
 
-    public string Label => $"{Target} ({GetType().Name.Replace("Timeline", "")})";
+    public virtual string Label => $"{Target} ({GetType().Name.Replace("Timeline", "")})";
 }
 
 // Shared plumbing for every timeline built on a Track<T>
@@ -159,4 +159,47 @@ public class DepthTimeline : TrackTimeline<Vector2>
 			bone.Turn = bone.SetupTurn + v.Y;
 		}
 	}
+}
+
+// Detach / attach keys: which bone this bone follows from each key on.
+// Values: null = its own parent (normal), World ("") = nothing (detached),
+// anything else = the name of the bone holding it. Always stepped: following is on or off.
+// While a key is active, the bone's position/rotation keys are measured in that space.
+public class SpaceTimeline : TrackTimeline<string?>
+{
+	public const string World = "";   // bone names can't be empty, so this can't clash
+
+	public SpaceTimeline(string bone) : base(bone, (a, b, t) => a) { }
+
+	public override void Apply(Skeleton skeleton, float time)
+	{
+		var bone = skeleton.FindBone(Target);
+		if (bone == null || Track.Keys.Count == 0 || time < Track.Keys[0].Time) return;
+		if (!Track.TrySample(time, out var space)) return;
+
+		if (space == null) bone.ClearSpace();
+		else if (space == World) bone.SetSpace(null);
+		else bone.SetSpace(skeleton.FindBone(space));   // a holder that no longer exists = detached
+	}
+}
+
+// One event marker: a name the game reacts to, plus optional data (a bone name, a sound...)
+public readonly record struct AnimationEvent(string Name, string? Data = null);
+
+// Named moments the game reacts to ("footstep", "arm_off", "shoot"). They don't move anything.
+public class EventTimeline : TrackTimeline<AnimationEvent>
+{
+	public const string TargetName = "events";
+
+	public EventTimeline() : base(TargetName, (a, b, t) => a) { }
+
+	public override void Apply(Skeleton skeleton, float time) { }   // events don't pose the rig
+
+	public override string Label => "Events";
+
+	public void Add(float time, AnimationEvent e) => Track.Add(time, e, CurveType.Stepped);
+
+	// Events playback passes when moving from one time to the next: (from, to]
+	public IEnumerable<AnimationEvent> Between(float from, float to) =>
+		Track.Keys.Where(k => k.Time > from && k.Time <= to).Select(k => k.Value);
 }

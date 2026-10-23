@@ -26,11 +26,11 @@ public class LookConstraint
 		Center = Bone.Position;   // after animation and limits, before this constraint
 		if (Mix <= 0f) return;
 
-		// Where's the target, seen from the iris's parent?
+		// Where's the target, seen from the iris's parent (or whatever it follows right now)?
 		Vector2 target = Target.World.Translation;
-		if (Bone.Parent != null)
+		if (Bone.SpaceParent is { } space)
 		{
-			if (!Matrix3x2.Invert(Bone.Parent.World, out var inverse)) return;   // parent squashed flat
+			if (!Matrix3x2.Invert(space.World, out var inverse)) return;   // parent squashed flat
 			target = Vector2.Transform(target, inverse);
 		}
 

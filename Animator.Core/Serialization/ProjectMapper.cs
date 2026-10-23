@@ -161,6 +161,18 @@ public static class ProjectMapper
 			Target = d.Target,
 			Keys = d.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
 		},
+		SpaceTimeline sp => new TimelineDto
+		{
+			Type = "space",
+			Target = sp.Target,
+			Keys = sp.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value }).ToList()
+		},
+		EventTimeline ev => new TimelineDto
+		{
+			Type = "events",
+			Target = ev.Target,
+			Keys = ev.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value.Name, Data = k.Value.Data }).ToList()
+		},
 		_ => throw new NotSupportedException($"Saving '{timeline.GetType().Name}' is not supported yet.")
 	};
 
@@ -305,6 +317,18 @@ public static class ProjectMapper
 				{
 					var tl = new DepthTimeline(t.Target);
 					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve);
+					return tl;
+				}
+			case "space":
+				{
+					var tl = new SpaceTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, k.Name, CurveType.Stepped);
+					return tl;
+				}
+			case "events":
+				{
+					var tl = new EventTimeline();
+					foreach (var k in t.Keys) tl.Add(k.T, new AnimationEvent(k.Name ?? "event", k.Data));
 					return tl;
 				}
 			default:

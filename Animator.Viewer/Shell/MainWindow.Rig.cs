@@ -214,6 +214,8 @@ public partial class MainWindow
 			? $"Part of IK chain \"{inChain.Name}\". Select its last bone ({inChain.Bones[^1].Name}) to edit it."
 			: "";
 
+		ShowSpaceChoices(bone);
+
 		_syncingRig = false;
 		RefreshBoneValues();
 	}
@@ -244,6 +246,8 @@ public partial class MainWindow
 			bool usePose = pose && PoseFields.Contains(field);
 			SetField(box, bone != null ? Num(FieldValue(bone, field, usePose)) : "");
 		}
+
+		SyncSpaceChoice();   // what the bone follows can change from frame to frame
 	}
 
 	private float? FieldValue(Bone bone, string field, bool pose)

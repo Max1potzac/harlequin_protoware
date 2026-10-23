@@ -58,7 +58,13 @@ public partial class MainWindow : Window
 		double now = _clock.Elapsed.TotalSeconds;
 		float dt = (float)(now - _last);
 		_last = now;
-		if (_state.Playing) _state.Advance(dt);
+		if (_state.Playing)
+		{
+			float before = _state.Time;
+			_state.Advance(dt);
+			FireEvents(before, _state.Time);
+		}
+		UpdateEventFlash();
 
 		_skeleton.SetToSetupPose();
 		_state.Animation.Apply(_skeleton, _state.Time);
@@ -138,9 +144,17 @@ public partial class MainWindow : Window
 		if (e.ChangedButton == MouseButton.Right)
 		{
 			if (_timeline.SelectForMenu(p)) ShowKeyMenu();
+			else if (_timeline.IsInKeyArea(p)) ShowTimelineMenu(_timeline.FrameAt(p.X));
 			return;
 		}
 		if (e.ChangedButton != MouseButton.Left) return;
+
+		// Double-click an event marker to rename it or change its data
+		if (e.ClickCount == 2 && _timeline.EventAt(p) is { } clicked)
+		{
+			EditEventAt(clicked.Events, clicked.Frame);
+			return;
+		}
 
 		_timeline.MouseDown(p, Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
 		TimelineView.CaptureMouse();
@@ -154,6 +168,8 @@ public partial class MainWindow : Window
 		_timeline.MouseUp();
 		TimelineView.ReleaseMouseCapture();
 	}
+
+	private void Timeline_MouseWheel(object sender, MouseWheelEventArgs e) => _timeline.Wheel(e.Delta);
 
 	// ---------- keyboard ----------
 
@@ -205,6 +221,7 @@ public partial class MainWindow : Window
 				case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
 				case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
 				case Key.F: _camera.Reset(); break;
+				case Key.E: AddEventAt(_state.Frame); break;
 				case Key.Escape: ClosePaintEditor(); break;
 				default: return;
 			}
@@ -230,35 +247,6 @@ public partial class MainWindow : Window
 		var after = AnimationSnapshot.Capture(_state.Animation);
 		_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
 			$"Delete key on {bone.Name} @ frame {_state.Frame}", before, after, s => s.Restore()));
-	}
-	private void ShowKeyMenu()
-	{
-		var menu = new ContextMenu();
-		var current = _timeline.SelectedCurve();
-
-		foreach (var curve in Enum.GetValues<CurveType>())
-		{
-			var item = new MenuItem
-			{
-				Header = curve.ToString(),
-				IsCheckable = true,
-				IsChecked = current == curve   // tick mark shows the current curve
-			};
-			item.Click += (_, _) => _timeline.SetCurve(curve);
-			menu.Items.Add(item);
-		}
-
-		menu.Items.Add(new Separator());
-
-		var copy = new MenuItem { Header = "Copy", InputGestureText = "Ctrl+C" };
-		copy.Click += (_, _) => _timeline.Copy();
-		menu.Items.Add(copy);
-
-		var delete = new MenuItem { Header = "Delete", InputGestureText = "Del" };
-		delete.Click += (_, _) => _timeline.DeleteSelected();
-		menu.Items.Add(delete);
-
-		menu.IsOpen = true;   // opens at the mouse position by default
 	}
 	// The constraint the selected bone belongs to (as target or chain), else the first one
 	private IkConstraint? ActiveIk()
@@ -340,6 +328,7 @@ public partial class MainWindow : Window
 			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
+			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
 			"Paint: double-click a part. Over the canvas: M select, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick\n" +
 			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   " +
 			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +

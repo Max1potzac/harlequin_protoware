@@ -41,7 +41,11 @@ public class EditorState
 	{
 		var before = CaptureStructure();
 		string? name = change();
-		if (name == null) return false;
+		if (name == null)
+		{
+			before.Restore();   // safety net: undo anything a change did before giving up
+			return false;
+		}
 		PushStructure(before, name);
 		return true;
 	}
