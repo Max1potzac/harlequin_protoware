@@ -215,7 +215,7 @@ public sealed class ShapeSelectTool : PaintTool
 
 // Photoshop's Magic Wand: click a color to select it. Uses the Tolerance slider;
 // "Contiguous" = only the connected area, otherwise that color everywhere.
-// Shift adds, Alt subtracts, both intersect.
+// Shift adds, Alt subtracts, both intersect. A plain click on what's already selected deselects.
 public sealed class MagicWandTool : PaintTool
 {
 	public override string Name => "Wand";
@@ -227,10 +227,17 @@ public sealed class MagicWandTool : PaintTool
 		int x = (int)MathF.Floor(p.X), y = (int)MathF.Floor(p.Y);
 		if (x < 0 || y < 0 || x >= layer.Width || y >= layer.Height) return;
 
+		var mode = s.ModeForClick();
+		if (mode == SelectMode.New && s.Selection is { } current && current.Contains(x, y))
+		{
+			s.Deselect();   // clicking the selection again lets go of it
+			return;
+		}
+
 		var sample = s.SampleAllLayers && s.Composite is { } merged ? PixelBuffer.Read(merged) : PixelBuffer.Read(layer);
 		var bits = MagicWand.Select(sample, x, y, s.Tolerance, s.WandContiguous);
 		var shape = SelectionMask.FromBits(asset.Width, asset.Height, bits);
-		s.ApplySelection(shape, s.ModeForClick(), "Magic wand");
+		s.ApplySelection(shape, mode, "Magic wand");
 	}
 }
 
@@ -273,12 +280,19 @@ public static class MagicWand
 		return selected;
 	}
 
-	// Every channel (whatever the byte order) within `tolerance` of the other
-	public static bool Similar(int a, int b, int tolerance)
+	// Close enough to the clicked colour: every channel (whatever the byte order) within
+	// `tolerance` (0..255). Clicking something drawn never takes fully see-through pixels
+	// with it, so at the top tolerance the wand gets everything drawn and nothing empty.
+	// Clicking an empty spot takes faint pixels too, up to the tolerance (soft edges).
+	public static bool Similar(int pixel, int target, int tolerance)
 	{
+		if (Alpha(target) != 0 && Alpha(pixel) == 0) return false;
 		for (int shift = 0; shift < 32; shift += 8)
-			if (Math.Abs(((a >> shift) & 0xFF) - ((b >> shift) & 0xFF)) > tolerance)
+			if (Math.Abs(((pixel >> shift) & 0xFF) - ((target >> shift) & 0xFF)) > tolerance)
 				return false;
 		return true;
 	}
+
+	// Our bitmaps keep alpha in the top byte (BGRA or RGBA in memory, read as a little-endian int)
+	private static int Alpha(int pixel) => (pixel >> 24) & 0xFF;
 }

@@ -94,7 +94,7 @@ public partial class MainWindow : Window
 		_renderer.Zoom = _camera.Zoom;
 		_renderer.Selected = _state.Selected;
 		_renderer.SelectedSlot = _state.SelectedSlot;
-		_renderer.ShowPartHandles = !_state.AnimateMode;
+		_renderer.ShowPivotHandle = !_state.AnimateMode;   // in Animate mode, part drags set placement keys
 		_renderer.GhostBone = _tool.CreatePreview;
 		DrawOnionGhosts(canvas);   // behind everything else
 		_renderer.Draw(canvas, _skeleton);
@@ -338,7 +338,7 @@ public partial class MainWindow : Window
 		Status.Text =
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
 			$"Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
-			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
+			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +

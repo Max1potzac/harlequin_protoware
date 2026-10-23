@@ -338,9 +338,11 @@
                 <TextBlock x:Name="SizeLabel" Foreground="White" Width="24" Margin="4,0,0,0" VerticalAlignment="Center" />
                 <TextBlock Text="Tolerance" Foreground="White" VerticalAlignment="Center" Margin="12,0,4,0"
                ToolTip="How different a colour may be and still count as the same (Fill and Wand)" />
-                <Slider x:Name="ToleranceSlider" Width="90" Minimum="0" Maximum="128" Value="24"
+                <Slider x:Name="ToleranceSlider" Width="120" Minimum="0" Maximum="255" Value="24"
             IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"
-            ValueChanged="ToleranceSlider_Changed" />
+            ValueChanged="ToleranceSlider_Changed"
+            ToolTip="0 = only that exact colour. 255 = everything that isn't fully see-through" />
+                <TextBlock x:Name="ToleranceLabel" Foreground="White" Width="26" Margin="4,0,0,0" VerticalAlignment="Center" />
                 <CheckBox x:Name="SampleAllBox" Content="Sample all layers" Foreground="White"
               VerticalAlignment="Center" Margin="12,0,0,0" Click="SampleAll_Click"
               ToolTip="Fill, Mixer and Wand read the merged image instead of only this layer" />

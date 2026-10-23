@@ -20,14 +20,21 @@ public class BoneTool
 	private float _lastAngle;
 	private PoseSnapshot? _before;
 
-	// Part drags: the attachment's values at the start, so every move recomputes from them
-	private StructureSnapshot? _partBefore;
+	// Part drags: where the part is at the start (its drawing's placement plus any placement
+	// keys at this frame), so every mouse move recomputes from it
+	private StructureSnapshot? _partBefore;    // Setup mode: the drawing's placement changes
+	private AnimationSnapshot? _keysBefore;    // Animate mode: placement keys change
+	private bool _keyPart;
+	private Slot? _partSlot;
 	private Attachment? _att;
 	private int _attW, _attH;
 	private Vector2 _attOffset, _attScale, _attPivot;
 	private float _attRotation, _rotAccum;
 	private Vector2 _startLocal;          // mouse at drag start, in the bone's space
 	private Matrix3x2 _toImageAtStart;    // world → image pixels, at drag start
+	private Vector2 _pressScreen;         // a part only starts moving once the mouse really moves
+	private bool _partMoving;
+	private const float PartDragStartPx = 3f;
 
 	private const float JointPickPx = 9f;
 	private const float BonePickPx = 6f;
@@ -47,6 +54,8 @@ public class BoneTool
 	public void MouseDown(Vector2 screen, MouseButton button)
 	{
 		_lastScreen = screen;
+		_pressScreen = screen;
+		_partMoving = false;
 		if (button == MouseButton.Middle) { _drag = Drag.Pan; return; }
 		if (button != MouseButton.Left) return;
 
@@ -61,8 +70,8 @@ public class BoneTool
 			return;
 		}
 
-		// 1. Handles of the selected part
-		if (setup && _state.SelectedSlot is { } selected && TryPartHandle(selected, world)) return;
+		// 1. Handles of the selected part (in Animate mode, dragging one sets placement keys)
+		if (_state.SelectedSlot is { } selected && TryPartHandle(selected, world)) return;
 
 		// 2. Bones
 		var hit = HitJoint(world);
@@ -71,18 +80,18 @@ public class BoneTool
 		if (hit != null) { BeginBoneDrag(hit, mode, world); return; }
 
 		// 3. Anywhere inside the selected part's box (even transparent pixels): move it
-		if (setup && _state.SelectedSlot is { } current && InsidePart(current, world))
+		if (_state.SelectedSlot is { } current && InsidePart(current, world))
 		{
 			BeginPartDrag(current, Drag.PartMove, world);
 			return;
 		}
 
-		// 4. Any part's visible pixels: select it (and start moving it, in Setup mode)
+		// 4. Any part's visible pixels: select it, and move it if you drag
 		if (_renderer.Pick(_state.Skeleton, world) is { } part)
 		{
 			_state.SelectedSlot = part.Slot;
 			_state.Selected = part.Slot.Bone;
-			if (setup) BeginPartDrag(part.Slot, Drag.PartMove, world);
+			BeginPartDrag(part.Slot, Drag.PartMove, world);
 			return;
 		}
 
@@ -137,6 +146,9 @@ public class BoneTool
 				}
 
 			case Drag.PartMove or Drag.PartRotate or Drag.PartScale or Drag.PartPivot:
+				// A click that only selects a part shouldn't nudge it
+				if (!_partMoving && Vector2.Distance(screen, _pressScreen) < PartDragStartPx) break;
+				_partMoving = true;
 				DragPart(world);
 				break;
 		}
@@ -226,7 +238,8 @@ public class BoneTool
 		if (PartGizmo.For(_state.Skeleton, slot, _camera.Zoom) is not { } h) return false;
 		float r = HandlePickPx / _camera.Zoom;
 
-		if (Vector2.Distance(world, h.Pivot) <= r) return BeginPartDrag(slot, Drag.PartPivot, world);
+		// The pivot belongs to the rest setup, so it can only be moved in Setup mode
+		if (!_state.AnimateMode && Vector2.Distance(world, h.Pivot) <= r) return BeginPartDrag(slot, Drag.PartPivot, world);
 		if (Vector2.Distance(world, h.Rotate) <= r) return BeginPartDrag(slot, Drag.PartRotate, world);
 		foreach (var corner in h.Corners)
 			if (Vector2.Distance(world, corner) <= r) return BeginPartDrag(slot, Drag.PartScale, world);
@@ -237,7 +250,7 @@ public class BoneTool
 	{
 		var att = _state.Skeleton.ResolveAttachment(slot);
 		if (att == null || !_state.Skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return false;
-		if (!Matrix3x2.Invert(att.LocalMatrix(asset.Width, asset.Height) * slot.Bone.World, out var toImage))
+		if (!Matrix3x2.Invert(slot.ImageToBone(att, asset.Width, asset.Height) * slot.Bone.World, out var toImage))
 			return false;
 		var p = Vector2.Transform(world, toImage);
 		return p.X >= 0 && p.Y >= 0 && p.X <= asset.Width && p.Y <= asset.Height;
@@ -248,22 +261,34 @@ public class BoneTool
 		var att = _state.Skeleton.ResolveAttachment(slot);
 		if (att == null || !_state.Skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return false;
 		if (!Matrix3x2.Invert(slot.Bone.World, out var toBone)) return false;   // bone squashed flat
-		if (!Matrix3x2.Invert(att.LocalMatrix(asset.Width, asset.Height) * slot.Bone.World, out _toImageAtStart))
+		if (!Matrix3x2.Invert(slot.ImageToBone(att, asset.Width, asset.Height) * slot.Bone.World, out _toImageAtStart))
 			return false;
 
+		_keyPart = _state.AnimateMode;
 		_drag = mode;
 		_att = att;
+		_partSlot = slot;
 		_attW = asset.Width;
 		_attH = asset.Height;
-		_attOffset = att.Offset;
-		_attRotation = att.Rotation;
-		_attScale = att.Scale;
+		_attOffset = att.Offset + slot.Offset;   // where the pivot is now, in the bone's space
+		_attRotation = att.Rotation + slot.Rotation;
+		_attScale = att.Scale * slot.Scale;
 		_attPivot = att.Pivot;
 		_startLocal = Vector2.Transform(world, toBone);
 		_lastAngle = Angle(_startLocal - _attOffset);
 		_rotAccum = 0;
 
-		_partBefore = _state.CaptureStructure();
+		if (_keyPart)
+		{
+			_state.Playing = false;
+			_state.SetFrame(_state.Frame);   // keys land exactly on a frame
+			_keysBefore = AnimationSnapshot.Capture(_state.Animation);
+		}
+		else
+		{
+			_partBefore = _state.CaptureStructure();
+		}
+
 		_changed = false;
 		_state.SelectedSlot = slot;
 		_state.Selected = slot.Bone;
@@ -272,7 +297,7 @@ public class BoneTool
 
 	private void DragPart(Vector2 world)
 	{
-		if (_att == null || _state.SelectedSlot is not { } slot) return;
+		if (_att == null || _partSlot is not { } slot) return;
 		if (!Matrix3x2.Invert(slot.Bone.World, out var toBone)) return;
 		var local = Vector2.Transform(world, toBone);
 		bool shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
@@ -280,7 +305,7 @@ public class BoneTool
 		switch (_drag)
 		{
 			case Drag.PartMove:
-				_att.Offset = _attOffset + (local - _startLocal);
+				PlacePart(offset: _attOffset + (local - _startLocal));
 				break;
 
 			case Drag.PartRotate:
@@ -291,7 +316,7 @@ public class BoneTool
 					_lastAngle = angle;
 					float r = _attRotation + _rotAccum;
 					if (shift) r = MathF.Round(r / (MathF.PI / 12)) * (MathF.PI / 12);   // 15° steps
-					_att.Rotation = r;
+					PlacePart(rotation: r);
 					break;
 				}
 
@@ -303,22 +328,22 @@ public class BoneTool
 					if (shift)
 					{
 						float f = Vector2.Dot(v, v0) / MathF.Max(Vector2.Dot(v0, v0), 1e-6f);
-						_att.Scale = _attScale * f;
+						PlacePart(scale: _attScale * f);
 					}
 					else
 					{
-						_att.Scale = new Vector2(
+						PlacePart(scale: new Vector2(
 							MathF.Abs(v0.X) > 0.5f ? _attScale.X * v.X / v0.X : _attScale.X,
-							MathF.Abs(v0.Y) > 0.5f ? _attScale.Y * v.Y / v0.Y : _attScale.Y);
+							MathF.Abs(v0.Y) > 0.5f ? _attScale.Y * v.Y / v0.Y : _attScale.Y));
 					}
 					break;
 				}
 
-			case Drag.PartPivot:
+			case Drag.PartPivot when !_keyPart:
 				{
 					var pixel = Vector2.Transform(world, _toImageAtStart);
 					if (shift) pixel = new Vector2(MathF.Round(pixel.X), MathF.Round(pixel.Y));
-					_att.Offset = _attOffset;   // start from the original placement every time
+					_att.Offset = _attOffset - slot.Offset;   // start from the original placement every time
 					_att.Pivot = _attPivot;
 					PartOps.SetPivotKeepingPlace(_att, _attW, _attH, pixel);
 					break;
@@ -327,9 +352,46 @@ public class BoneTool
 		_changed = true;
 	}
 
+	// Where the part should be (its pivot's position, rotation and scale on the bone).
+	// Setup mode moves the drawing itself; Animate mode keys the part's placement at this frame.
+	private void PlacePart(Vector2? offset = null, float? rotation = null, Vector2? scale = null)
+	{
+		if (_att == null || _partSlot is not { } slot) return;
+
+		if (!_keyPart)
+		{
+			if (offset is { } o) _att.Offset = o - slot.Offset;
+			if (rotation is { } r) _att.Rotation = r - slot.Rotation;
+			if (scale is { } sc) _att.Scale = new Vector2(Ratio(sc.X, slot.Scale.X), Ratio(sc.Y, slot.Scale.Y));
+			return;
+		}
+
+		// Keys are what's added on top of the drawing's own placement. Setting the slot too
+		// shows the change right away, before the next frame poses the rig from the keys.
+		var animation = _state.Animation;
+		float time = _state.Time;
+		if (offset is { } off)
+		{
+			slot.Offset = off - _att.Offset;
+			animation.GetOrCreate(slot.Name, n => new PartTranslateTimeline(n)).Track.Add(time, slot.Offset);
+		}
+		if (rotation is { } rot)
+		{
+			slot.Rotation = rot - _att.Rotation;
+			animation.GetOrCreate(slot.Name, n => new PartRotateTimeline(n)).Track.Add(time, slot.Rotation);
+		}
+		if (scale is { } scl)
+		{
+			slot.Scale = new Vector2(Ratio(scl.X, _att.Scale.X), Ratio(scl.Y, _att.Scale.Y));
+			animation.GetOrCreate(slot.Name, n => new PartScaleTimeline(n)).Track.Add(time, slot.Scale);
+		}
+	}
+
+	private static float Ratio(float value, float rest) => MathF.Abs(rest) < 1e-6f ? value : value / rest;
+
 	private void FinishPartDrag()
 	{
-		if (_changed && _partBefore != null && _state.SelectedSlot is { } slot)
+		if (_changed && _state.SelectedSlot is { } slot)
 		{
 			string verb = _drag switch
 			{
@@ -338,10 +400,17 @@ public class BoneTool
 				Drag.PartScale => "Scale",
 				_ => "Set pivot of"
 			};
-			_state.PushStructure(_partBefore, $"{verb} part {slot.Name}");
+			if (_keyPart && _keysBefore != null)
+				_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
+					$"{verb} part {slot.Name} (key @ frame {_state.Frame})",
+					_keysBefore, AnimationSnapshot.Capture(_state.Animation), k => k.Restore()));
+			else if (_partBefore != null)
+				_state.PushStructure(_partBefore, $"{verb} part {slot.Name}");
 		}
 		_partBefore = null;
+		_keysBefore = null;
 		_att = null;
+		_partSlot = null;
 	}
 
 	// ======================= hit testing & math =======================

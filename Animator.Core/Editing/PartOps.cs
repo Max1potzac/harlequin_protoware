@@ -6,7 +6,8 @@ namespace Animator.Core.Editing;
 public static class PartOps
 {
 	// Rows that animate a part (as opposed to a bone; parts and bones can share names)
-	public static bool TargetsPart(Timeline t) => t is AttachmentTimeline;
+	public static bool TargetsPart(Timeline t) =>
+		t is AttachmentTimeline or PartTranslateTimeline or PartRotateTimeline or PartScaleTimeline;
 
 	public static string UniqueSlotName(Skeleton skeleton, string baseName)
 	{
@@ -44,7 +45,7 @@ public static class PartOps
 		skeleton.Slots.Remove(slot);
 		foreach (var skin in skeleton.AllSkins()) skin.RemoveSlot(slot.Name);
 		foreach (var anim in animations)
-			anim.Timelines.RemoveAll(t => t is AttachmentTimeline && t.Target == slot.Name);
+			anim.Timelines.RemoveAll(t => TargetsPart(t) && t.Target == slot.Name);
 		RemoveUnusedAssets(skeleton);
 	}
 
@@ -68,7 +69,7 @@ public static class PartOps
 		foreach (var skin in skeleton.AllSkins()) skin.RenameSlot(oldName, newName);
 		foreach (var anim in animations)
 			foreach (var t in anim.Timelines)
-				if (t is AttachmentTimeline && t.Target == oldName) t.Target = newName;
+				if (TargetsPart(t) && t.Target == oldName) t.Target = newName;
 		return true;
 	}
 

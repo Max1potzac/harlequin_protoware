@@ -134,6 +134,44 @@ public class AttachmentTimeline : TrackTimeline<string?>
     }
 }
 
+// Placement keys: a part moved, turned or scaled on its bone over time, without moving the
+// bone. Values are on top of the drawing's own placement (0 = where it rests, scale 1 = as is).
+public class PartTranslateTimeline : TrackTimeline<Vector2>
+{
+    public PartTranslateTimeline(string slot) : base(slot, Vector2.Lerp) { }
+
+    public override void Apply(Skeleton skeleton, float time)
+    {
+        if (skeleton.FindSlot(Target) is { } slot && Track.TrySample(time, out var v)) slot.Offset = v;
+    }
+
+    public override string Label => $"{Target} (part move)";
+}
+
+public class PartRotateTimeline : TrackTimeline<float>
+{
+    public PartRotateTimeline(string slot) : base(slot, (a, b, t) => a + (b - a) * t) { }
+
+    public override void Apply(Skeleton skeleton, float time)
+    {
+        if (skeleton.FindSlot(Target) is { } slot && Track.TrySample(time, out var v)) slot.Rotation = v;
+    }
+
+    public override string Label => $"{Target} (part turn)";
+}
+
+public class PartScaleTimeline : TrackTimeline<Vector2>
+{
+    public PartScaleTimeline(string slot) : base(slot, Vector2.Lerp) { }
+
+    public override void Apply(Skeleton skeleton, float time)
+    {
+        if (skeleton.FindSlot(Target) is { } slot && Track.TrySample(time, out var v)) slot.Scale = v;
+    }
+
+    public override string Label => $"{Target} (part scale)";
+}
+
 public class IkMixTimeline : TrackTimeline<float>
 {
     public IkMixTimeline(string constraint) : base(constraint, (a, b, t) => a + (b - a) * t) { }

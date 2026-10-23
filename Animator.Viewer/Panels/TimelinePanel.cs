@@ -288,7 +288,7 @@ public class TimelinePanel
             {
                 switch (timelines[row])
                 {
-                    case AttachmentTimeline a when _state.Skeleton.FindSlot(a.Target) is { } slot:
+                    case var t when PartOps.TargetsPart(t) && _state.Skeleton.FindSlot(t.Target) is { } slot:
                         _state.SelectedSlot = slot;
                         _state.Selected = slot.Bone;
                         break;
