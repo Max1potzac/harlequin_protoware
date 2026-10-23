@@ -186,8 +186,46 @@ public class SkeletonRenderer
 		Highlight = highlight;
 	}
 
+	// One onion-skin ghost: the parts in the skeleton's current pose, tinted and see-through.
+	// Drawn as one layer, so overlapping parts don't show through each other.
+	public void DrawGhost(SKCanvas canvas, Skeleton skeleton, bool before, float opacity)
+	{
+		if (!ShowImages || ImageBounds(skeleton) is not { } bounds) return;
+
+		using var tint = OnionSkin.TintFilter(before);
+		using var paint = new SKPaint { Color = OnionSkin.Fade(opacity), ColorFilter = tint };
+		canvas.SaveLayer(bounds, paint);
+		DrawImages(canvas, skeleton);
+		canvas.Restore();
+	}
+
+	// The world-space box around every visible part (null = nothing to draw)
+	private SKRect? ImageBounds(Skeleton skeleton)
+	{
+		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+		foreach (var slot in skeleton.Slots)
+		{
+			var att = skeleton.ResolveAttachment(slot);
+			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
+			var m = ImageToWorld(slot, att, asset.Width, asset.Height);
+			foreach (var corner in new[] { new Vector2(0, 0), new Vector2(asset.Width, 0),
+										   new Vector2(asset.Width, asset.Height), new Vector2(0, asset.Height) })
+			{
+				var p = Vector2.Transform(corner, m);
+				minX = MathF.Min(minX, p.X);
+				minY = MathF.Min(minY, p.Y);
+				maxX = MathF.Max(maxX, p.X);
+				maxY = MathF.Max(maxY, p.Y);
+			}
+		}
+		if (minX > maxX) return null;
+		var rect = new SKRect(minX, minY, maxX, maxY);
+		rect.Inflate(2, 2);   // room for smoothing at the edges
+		return rect;
+	}
+
 	// Matrix3x2 (row-vector) -> SKMatrix. Same numbers, different names.
-	private static SKMatrix ToSk(Matrix3x2 m) => new()
+	internal static SKMatrix ToSk(Matrix3x2 m) => new()
     {
         ScaleX = m.M11,
         SkewX = m.M21,

@@ -20,6 +20,11 @@ public class PaintCanvas
 	private Vector2 _mouse;
 	private bool _mouseInside;
 
+	// Onion skin under the drawing (the part's neighbouring drawings), supplied by the main window
+	public Func<IReadOnlyList<LightTableImage>>? LightTable { get; set; }
+
+	private static readonly SKSamplingOptions Smooth = new(SKFilterMode.Linear, SKMipmapMode.None);
+
 	// Busy = mid-drag, or a figure is still being placed. Undo waits until it's done.
 	public bool IsBusy => _active != null || _s.Tool.InProgress;
 
@@ -57,6 +62,7 @@ public class PaintCanvas
 		c.Translate(ViewSize.X / 2, ViewSize.Y / 2);
 		c.Scale(Zoom);
 		c.Translate(-Pan.X, -Pan.Y);
+		DrawLightTable(c);
 		c.DrawBitmap(img, 0, 0, AssetStore.Nearest, null);
 		c.Restore();
 
@@ -69,6 +75,26 @@ public class PaintCanvas
 		DrawGradientGuide(c);
 		DrawFigureGuide(c);
 		DrawCursor(c);
+	}
+
+	// The neighbouring drawings, tinted and faint, under the one being painted (image space)
+	private void DrawLightTable(SKCanvas c)
+	{
+		if (LightTable?.Invoke() is not { Count: > 0 } images) return;
+		foreach (var image in images)
+		{
+			var m = image.Placement;
+			bool straight = MathF.Abs(m.M11 - 1) < 1e-4f && MathF.Abs(m.M22 - 1) < 1e-4f
+						 && MathF.Abs(m.M12) < 1e-4f && MathF.Abs(m.M21) < 1e-4f;
+			var matrix = SkeletonRenderer.ToSk(m);
+
+			using var tint = OnionSkin.TintFilter(image.Before);
+			using var paint = new SKPaint { Color = OnionSkin.Fade(image.Opacity), ColorFilter = tint };
+			c.Save();
+			c.Concat(in matrix);
+			c.DrawBitmap(image.Image, 0, 0, straight ? AssetStore.Nearest : Smooth, paint);
+			c.Restore();
+		}
 	}
 
 	private void DrawChecker(SKCanvas c, SKRect rect)

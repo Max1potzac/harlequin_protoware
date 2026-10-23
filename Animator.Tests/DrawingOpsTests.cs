@@ -198,4 +198,41 @@ public class DrawingOpsTests
 		Assert.False(DrawingOps.RenameDrawing(skeleton, new[] { animation }, slot, "mouth_b", "closed"));   // taken
 		Assert.False(DrawingOps.RenameDrawing(skeleton, new[] { animation }, slot, "mouth_b", "  "));       // empty
 	}
+	[Fact]
+	public void Onion_neighbors_are_the_previous_and_next_drawings_nearest_first()
+	{
+		var (skeleton, slot, animation) = Rig();
+		skeleton.DefaultSkin.Set("mouth", new Attachment { Name = "mouth_c" });
+		// rest drawing mouth_a until frame 4, then b, c, hidden, a
+		Keys(animation, slot, (4, "mouth_b"), (8, "mouth_c"), (16, "mouth_a"));
+		animation.Find<AttachmentTimeline>(slot.Name)!.Add(T(12), null);
+
+		var (before, after) = DrawingOps.Neighbors(animation, slot, T(9), 2, 2);
+
+		Assert.Equal(new List<string> { "mouth_b", "mouth_a" }, before);
+		Assert.Equal(new List<string> { "mouth_a" }, after);   // the hidden stretch is skipped
+	}
+
+	[Fact]
+	public void Onion_neighbors_skip_repeats_of_the_current_drawing()
+	{
+		var (_, slot, animation) = Rig();
+		Keys(animation, slot, (0, "mouth_a"), (4, "mouth_b"), (8, "mouth_a"));
+
+		var (before, after) = DrawingOps.Neighbors(animation, slot, T(8), 2, 2);
+
+		Assert.Equal(new List<string> { "mouth_b" }, before);
+		Assert.Empty(after);
+	}
+
+	[Fact]
+	public void Without_a_drawing_row_there_are_no_neighbors()
+	{
+		var (_, slot, animation) = Rig();
+
+		var (before, after) = DrawingOps.Neighbors(animation, slot, T(5), 3, 3);
+
+		Assert.Empty(before);
+		Assert.Empty(after);
+	}
 }

@@ -46,6 +46,7 @@ public partial class MainWindow : Window
 		InitPaint();
 		InitRigPanel();
 		InitAnimationsPanel();
+		InitOnion();
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;
@@ -66,9 +67,7 @@ public partial class MainWindow : Window
 		}
 		UpdateEventFlash();
 
-		_skeleton.SetToSetupPose();
-		_state.Animation.Apply(_skeleton, _state.Time);
-		_skeleton.UpdatePose();
+		PoseAt(_state.Time);
 
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
@@ -97,6 +96,7 @@ public partial class MainWindow : Window
 		_renderer.SelectedSlot = _state.SelectedSlot;
 		_renderer.ShowPartHandles = !_state.AnimateMode;
 		_renderer.GhostBone = _tool.CreatePreview;
+		DrawOnionGhosts(canvas);   // behind everything else
 		_renderer.Draw(canvas, _skeleton);
 	}
 
@@ -230,6 +230,7 @@ public partial class MainWindow : Window
 				case Key.F5: ChangeHold(+1); break;
 				case Key.F6: NewDrawing(copy: true); break;
 				case Key.F7: NewDrawing(copy: false); break;
+				case Key.O: ToggleOnion(); break;
 				case Key.Escape: ClosePaintEditor(); break;
 				default: return;
 			}
@@ -341,7 +342,7 @@ public partial class MainWindow : Window
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
-			"Frame by frame (select a part): F7 = new drawing, F6 = copy drawing, F5 / Shift+F5 = hold longer / shorter, Del = its key here\n" +
+			"Frame by frame (select a part): F7 = new drawing, F6 = copy drawing, F5 / Shift+F5 = hold longer / shorter, Del = its key here.   O = onion skin\n" +
 			"Paint: double-click a part. Over the canvas: M select, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick\n" +
 			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   " +
 			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
