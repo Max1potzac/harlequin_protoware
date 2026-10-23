@@ -16,13 +16,13 @@ public partial class MainWindow
 		// Bones point along their local X axis. The torso is rotated 90 degrees
 		// so it points UP; its children are positioned in that rotated space.
 		var torso = new Bone { Name = "torso", Length = 120, SetupPosition = new(0, -100), SetupRotation = quarter };
-		var head = new Bone { Name = "head", Length = 60, SetupPosition = new(120, 0) };
+		var head = new Bone { Name = "head", Length = 60, Connected = true };   // on the torso's end
 		torso.AddChild(head);
 
 		// Shoulder sits near the torso's top, on its right-hand side
 		// (local -Y maps to screen right because the torso is rotated).
 		var upper = new Bone { Name = "upper", Length = 100, SetupPosition = new(100, -40), SetupRotation = -quarter };
-		var fore = new Bone { Name = "fore", Length = 80, SetupPosition = new(100, 0) };
+		var fore = new Bone { Name = "fore", Length = 80, Connected = true };   // on the upper arm's end
 		upper.AddChild(fore);
 		torso.AddChild(upper);
 

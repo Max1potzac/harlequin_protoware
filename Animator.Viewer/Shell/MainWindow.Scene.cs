@@ -89,6 +89,7 @@ public partial class MainWindow
 		_sceneLevel = false;
 		EditObject(obj);
 		_objectTool.Selected = obj;
+		PoseScene(ClockTime);   // the panels show the pose you're about to edit
 		UpdateCameraSpace();
 		RefreshEverything();
 	}
@@ -392,7 +393,7 @@ public partial class MainWindow
 	{
 		var dialog = new NewPartDialog("New Drawn Object", "drawing",
 			"A drawn object has no bones: just parts (layers) you paint, frame by frame if you like. " +
-			"It starts with one empty part this size; add more parts inside it.") { Owner = this };
+			"It starts with one empty part this size; add more parts inside it.", 256, 256) { Owner = this };
 		if (dialog.ShowDialog() != true) return;
 		AddDrawnObject(dialog.PartName, null, dialog.PartWidth, dialog.PartHeight, paint: true);
 	}

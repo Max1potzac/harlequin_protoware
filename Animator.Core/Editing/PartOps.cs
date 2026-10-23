@@ -29,7 +29,7 @@ public static class PartOps
 		asset.Name = name;
 		skeleton.Assets[asset.Id] = asset;
 
-		var slot = new Slot(name, bone) { SetupAttachment = name };
+		var slot = new Slot(name, bone) { SetupAttachment = name, ActiveAttachment = name };   // shown right away
 		skeleton.Slots.Add(slot);
 		skeleton.DefaultSkin.Set(name, new Attachment
 		{

@@ -10,13 +10,15 @@ public partial class NewPartDialog : Window
 
 	public NewPartDialog() : this(null, null, null) { }
 
-	// The same dialog for other blank canvases (a new drawn object): its own title, name and hint
-	public NewPartDialog(string? title, string? name, string? hint)
+	// The same dialog for other blank canvases (a new drawn object): its own title, name, hint and size
+	public NewPartDialog(string? title, string? name, string? hint, int width = 64, int height = 64)
 	{
 		InitializeComponent();
 		if (title != null) Title = title;
 		if (name != null) PartName = name;
 		if (hint != null) HintText.Text = hint;
+		PartWidth = width;
+		PartHeight = height;
 		NameBox.Text = PartName;
 		WidthBox.Text = PartWidth.ToString();
 		HeightBox.Text = PartHeight.ToString();
