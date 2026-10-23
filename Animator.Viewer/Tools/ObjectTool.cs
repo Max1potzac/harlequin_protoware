@@ -107,8 +107,11 @@ public class ObjectTool
 		_moving = false;
 	}
 
-	// The front-most visible, unlocked object with a part pixel or a bone under the point
-	public SceneObject? Pick(Vector2 scenePoint)
+	// The front-most visible, unlocked object with a part pixel or a bone under the point.
+	// Failing that, a drawn object whose canvas is there (so a blank drawing can still be grabbed).
+	public SceneObject? Pick(Vector2 scenePoint) => Pick(scenePoint, canvas: false) ?? Pick(scenePoint, canvas: true);
+
+	private SceneObject? Pick(Vector2 scenePoint, bool canvas)
 	{
 		var scene = _scene();
 		for (int i = scene.Objects.Count - 1; i >= 0; i--)
@@ -118,9 +121,16 @@ public class ObjectTool
 			if (!Matrix3x2.Invert(scene.WorldTransform(obj), out var toObject)) continue;
 			var local = Vector2.Transform(scenePoint, toObject);
 
+			if (canvas)
+			{
+				if (obj.Kind == ObjectKind.Drawn && _renderer.InsidePartBox(obj.Skeleton, local)) return obj;
+				continue;
+			}
+
 			if (_renderer.Pick(obj.Skeleton, local) != null) return obj;
 
-			// Objects without pictures yet can still be grabbed by their bones
+			// Rigged objects without pictures yet can still be grabbed by their bones
+			if (obj.Kind == ObjectKind.Drawn) continue;
 			float reach = BonePickPx / (_camera.Zoom * ScaleOf(scene.WorldTransform(obj)));
 			if (obj.Skeleton.AllBones().Any(b => DistanceToSegment(local, b.World.Translation, b.TipWorld) <= reach))
 				return obj;

@@ -80,6 +80,7 @@ public partial class MainWindow
 			_state.SetFrame(_state.Frame);   // keeps the playhead inside the animation
 		}
 		if (_paint is not null) _paint.Skeleton = obj.Skeleton;
+		if (_tool is not null) _tool.BonesEnabled = obj.Kind != ObjectKind.Drawn;   // a drawn object's bone is hidden
 		UpdateCameraSpace();
 	}
 
@@ -155,15 +156,31 @@ public partial class MainWindow
 			{
 				if (Editing && !open) _renderer.DrawFaded(canvas, obj.Skeleton, FadedOpacity);
 				else _renderer.DrawParts(canvas, obj.Skeleton);
-				if (!Editing && _renderer.ImageBounds(obj.Skeleton) == null) _renderer.DrawBoneHints(canvas, obj.Skeleton);
+				if (!Editing && obj.Kind == ObjectKind.Rigged && _renderer.ImageBounds(obj.Skeleton) == null)
+					_renderer.DrawBoneHints(canvas, obj.Skeleton);   // a rig with no pictures yet
 			});
 		}
 
 		if (Editing)
+		{
 			DrawInSpace(canvas, _camera.Space, () => _renderer.DrawOverlays(canvas, _skeleton));
-		else if (_objectTool.Selected is { Visible: true } selected && _scene.Objects.Contains(selected))
+			return;
+		}
+
+		// Scene level: every object's origin as a faint cross (so even an empty one can be found)
+		foreach (var obj in _scene.Objects.Where(o => o.Visible))
+			ObjectGizmo.DrawOrigin(canvas, Vector2.Transform(Vector2.Zero, _scene.WorldTransform(obj)), _camera.Zoom);
+
+		if (_objectTool.Selected is { Visible: true } selected && _scene.Objects.Contains(selected))
+		{
 			ObjectGizmo.Draw(canvas, ObjectGizmo.For(_scene, selected, _renderer, _camera.Zoom), _camera.Zoom,
 							 handles: !selected.Locked);
+			// Carried by a bone: a dashed line from that bone's joint to the object's origin
+			if (_scene.AttachmentBone(selected) is { } bone && _scene.Find(selected.AttachObject!) is { } holder)
+				ObjectGizmo.DrawAttachLine(canvas,
+					Vector2.Transform(bone.World.Translation, _scene.WorldTransform(holder)),
+					Vector2.Transform(Vector2.Zero, _scene.WorldTransform(selected)), _camera.Zoom);
+		}
 	}
 
 	// F: zoom 1, centred on the open object's origin (at scene level, on the scene's)
@@ -319,6 +336,25 @@ public partial class MainWindow
 		else if (_objectTool.Selected is { } obj) EnterObject(obj);
 	}
 
+	// A rig edit that can also change the scene (objects carried by a bone that's renamed or
+	// deleted), as one undo step. The change returns the step's name, or null if nothing changed.
+	private bool EditStructureAndScene(Func<string?> change)
+	{
+		var sceneBefore = SceneSnapshot.Capture(_scene);
+		var rigBefore = _state.CaptureStructure();
+		string? name = change();
+		if (name == null)
+		{
+			rigBefore.Restore();
+			sceneBefore.Restore();
+			return false;
+		}
+		_state.Undo.Push(new CompositeCommand(name,
+			new SnapshotCommand<StructureSnapshot>(name, rigBefore, _state.CaptureStructure(), s => s.Restore()),
+			new SnapshotCommand<SceneSnapshot>(name, sceneBefore, SceneSnapshot.Capture(_scene), s => s.Restore())));
+		return true;
+	}
+
 	// One-shot scene edit as one undo step; the change returns the step's name, or null if nothing changed
 	private bool EditScene(Func<string?> change)
 	{
@@ -336,10 +372,61 @@ public partial class MainWindow
 	private void AddObject_Click(object sender, RoutedEventArgs e)
 	{
 		var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = PlacementMode.Bottom };
+
 		var rigged = new MenuItem { Header = "Rigged object (bones)" };
 		rigged.Click += (_, _) => AddRiggedObject();
 		menu.Items.Add(rigged);
+
+		var blank = new MenuItem { Header = "Drawn object (blank)…" };
+		blank.Click += (_, _) => AddBlankDrawnObject();
+		menu.Items.Add(blank);
+
+		var image = new MenuItem { Header = "Drawn object from image…" };
+		image.Click += (_, _) => AddDrawnObjectFromImage();
+		menu.Items.Add(image);
+
 		menu.IsOpen = true;
+	}
+
+	private void AddBlankDrawnObject()
+	{
+		var dialog = new NewPartDialog("New Drawn Object", "drawing",
+			"A drawn object has no bones: just parts (layers) you paint, frame by frame if you like. " +
+			"It starts with one empty part this size; add more parts inside it.") { Owner = this };
+		if (dialog.ShowDialog() != true) return;
+		AddDrawnObject(dialog.PartName, null, dialog.PartWidth, dialog.PartHeight, paint: true);
+	}
+
+	private void AddDrawnObjectFromImage()
+	{
+		if (PickImage() is not { } image) return;
+		using var bitmap = image.Bitmap;
+		AddDrawnObject(image.Name, bitmap, bitmap.Width, bitmap.Height, paint: false);
+	}
+
+	// A drawn object with one part, centred in the view, opened with that part selected
+	// (and, for a blank one, in the paint editor)
+	private void AddDrawnObject(string name, SKBitmap? pixels, int width, int height, bool paint)
+	{
+		SceneObject? created = null;
+		Slot? part = null;
+		Asset? drawing = null;
+		EditScene(() =>
+		{
+			created = SceneOps.AddDrawn(_scene, name, _camera.Pan);
+			drawing = new Asset { Name = name, Width = width, Height = height };
+			_assets.AddLayer(drawing, "Base", pixels);   // null pixels = a blank layer
+			part = PartOps.CreatePart(created.Skeleton, created.Skeleton.Roots[0], drawing, name, Vector2.Zero, 0f);
+			return $"New drawn object {created.Name}";
+		});
+		if (created == null || part == null || drawing == null) return;
+
+		_state.Playing = false;
+		EnterObject(created);
+		_state.Selected = part.Bone;
+		_state.SelectedSlot = part;
+		RefreshRigPanel();
+		if (paint) OpenPaintEditor(drawing, part);
 	}
 
 	private void AddRiggedObject()
@@ -428,6 +515,16 @@ public partial class MainWindow
 
 		ObjectPreview.ItemsSource = obj?.Animations.Select(a => a.Name).ToList() ?? new List<string>();
 		ObjectPreview.SelectedItem = obj == null ? null : PreviewOf(obj)?.Name;
+
+		// What carries it (a bone that no longer exists counts as nothing)
+		var attach = obj != null ? AttachChoices(obj) : new List<AttachChoice>();
+		string? holderName = obj != null && _scene.AttachmentBone(obj) != null ? obj.AttachObject : null;
+		string? boneName = holderName != null ? obj!.AttachBone : null;
+		var carrier = attach.FirstOrDefault(c => holderName != null && c.Holder?.Name == holderName && c.Bone == boneName);
+		ObjectAttach.ItemsSource = attach;
+		ObjectAttach.SelectedItem = obj == null ? null : carrier ?? attach[0];
+		if (carrier != null)
+			ObjectTitle.Text += $"\nCarried by {carrier.Label}: X / Y, rotation and scale are measured from it.";
 		_syncingScene = false;
 
 		RefreshObjectValues();
@@ -507,6 +604,39 @@ public partial class MainWindow
 			obj.Onion = onion;
 			return $"Settings of object {obj.Name}";
 		});
+	}
+
+	private sealed record AttachChoice(SceneObject? Holder, string? Bone, string Label)
+	{
+		public override string ToString() => Label;
+	}
+
+	// "Free", then every bone this object could hang on: not its own, and not those of objects
+	// it carries (they'd end up carrying each other). A drawn object counts as one bone.
+	private List<AttachChoice> AttachChoices(SceneObject obj)
+	{
+		var list = new List<AttachChoice> { new(null, null, "(nothing: free in the scene)") };
+		foreach (var other in _scene.Objects)
+		{
+			if (other == obj || SceneOps.Carries(_scene, obj, other)) continue;
+			if (other.Kind == ObjectKind.Drawn)
+			{
+				if (other.Skeleton.Roots.FirstOrDefault() is { } root) list.Add(new(other, root.Name, other.Name));
+				continue;
+			}
+			foreach (var bone in other.Skeleton.AllBones())
+				list.Add(new(other, bone.Name, $"{other.Name} ▸ {bone.Name}"));
+		}
+		return list;
+	}
+
+	private void ObjectAttach_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingScene || _objectTool.Selected is not { } obj || ObjectAttach.SelectedItem is not AttachChoice choice) return;
+		bool changed = EditScene(() => SceneOps.Attach(_scene, obj, choice.Holder, choice.Bone)
+			? (choice.Holder == null ? $"Free {obj.Name}" : $"Attach {obj.Name} to {choice.Label}")
+			: null);
+		if (!changed) ShowObjectProperties();   // put the choice back to what's really there
 	}
 
 	private void ObjectPreview_Changed(object sender, SelectionChangedEventArgs e)

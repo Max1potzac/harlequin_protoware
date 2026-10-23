@@ -105,6 +105,7 @@ public partial class MainWindow : Window
 		_renderer.Selected = _state.Selected;
 		_renderer.SelectedSlot = _state.SelectedSlot;
 		_renderer.ShowPivotHandle = !_state.AnimateMode;   // in Animate mode, part drags set placement keys
+		_renderer.ShowBones = !IsDrawn;                    // a drawn object's one bone stays hidden
 		_renderer.GhostBone = _tool.CreatePreview;
 		DrawScene(canvas);   // onion ghosts, every object, then the open object's bones and handles
 	}

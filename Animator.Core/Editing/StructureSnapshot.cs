@@ -9,7 +9,7 @@ public sealed class StructureSnapshot
 	private sealed record BoneState(
 		Bone Bone, Bone? Parent, List<Bone> Children, string Name, float Length,
 		Vector2 Position, float Rotation, Vector2 Scale, float Turn, float Tilt,
-		bool InheritRotation, bool InheritScale);
+		bool InheritRotation, bool InheritScale, bool Connected);
 
 	private sealed record SlotState(Slot Slot, string Name, Bone Bone, string? SetupAttachment,
 		BlendMode Blend, Vector3 Color, float Opacity);
@@ -45,7 +45,7 @@ public sealed class StructureSnapshot
 		_bones = skeleton.AllBones().Select(b => new BoneState(
 			b, b.Parent, b.Children.ToList(), b.Name, b.Length,
 			b.SetupPosition, b.SetupRotation, b.SetupScale, b.SetupTurn, b.SetupTilt,
-			b.InheritRotation, b.InheritScale)).ToList();
+			b.InheritRotation, b.InheritScale, b.Connected)).ToList();
 
 		_slots = skeleton.Slots.Select(s => new SlotState(s, s.Name, s.Bone, s.SetupAttachment,
 			s.Blend, s.SetupColor, s.SetupOpacity)).ToList();
@@ -79,6 +79,7 @@ public sealed class StructureSnapshot
 			s.Bone.RestoreLinks(s.Parent, s.Children);
 			s.Bone.Name = s.Name;
 			s.Bone.Length = s.Length;
+			s.Bone.Connected = s.Connected;
 			s.Bone.SetupPosition = s.Position;
 			s.Bone.SetupRotation = s.Rotation;
 			s.Bone.SetupScale = s.Scale;

@@ -44,6 +44,30 @@ public sealed class SnapshotCommand<T> : IEditCommand, IMergeableCommand
 	}
 }
 
+// Several commands as one undo step (for example a rig edit that also changes the scene).
+// Undone in reverse order, redone in order.
+public sealed class CompositeCommand : IEditCommand
+{
+	private readonly IEditCommand[] _parts;
+	public string Name { get; }
+
+	public CompositeCommand(string name, params IEditCommand[] parts)
+	{
+		Name = name;
+		_parts = parts;
+	}
+
+	public void Undo()
+	{
+		for (int i = _parts.Length - 1; i >= 0; i--) _parts[i].Undo();
+	}
+
+	public void Redo()
+	{
+		foreach (var part in _parts) part.Redo();
+	}
+}
+
 public class UndoStack
 {
 	private readonly LinkedList<IEditCommand> _undo = new();

@@ -58,6 +58,26 @@ public static class ObjectGizmo
 		return new SKRect(minX, minY, maxX, maxY);
 	}
 
+	// Scene level: a faint cross at an object's origin, so even an empty one can be found
+	public static void DrawOrigin(SKCanvas canvas, Vector2 origin, float zoom)
+	{
+		float px = 1f / zoom;
+		using var line = new SKPaint { Color = new SKColor(255, 255, 255, 70), StrokeWidth = px, IsAntialias = true };
+		canvas.DrawLine(origin.X - 5 * px, origin.Y, origin.X + 5 * px, origin.Y, line);
+		canvas.DrawLine(origin.X, origin.Y - 5 * px, origin.X, origin.Y + 5 * px, line);
+	}
+
+	// From the joint of the bone that carries an object to the object's origin
+	public static void DrawAttachLine(SKCanvas canvas, Vector2 joint, Vector2 origin, float zoom)
+	{
+		float px = 1f / zoom;
+		using var dash = SKPathEffect.CreateDash(new[] { 5 * px, 4 * px }, 0);
+		using var line = new SKPaint { Color = Green.WithAlpha(170), StrokeWidth = 1.5f * px, IsAntialias = true, PathEffect = dash };
+		using var dot = new SKPaint { Color = Green, IsAntialias = true };
+		canvas.DrawLine(joint.X, joint.Y, origin.X, origin.Y, line);
+		canvas.DrawCircle(joint.X, joint.Y, 3.5f * px, dot);
+	}
+
 	// handles: false = just the box (a locked object can't be moved, turned or scaled)
 	public static void Draw(SKCanvas canvas, ObjectHandles h, float zoom, bool handles = true)
 	{

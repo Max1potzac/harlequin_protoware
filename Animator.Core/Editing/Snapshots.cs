@@ -42,13 +42,13 @@ public sealed class AnimationSnapshot
 // Every bone's rest pose + the animation
 public sealed class RigSnapshot
 {
-	private readonly List<(Bone Bone, Vector2 Position, float Rotation, Vector2 Scale)> _bones;
+	private readonly List<(Bone Bone, Vector2 Position, float Rotation, Vector2 Scale, bool Connected)> _bones;
 	private readonly AnimationSnapshot _animation;
 
 	private RigSnapshot(Skeleton skeleton, Animation animation)
 	{
 		_bones = skeleton.AllBones()
-			.Select(b => (b, b.SetupPosition, b.SetupRotation, b.SetupScale))
+			.Select(b => (b, b.SetupPosition, b.SetupRotation, b.SetupScale, b.Connected))
 			.ToList();
 		_animation = AnimationSnapshot.Capture(animation);
 	}
@@ -57,8 +57,9 @@ public sealed class RigSnapshot
 
 	public void Restore()
 	{
-		foreach (var (bone, position, rotation, scale) in _bones)
+		foreach (var (bone, position, rotation, scale, connected) in _bones)
 		{
+			bone.Connected = connected;
 			bone.SetupPosition = position;
 			bone.SetupRotation = rotation;
 			bone.SetupScale = scale;
@@ -72,11 +73,13 @@ public sealed class PoseSnapshot
 	private readonly Bone _bone;
 	private readonly Vector2 _position, _scale;
 	private readonly float _rotation;
+	private readonly bool _connected;   // a joint drag can snap it onto its parent's end, or free it
 	private readonly AnimationSnapshot _animation;
 
 	private PoseSnapshot(Bone bone, Animation animation)
 	{
 		_bone = bone;
+		_connected = bone.Connected;
 		_position = bone.SetupPosition;
 		_rotation = bone.SetupRotation;
 		_scale = bone.SetupScale;
@@ -87,6 +90,7 @@ public sealed class PoseSnapshot
 
 	public void Restore()
 	{
+		_bone.Connected = _connected;
 		_bone.SetupPosition = _position;
 		_bone.SetupRotation = _rotation;
 		_bone.SetupScale = _scale;

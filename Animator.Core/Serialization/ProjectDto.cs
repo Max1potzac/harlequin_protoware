@@ -64,6 +64,7 @@ public class BoneDto
 	public Vec? MaxOffset { get; set; }
 	public float Turn { get; set; }   // depth, radians
 	public float Tilt { get; set; }
+	public bool? Connected { get; set; }   // snapped to the parent's end (null = no)
 }
 
 public class SlotDto

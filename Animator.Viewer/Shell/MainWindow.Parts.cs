@@ -234,9 +234,12 @@ public partial class MainWindow
 		menu.IsOpen = true;
 	}
 
+	// The bone a new part goes on: the selected one, or a drawn object's one hidden bone
+	private Bone? BoneForNewPart() => IsDrawn ? _skeleton.Roots.FirstOrDefault() : _state.Selected;
+
 	private void NewBlankPart()
 	{
-		if (_state.Selected is not { } bone) { ShowRigHint("Select the bone the part should belong to first."); return; }
+		if (BoneForNewPart() is not { } bone) { ShowRigHint("Select the bone the part should belong to first."); return; }
 
 		var dialog = new NewPartDialog { Owner = this };
 		if (dialog.ShowDialog() != true) return;
@@ -245,29 +248,37 @@ public partial class MainWindow
 
 	private void ImportPart()
 	{
-		if (_state.Selected is not { } bone) { ShowRigHint("Select the bone the part should belong to first."); return; }
+		if (BoneForNewPart() is not { } bone) { ShowRigHint("Select the bone the part should belong to first."); return; }
+		if (PickImage() is not { } image) return;
+		using var bitmap = image.Bitmap;
+		CreatePart(bone, image.Name, bitmap, bitmap.Width, bitmap.Height);
+	}
 
+	// Asks for a picture file and reads it. null = cancelled, or it couldn't be used (already told).
+	// The caller disposes the bitmap.
+	private (string Name, SKBitmap Bitmap)? PickImage()
+	{
 		var dialog = new OpenFileDialog
 		{
 			Filter = "Images (*.png;*.jpg;*.jpeg;*.bmp;*.webp)|*.png;*.jpg;*.jpeg;*.bmp;*.webp"
 		};
-		if (dialog.ShowDialog(this) != true) return;
+		if (dialog.ShowDialog(this) != true) return null;
 
-		using var bitmap = SKBitmap.Decode(dialog.FileName);
+		var bitmap = SKBitmap.Decode(dialog.FileName);
 		if (bitmap == null)
 		{
 			MessageBox.Show(this, "That file couldn't be read as an image.", "Import image",
 							MessageBoxButton.OK, MessageBoxImage.Error);
-			return;
+			return null;
 		}
 		if (bitmap.Width > 4096 || bitmap.Height > 4096)
 		{
+			bitmap.Dispose();
 			MessageBox.Show(this, "Images up to 4096×4096 can be imported.", "Import image",
 							MessageBoxButton.OK, MessageBoxImage.Warning);
-			return;
+			return null;
 		}
-
-		CreatePart(bone, Path.GetFileNameWithoutExtension(dialog.FileName), bitmap, bitmap.Width, bitmap.Height);
+		return (Path.GetFileNameWithoutExtension(dialog.FileName), bitmap);
 	}
 
 	private void CreatePart(Bone bone, string name, SKBitmap? pixels, int width, int height)

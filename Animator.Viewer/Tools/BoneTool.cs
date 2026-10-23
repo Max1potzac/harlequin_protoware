@@ -39,8 +39,20 @@ public class BoneTool
 	private const float JointPickPx = 9f;
 	private const float BonePickPx = 6f;
 	private const float HandlePickPx = 8f;
+	private const float SnapPx = 12f;
 
 	public (Vector2 A, Vector2 B)? CreatePreview { get; private set; }
+
+	// "Snap to ends": a new bone started near the selected bone's end, or a joint dragged near its
+	// parent's end, lands exactly on it and stays joined (Bone.Connected). Pulled further away, it
+	// lets go. In Animate mode, a joined bone dragged back near the end loses its offset.
+	public bool SnapJoints { get; set; } = true;
+
+	// Off inside a drawn object: its one bone is hidden, so only parts can be picked and moved
+	public bool BonesEnabled { get; set; } = true;
+
+	private bool _createJoined;                              // the bone being drawn starts on the parent's end
+	private Vector2 _setupAtStart, _jointAtStart, _poseOffset;   // a joint drag in Setup mode
 
 	public BoneTool(EditorState state, Camera camera, SkeletonRenderer renderer)
 	{
@@ -62,11 +74,14 @@ public class BoneTool
 		var world = _camera.ScreenToWorld(screen);
 		bool setup = !_state.AnimateMode;
 
-		// Ctrl+drag draws a new bone
-		if (setup && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+		// Ctrl+drag draws a new bone (a child of the selected one). Started near the selected
+		// bone's end, it starts exactly there.
+		if (setup && BonesEnabled && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
 		{
 			_drag = Drag.Create;
-			CreatePreview = (world, world);
+			var parent = _state.Selected;
+			_createJoined = SnapJoints && parent != null && NearEnd(parent, world);
+			CreatePreview = (_createJoined ? parent!.TipWorld : world, world);
 			return;
 		}
 
@@ -74,10 +89,13 @@ public class BoneTool
 		if (_state.SelectedSlot is { } selected && TryPartHandle(selected, world)) return;
 
 		// 2. Bones
-		var hit = HitJoint(world);
-		var mode = Drag.Move;
-		if (hit == null) { hit = HitBone(world); mode = Drag.Rotate; }
-		if (hit != null) { BeginBoneDrag(hit, mode, world); return; }
+		if (BonesEnabled)
+		{
+			var hit = HitJoint(world);
+			var mode = Drag.Move;
+			if (hit == null) { hit = HitBone(world); mode = Drag.Rotate; }
+			if (hit != null) { BeginBoneDrag(hit, mode, world); return; }
+		}
 
 		// 3. Anywhere inside the selected part's box (even transparent pixels): move it
 		if (_state.SelectedSlot is { } current && InsidePart(current, world))
@@ -120,15 +138,8 @@ public class BoneTool
 			case Drag.Move when bone != null:
 				{
 					var target = world + _grabOffset;
-					if (!_state.AnimateMode)
-					{
-						// The rest pose is always measured from the parent, even when the
-						// animation has this bone detached or held at the current frame
-						bone.SetupPosition += ToParentSpace(bone, target) - ToParentSpace(bone, bone.World.Translation);
-					}
-					bone.Position = bone.WorldToParentLocal(target);
-					bone.UpdateWorld();   // keep World current: more mouse moves can arrive before the next frame
-					if (_state.AnimateMode) KeyTranslate(bone);
+					if (_state.AnimateMode) KeyJoint(bone, target);
+					else MoveRestJoint(bone, target);
 					_changed = true;
 					break;
 				}
@@ -183,6 +194,9 @@ public class BoneTool
 		_drag = mode;
 		_grabOffset = bone.World.Translation - world;
 		_lastAngle = AngleFrom(bone, world);
+		_setupAtStart = bone.SetupPosition;
+		_jointAtStart = ToParentSpace(bone, bone.World.Translation);
+		_poseOffset = bone.Position - bone.SetupPosition;   // what the animation adds at this frame
 
 		if (_state.AnimateMode)
 		{
@@ -214,14 +228,52 @@ public class BoneTool
 		if (preview is not { } p || Vector2.Distance(p.A, p.B) * _camera.EditZoom < 4) return;
 
 		var parent = _state.Selected;
+		bool joined = _createJoined && parent != null;
 		_state.EditStructure(() =>
 		{
 			var bone = RigOps.AddBoneBetween(_state.Skeleton, parent, p.A, p.B);
+			if (joined) bone.Connected = true;   // exactly on the parent's end, and it stays there
 			_state.Selected = bone;
 			_state.SelectedSlot = null;
 			return $"Create bone {bone.Name}";
 		});
 	}
+
+	// Setup mode: the rest position follows the mouse. The rest pose is always measured from the
+	// parent, even when the animation has this bone detached or held at the current frame.
+	// With snapping on, near the parent's end the joint snaps onto it and stays joined.
+	private void MoveRestJoint(Bone bone, Vector2 target)
+	{
+		var free = _setupAtStart + ToParentSpace(bone, target) - _jointAtStart;   // where the mouse puts it
+		var parent = bone.Parent;
+		if (SnapJoints && parent != null && NearEnd(parent, Vector2.Transform(free, parent.World)))
+		{
+			bone.Connected = true;
+		}
+		else
+		{
+			bone.Connected = false;
+			bone.SetupPosition = free;
+		}
+
+		// Show it right away: more mouse moves can arrive before the next frame poses the rig
+		bone.Position = bone.SpaceOverridden ? bone.WorldToParentLocal(target) : bone.SetupPosition + _poseOffset;
+		bone.UpdateWorld();
+	}
+
+	// Animate mode: a translate key at this frame. A bone joined to its parent's end that's
+	// dragged back near the end sits exactly on it again, with no offset left.
+	private void KeyJoint(Bone bone, Vector2 target)
+	{
+		bone.Position = bone.WorldToParentLocal(target);
+		if (SnapJoints && bone.Connected && !bone.SpaceOverridden && bone.Parent is { } parent && NearEnd(parent, target))
+			bone.Position = bone.SetupPosition;
+		bone.UpdateWorld();   // keep World current: more mouse moves can arrive before the next frame
+		KeyTranslate(bone);
+	}
+
+	private bool NearEnd(Bone parent, Vector2 world) =>
+		Vector2.Distance(world, parent.TipWorld) <= SnapPx / _camera.EditZoom;
 
 	private void KeyTranslate(Bone b) =>
 		_state.Animation.GetOrCreate(b.Name, n => new TranslateTimeline(n))
@@ -246,7 +298,8 @@ public class BoneTool
 		return false;
 	}
 
-	private bool InsidePart(Slot slot, Vector2 world)
+	// Inside the part's rectangle (see-through pixels too), at the drawing it shows now
+	public bool InsidePart(Slot slot, Vector2 world)
 	{
 		var att = _state.Skeleton.ResolveAttachment(slot);
 		if (att == null || !_state.Skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return false;
