@@ -5,8 +5,8 @@ namespace Animator.Core.Keyframing;
 
 public abstract class Timeline
 {
-    public string Target { get; }   // bone, slot, or constraint name
-    protected Timeline(string target) => Target = target;
+	public string Target { get; set; }   // bone, slot, or constraint name
+	protected Timeline(string target) => Target = target;
 
     public abstract void Apply(Skeleton skeleton, float time);
 
@@ -142,4 +142,21 @@ public class IkMixTimeline : TrackTimeline<float>
         if (c != null && Track.TrySample(time, out var v))
             c.Mix = Math.Clamp(v, 0f, 1f);
     }
+}
+
+// Depth rotation keys: X = tilt, Y = turn (offsets from setup, radians).
+// Linear keys turn smoothly like a card; Stepped keys flip instantly.
+public class DepthTimeline : TrackTimeline<Vector2>
+{
+	public DepthTimeline(string bone) : base(bone, Vector2.Lerp) { }
+
+	public override void Apply(Skeleton skeleton, float time)
+	{
+		var bone = skeleton.FindBone(Target);
+		if (bone != null && Track.TrySample(time, out var v))
+		{
+			bone.Tilt = bone.SetupTilt + v.X;
+			bone.Turn = bone.SetupTurn + v.Y;
+		}
+	}
 }

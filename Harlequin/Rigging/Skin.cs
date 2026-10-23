@@ -19,4 +19,31 @@ public class Skin
 		_map.Clear();
 		foreach (var kv in other._map) _map[kv.Key] = kv.Value;
 	}
+	public IEnumerable<Attachment> AttachmentsFor(string slot) =>
+	_map.Where(kv => kv.Key.Slot == slot).Select(kv => kv.Value);
+
+	public void RemoveSlot(string slot)
+	{
+		foreach (var key in _map.Keys.Where(k => k.Slot == slot).ToList())
+			_map.Remove(key);
+	}
+
+	// Entries are keyed by slot name, so a renamed slot needs its entries re-keyed
+	public void RenameSlot(string oldName, string newName)
+	{
+		foreach (var (key, attachment) in _map.Where(kv => kv.Key.Slot == oldName).ToList())
+		{
+			_map.Remove(key);
+			_map[(newName, key.Attachment)] = attachment;
+		}
+	}
+
+	// For undo snapshots
+	internal Dictionary<(string Slot, string Attachment), Attachment> CopyMap() => new(_map);
+
+	internal void RestoreMap(Dictionary<(string Slot, string Attachment), Attachment> map)
+	{
+		_map.Clear();
+		foreach (var kv in map) _map[kv.Key] = kv.Value;
+	}
 }

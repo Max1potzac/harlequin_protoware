@@ -10,7 +10,7 @@ public static class ProjectFile
 {
 	public const string Extension = ".hqnap";
 	public const string Filter = "Harlequin Animation Project (*.hqnap)|*.hqnap";
-	public const int FormatVersion = 1;   // bump when the format changes in a way old versions can't read
+	public const int FormatVersion = 2;   // 2: depth rotation, look constraints
 
 	private sealed class Manifest
 	{

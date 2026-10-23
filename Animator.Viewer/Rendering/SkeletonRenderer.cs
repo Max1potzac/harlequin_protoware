@@ -9,19 +9,25 @@ public class SkeletonRenderer
     private readonly AssetStore _assets;
     public bool ShowImages { get; set; } = true;
     public bool ShowBones { get; set; } = true;
-
-    public float Zoom { get; set; } = 1f;
+	public (Vector2 A, Vector2 B)? GhostBone { get; set; }
+	public float Zoom { get; set; } = 1f;
     public Bone? Selected { get; set; }
     public SkeletonRenderer(AssetStore assets) => _assets = assets;
-
-    public void Draw(SKCanvas canvas, Skeleton skeleton)
-    {
-        DrawAxes(canvas);
-        if (ShowImages) DrawSlots(canvas, skeleton);
-        if (ShowBones) DrawBones(canvas, skeleton);
-    }
-    // Nearest = crisp pixels (pixel art). Linear = smooth when rotated/scaled.
-    public bool PixelArt { get; set; }
+	public Slot? SelectedSlot { get; set; }
+	public bool ShowPartHandles { get; set; }   // Setup mode only
+	public void Draw(SKCanvas canvas, Skeleton skeleton)
+	{
+		DrawAxes(canvas);
+		if (ShowImages) DrawSlots(canvas, skeleton);
+		if (ShowBones)
+		{
+			DrawLookGuides(canvas, skeleton);
+			DrawBones(canvas, skeleton);
+		}
+		DrawPartGizmo(canvas, skeleton);
+	}
+	// Nearest = crisp pixels (pixel art). Linear = smooth when rotated/scaled.
+	public bool PixelArt { get; set; }
 
     private SKSamplingOptions Sampling => PixelArt
         ? new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None)
@@ -76,7 +82,20 @@ public class SkeletonRenderer
             canvas.DrawLine(a.X, a.Y, b.X, b.Y, sel ? selLine : idle ? idleLine : line);
             canvas.DrawCircle(a.X, a.Y, (sel ? 6 : 5) * px, sel ? selJoint : idle ? idleJoint : joint);
         }
-    }
+		if (GhostBone is { } g)
+		{
+			using var ghost = new SKPaint
+			{
+				Color = new SKColor(80, 220, 255, 170),
+				StrokeWidth = 3 * px,
+				IsAntialias = true,
+				Style = SKPaintStyle.Stroke,
+				StrokeCap = SKStrokeCap.Round
+			};
+			canvas.DrawLine(g.A.X, g.A.Y, g.B.X, g.B.Y, ghost);
+			canvas.DrawCircle(g.A.X, g.A.Y, 5 * px, selJoint);
+		}
+	}
 
 	// Slot list order = draw order (first drawn is at the back)
 	private void DrawSlots(SKCanvas canvas, Skeleton skeleton)
@@ -110,12 +129,7 @@ public class SkeletonRenderer
 	// Maps image pixels (y-down, origin top-left) into world space. Drawing and
 	// picking both use this, so what you click is always exactly what you see.
 	public static Matrix3x2 ImageToWorld(Slot slot, Attachment att, int width, int height) =>
-		  Matrix3x2.CreateTranslation(-att.Pivot.X * width, -att.Pivot.Y * height)
-		* Matrix3x2.CreateScale(1, -1)                     // image y-down -> world y-up
-		* Matrix3x2.CreateScale(att.Scale)
-		* Matrix3x2.CreateRotation(att.Rotation)
-		* Matrix3x2.CreateTranslation(att.Offset)
-		* slot.Bone.World;
+		att.LocalMatrix(width, height) * slot.Bone.World;
 
 	// Finds the topmost part under a world point, ignoring transparent pixels
 	public (Slot Slot, Asset Asset)? Pick(Skeleton skeleton, Vector2 world)
@@ -158,4 +172,87 @@ public class SkeletonRenderer
         Persp1 = 0,
         Persp2 = 1
     };
+
+	// Each look constraint's boundary, drawn in the iris's parent space so it turns
+	// with the head. Bright, plus a line to the target, when the iris or target is selected.
+	private void DrawLookGuides(SKCanvas canvas, Skeleton skeleton)
+	{
+		float px = 1f / Zoom;
+		foreach (var c in skeleton.LookConstraints)
+		{
+			bool active = c.Bone == Selected || c.Target == Selected;
+			using var edge = new SKPaint
+			{
+				Color = active ? new SKColor(80, 220, 255) : new SKColor(255, 255, 255, 70),
+				Style = SKPaintStyle.Stroke,
+				StrokeWidth = (active ? 1.5f : 1f) * px,
+				IsAntialias = true
+			};
+
+			canvas.Save();
+			if (c.Bone.Parent is { } parent)
+			{
+				var m = ToSk(parent.World);
+				canvas.Concat(in m);
+			}
+			float rx = c.Radius.X, ry = c.Radius.Y;
+			if (c.Shape == LookShape.Ellipse) canvas.DrawOval(c.Center.X, c.Center.Y, rx, ry, edge);
+			else canvas.DrawRect(c.Center.X - rx, c.Center.Y - ry, rx * 2, ry * 2, edge);
+			canvas.Restore();
+
+			if (active)
+			{
+				using var dash = SKPathEffect.CreateDash(new[] { 4 * px, 4 * px }, 0);
+				using var line = new SKPaint
+				{
+					Color = new SKColor(80, 220, 255, 120),
+					StrokeWidth = px,
+					IsAntialias = true,
+					PathEffect = dash
+				};
+				var a = c.Bone.World.Translation;
+				var b = c.Target.World.Translation;
+				canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
+			}
+		}
+	}
+	// Orange box around the selected part; in Setup mode also corner, rotate and pivot handles
+	private void DrawPartGizmo(SKCanvas canvas, Skeleton skeleton)
+	{
+		if (SelectedSlot is not { } slot || PartGizmo.For(skeleton, slot, Zoom) is not { } h) return;
+		float px = 1f / Zoom;
+
+		using var line = new SKPaint
+		{
+			Color = new SKColor(255, 170, 60),
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1.5f * px,
+			IsAntialias = true
+		};
+		for (int i = 0; i < 4; i++)
+		{
+			var a = h.Corners[i];
+			var b = h.Corners[(i + 1) % 4];
+			canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
+		}
+		if (!ShowPartHandles) return;
+
+		using var fill = new SKPaint { Color = new SKColor(255, 170, 60), IsAntialias = true };
+		float s = 4 * px;
+		foreach (var c in h.Corners) canvas.DrawRect(c.X - s, c.Y - s, s * 2, s * 2, fill);
+
+		canvas.DrawLine(h.Top.X, h.Top.Y, h.Rotate.X, h.Rotate.Y, line);
+		canvas.DrawCircle(h.Rotate.X, h.Rotate.Y, 5 * px, fill);
+
+		using var pivot = new SKPaint
+		{
+			Color = SKColors.White,
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1.5f * px,
+			IsAntialias = true
+		};
+		canvas.DrawCircle(h.Pivot.X, h.Pivot.Y, 6 * px, pivot);
+		canvas.DrawLine(h.Pivot.X - 9 * px, h.Pivot.Y, h.Pivot.X + 9 * px, h.Pivot.Y, pivot);
+		canvas.DrawLine(h.Pivot.X, h.Pivot.Y - 9 * px, h.Pivot.X, h.Pivot.Y + 9 * px, pivot);
+	}
 }

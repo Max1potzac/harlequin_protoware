@@ -42,6 +42,8 @@ public partial class MainWindow
 		// There are no rig-building tools yet, so "New" starts from the demo character
 		BuildDemoRig();
 		BuildDemoAnimation();
+		_state.Animations.Clear();
+		_state.Animations.Add(_anim);
 		_state.Animation = _anim;
 
 		_projectPath = null;
@@ -71,8 +73,11 @@ public partial class MainWindow
 		ClosePaintEditor();
 		_skeleton.ReplaceWith(loaded.Skeleton);
 		_assets.ReplaceWith(loaded.Store);
-		_state.Animation = loaded.Animations.FirstOrDefault()
-						   ?? new Animation { Name = "animation", Duration = 2f, Loop = true };
+		_state.Animations.Clear();
+		_state.Animations.AddRange(loaded.Animations);
+		if (_state.Animations.Count == 0)
+			_state.Animations.Add(new Animation { Name = "animation", Duration = 2f, Loop = true });
+		_state.Animation = _state.Animations[0];
 		_state.Fps = loaded.Fps;
 
 		_projectPath = dialog.FileName;
@@ -113,7 +118,7 @@ public partial class MainWindow
 		try
 		{
 			using var thumbnail = RenderThumbnail(256);
-			ProjectFile.Save(path, _skeleton, new[] { _state.Animation }, _state.Fps, _assets, thumbnail);
+			ProjectFile.Save(path, _skeleton, _state.Animations, _state.Fps, _assets, thumbnail);
 			_projectPath = path;
 			_state.Undo.MarkSaved();   // fires Undo.Changed, which refreshes the title
 			return true;

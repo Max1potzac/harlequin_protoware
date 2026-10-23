@@ -63,14 +63,15 @@ public class Skeleton
         foreach (var child in bone.Children) ApplyLimits(child);
     }
 
-    public void SetToSetupPose()
-    {
-        foreach (var root in Roots) ResetBone(root);
-        foreach (var slot in Slots) slot.ActiveAttachment = slot.SetupAttachment;
-        foreach (var c in IkConstraints) c.Mix = c.SetupMix;
-    }
+	public void SetToSetupPose()
+	{
+		foreach (var root in Roots) ResetBone(root);
+		foreach (var slot in Slots) slot.ActiveAttachment = slot.SetupAttachment;
+		foreach (var c in IkConstraints) c.Mix = c.SetupMix;
+		foreach (var c in LookConstraints) c.Mix = c.SetupMix;
+	}
 
-    private static void ResetBone(Bone bone)
+	private static void ResetBone(Bone bone)
     {
         bone.ResetToSetup();
         foreach (var child in bone.Children) ResetBone(child);
@@ -79,14 +80,16 @@ public class Skeleton
 
     public IkConstraint? FindIkConstraint(string name) =>
         IkConstraints.Find(c => c.Name == name);
+	public List<LookConstraint> LookConstraints { get; } = new();
+	// The full pipeline in one call: limits → world transforms → IK.
+	public void UpdatePose()
+	{
+		ApplyLimits();
+		UpdateWorld();
+		foreach (var c in IkConstraints) c.Solve();
+		foreach (var c in LookConstraints) c.Solve();   // after IK: targets may sit on IK-driven bones
+	}
 
-    // The full pipeline in one call: limits → world transforms → IK.
-    public void UpdatePose()
-    {
-        ApplyLimits();
-        UpdateWorld();                                  // FK pose first
-        foreach (var c in IkConstraints) c.Solve();     // list order = solve order
-    }
 	// Takes over another skeleton's contents. Everything that holds a reference to
 	// THIS skeleton (renderer, tools, timeline, paint editor) keeps working.
 	public void ReplaceWith(Skeleton other)
@@ -99,6 +102,8 @@ public class Skeleton
 		foreach (var (id, asset) in other.Assets) Assets[id] = asset;
 		IkConstraints.Clear();
 		IkConstraints.AddRange(other.IkConstraints);
+		LookConstraints.Clear();
+		LookConstraints.AddRange(other.LookConstraints);
 		DefaultSkin.ReplaceWith(other.DefaultSkin);
 		ActiveSkin = other.ActiveSkin == other.DefaultSkin ? DefaultSkin : other.ActiveSkin;
 	}
@@ -118,4 +123,9 @@ public class Skeleton
         return ActiveSkin?.Get(slot.Name, slot.ActiveAttachment)
             ?? DefaultSkin.Get(slot.Name, slot.ActiveAttachment);
     }
+	public IEnumerable<Skin> AllSkins()
+	{
+		yield return DefaultSkin;
+		if (ActiveSkin != null && ActiveSkin != DefaultSkin) yield return ActiveSkin;
+	}
 }

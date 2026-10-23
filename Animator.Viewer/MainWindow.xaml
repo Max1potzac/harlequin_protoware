@@ -28,14 +28,186 @@
             <ColumnDefinition x:Name="PaintColumn" Width="0" />
         </Grid.ColumnDefinitions>
 
-        <skia:SKElement x:Name="Viewport" Grid.Row="0" Grid.Column="0"
-                        Focusable="True" FocusVisualStyle="{x:Null}" PaintSurface="OnPaintSurface"
+            <DockPanel Grid.Row="0" Grid.Column="0">
+
+                <!-- ===== Rig panel ===== -->
+                <DockPanel DockPanel.Dock="Left" Width="250" Background="#24272E">
+                    <TextBlock DockPanel.Dock="Top" Text="Rig" Foreground="White" FontWeight="Bold" Margin="8,6,8,4" />
+
+                    <UniformGrid DockPanel.Dock="Top" Columns="3" Margin="6,0,6,6">
+                        <Button Content="+ Bone" Margin="0,0,3,0" Click="AddBone_Click"
+                    ToolTip="Adds a child of the selected bone (or a root bone). Tip: Ctrl+drag in the viewport draws one." />
+                        <Button Content="+ Part ▾" Margin="3,0,3,0" Click="AddPart_Click"
+                    ToolTip="Adds a part (blank, or from an image) to the selected bone" />
+                        <Button x:Name="DeleteButton" Content="Delete" Margin="3,0,0,0" Click="Delete_Click"
+                    ToolTip="Deletes the selected part, or the selected bone with everything on it (undoable)" />
+                    </UniformGrid>
+
+                    <!-- Properties of the selected bone -->
+                    <Grid x:Name="BoneProps" DockPanel.Dock="Bottom" Margin="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="PropsTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2" Margin="0,0,0,6" />
+
+                        <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="BoneName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+             Tag="Name" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+
+                        <TextBlock Grid.Row="2" Text="Parent" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <ComboBox x:Name="BoneParent" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+              SelectionChanged="BoneParent_Changed" />
+
+                        <TextBlock Grid.Row="3" Text="X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="BoneX" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
+             Tag="X" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                        <TextBox x:Name="BoneY" Grid.Row="3" Grid.Column="2" Margin="2,0,0,4"
+             Tag="Y" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+
+                        <TextBlock Grid.Row="4" Text="Rot° / Len" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="BoneRotation" Grid.Row="4" Grid.Column="1" Margin="0,0,2,4"
+             Tag="Rotation" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                        <TextBox x:Name="BoneLength" Grid.Row="4" Grid.Column="2" Margin="2,0,0,4"
+             Tag="Length" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+
+                        <TextBlock Grid.Row="5" Text="Scale" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="BoneScaleX" Grid.Row="5" Grid.Column="1" Margin="0,0,2,4"
+             Tag="ScaleX" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                        <TextBox x:Name="BoneScaleY" Grid.Row="5" Grid.Column="2" Margin="2,0,0,4"
+             Tag="ScaleY" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+
+                        <TextBlock Grid.Row="6" Text="Turn° / Tilt°" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="BoneTurn" Grid.Row="6" Grid.Column="1" Margin="0,0,2,4"
+             Tag="Turn" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
+             ToolTip="Depth rotation around the bone's length: parts narrow, and mirror across the bone at 180°" />
+                        <TextBox x:Name="BoneTilt" Grid.Row="6" Grid.Column="2" Margin="2,0,0,4"
+             Tag="Tilt" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
+             ToolTip="Depth rotation across the bone: it foreshortens, and mirrors along itself at 180°" />
+
+                        <StackPanel Grid.Row="7" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,2,0,6">
+                            <CheckBox x:Name="BoneInheritRotation" Content="Inherit rotation" Foreground="White"
+                  Margin="0,0,10,0" Click="BoneInherit_Click" />
+                            <CheckBox x:Name="BoneInheritScale" Content="Inherit scale" Foreground="White"
+                  Click="BoneInherit_Click" />
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="8" Text="Look at" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <ComboBox x:Name="LookTarget" Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+              SelectionChanged="LookTarget_Changed"
+              ToolTip="Makes this bone (e.g. an iris) move toward the chosen bone, inside a boundary" />
+
+                        <TextBlock Grid.Row="9" Text="Shape / Follow" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <ComboBox x:Name="LookShapeBox" Grid.Row="9" Grid.Column="1" Margin="0,0,2,4"
+              SelectionChanged="LookShape_Changed" />
+                        <TextBox x:Name="LookFollow" Grid.Row="9" Grid.Column="2" Margin="2,0,0,4"
+             Tag="Follow" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
+             ToolTip="How strongly it follows: 0.1 = subtle, 1 = goes straight to the edge" />
+
+                        <TextBlock Grid.Row="10" Text="Range X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="LookRangeX" Grid.Row="10" Grid.Column="1" Margin="0,0,2,4"
+             Tag="RangeX" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                        <TextBox x:Name="LookRangeY" Grid.Row="10" Grid.Column="2" Margin="2,0,0,4"
+             Tag="RangeY" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+
+                        <TextBlock x:Name="RigHint" Grid.Row="11" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                    </Grid>
+                    <Grid x:Name="PartProps" DockPanel.Dock="Bottom" Margin="6" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock x:Name="PartTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
+               TextWrapping="Wrap" Margin="0,0,0,6" />
+
+                        <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="PartName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+             Tag="PName" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                        <TextBlock Grid.Row="2" Text="Bone" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <ComboBox x:Name="PartBone" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+              SelectionChanged="PartBone_Changed"
+              ToolTip="Moves the part to another bone; it stays where it is on screen" />
+
+                        <TextBlock Grid.Row="3" Text="X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="PartX" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
+             Tag="PX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+                        <TextBox x:Name="PartY" Grid.Row="3" Grid.Column="2" Margin="2,0,0,4"
+             Tag="PY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                        <TextBlock Grid.Row="4" Text="Rotation°" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="PartRotation" Grid.Row="4" Grid.Column="1" Margin="0,0,2,4"
+             Tag="PRotation" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                        <TextBlock Grid.Row="5" Text="Scale" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="PartScaleX" Grid.Row="5" Grid.Column="1" Margin="0,0,2,4"
+             Tag="PScaleX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+                        <TextBox x:Name="PartScaleY" Grid.Row="5" Grid.Column="2" Margin="2,0,0,4"
+             Tag="PScaleY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                        <TextBlock Grid.Row="6" Text="Pivot (px)" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                        <TextBox x:Name="PartPivotX" Grid.Row="6" Grid.Column="1" Margin="0,0,2,4"
+             Tag="PPivotX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus"
+             ToolTip="Pixel of the image that rotation and scaling turn around (the image doesn't move)" />
+                        <TextBox x:Name="PartPivotY" Grid.Row="6" Grid.Column="2" Margin="2,0,0,4"
+             Tag="PPivotY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                        <UniformGrid Grid.Row="7" Grid.ColumnSpan="3" Columns="3" Margin="0,4,0,4">
+                            <Button x:Name="EditPixelsButton" Content="Edit pixels" Margin="0,0,3,0" Click="EditPixels_Click" />
+                            <Button x:Name="PartFront" Content="▲ Front" Margin="3,0,3,0" Click="PartFront_Click"
+                ToolTip="Draw this part later (in front of more parts)" />
+                            <Button x:Name="PartBack" Content="▼ Back" Margin="3,0,0,0" Click="PartBack_Click"
+                ToolTip="Draw this part earlier (behind more parts)" />
+                        </UniformGrid>
+
+                        <TextBlock x:Name="PartHint" Grid.Row="8" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                    </Grid>
+
+                    <!-- Bone hierarchy (fills the remaining space) -->
+                    <TreeView x:Name="BoneTree" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
+                  SelectedItemChanged="BoneTree_SelectedItemChanged" />
+                </DockPanel>
+
+                <!-- ===== Viewport ===== -->
+                <Grid>
+                    <skia:SKElement x:Name="Viewport" Focusable="True" FocusVisualStyle="{x:Null}" PaintSurface="OnPaintSurface"
                         MouseDown="Viewport_MouseDown" MouseMove="Viewport_MouseMove"
                         MouseUp="Viewport_MouseUp" MouseWheel="Viewport_MouseWheel" />
-        <TextBlock x:Name="Status" Grid.Row="0" Grid.Column="0" Foreground="White" Margin="10"
+                    <TextBlock x:Name="Status" Foreground="White" Margin="10"
                    VerticalAlignment="Bottom" IsHitTestVisible="False" TextWrapping="Wrap" />
+                </Grid>
+            </DockPanel>
 
-        <GridSplitter x:Name="PaintSplitter" Grid.Row="0" Grid.Column="1" Width="5"
+            <GridSplitter x:Name="PaintSplitter" Grid.Row="0" Grid.Column="1" Width="5"
                       HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"
                       Background="#1B1D22" Visibility="Collapsed" />
 

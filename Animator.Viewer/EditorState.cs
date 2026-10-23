@@ -9,7 +9,8 @@ public class EditorState
 	public Skeleton Skeleton { get; }
 	public Animation Animation { get; set; }
 	public UndoStack Undo { get; } = new();
-
+	// Every animation in the project. "Animation" is the one being edited.
+	public List<Animation> Animations { get; } = new();
 	public Bone? Selected { get; set; }
 	public bool AnimateMode { get; set; }
 	public bool Playing { get; set; } = true;
@@ -22,6 +23,27 @@ public class EditorState
 	{
 		Skeleton = skeleton;
 		Animation = animation;
+		Animations.Add(animation);
+	}
+	// Runs a structural rig edit as one undo step.
+	// The change returns the step's name, or null if it ended up changing nothing.
+	// The selected part (null = none). When set, Selected is that part's bone.
+	public Slot? SelectedSlot { get; set; }
+
+	public StructureSnapshot CaptureStructure() => StructureSnapshot.Capture(Skeleton, Animations);
+
+	// For edits spread over time (like a drag): capture at the start, push at the end
+	public void PushStructure(StructureSnapshot before, string name) =>
+		Undo.Push(new SnapshotCommand<StructureSnapshot>(name, before, CaptureStructure(), s => s.Restore()));
+
+	// One-shot structural edit. The change returns the step's name, or null if nothing changed.
+	public bool EditStructure(Func<string?> change)
+	{
+		var before = CaptureStructure();
+		string? name = change();
+		if (name == null) return false;
+		PushStructure(before, name);
+		return true;
 	}
 
 	public int Frame => (int)MathF.Round(Time * Fps);

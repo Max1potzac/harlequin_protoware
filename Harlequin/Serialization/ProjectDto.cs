@@ -20,6 +20,7 @@ public class ProjectDto
 	public List<SkinDto> Skins { get; set; } = new();
 	public string? ActiveSkin { get; set; }
 	public List<IkDto> IkConstraints { get; set; } = new();
+	public List<LookDto> LookConstraints { get; set; } = new();
 	public List<AnimationDto> Animations { get; set; } = new();
 }
 
@@ -35,6 +36,8 @@ public class BoneDto
 	public bool InheritScale { get; set; } = true;
 	public Vec? MinOffset { get; set; }
 	public Vec? MaxOffset { get; set; }
+	public float Turn { get; set; }   // depth, radians
+	public float Tilt { get; set; }
 }
 
 public class SlotDto
@@ -112,4 +115,14 @@ public class KeyDto
 	public float? X { get; set; }
 	public float? Y { get; set; }
 	public string? Name { get; set; }
+}
+public class LookDto
+{
+	public string Name { get; set; } = "";
+	public string Bone { get; set; } = "";
+	public string Target { get; set; } = "";
+	public LookShape Shape { get; set; }
+	public Vec Radius { get; set; } = new(10, 6);
+	public float Follow { get; set; } = 0.25f;
+	public float Mix { get; set; } = 1f;
 }

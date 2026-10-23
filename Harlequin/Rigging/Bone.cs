@@ -17,13 +17,43 @@ public class Bone
 
     // Computed result
     public Matrix3x2 World { get; private set; } = Matrix3x2.Identity;
+	// "Depth" rotation in radians: turning the bone in 3D, faked with scale.
+	// Turn: around the bone's own length; parts narrow, then mirror ACROSS the bone at 180°.
+	// Tilt: across the bone; it foreshortens, then mirrors ALONG itself at 180°.
+	public float SetupTurn { get; set; }
+	public float SetupTilt { get; set; }
+	public float Turn { get; set; }
+	public float Tilt { get; set; }
 
-    public void AddChild(Bone child)
+	// Scale including the depth rotation
+	public Vector2 EffectiveScale => new(Scale.X * MathF.Cos(Tilt), Scale.Y * MathF.Cos(Turn));
+
+	public void AddChild(Bone child)
     {
         child.Parent = this;
         Children.Add(child);
     }
-    public bool InheritRotation { get; set; } = true;
+	public void RemoveChild(Bone child)
+	{
+		if (Children.Remove(child)) child.Parent = null;
+	}
+
+	public bool IsDescendantOf(Bone other)
+	{
+		for (var b = Parent; b != null; b = b.Parent)
+			if (b == other) return true;
+		return false;
+	}
+
+	// Used by undo to put the hierarchy back exactly as it was.
+	// "internal" = usable anywhere inside Animator.Core, invisible outside it.
+	internal void RestoreLinks(Bone? parent, IEnumerable<Bone> children)
+	{
+		Parent = parent;
+		Children.Clear();
+		Children.AddRange(children);
+	}
+	public bool InheritRotation { get; set; } = true;
     public bool InheritScale { get; set; } = true;
 
     // Rest pose. Animation offsets are applied relative to these.
@@ -56,56 +86,56 @@ public class Bone
         Position = SetupPosition + offset;
     }
 
-    public void ResetToSetup()
-    {
-        Position = SetupPosition;
-        Rotation = SetupRotation;
-        Scale = SetupScale;
-    }
+	public void ResetToSetup()
+	{
+		Position = SetupPosition;
+		Rotation = SetupRotation;
+		Scale = SetupScale;
+		Turn = SetupTurn;
+		Tilt = SetupTilt;
+	}
 
-    public void UpdateWorld()
-    {
-        if (Parent == null)
-        {
-            World = Matrix3x2.CreateScale(Scale)
-                  * Matrix3x2.CreateRotation(Rotation)
-                  * Matrix3x2.CreateTranslation(Position);
-        }
-        else if (InheritRotation && InheritScale)
-        {
-            // Normal case: everything is inherited
-            var local = Matrix3x2.CreateScale(Scale)
-                      * Matrix3x2.CreateRotation(Rotation)
-                      * Matrix3x2.CreateTranslation(Position);
-            World = local * Parent.World;
-        }
-        else
-        {
-            var p = Parent.World;
+	public void UpdateWorld()
+	{
+		var scale = EffectiveScale;   // includes the depth rotation
 
-            // Position always follows the parent, so the bone still orbits with it
-            var worldPos = Vector2.Transform(Position, p);
+		if (Parent == null)
+		{
+			World = Matrix3x2.CreateScale(scale)
+				  * Matrix3x2.CreateRotation(Rotation)
+				  * Matrix3x2.CreateTranslation(Position);
+		}
+		else if (InheritRotation && InheritScale)
+		{
+			var local = Matrix3x2.CreateScale(scale)
+					  * Matrix3x2.CreateRotation(Rotation)
+					  * Matrix3x2.CreateTranslation(Position);
+			World = local * Parent.World;
+		}
+		else
+		{
+			var p = Parent.World;
+			var worldPos = Vector2.Transform(Position, p);
 
-            // Rebuild only the parts of the parent we want to inherit
-            var parentLinear = Matrix3x2.Identity;
-            if (InheritScale)
-            {
-                float sx = new Vector2(p.M11, p.M12).Length();
-                float sy = new Vector2(p.M21, p.M22).Length();
-                parentLinear = Matrix3x2.CreateScale(sx, sy);
-            }
-            if (InheritRotation)
-                parentLinear *= Matrix3x2.CreateRotation(MathF.Atan2(p.M12, p.M11));
+			var parentLinear = Matrix3x2.Identity;
+			if (InheritScale)
+			{
+				float sx = new Vector2(p.M11, p.M12).Length();
+				float sy = new Vector2(p.M21, p.M22).Length();
+				parentLinear = Matrix3x2.CreateScale(sx, sy);
+			}
+			if (InheritRotation)
+				parentLinear *= Matrix3x2.CreateRotation(MathF.Atan2(p.M12, p.M11));
 
-            World = Matrix3x2.CreateScale(Scale)
-                  * Matrix3x2.CreateRotation(Rotation)
-                  * parentLinear
-                  * Matrix3x2.CreateTranslation(worldPos);
-        }
+			World = Matrix3x2.CreateScale(scale)
+				  * Matrix3x2.CreateRotation(Rotation)
+				  * parentLinear
+				  * Matrix3x2.CreateTranslation(worldPos);
+		}
 
-        foreach (var child in Children)
-            child.UpdateWorld();
-    }
+		foreach (var child in Children)
+			child.UpdateWorld();
+	}
 
-    public Vector2 TipWorld => Vector2.Transform(new Vector2(Length, 0), World);
+	public Vector2 TipWorld => Vector2.Transform(new Vector2(Length, 0), World);
 }

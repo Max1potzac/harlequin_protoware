@@ -1,0 +1,449 @@
+﻿using Animator.Core.Editing;
+using System.Globalization;
+using System.Numerics;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+
+namespace Animator.Viewer;
+
+public partial class MainWindow
+{
+	private bool _syncingRig;
+	private Bone? _shownBone;
+	private object? _shownSelection;   // the Bone or Slot the panel currently shows
+	private readonly Dictionary<Bone, TreeViewItem> _treeItems = new();
+	private readonly Dictionary<Slot, TreeViewItem> _slotItems = new();
+
+	private sealed record BoneChoice(Bone? Bone, string Label)
+	{
+		public override string ToString() => Label;
+	}
+
+	private static readonly string[] PoseFields = { "X", "Y", "Rotation", "ScaleX", "ScaleY", "Turn", "Tilt" };
+
+	private object? CurrentSelection => _state.SelectedSlot != null ? _state.SelectedSlot : _state.Selected;
+
+	private void InitRigPanel()
+	{
+		LookShapeBox.ItemsSource = Enum.GetValues<LookShape>();
+		_state.Undo.Changed += RefreshRigPanel;
+		RefreshRigPanel();
+	}
+
+	private LookConstraint? LookOf(Bone? bone) =>
+		bone == null ? null : _skeleton.LookConstraints.Find(c => c.Bone == bone);
+
+	// ======================= tree =======================
+
+	private void RefreshRigPanel()
+	{
+		// An undo may have removed the selected part or bone
+		if (_state.SelectedSlot != null && !_skeleton.Slots.Contains(_state.SelectedSlot))
+			_state.SelectedSlot = null;
+		if (_state.Selected != null && !_skeleton.AllBones().Contains(_state.Selected))
+			_state.Selected = null;
+
+		_syncingRig = true;
+		BoneTree.Items.Clear();
+		_treeItems.Clear();
+		_slotItems.Clear();
+		foreach (var root in _skeleton.Roots)
+			BoneTree.Items.Add(MakeTreeItem(root));
+		SelectTreeItem();
+		_syncingRig = false;
+
+		ShowProperties();
+	}
+
+	private TreeViewItem MakeTreeItem(Bone bone)
+	{
+		string header = bone.Name;
+		if (LookOf(bone) is { } look) header += $"  👁 {look.Target.Name}";
+
+		var item = new TreeViewItem { Header = header, Tag = bone, IsExpanded = true, Foreground = Brushes.White };
+		_treeItems[bone] = item;
+
+		// Parts on this bone; the number is the draw order (higher = in front)
+		foreach (var slot in _skeleton.Slots.Where(s => s.Bone == bone))
+		{
+			var slotItem = new TreeViewItem
+			{
+				Header = $"▣ {slot.Name}   #{_skeleton.Slots.IndexOf(slot) + 1}",
+				Tag = slot,
+				Foreground = new SolidColorBrush(Color.FromRgb(255, 190, 110)),
+				FontStyle = FontStyles.Italic
+			};
+			_slotItems[slot] = slotItem;
+			item.Items.Add(slotItem);
+		}
+
+		foreach (var child in bone.Children)
+			item.Items.Add(MakeTreeItem(child));
+		return item;
+	}
+
+	// Marks the current selection (part first, else bone) in the tree
+	private void SelectTreeItem()
+	{
+		TreeViewItem? item = null;
+		if (_state.SelectedSlot != null) _slotItems.TryGetValue(_state.SelectedSlot, out item);
+		else if (_state.Selected != null) _treeItems.TryGetValue(_state.Selected, out item);
+
+		if (item != null)
+		{
+			item.IsSelected = true;
+			item.BringIntoView();
+		}
+		else if (BoneTree.SelectedItem is TreeViewItem old)
+		{
+			old.IsSelected = false;
+		}
+	}
+
+	private void BoneTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+	{
+		if (_syncingRig) return;
+		switch ((e.NewValue as TreeViewItem)?.Tag)
+		{
+			case Slot slot:
+				_state.SelectedSlot = slot;
+				_state.Selected = slot.Bone;
+				break;
+			case Bone bone:
+				_state.SelectedSlot = null;
+				_state.Selected = bone;
+				break;
+			default:
+				_state.SelectedSlot = null;
+				_state.Selected = null;
+				break;
+		}
+		ShowProperties();
+		UpdateStatus();
+	}
+
+	// Called every frame
+	private void SyncRigSelection()
+	{
+		if (Equals(CurrentSelection, _shownSelection))
+		{
+			if (_state.SelectedSlot != null) RefreshPartValues();
+			else RefreshBoneValues();
+			return;
+		}
+
+		_syncingRig = true;
+		SelectTreeItem();
+		_syncingRig = false;
+		ShowProperties();
+	}
+
+	// ======================= which panel =======================
+
+	private void ShowProperties()
+	{
+		_shownSelection = CurrentSelection;
+		bool part = _state.SelectedSlot != null;
+
+		PartProps.Visibility = part ? Visibility.Visible : Visibility.Collapsed;
+		BoneProps.Visibility = part ? Visibility.Collapsed : Visibility.Visible;
+		DeleteButton.Content = part ? "Delete part" : "Delete bone";
+		DeleteButton.IsEnabled = part || _state.Selected != null;
+
+		if (part) ShowPartProperties();
+		else ShowBoneProperties();
+	}
+
+	private void ShowRigHint(string text)
+	{
+		RigHint.Text = text;
+		PartHint.Text = text;
+	}
+
+	// ======================= bone properties =======================
+
+	private void ShowBoneProperties()
+	{
+		_shownBone = _state.Selected;
+		var bone = _shownBone;
+		var look = LookOf(bone);
+		_syncingRig = true;
+
+		BoneProps.IsEnabled = bone != null;
+
+		SetField(BoneName, bone?.Name ?? "");
+		BoneInheritRotation.IsChecked = bone?.InheritRotation ?? true;
+		BoneInheritScale.IsChecked = bone?.InheritScale ?? true;
+
+		var parents = BoneChoices(bone, "(none: root bone)");
+		BoneParent.ItemsSource = parents;
+		BoneParent.SelectedItem = parents.FirstOrDefault(c => c.Bone == bone?.Parent);
+
+		var targets = BoneChoices(bone, "(none)");
+		LookTarget.ItemsSource = targets;
+		LookTarget.SelectedItem = targets.FirstOrDefault(c => c.Bone == look?.Target);
+		LookShapeBox.SelectedItem = look?.Shape ?? LookShape.Ellipse;
+		LookShapeBox.IsEnabled = LookFollow.IsEnabled = LookRangeX.IsEnabled = LookRangeY.IsEnabled = look != null;
+
+		_syncingRig = false;
+		RefreshBoneValues();
+	}
+
+	private List<BoneChoice> BoneChoices(Bone? bone, string noneLabel)
+	{
+		var list = new List<BoneChoice> { new(null, noneLabel) };
+		if (bone != null)
+			list.AddRange(_skeleton.AllBones()
+				.Where(b => b != bone && !b.IsDescendantOf(bone))
+				.Select(b => new BoneChoice(b, b.Name)));
+		return list;
+	}
+
+	private void RefreshBoneValues()
+	{
+		var bone = _shownBone;
+		bool pose = _state.AnimateMode;
+
+		PropsTitle.Text = bone == null ? "No bone selected"
+			: pose ? $"Pose at frame {_state.Frame}: typing sets keys"
+			: "Rest pose (setup)";
+
+		foreach (var box in new[] { BoneX, BoneY, BoneRotation, BoneLength, BoneScaleX, BoneScaleY,
+									BoneTurn, BoneTilt, LookFollow, LookRangeX, LookRangeY })
+		{
+			string field = (string)box.Tag;
+			bool usePose = pose && PoseFields.Contains(field);
+			SetField(box, bone != null ? Num(FieldValue(bone, field, usePose)) : "");
+		}
+	}
+
+	private float? FieldValue(Bone bone, string field, bool pose)
+	{
+		var look = LookOf(bone);
+		return field switch
+		{
+			"X" => pose ? bone.Position.X : bone.SetupPosition.X,
+			"Y" => pose ? bone.Position.Y : bone.SetupPosition.Y,
+			"Rotation" => Deg(pose ? bone.Rotation : bone.SetupRotation),
+			"Length" => bone.Length,
+			"ScaleX" => pose ? bone.Scale.X : bone.SetupScale.X,
+			"ScaleY" => pose ? bone.Scale.Y : bone.SetupScale.Y,
+			"Turn" => Deg(pose ? bone.Turn : bone.SetupTurn),
+			"Tilt" => Deg(pose ? bone.Tilt : bone.SetupTilt),
+			"Follow" => look?.Follow,
+			"RangeX" => look?.Radius.X,
+			"RangeY" => look?.Radius.Y,
+			_ => null
+		};
+	}
+
+	private void BoneField_KeyDown(object sender, KeyEventArgs e)
+	{
+		if (e.Key != Key.Enter) return;
+		CommitBoneField((TextBox)sender);
+		Viewport.Focus();
+	}
+
+	private void BoneField_LostFocus(object sender, RoutedEventArgs e) => CommitBoneField((TextBox)sender);
+
+	private void CommitBoneField(TextBox box)
+	{
+		if (_syncingRig || _shownBone is not { } bone) return;
+		string field = (string)box.Tag;
+		RigHint.Text = "";
+
+		if (field == "Name")
+		{
+			string newName = box.Text.Trim();
+			if (newName == bone.Name) return;
+			bool renamed = _state.EditStructure(() =>
+				RigOps.RenameBone(_skeleton, _state.Animations, bone, newName) ? $"Rename bone to {newName}" : null);
+			if (!renamed)
+			{
+				RigHint.Text = $"Can't rename to \"{newName}\": names must be unique and not empty.";
+				box.Text = bone.Name;
+			}
+			return;
+		}
+
+		bool pose = _state.AnimateMode && PoseFields.Contains(field);
+		var current = FieldValue(bone, field, pose);
+		if (current == null || box.Text.Trim() == Num(current)) return;
+
+		if (!TryNum(box.Text, out float v))
+		{
+			RigHint.Text = $"\"{box.Text}\" isn't a number.";
+			box.Text = Num(current);
+			return;
+		}
+
+		if (pose) KeyField(bone, field, v);
+		else ApplySetupField(bone, field, v);
+	}
+
+	private void ApplySetupField(Bone bone, string field, float v)
+	{
+		var look = LookOf(bone);
+		_state.EditStructure(() =>
+		{
+			switch (field)
+			{
+				case "X": bone.SetupPosition = new Vector2(v, bone.SetupPosition.Y); break;
+				case "Y": bone.SetupPosition = new Vector2(bone.SetupPosition.X, v); break;
+				case "Rotation": bone.SetupRotation = Rad(v); break;
+				case "Length": bone.Length = MathF.Max(0, v); break;
+				case "ScaleX": bone.SetupScale = new Vector2(v, bone.SetupScale.Y); break;
+				case "ScaleY": bone.SetupScale = new Vector2(bone.SetupScale.X, v); break;
+				case "Turn": bone.SetupTurn = Rad(v); break;
+				case "Tilt": bone.SetupTilt = Rad(v); break;
+				case "Follow" when look != null: look.Follow = v; break;
+				case "RangeX" when look != null: look.Radius = new Vector2(MathF.Max(0, v), look.Radius.Y); break;
+				case "RangeY" when look != null: look.Radius = new Vector2(look.Radius.X, MathF.Max(0, v)); break;
+				default: return null;
+			}
+			return $"Set {bone.Name} {field}";
+		});
+	}
+
+	private void KeyField(Bone bone, string field, float v)
+	{
+		_state.Playing = false;
+		_state.SetFrame(_state.Frame);
+		var anim = _state.Animation;
+		float t = _state.Time;
+		int frame = _state.Frame;
+
+		_state.EditStructure(() =>
+		{
+			switch (field)
+			{
+				case "X":
+					anim.GetOrCreate(bone.Name, n => new TranslateTimeline(n))
+						.Track.Add(t, new Vector2(v, bone.Position.Y) - bone.SetupPosition);
+					break;
+				case "Y":
+					anim.GetOrCreate(bone.Name, n => new TranslateTimeline(n))
+						.Track.Add(t, new Vector2(bone.Position.X, v) - bone.SetupPosition);
+					break;
+				case "Rotation":
+					anim.GetOrCreate(bone.Name, n => new RotateTimeline(n))
+						.Track.Add(t, Rad(v) - bone.SetupRotation);
+					break;
+				case "ScaleX":
+					anim.GetOrCreate(bone.Name, n => new ScaleTimeline(n))
+						.Track.Add(t, new Vector2(Ratio(v, bone.SetupScale.X), Ratio(bone.Scale.Y, bone.SetupScale.Y)));
+					break;
+				case "ScaleY":
+					anim.GetOrCreate(bone.Name, n => new ScaleTimeline(n))
+						.Track.Add(t, new Vector2(Ratio(bone.Scale.X, bone.SetupScale.X), Ratio(v, bone.SetupScale.Y)));
+					break;
+				case "Turn":
+					anim.GetOrCreate(bone.Name, n => new DepthTimeline(n))
+						.Track.Add(t, new Vector2(bone.Tilt - bone.SetupTilt, Rad(v) - bone.SetupTurn));
+					break;
+				case "Tilt":
+					anim.GetOrCreate(bone.Name, n => new DepthTimeline(n))
+						.Track.Add(t, new Vector2(Rad(v) - bone.SetupTilt, bone.Turn - bone.SetupTurn));
+					break;
+				default:
+					return null;
+			}
+			return $"Key {bone.Name} {field} @ frame {frame}";
+		});
+	}
+
+	private void BoneInherit_Click(object sender, RoutedEventArgs e)
+	{
+		if (_syncingRig || _shownBone is not { } bone) return;
+		bool rotation = BoneInheritRotation.IsChecked == true;
+		bool scale = BoneInheritScale.IsChecked == true;
+		_state.EditStructure(() =>
+		{
+			bone.InheritRotation = rotation;
+			bone.InheritScale = scale;
+			return $"Inheritance of {bone.Name}";
+		});
+	}
+
+	private void BoneParent_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingRig || _shownBone is not { } bone || BoneParent.SelectedItem is not BoneChoice choice) return;
+		_state.EditStructure(() =>
+			RigOps.Reparent(_skeleton, bone, choice.Bone) ? $"Parent {bone.Name} to {choice.Label}" : null);
+	}
+
+	private void LookTarget_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingRig || _shownBone is not { } bone || LookTarget.SelectedItem is not BoneChoice choice) return;
+		_state.EditStructure(() => RigOps.SetLookTarget(_skeleton, bone, choice.Bone)
+			? (choice.Bone == null ? $"Remove look from {bone.Name}" : $"{bone.Name} looks at {choice.Bone.Name}")
+			: null);
+	}
+
+	private void LookShape_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingRig || LookOf(_shownBone) is not { } look || LookShapeBox.SelectedItem is not LookShape shape) return;
+		if (look.Shape == shape) return;
+		_state.EditStructure(() =>
+		{
+			look.Shape = shape;
+			return $"Look shape: {shape}";
+		});
+	}
+
+	// ======================= buttons =======================
+
+	private void AddBone_Click(object sender, RoutedEventArgs e)
+	{
+		var parent = _state.Selected;
+		_state.EditStructure(() =>
+		{
+			var position = parent == null ? Vector2.Zero : new Vector2(parent.Length, 0);
+			var bone = RigOps.AddBone(_skeleton, parent, "bone", position, 0f, 50f);
+			_state.Selected = bone;
+			_state.SelectedSlot = null;
+			return $"Add bone {bone.Name}";
+		});
+	}
+
+	private void Delete_Click(object sender, RoutedEventArgs e)
+	{
+		if (_state.SelectedSlot is { } slot) DeletePart(slot);
+		else DeleteSelectedBone();
+	}
+
+	private void DeleteSelectedBone()
+	{
+		if (_state.Selected is not { } bone) return;
+		var parent = bone.Parent;
+		_state.SelectedKeys.Clear();
+		ClosePaintEditor();   // it may be showing a part that's about to disappear
+		_state.EditStructure(() =>
+		{
+			RigOps.DeleteBone(_skeleton, _state.Animations, bone);
+			_state.Selected = parent;
+			return $"Delete bone {bone.Name}";
+		});
+	}
+
+	// ======================= helpers =======================
+
+	private static void SetField(TextBox box, string text)
+	{
+		if (!box.IsKeyboardFocused && box.Text != text) box.Text = text;
+	}
+
+	private static string Num(float? v) => v is { } f ? f.ToString("0.##", CultureInfo.CurrentCulture) : "";
+
+	private static bool TryNum(string text, out float value) =>
+		float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value) ||
+		float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+	private static float Deg(float radians) => radians * 180f / MathF.PI;
+	private static float Rad(float degrees) => degrees * MathF.PI / 180f;
+	private static float Ratio(float a, float b) => MathF.Abs(b) < 1e-6f ? a : a / b;
+}

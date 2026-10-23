@@ -40,10 +40,11 @@ public partial class MainWindow : Window
 		BuildDemoAnimation();
 
 		_state = new EditorState(_skeleton, _anim);
-		_tool = new BoneTool(_state, _camera);
+		_tool = new BoneTool(_state, _camera, _renderer);
 		_timeline = new TimelinePanel(_state);
 		_state.Undo.Changed += UpdateStatus;
 		InitPaint();
+		InitRigPanel();
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;
@@ -64,6 +65,7 @@ public partial class MainWindow : Window
 
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
+		SyncRigSelection();
 		if (PaintPanel.Visibility == Visibility.Visible) PaintView.InvalidateVisual();
 	}
 
@@ -80,7 +82,9 @@ public partial class MainWindow : Window
 		_camera.Apply(canvas);
 
 		_renderer.Zoom = _camera.Zoom;
-		_renderer.Selected = _state.Selected;
+		_renderer.SelectedSlot = _state.SelectedSlot;
+		_renderer.ShowPartHandles = !_state.AnimateMode;
+		_renderer.GhostBone = _tool.CreatePreview;
 		_renderer.Draw(canvas, _skeleton);
 	}
 
@@ -331,7 +335,7 @@ public partial class MainWindow : Window
 		Status.Text =
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
 			$"Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
-			"Viewport: drag joint = move, drag bone = rotate, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
+			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Paint: double-click a part. Over the canvas: M select, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick\n" +

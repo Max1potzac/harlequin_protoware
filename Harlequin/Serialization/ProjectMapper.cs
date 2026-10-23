@@ -36,6 +36,8 @@ public static class ProjectMapper
 				InheritScale = b.InheritScale,
 				MinOffset = b.MinOffset is { } min ? Vec.From(min) : null,
 				MaxOffset = b.MaxOffset is { } max ? Vec.From(max) : null,
+				Turn = b.SetupTurn,
+				Tilt = b.SetupTilt,
 			});
 		}
 
@@ -65,16 +67,17 @@ public static class ProjectMapper
 			dto.Skins.Add(SkinToDto(skeleton.ActiveSkin));
 		dto.ActiveSkin = skeleton.ActiveSkin?.Name;
 
-		foreach (var c in skeleton.IkConstraints)
+		foreach (var c in skeleton.LookConstraints)
 		{
-			dto.IkConstraints.Add(new IkDto
+			dto.LookConstraints.Add(new LookDto
 			{
 				Name = c.Name,
-				Bones = c.Bones.Select(b => b.Name).ToList(),
+				Bone = c.Bone.Name,
 				Target = c.Target.Name,
-				Mix = c.SetupMix,
-				Bend = c.BendDirection,
-				Iterations = c.Iterations
+				Shape = c.Shape,
+				Radius = Vec.From(c.Radius),
+				Follow = c.Follow,
+				Mix = c.SetupMix
 			});
 		}
 
@@ -139,6 +142,12 @@ public static class ProjectMapper
 			Target = at.Target,
 			Keys = at.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value }).ToList()
 		},
+		DepthTimeline d => new TimelineDto
+		{
+			Type = "depth",
+			Target = d.Target,
+			Keys = d.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+		},
 		_ => throw new NotSupportedException($"Saving '{timeline.GetType().Name}' is not supported yet.")
 	};
 
@@ -162,6 +171,8 @@ public static class ProjectMapper
 				InheritScale = b.InheritScale,
 				MinOffset = b.MinOffset?.ToVector2(),
 				MaxOffset = b.MaxOffset?.ToVector2(),
+				SetupTurn = b.Turn,
+				SetupTilt = b.Tilt,
 			};
 			if (!bones.TryAdd(b.Name, bone))
 				throw new InvalidDataException($"Two bones are named '{b.Name}'.");
@@ -217,6 +228,20 @@ public static class ProjectMapper
 			c.Bones.AddRange(i.Bones.Select(FindBone));
 			skeleton.IkConstraints.Add(c);
 		}
+		foreach (var l in dto.LookConstraints)
+		{
+			skeleton.LookConstraints.Add(new LookConstraint
+			{
+				Name = l.Name,
+				Bone = FindBone(l.Bone),
+				Target = FindBone(l.Target),
+				Shape = l.Shape,
+				Radius = l.Radius.ToVector2(),
+				Follow = l.Follow,
+				SetupMix = l.Mix,
+				Mix = l.Mix
+			});
+		}
 
 		var animations = new List<Animation>();
 		foreach (var a in dto.Animations)
@@ -261,6 +286,12 @@ public static class ProjectMapper
 				{
 					var tl = new AttachmentTimeline(t.Target);
 					foreach (var k in t.Keys) tl.Track.Add(k.T, k.Name, CurveType.Stepped);
+					return tl;
+				}
+			case "depth":
+				{
+					var tl = new DepthTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve);
 					return tl;
 				}
 			default:

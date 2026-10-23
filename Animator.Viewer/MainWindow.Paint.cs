@@ -70,6 +70,7 @@ public partial class MainWindow
 	{
 		if (_renderer.Pick(_skeleton, _camera.ScreenToWorld(screen)) is not { } hit) return false;
 		_state.Selected = hit.Slot.Bone;
+		_state.SelectedSlot = hit.Slot;
 		OpenPaintEditor(hit.Asset);
 		return true;
 	}
