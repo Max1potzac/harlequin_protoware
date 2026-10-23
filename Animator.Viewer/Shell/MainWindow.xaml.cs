@@ -343,7 +343,7 @@ public partial class MainWindow : Window
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
 			"Frame by frame (select a part): F7 = new drawing, F6 = copy drawing, F5 / Shift+F5 = hold longer / shorter, Del = its key here.   O = onion skin\n" +
-			"Paint: double-click a part. Over the canvas: M select, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick\n" +
+			"Paint: double-click a part. Over the canvas: M select, W wand, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick, Ctrl+D deselect, Ctrl+Shift+I invert\n" +
 			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   " +
 			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
 			"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as";
