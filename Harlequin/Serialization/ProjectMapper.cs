@@ -298,4 +298,11 @@ public static class ProjectMapper
 				throw new InvalidDataException($"Unknown timeline type '{t.Type}'.");
 		}
 	}
+	// A deep copy (the same trick as saving and re-loading), with a new name
+	public static Animation CloneAnimation(Animation source, string newName)
+	{
+		var copy = new Animation { Name = newName, Duration = source.Duration, Loop = source.Loop };
+		copy.Timelines.AddRange(source.Timelines.Select(TimelineToDto).Select(TimelineFromDto));
+		return copy;
+	}
 }

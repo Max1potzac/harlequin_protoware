@@ -45,6 +45,7 @@ public partial class MainWindow : Window
 		_state.Undo.Changed += UpdateStatus;
 		InitPaint();
 		InitRigPanel();
+		InitAnimationsPanel();
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;

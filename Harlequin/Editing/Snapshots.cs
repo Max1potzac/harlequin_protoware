@@ -5,14 +5,21 @@ using Animator.Core.Rigging;
 namespace Animator.Core.Editing;
 
 // Every timeline, its target and its keys, at one moment
+// An animation's settings and every timeline (target + keys), at one moment
 public sealed class AnimationSnapshot
 {
 	private readonly Animation _animation;
+	private readonly string _name;
+	private readonly float _duration;
+	private readonly bool _loop;
 	private readonly List<(Timeline Timeline, string Target, object Keys)> _saved;
 
 	private AnimationSnapshot(Animation animation)
 	{
 		_animation = animation;
+		_name = animation.Name;
+		_duration = animation.Duration;
+		_loop = animation.Loop;
 		_saved = animation.Timelines.Select(t => (t, t.Target, t.CaptureKeys())).ToList();
 	}
 
@@ -20,10 +27,13 @@ public sealed class AnimationSnapshot
 
 	public void Restore()
 	{
+		_animation.Name = _name;
+		_animation.Duration = _duration;
+		_animation.Loop = _loop;
 		_animation.Timelines.Clear();
 		foreach (var (timeline, target, keys) in _saved)
 		{
-			timeline.Target = target;   // bone renames change targets
+			timeline.Target = target;
 			timeline.RestoreKeys(keys);
 			_animation.Timelines.Add(timeline);
 		}

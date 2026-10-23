@@ -19,6 +19,8 @@ public sealed class StructureSnapshot
 
 	private sealed record LookState(
 		LookConstraint Constraint, Bone Target, LookShape Shape, Vector2 Radius, float Follow, float Mix);
+	private sealed record IkState(
+	IkConstraint Constraint, string Name, List<Bone> Bones, Bone Target, float Mix, int Bend);
 
 	private readonly Skeleton _skeleton;
 	private readonly List<Bone> _roots;
@@ -28,7 +30,7 @@ public sealed class StructureSnapshot
 	private readonly Skin? _activeSkin;
 	private readonly List<AttachmentState> _attachments;
 	private readonly List<KeyValuePair<Guid, Asset>> _assets;
-	private readonly List<IkConstraint> _ik;
+	private readonly List<IkState> _ik;
 	private readonly List<LookState> _looks;
 	private readonly List<Animation> _animationList;
 	private readonly List<Animation> _animationContents;
@@ -51,7 +53,8 @@ public sealed class StructureSnapshot
 			.ToList();
 		_assets = skeleton.Assets.ToList();
 
-		_ik = skeleton.IkConstraints.ToList();
+		_ik = skeleton.IkConstraints.Select(c => new IkState(
+			c, c.Name, c.Bones.ToList(), c.Target, c.SetupMix, c.BendDirection)).ToList();
 		_looks = skeleton.LookConstraints.Select(c => new LookState(
 			c, c.Target, c.Shape, c.Radius, c.Follow, c.SetupMix)).ToList();
 
@@ -107,7 +110,16 @@ public sealed class StructureSnapshot
 		foreach (var (id, asset) in _assets) _skeleton.Assets[id] = asset;
 
 		_skeleton.IkConstraints.Clear();
-		_skeleton.IkConstraints.AddRange(_ik);
+		foreach (var s in _ik)
+		{
+			s.Constraint.Name = s.Name;
+			s.Constraint.Bones.Clear();
+			s.Constraint.Bones.AddRange(s.Bones);
+			s.Constraint.Target = s.Target;
+			s.Constraint.SetupMix = s.Mix;
+			s.Constraint.BendDirection = s.Bend;
+			_skeleton.IkConstraints.Add(s.Constraint);
+		}
 		_skeleton.LookConstraints.Clear();
 		foreach (var s in _looks)
 		{

@@ -171,6 +171,8 @@ public partial class MainWindow
 		_shownBone = _state.Selected;
 		var bone = _shownBone;
 		var look = LookOf(bone);
+		var ik = IkEndingAt(bone);
+		var inChain = IkContaining(bone);
 		_syncingRig = true;
 
 		BoneProps.IsEnabled = bone != null;
@@ -188,6 +190,31 @@ public partial class MainWindow
 		LookTarget.SelectedItem = targets.FirstOrDefault(c => c.Bone == look?.Target);
 		LookShapeBox.SelectedItem = look?.Shape ?? LookShape.Ellipse;
 		LookShapeBox.IsEnabled = LookFollow.IsEnabled = LookRangeX.IsEnabled = LookRangeY.IsEnabled = look != null;
+
+		// IK: chain lengths up to how many bones are above this one (including itself)
+		int depth = 0;
+		for (var b = bone; b != null; b = b.Parent) depth++;
+		var lengths = new List<IkChoice> { new(0, "None") };
+		for (int n = 1; n <= Math.Min(depth, 6); n++)
+			lengths.Add(new IkChoice(n, n == 1 ? "1 bone (aim)" : $"{n} bones"));
+		IkLength.ItemsSource = lengths;
+		IkLength.SelectedItem = lengths.FirstOrDefault(c => c.Length == (ik?.Bones.Count ?? 0));
+		IkLength.IsEnabled = ik != null || inChain == null;   // a middle bone of another chain can't start its own
+
+		var ikTargets = new List<BoneChoice>();
+		if (ik != null)
+			ikTargets.AddRange(_skeleton.AllBones()
+				.Where(b => !ik.Bones.Contains(b) && !ik.Bones.Any(c => b.IsDescendantOf(c)))
+				.Select(b => new BoneChoice(b, b.Name)));
+		IkTargetBox.ItemsSource = ikTargets;
+		IkTargetBox.SelectedItem = ikTargets.FirstOrDefault(c => c.Bone == ik?.Target);
+		IkTargetBox.IsEnabled = IkOn.IsEnabled = IkFlip.IsEnabled = ik != null;
+		IkOn.IsChecked = ik != null && ik.SetupMix > 0.5f;
+		IkFlip.IsChecked = ik != null && ik.BendDirection < 0;
+
+		RigHint.Text = inChain != null && ik == null
+			? $"Part of IK chain \"{inChain.Name}\". Select its last bone ({inChain.Bones[^1].Name}) to edit it."
+			: "";
 
 		_syncingRig = false;
 		RefreshBoneValues();
@@ -446,4 +473,66 @@ public partial class MainWindow
 	private static float Deg(float radians) => radians * 180f / MathF.PI;
 	private static float Rad(float degrees) => degrees * MathF.PI / 180f;
 	private static float Ratio(float a, float b) => MathF.Abs(b) < 1e-6f ? a : a / b;
+	private sealed record IkChoice(int Length, string Label)
+	{
+		public override string ToString() => Label;
+	}
+
+	// The IK constraint whose chain ENDS at this bone (that's where it's edited)
+	private IkConstraint? IkEndingAt(Bone? bone) =>
+		bone == null ? null : _skeleton.IkConstraints.Find(c => c.Bones.Count > 0 && c.Bones[^1] == bone);
+
+	// Any IK constraint this bone is part of
+	private IkConstraint? IkContaining(Bone? bone) =>
+		bone == null ? null : _skeleton.IkConstraints.Find(c => c.Bones.Contains(bone));
+
+	private void IkLength_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingRig || _shownBone is not { } bone || IkLength.SelectedItem is not IkChoice choice) return;
+		var ik = IkEndingAt(bone);
+		if (choice.Length == (ik?.Bones.Count ?? 0)) return;
+
+		bool done = _state.EditStructure(() =>
+		{
+			if (ik == null)
+				return RigOps.CreateIk(_skeleton, bone, choice.Length) is { } created
+					? $"Create IK {created.Name}" : null;
+
+			if (choice.Length == 0)
+			{
+				RigOps.DeleteIk(_skeleton, _state.Animations, ik);
+				return $"Remove IK {ik.Name}";
+			}
+
+			return RigOps.SetIkLength(_skeleton, ik, choice.Length) ? $"IK {ik.Name}: {choice.Length} bones" : null;
+		});
+
+		if (!done)
+		{
+			ShowBoneProperties();   // put the dropdown back to what's really there
+			RigHint.Text = "Can't make that chain: some of those bones are already in another IK chain, " +
+						   "or the target would move along with the chain.";
+		}
+	}
+
+	private void IkTarget_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_syncingRig || IkEndingAt(_shownBone) is not { } ik) return;
+		if (IkTargetBox.SelectedItem is not BoneChoice { Bone: { } target }) return;
+		_state.EditStructure(() => RigOps.SetIkTarget(ik, target) ? $"{ik.Name} targets {target.Name}" : null);
+	}
+
+	private void IkOptions_Click(object sender, RoutedEventArgs e)
+	{
+		if (_syncingRig || IkEndingAt(_shownBone) is not { } ik) return;
+		float mix = IkOn.IsChecked == true ? 1f : 0f;
+		int bend = IkFlip.IsChecked == true ? -1 : 1;
+		if (mix == ik.SetupMix && bend == ik.BendDirection) return;
+		_state.EditStructure(() =>
+		{
+			ik.SetupMix = mix;
+			ik.BendDirection = bend;
+			return $"{ik.Name} settings";
+		});
+	}
 }

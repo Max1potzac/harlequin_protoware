@@ -140,7 +140,78 @@ public static class RigOps
 		skeleton.LookConstraints.Add(new LookConstraint { Name = $"{bone.Name}_look", Bone = bone, Target = target });
 		return true;
 	}
+	// ======================= IK =======================
 
+	public static string UniqueIkName(Skeleton skeleton, string baseName)
+	{
+		var used = skeleton.IkConstraints.Select(c => c.Name).ToHashSet();
+		if (!used.Contains(baseName)) return baseName;
+		for (int i = 2; ; i++)
+		{
+			string candidate = $"{baseName}{i}";
+			if (!used.Contains(candidate)) return candidate;
+		}
+	}
+
+	// `length` bones ending at `end`, root-most first. null if the hierarchy isn't that deep.
+	public static List<Bone>? ChainEndingAt(Bone end, int length)
+	{
+		var chain = new List<Bone>();
+		for (var b = end; b != null && chain.Count < length; b = b.Parent)
+			chain.Insert(0, b);
+		return chain.Count == length ? chain : null;
+	}
+
+	// A target that moves along with the chain would chase itself forever
+	private static bool UsableAsTarget(IReadOnlyList<Bone> chain, Bone target) =>
+		!chain.Contains(target) && !chain.Any(b => target.IsDescendantOf(b));
+
+	private static bool InOtherIk(Skeleton skeleton, IEnumerable<Bone> chain, IkConstraint? except) =>
+		chain.Any(b => skeleton.IkConstraints.Any(c => c != except && c.Bones.Contains(b)));
+
+	// A new IK chain ending at `end`. Without a target, a new root bone at the tip becomes one.
+	public static IkConstraint? CreateIk(Skeleton skeleton, Bone end, int length, Bone? target = null)
+	{
+		var chain = ChainEndingAt(end, length);
+		if (chain == null || InOtherIk(skeleton, chain, null)) return null;
+		if (target != null && !UsableAsTarget(chain, target)) return null;
+
+		if (target == null)
+		{
+			skeleton.SetToSetupPose();
+			skeleton.UpdateWorld();   // rest pose, so the target lands exactly on the tip
+			target = AddBone(skeleton, null, $"{end.Name}_target", end.TipWorld, 0f, 10f);
+		}
+
+		var ik = new IkConstraint { Name = UniqueIkName(skeleton, $"{end.Name}_ik"), Target = target };
+		ik.Bones.AddRange(chain);
+		skeleton.IkConstraints.Add(ik);
+		return ik;
+	}
+
+	public static bool SetIkLength(Skeleton skeleton, IkConstraint ik, int length)
+	{
+		var chain = ChainEndingAt(ik.Bones[^1], length);
+		if (chain == null || chain.Count == ik.Bones.Count) return false;
+		if (InOtherIk(skeleton, chain, ik) || !UsableAsTarget(chain, ik.Target)) return false;
+		ik.Bones.Clear();
+		ik.Bones.AddRange(chain);
+		return true;
+	}
+
+	public static bool SetIkTarget(IkConstraint ik, Bone target)
+	{
+		if (ik.Target == target || !UsableAsTarget(ik.Bones, target)) return false;
+		ik.Target = target;
+		return true;
+	}
+
+	public static void DeleteIk(Skeleton skeleton, IEnumerable<Animation> animations, IkConstraint ik)
+	{
+		skeleton.IkConstraints.Remove(ik);
+		foreach (var anim in animations)
+			anim.Timelines.RemoveAll(t => t is IkMixTimeline && t.Target == ik.Name);
+	}
 	private static Vector2 ToLocal(Bone parent, Vector2 world) =>
 		Matrix3x2.Invert(parent.World, out var inverse) ? Vector2.Transform(world, inverse) : world;
 
