@@ -66,11 +66,7 @@ public class Skeleton
 	public void SetToSetupPose()
 	{
 		foreach (var root in Roots) ResetBone(root);
-		foreach (var slot in Slots)
-		{
-			slot.ActiveAttachment = slot.SetupAttachment;
-			slot.ResetPlacement();
-		}
+		foreach (var slot in Slots) slot.ResetToSetup();
 		foreach (var c in IkConstraints) c.Mix = c.SetupMix;
 		foreach (var c in LookConstraints) c.Mix = c.SetupMix;
 	}

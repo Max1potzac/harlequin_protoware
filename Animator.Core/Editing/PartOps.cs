@@ -7,7 +7,8 @@ public static class PartOps
 {
 	// Rows that animate a part (as opposed to a bone; parts and bones can share names)
 	public static bool TargetsPart(Timeline t) =>
-		t is AttachmentTimeline or PartTranslateTimeline or PartRotateTimeline or PartScaleTimeline;
+		t is AttachmentTimeline or PartTranslateTimeline or PartRotateTimeline or PartScaleTimeline
+			or PartColorTimeline or PartOpacityTimeline;
 
 	public static string UniqueSlotName(Skeleton skeleton, string baseName)
 	{

@@ -47,6 +47,7 @@ public partial class MainWindow : Window
 		InitRigPanel();
 		InitAnimationsPanel();
 		InitOnion();
+		InitEffects();
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;

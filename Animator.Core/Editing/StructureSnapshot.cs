@@ -11,7 +11,8 @@ public sealed class StructureSnapshot
 		Vector2 Position, float Rotation, Vector2 Scale, float Turn, float Tilt,
 		bool InheritRotation, bool InheritScale);
 
-	private sealed record SlotState(Slot Slot, string Name, Bone Bone, string? SetupAttachment);
+	private sealed record SlotState(Slot Slot, string Name, Bone Bone, string? SetupAttachment,
+		BlendMode Blend, Vector3 Color, float Opacity);
 
 	private sealed record AttachmentState(
 		Attachment Attachment, string Name, Guid AssetId,
@@ -46,7 +47,8 @@ public sealed class StructureSnapshot
 			b.SetupPosition, b.SetupRotation, b.SetupScale, b.SetupTurn, b.SetupTilt,
 			b.InheritRotation, b.InheritScale)).ToList();
 
-		_slots = skeleton.Slots.Select(s => new SlotState(s, s.Name, s.Bone, s.SetupAttachment)).ToList();
+		_slots = skeleton.Slots.Select(s => new SlotState(s, s.Name, s.Bone, s.SetupAttachment,
+			s.Blend, s.SetupColor, s.SetupOpacity)).ToList();
 		_skins = skeleton.AllSkins().Select(s => (s, s.CopyMap())).ToList();
 		_activeSkin = skeleton.ActiveSkin;
 		_attachments = _skins.SelectMany(s => s.Map.Values).Distinct()
@@ -92,6 +94,9 @@ public sealed class StructureSnapshot
 			s.Slot.Name = s.Name;
 			s.Slot.Bone = s.Bone;
 			s.Slot.SetupAttachment = s.SetupAttachment;
+			s.Slot.Blend = s.Blend;
+			s.Slot.SetupColor = s.Color;
+			s.Slot.SetupOpacity = s.Opacity;
 			_skeleton.Slots.Add(s.Slot);
 		}
 

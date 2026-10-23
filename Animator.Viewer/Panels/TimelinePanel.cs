@@ -150,6 +150,17 @@ public class TimelinePanel
                           : key;
                 DrawKey(canvas, FrameToX(f), cy, curve, paint);
             }
+
+            // Colour keys get a dot of their colour in the middle
+            if (tl is PartColorTimeline colors)
+            {
+                using var dot = new SKPaint { IsAntialias = true };
+                foreach (var k in colors.Track.Keys)
+                {
+                    dot.Color = new SKColor(Byte(k.Value.X), Byte(k.Value.Y), Byte(k.Value.Z));
+                    canvas.DrawCircle(FrameToX(TimeToFrame(k.Time)), cy, 2.5f, dot);
+                }
+            }
         }
 
         // A thin scrollbar when there are more rows than fit
@@ -240,6 +251,8 @@ public class TimelinePanel
             Block(from, Math.Min(to, frames), keys[k].Value, faint: false);
         }
     }
+
+    private static byte Byte(float v) => (byte)Math.Clamp(MathF.Round(v * 255f), 0, 255);
 
     // The same color for the same drawing name, every time (FNV-1a hash → hue)
     private static float HueOf(string name)

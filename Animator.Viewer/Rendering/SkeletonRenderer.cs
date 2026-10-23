@@ -146,11 +146,49 @@ public class SkeletonRenderer
 			var m = ToSk(ImageToWorld(slot, att, bmp.Width, bmp.Height));
 			canvas.Save();
 			canvas.Concat(in m);
-			canvas.DrawBitmap(bmp, 0, 0, Sampling, null);
+			DrawPart(canvas, slot, bmp);
 			if (asset == Highlight) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
 			canvas.Restore();
 		}
 	}
+
+	// One part's pixels, with its blend mode, tint and opacity (plainly when it has none)
+	private void DrawPart(SKCanvas canvas, Slot slot, SKBitmap bmp)
+	{
+		bool tinted = slot.Color != Vector3.One;
+		float opacity = Math.Clamp(slot.Opacity, 0f, 1f);
+		if (slot.Blend == BlendMode.Normal && !tinted && opacity >= 1f)
+		{
+			canvas.DrawBitmap(bmp, 0, 0, Sampling, null);
+			return;
+		}
+
+		using var tint = tinted ? TintFilter(slot.Color) : null;
+		using var paint = new SKPaint
+		{
+			BlendMode = ToSk(slot.Blend),
+			Color = SKColors.White.WithAlpha((byte)MathF.Round(opacity * 255)),
+			ColorFilter = tint
+		};
+		canvas.DrawBitmap(bmp, 0, 0, Sampling, paint);
+	}
+
+	public static SKBlendMode ToSk(BlendMode blend) => blend switch
+	{
+		BlendMode.Add => SKBlendMode.Plus,
+		BlendMode.Multiply => SKBlendMode.Multiply,
+		BlendMode.Screen => SKBlendMode.Screen,
+		_ => SKBlendMode.SrcOver
+	};
+
+	// Multiplies red, green and blue by the tint (white leaves the drawing as it is)
+	public static SKColorFilter TintFilter(Vector3 color) => SKColorFilter.CreateColorMatrix(new[]
+	{
+		color.X, 0, 0, 0, 0,
+		0, color.Y, 0, 0, 0,
+		0, 0, color.Z, 0, 0,
+		0, 0, 0, 1, 0
+	});
 	// The asset open in the paint editor gets an outline
 	public Asset? Highlight { get; set; }
 
