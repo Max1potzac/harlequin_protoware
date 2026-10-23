@@ -120,4 +120,44 @@ public class PaintToolTests
 			Assert.Equal(color, ColorMath.FromHsv(h, s, v));
 		}
 	}
+	// A 4×4 drawing filled solid blue, open in a paint session with the bucket
+	private static (PaintSession Session, SKBitmap Pixels) BlueDrawing()
+	{
+		var store = new AssetStore();
+		var asset = new Asset { Name = "box", Width = 4, Height = 4 };
+		var layer = store.AddLayer(asset, "Base");
+		var session = new PaintSession(store, new UndoStack(), new Skeleton(), new FillTool());
+		session.Open(asset);
+		var pixels = store.GetLayer(layer)!;
+		pixels.Erase(new SKColor(0, 0, 255));
+		return (session, pixels);
+	}
+
+	[Fact]
+	public void A_see_through_fill_tints_instead_of_replacing()
+	{
+		var (session, pixels) = BlueDrawing();
+		session.SetColor(new SKColor(255, 0, 0, 128));   // half see-through red
+
+		session.Tool.Down(session, new Vector2(1, 1));
+
+		var pixel = pixels.GetPixel(1, 1);
+		Assert.Equal(255, pixel.Alpha);   // still solid: red over blue, not a see-through hole
+		Assert.InRange(pixel.Red, 120, 136);
+		Assert.InRange(pixel.Blue, 120, 136);
+	}
+
+	[Fact]
+	public void The_bucket_stays_inside_the_selection()
+	{
+		var (session, pixels) = BlueDrawing();
+		using (var left = ShapePaths.Rect(new SKRect(0, 0, 2, 4)))
+			session.Selection = SelectionMask.FromPath(4, 4, left);
+		session.SetColor(SKColors.Red);
+
+		session.Tool.Down(session, new Vector2(0, 0));
+
+		Assert.Equal(SKColors.Red, pixels.GetPixel(1, 3));
+		Assert.Equal(new SKColor(0, 0, 255), pixels.GetPixel(2, 0));
+	}
 }

@@ -41,6 +41,8 @@ public sealed class EyedropperTool : PaintTool
 	}
 }
 
+// Bucket fill. The area is painted OVER what's there, so a see-through colour tints it
+// instead of punching a hole.
 public sealed class FillTool : PaintTool
 {
 	public override string Name => "Fill";
@@ -54,35 +56,21 @@ public sealed class FillTool : PaintTool
 		if (!s.InSelection(x, y)) return;
 
 		var before = PixelBuffer.Read(layer);
-		var result = before.Clone();
 		// Compare against the merged image or the layer itself; always write into the layer
 		var sample = s.SampleAllLayers && s.Composite is { } merged ? PixelBuffer.Read(merged) : before;
-		int target = sample.Data[y * w + x];
-		int fill = PixelBuffer.Encode(s.Color);
-		if (target == fill) return;
+		if (s.Color.Alpha == 255 && sample.Data[y * w + x] == PixelBuffer.Encode(s.Color)) return;   // already that colour
 
-		// Flood fill: spread to neighbours that look like the clicked pixel
-		var visited = new bool[w * h];
-		var stack = new Stack<(int X, int Y)>();
-		stack.Push((x, y));
-		while (stack.Count > 0)
-		{
-			var (cx, cy) = stack.Pop();
-			if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
-			int i = cy * w + cx;
-			if (visited[i]) continue;
-			visited[i] = true;
-			if (!s.InSelection(cx, cy)) continue;
-			if (!MagicWand.Similar(sample.Data[i], target, s.Tolerance)) continue;
+		// The same search as the wand (connected, similar pixels), kept inside the selection
+		var area = MagicWand.Select(sample, x, y, s.Tolerance, contiguous: true, allowed: s.InSelection);
+		using var mask = new SKBitmap(AssetStore.InfoFor(w, h));
+		mask.Erase(SKColors.Transparent);
+		var maskPixels = PixelBuffer.Read(mask);
+		int white = PixelBuffer.Encode(SKColors.White);
+		for (int i = 0; i < area.Length; i++)
+			if (area[i]) maskPixels.Data[i] = white;
+		maskPixels.WriteTo(mask);
 
-			result.Data[i] = fill;
-			stack.Push((cx + 1, cy));
-			stack.Push((cx - 1, cy));
-			stack.Push((cx, cy + 1));
-			stack.Push((cx, cy - 1));
-		}
-
-		result.WriteTo(layer);
+		MaskCompositor.ApplyColors(s, layer, before, (mask, s.Color));
 		s.Asset.MarkEdited();
 		s.CommitPixels("Fill", before);
 	}

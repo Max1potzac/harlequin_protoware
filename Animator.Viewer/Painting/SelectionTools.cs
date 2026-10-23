@@ -237,8 +237,10 @@ public sealed class MagicWandTool : PaintTool
 // The wand's search, kept separate so it can be tested on its own
 public static class MagicWand
 {
-	// Pixels that look like the one at (x, y): every channel within `tolerance`
-	public static bool[] Select(PixelBuffer pixels, int x, int y, int tolerance, bool contiguous)
+	// Pixels that look like the one at (x, y): every channel within `tolerance`.
+	// `allowed` (optional) keeps the search inside an area, like the bucket inside a selection.
+	public static bool[] Select(PixelBuffer pixels, int x, int y, int tolerance, bool contiguous,
+								Func<int, int, bool>? allowed = null)
 	{
 		int w = pixels.Width, h = pixels.Height;
 		var selected = new bool[w * h];
@@ -247,7 +249,7 @@ public static class MagicWand
 		if (!contiguous)
 		{
 			for (int i = 0; i < selected.Length; i++)
-				selected[i] = Similar(pixels.Data[i], target, tolerance);
+				selected[i] = Similar(pixels.Data[i], target, tolerance) && (allowed == null || allowed(i % w, i / w));
 			return selected;
 		}
 
@@ -259,10 +261,10 @@ public static class MagicWand
 		while (stack.Count > 0)
 		{
 			int i = stack.Pop();
-			if (!Similar(pixels.Data[i], target, tolerance)) continue;
+			int px = i % w, py = i / w;
+			if (!Similar(pixels.Data[i], target, tolerance) || (allowed != null && !allowed(px, py))) continue;
 			selected[i] = true;
 
-			int px = i % w, py = i / w;
 			if (px > 0 && !visited[i - 1]) { visited[i - 1] = true; stack.Push(i - 1); }
 			if (px < w - 1 && !visited[i + 1]) { visited[i + 1] = true; stack.Push(i + 1); }
 			if (py > 0 && !visited[i - w]) { visited[i - w] = true; stack.Push(i - w); }
