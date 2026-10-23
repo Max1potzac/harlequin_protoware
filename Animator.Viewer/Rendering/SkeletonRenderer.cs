@@ -19,7 +19,19 @@ public class SkeletonRenderer
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
 	{
 		DrawAxes(canvas);
+		DrawParts(canvas, skeleton);
+		DrawOverlays(canvas, skeleton);
+	}
+
+	// The pieces of Draw, for scenes: every object's parts first, then the edited object's
+	// bones and handles on top of everything
+	public void DrawParts(SKCanvas canvas, Skeleton skeleton)
+	{
 		if (ShowImages) DrawSlots(canvas, skeleton);
+	}
+
+	public void DrawOverlays(SKCanvas canvas, Skeleton skeleton)
+	{
 		if (ShowBones)
 		{
 			DrawLookGuides(canvas, skeleton);
@@ -27,13 +39,43 @@ public class SkeletonRenderer
 		}
 		DrawPartGizmo(canvas, skeleton);
 	}
+
+	// At scene level: faint lines for the bones of an object with no pictures yet, so it can
+	// still be seen and grabbed
+	public void DrawBoneHints(SKCanvas canvas, Skeleton skeleton)
+	{
+		using var line = new SKPaint
+		{
+			Color = new SKColor(255, 200, 60, 110),
+			StrokeWidth = 2f / Zoom,
+			IsAntialias = true,
+			Style = SKPaintStyle.Stroke,
+			StrokeCap = SKStrokeCap.Round
+		};
+		foreach (var bone in skeleton.AllBones())
+		{
+			var a = bone.World.Translation;
+			var b = bone.TipWorld;
+			canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
+		}
+	}
+
+	// Another object while you edit one: see-through, as one layer
+	public void DrawFaded(SKCanvas canvas, Skeleton skeleton, float opacity)
+	{
+		if (!ShowImages || ImageBounds(skeleton) is not { } bounds) return;
+		using var paint = new SKPaint { Color = SKColors.White.WithAlpha((byte)(Math.Clamp(opacity, 0f, 1f) * 255)) };
+		canvas.SaveLayer(bounds, paint);
+		DrawImages(canvas, skeleton);
+		canvas.Restore();
+	}
 	// Nearest = crisp pixels (pixel art). Linear = smooth when rotated/scaled.
 	public bool PixelArt { get; set; }
 
     private SKSamplingOptions Sampling => PixelArt
         ? new SKSamplingOptions(SKFilterMode.Nearest, SKMipmapMode.None)
         : new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None);
-    private void DrawAxes(SKCanvas canvas)
+    public void DrawAxes(SKCanvas canvas)
     {
         using var paint = new SKPaint { Color = new SKColor(255, 255, 255, 40), StrokeWidth = 1f / Zoom };
         canvas.DrawLine(-100000, 0, 100000, 0, paint);
@@ -239,7 +281,7 @@ public class SkeletonRenderer
 	}
 
 	// The world-space box around every visible part (null = nothing to draw)
-	private SKRect? ImageBounds(Skeleton skeleton)
+	public SKRect? ImageBounds(Skeleton skeleton)
 	{
 		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
 		foreach (var slot in skeleton.Slots)

@@ -110,7 +110,7 @@ public class BoneTool
 		{
 			case Drag.Pan:
 				var d = screen - _lastScreen;
-				_camera.Pan -= new Vector2(d.X, -d.Y) / _camera.Zoom;
+				_camera.Pan -= new Vector2(d.X, -d.Y) / _camera.Zoom;   // the view pans in the scene
 				break;
 
 			case Drag.Create when CreatePreview is { } preview:
@@ -211,7 +211,7 @@ public class BoneTool
 	{
 		var preview = CreatePreview;
 		CreatePreview = null;
-		if (preview is not { } p || Vector2.Distance(p.A, p.B) * _camera.Zoom < 4) return;
+		if (preview is not { } p || Vector2.Distance(p.A, p.B) * _camera.EditZoom < 4) return;
 
 		var parent = _state.Selected;
 		_state.EditStructure(() =>
@@ -235,8 +235,8 @@ public class BoneTool
 
 	private bool TryPartHandle(Slot slot, Vector2 world)
 	{
-		if (PartGizmo.For(_state.Skeleton, slot, _camera.Zoom) is not { } h) return false;
-		float r = HandlePickPx / _camera.Zoom;
+		if (PartGizmo.For(_state.Skeleton, slot, _camera.EditZoom) is not { } h) return false;
+		float r = HandlePickPx / _camera.EditZoom;
 
 		// The pivot belongs to the rest setup, so it can only be moved in Setup mode
 		if (!_state.AnimateMode && Vector2.Distance(world, h.Pivot) <= r) return BeginPartDrag(slot, Drag.PartPivot, world);
@@ -417,7 +417,7 @@ public class BoneTool
 
 	private Bone? HitJoint(Vector2 world)
 	{
-		float bestDist = JointPickPx / _camera.Zoom;
+		float bestDist = JointPickPx / _camera.EditZoom;
 		Bone? best = null;
 		foreach (var b in _state.Skeleton.AllBones())
 		{
@@ -429,7 +429,7 @@ public class BoneTool
 
 	private Bone? HitBone(Vector2 world)
 	{
-		float bestDist = BonePickPx / _camera.Zoom;
+		float bestDist = BonePickPx / _camera.EditZoom;
 		Bone? best = null;
 		foreach (var b in _state.Skeleton.AllBones())
 		{

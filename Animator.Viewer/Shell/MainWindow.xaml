@@ -30,261 +30,370 @@
 
             <DockPanel Grid.Row="0" Grid.Column="0">
 
-                <!-- ===== Rig panel ===== -->
+                <!-- ===== Objects and rig panel ===== -->
                 <DockPanel DockPanel.Dock="Left" Width="250" Background="#24272E">
-                    <TextBlock DockPanel.Dock="Top" Text="Rig" Foreground="White" FontWeight="Bold" Margin="8,6,8,4" />
 
-                    <UniformGrid DockPanel.Dock="Top" Columns="3" Margin="6,0,6,6">
-                        <Button Content="+ Bone" Margin="0,0,3,0" Click="AddBone_Click"
-                    ToolTip="Adds a child of the selected bone (or a root bone). Tip: Ctrl+drag in the viewport draws one." />
-                        <Button Content="+ Part ▾" Margin="3,0,3,0" Click="AddPart_Click"
-                    ToolTip="Adds a part (blank, or from an image) to the selected bone" />
-                        <Button x:Name="DeleteButton" Content="Delete" Margin="3,0,0,0" Click="Delete_Click"
-                    ToolTip="Deletes the selected part, or the selected bone with everything on it (undoable)" />
+                    <!-- Objects in the scene (top of the list = in front) -->
+                    <DockPanel DockPanel.Dock="Top" Margin="8,6,6,4">
+                        <Button x:Name="SceneButton" DockPanel.Dock="Right" Padding="6,1" Click="SceneButton_Click"
+                    ToolTip="Back to the scene, to place whole objects (Esc). At scene level: open the selected object (Enter)" />
+                        <TextBlock Text="Objects" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ListBox x:Name="ObjectList" DockPanel.Dock="Top" MinHeight="40" MaxHeight="110" Margin="6,0,6,4"
+             Background="#1E2026" Foreground="White" BorderThickness="0"
+             SelectionChanged="ObjectList_Changed" MouseDoubleClick="ObjectList_DoubleClick"
+             ToolTip="Top = in front. Double-click an object to edit it." />
+                    <UniformGrid DockPanel.Dock="Top" Columns="5" Margin="6,0,6,4">
+                        <Button Content="+ New ▾" Margin="0,0,2,0" Click="AddObject_Click"
+                    ToolTip="Adds an object to the scene, in the middle of the view" />
+                        <Button x:Name="CopyObjectButton" Content="Copy" Margin="2,0,2,0" Click="CopyObject_Click"
+                    ToolTip="A copy of the object, with its own rig, animations and drawings" />
+                        <Button x:Name="DeleteObjectButton" Content="Delete" Margin="2,0,2,0" Click="DeleteObject_Click"
+                    ToolTip="Deletes the object (undoable). A scene always keeps at least one." />
+                        <Button x:Name="ObjectUpButton" Content="▲" Margin="2,0,2,0" Click="ObjectUp_Click"
+                    ToolTip="Forward: in front of more objects" />
+                        <Button x:Name="ObjectDownButton" Content="▼" Margin="2,0,0,0" Click="ObjectDown_Click"
+                    ToolTip="Backward: behind more objects" />
                     </UniformGrid>
+                    <TextBlock x:Name="ModeText" DockPanel.Dock="Top" Foreground="#9AA4B2" TextWrapping="Wrap" Margin="8,0,8,6" />
+                    <Border DockPanel.Dock="Top" Height="1" Background="#3A3F4A" Margin="6,0,6,4" />
 
-                    <!-- Properties of the selected bone -->
-                    <ScrollViewer DockPanel.Dock="Bottom" VerticalScrollBarVisibility="Auto" MaxHeight="430">
-                        <Grid x:Name="BoneProps" Margin="6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                    <Grid>
+                        <!-- Scene level: the selected object's place and settings -->
+                        <ScrollViewer x:Name="ObjectProps" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                            <Grid x:Name="ObjectFields" Margin="6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock x:Name="ObjectTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
+                   TextWrapping="Wrap" Margin="0,0,0,6" />
+
+                                <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <TextBox x:Name="ObjectName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                 Tag="OName" KeyDown="ObjectField_KeyDown" LostFocus="ObjectField_LostFocus" />
+
+                                <TextBlock Grid.Row="2" Text="X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <TextBox x:Name="ObjectX" Grid.Row="2" Grid.Column="1" Margin="0,0,2,4"
+                 Tag="OX" KeyDown="ObjectField_KeyDown" LostFocus="ObjectField_LostFocus"
+                 ToolTip="Where the object's origin (the green cross) is in the scene" />
+                                <TextBox x:Name="ObjectY" Grid.Row="2" Grid.Column="2" Margin="2,0,0,4"
+                 Tag="OY" KeyDown="ObjectField_KeyDown" LostFocus="ObjectField_LostFocus" />
+
+                                <TextBlock Grid.Row="3" Text="Rotation°" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <TextBox x:Name="ObjectRotation" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
+                 Tag="ORotation" KeyDown="ObjectField_KeyDown" LostFocus="ObjectField_LostFocus" />
+
+                                <TextBlock Grid.Row="4" Text="Scale" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <TextBox x:Name="ObjectScaleX" Grid.Row="4" Grid.Column="1" Margin="0,0,2,4"
+                 Tag="OScaleX" KeyDown="ObjectField_KeyDown" LostFocus="ObjectField_LostFocus"
+                 ToolTip="1 = its own size. A negative number mirrors it." />
+                                <TextBox x:Name="ObjectScaleY" Grid.Row="4" Grid.Column="2" Margin="2,0,0,4"
+                 Tag="OScaleY" KeyDown="ObjectField_KeyDown" LostFocus="ObjectField_LostFocus" />
+
+                                <StackPanel Grid.Row="5" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,4,0,4">
+                                    <CheckBox x:Name="ObjectVisible" Content="Visible" Foreground="White" Margin="0,0,12,0"
+                      Click="ObjectFlags_Click" ToolTip="Hidden objects aren't drawn in the scene (they still show while you edit them)" />
+                                    <CheckBox x:Name="ObjectLocked" Content="Locked" Foreground="White"
+                      Click="ObjectFlags_Click" ToolTip="Locked objects can't be clicked or dragged in the viewport (handy for backgrounds)" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="6" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,0,0,6">
+                                    <CheckBox x:Name="ObjectExport" Content="Export" Foreground="White" Margin="0,0,12,0"
+                      Click="ObjectFlags_Click" ToolTip="Included when exporting (milestone 10)" />
+                                    <CheckBox x:Name="ObjectOnion" Content="Onion skin" Foreground="White"
+                      Click="ObjectFlags_Click" ToolTip="Shows onion-skin ghosts at scene level (O turns onion skin on and off)" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="7" Text="Preview" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <ComboBox x:Name="ObjectPreview" Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                  SelectionChanged="ObjectPreview_Changed"
+                  ToolTip="The animation this object plays at scene level, and while you edit other objects" />
+
+                                <Button Grid.Row="8" Grid.ColumnSpan="3" Content="Edit this object ▸" Margin="0,6,0,4"
+                Click="EditSelected_Click" ToolTip="Opens the object to edit its rig, drawings and animations (double-click or Enter)" />
+
+                                <TextBlock x:Name="ObjectHint" Grid.Row="9" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                            </Grid>
+                        </ScrollViewer>
+
+                        <!-- Inside an object: its rig. The splitter between the tree and the properties can be dragged. -->
+                        <Grid x:Name="RigSection">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="2*" MinHeight="50" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="3*" MinHeight="80" />
                             </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="Rig" Foreground="White" FontWeight="Bold" Margin="8,2,8,4" />
+                            <UniformGrid Grid.Row="1" Columns="3" Margin="6,0,6,6">
+                                <Button Content="+ Bone" Margin="0,0,3,0" Click="AddBone_Click"
+                            ToolTip="Adds a child of the selected bone (or a root bone). Tip: Ctrl+drag in the viewport draws one." />
+                                <Button Content="+ Part ▾" Margin="3,0,3,0" Click="AddPart_Click"
+                            ToolTip="Adds a part (blank, or from an image) to the selected bone" />
+                                <Button x:Name="DeleteButton" Content="Delete" Margin="3,0,0,0" Click="Delete_Click"
+                            ToolTip="Deletes the selected part, or the selected bone with everything on it (undoable)" />
+                            </UniformGrid>
 
-                            <TextBlock x:Name="PropsTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2" Margin="0,0,0,6" />
+                            <!-- Bone hierarchy -->
+                            <TreeView x:Name="BoneTree" Grid.Row="2" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
+                      SelectedItemChanged="BoneTree_SelectedItemChanged" />
+                            <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" Background="#1B1D22"
+                          ResizeDirection="Rows" ToolTip="Drag to give the tree or the properties more room" />
 
-                            <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <TextBox x:Name="BoneName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-                 Tag="Name" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                            <!-- Properties of the selected bone or part (one shows at a time) -->
+                            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <Grid x:Name="BoneProps" Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
 
-                            <TextBlock Grid.Row="2" Text="Parent" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <ComboBox x:Name="BoneParent" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-                  SelectionChanged="BoneParent_Changed" />
+                                        <TextBlock x:Name="PropsTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2" Margin="0,0,0,6" />
 
-                            <TextBlock Grid.Row="3" Text="X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <TextBox x:Name="BoneX" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
-                 Tag="X" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
-                            <TextBox x:Name="BoneY" Grid.Row="3" Grid.Column="2" Margin="2,0,0,4"
-                 Tag="Y" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="BoneName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                             Tag="Name" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
 
-                            <TextBlock Grid.Row="4" Text="Rot° / Len" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <TextBox x:Name="BoneRotation" Grid.Row="4" Grid.Column="1" Margin="0,0,2,4"
-                 Tag="Rotation" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
-                            <TextBox x:Name="BoneLength" Grid.Row="4" Grid.Column="2" Margin="2,0,0,4"
-                 Tag="Length" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBlock Grid.Row="2" Text="Parent" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="BoneParent" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                              SelectionChanged="BoneParent_Changed" />
 
-                            <TextBlock Grid.Row="5" Text="Scale" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <TextBox x:Name="BoneScaleX" Grid.Row="5" Grid.Column="1" Margin="0,0,2,4"
-                 Tag="ScaleX" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
-                            <TextBox x:Name="BoneScaleY" Grid.Row="5" Grid.Column="2" Margin="2,0,0,4"
-                 Tag="ScaleY" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBlock Grid.Row="3" Text="X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="BoneX" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="X" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBox x:Name="BoneY" Grid.Row="3" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="Y" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
 
-                            <TextBlock Grid.Row="6" Text="Turn° / Tilt°" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <TextBox x:Name="BoneTurn" Grid.Row="6" Grid.Column="1" Margin="0,0,2,4"
-                 Tag="Turn" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
-                 ToolTip="Depth rotation around the bone's length: parts narrow, and mirror across the bone at 180°" />
-                            <TextBox x:Name="BoneTilt" Grid.Row="6" Grid.Column="2" Margin="2,0,0,4"
-                 Tag="Tilt" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
-                 ToolTip="Depth rotation across the bone: it foreshortens, and mirrors along itself at 180°" />
+                                        <TextBlock Grid.Row="4" Text="Rot° / Len" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="BoneRotation" Grid.Row="4" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="Rotation" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBox x:Name="BoneLength" Grid.Row="4" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="Length" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
 
-                            <StackPanel Grid.Row="7" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,2,0,6">
-                                <CheckBox x:Name="BoneInheritRotation" Content="Inherit rotation" Foreground="White"
-                      Margin="0,0,10,0" Click="BoneInherit_Click" />
-                                <CheckBox x:Name="BoneInheritScale" Content="Inherit scale" Foreground="White"
-                      Click="BoneInherit_Click" />
-                            </StackPanel>
+                                        <TextBlock Grid.Row="5" Text="Scale" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="BoneScaleX" Grid.Row="5" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="ScaleX" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBox x:Name="BoneScaleY" Grid.Row="5" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="ScaleY" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
 
-                            <TextBlock Grid.Row="8" Text="Look at" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <ComboBox x:Name="LookTarget" Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-                  SelectionChanged="LookTarget_Changed"
-                  ToolTip="Makes this bone (e.g. an iris) move toward the chosen bone, inside a boundary" />
+                                        <TextBlock Grid.Row="6" Text="Turn° / Tilt°" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="BoneTurn" Grid.Row="6" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="Turn" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
+                             ToolTip="Depth rotation around the bone's length: parts narrow, and mirror across the bone at 180°" />
+                                        <TextBox x:Name="BoneTilt" Grid.Row="6" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="Tilt" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
+                             ToolTip="Depth rotation across the bone: it foreshortens, and mirrors along itself at 180°" />
 
-                            <TextBlock Grid.Row="9" Text="Shape / Follow" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <ComboBox x:Name="LookShapeBox" Grid.Row="9" Grid.Column="1" Margin="0,0,2,4"
-                  SelectionChanged="LookShape_Changed" />
-                            <TextBox x:Name="LookFollow" Grid.Row="9" Grid.Column="2" Margin="2,0,0,4"
-                 Tag="Follow" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
-                 ToolTip="How strongly it follows: 0.1 = subtle, 1 = goes straight to the edge" />
+                                        <StackPanel Grid.Row="7" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,2,0,6">
+                                            <CheckBox x:Name="BoneInheritRotation" Content="Inherit rotation" Foreground="White"
+                                  Margin="0,0,10,0" Click="BoneInherit_Click" />
+                                            <CheckBox x:Name="BoneInheritScale" Content="Inherit scale" Foreground="White"
+                                  Click="BoneInherit_Click" />
+                                        </StackPanel>
 
-                            <TextBlock Grid.Row="10" Text="Range X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,6" />
-                            <TextBox x:Name="LookRangeX" Grid.Row="10" Grid.Column="1" Margin="0,0,2,6"
-                 Tag="RangeX" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
-                            <TextBox x:Name="LookRangeY" Grid.Row="10" Grid.Column="2" Margin="2,0,0,6"
-                 Tag="RangeY" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBlock Grid.Row="8" Text="Look at" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="LookTarget" Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                              SelectionChanged="LookTarget_Changed"
+                              ToolTip="Makes this bone (e.g. an iris) move toward the chosen bone, inside a boundary" />
 
-                            <TextBlock Grid.Row="11" Text="IK chain" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <ComboBox x:Name="IkLength" Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-                  SelectionChanged="IkLength_Changed"
-                  ToolTip="Make this bone the END of an IK chain (hand, foot, tail tip). 2 bones = arm or leg, 1 = aim." />
+                                        <TextBlock Grid.Row="9" Text="Shape / Follow" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="LookShapeBox" Grid.Row="9" Grid.Column="1" Margin="0,0,2,4"
+                              SelectionChanged="LookShape_Changed" />
+                                        <TextBox x:Name="LookFollow" Grid.Row="9" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="Follow" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus"
+                             ToolTip="How strongly it follows: 0.1 = subtle, 1 = goes straight to the edge" />
 
-                            <TextBlock Grid.Row="12" Text="IK target" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                            <ComboBox x:Name="IkTargetBox" Grid.Row="12" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-                  SelectionChanged="IkTarget_Changed" />
+                                        <TextBlock Grid.Row="10" Text="Range X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,6" />
+                                        <TextBox x:Name="LookRangeX" Grid.Row="10" Grid.Column="1" Margin="0,0,2,6"
+                             Tag="RangeX" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
+                                        <TextBox x:Name="LookRangeY" Grid.Row="10" Grid.Column="2" Margin="2,0,0,6"
+                             Tag="RangeY" KeyDown="BoneField_KeyDown" LostFocus="BoneField_LostFocus" />
 
-                            <StackPanel Grid.Row="13" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,2,0,4">
-                                <CheckBox x:Name="IkOn" Content="IK on" Foreground="White" Margin="0,0,10,0" Click="IkOptions_Click"
-                      ToolTip="Off = the chain plays its FK keys (same as the I key)" />
-                                <CheckBox x:Name="IkFlip" Content="Flip bend" Foreground="White" Click="IkOptions_Click"
-                      ToolTip="Which way the middle joint (elbow, knee) bends (same as the B key)" />
-                            </StackPanel>
+                                        <TextBlock Grid.Row="11" Text="IK chain" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="IkLength" Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                              SelectionChanged="IkLength_Changed"
+                              ToolTip="Make this bone the END of an IK chain (hand, foot, tail tip). 2 bones = arm or leg, 1 = aim." />
 
-                            <TextBlock Grid.Row="14" Text="Follows" Foreground="White" VerticalAlignment="Center" Margin="0,4,6,4" />
-                            <ComboBox x:Name="SpaceBox" Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,4"
-                  SelectionChanged="SpaceBox_Changed"
-                  ToolTip="What this bone follows from the current frame on (Animate mode). Detach it to drop or throw it, or attach it to another bone to be held." />
+                                        <TextBlock Grid.Row="12" Text="IK target" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="IkTargetBox" Grid.Row="12" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                              SelectionChanged="IkTarget_Changed" />
 
-                            <Button x:Name="ThrowButton" Grid.Row="15" Grid.ColumnSpan="3" Content="Throw / fall from this frame…" Margin="0,0,0,4"
-                Click="Throw_Click"
-                ToolTip="Detaches the bone here and bakes a thrown or falling flight into keys (Animate mode)" />
+                                        <StackPanel Grid.Row="13" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,2,0,4">
+                                            <CheckBox x:Name="IkOn" Content="IK on" Foreground="White" Margin="0,0,10,0" Click="IkOptions_Click"
+                                  ToolTip="Off = the chain plays its FK keys (same as the I key)" />
+                                            <CheckBox x:Name="IkFlip" Content="Flip bend" Foreground="White" Click="IkOptions_Click"
+                                  ToolTip="Which way the middle joint (elbow, knee) bends (same as the B key)" />
+                                        </StackPanel>
 
-                            <TextBlock x:Name="RigHint" Grid.Row="16" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="14" Text="Follows" Foreground="White" VerticalAlignment="Center" Margin="0,4,6,4" />
+                                        <ComboBox x:Name="SpaceBox" Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,4"
+                              SelectionChanged="SpaceBox_Changed"
+                              ToolTip="What this bone follows from the current frame on (Animate mode). Detach it to drop or throw it, or attach it to another bone to be held." />
+
+                                        <Button x:Name="ThrowButton" Grid.Row="15" Grid.ColumnSpan="3" Content="Throw / fall from this frame…" Margin="0,0,0,4"
+                            Click="Throw_Click"
+                            ToolTip="Detaches the bone here and bakes a thrown or falling flight into keys (Animate mode)" />
+
+                                        <TextBlock x:Name="RigHint" Grid.Row="16" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                                    </Grid>
+                                    <Grid x:Name="PartProps" Margin="6" Visibility="Collapsed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock x:Name="PartTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
+                               TextWrapping="Wrap" Margin="0,0,0,6" />
+
+                                        <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="PartName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                             Tag="PName" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                                        <TextBlock Grid.Row="2" Text="Bone" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="PartBone" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                              SelectionChanged="PartBone_Changed"
+                              ToolTip="Moves the part to another bone; it stays where it is on screen" />
+
+                                        <TextBlock Grid.Row="3" Text="X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="PartX" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="PX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+                                        <TextBox x:Name="PartY" Grid.Row="3" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="PY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                                        <TextBlock Grid.Row="4" Text="Rotation°" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="PartRotation" Grid.Row="4" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="PRotation" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                                        <TextBlock Grid.Row="5" Text="Scale" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="PartScaleX" Grid.Row="5" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="PScaleX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+                                        <TextBox x:Name="PartScaleY" Grid.Row="5" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="PScaleY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                                        <TextBlock Grid.Row="6" Text="Pivot (px)" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="PartPivotX" Grid.Row="6" Grid.Column="1" Margin="0,0,2,4"
+                             Tag="PPivotX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus"
+                             ToolTip="Pixel of the image that rotation and scaling turn around (the image doesn't move)" />
+                                        <TextBox x:Name="PartPivotY" Grid.Row="6" Grid.Column="2" Margin="2,0,0,4"
+                             Tag="PPivotY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
+
+                                        <UniformGrid Grid.Row="7" Grid.ColumnSpan="3" Columns="3" Margin="0,4,0,4">
+                                            <Button x:Name="EditPixelsButton" Content="Edit pixels" Margin="0,0,3,0" Click="EditPixels_Click" />
+                                            <Button x:Name="PartFront" Content="▲ Front" Margin="3,0,3,0" Click="PartFront_Click"
+                                ToolTip="Draw this part later (in front of more parts)" />
+                                            <Button x:Name="PartBack" Content="▼ Back" Margin="3,0,0,0" Click="PartBack_Click"
+                                ToolTip="Draw this part earlier (behind more parts)" />
+                                        </UniformGrid>
+
+                                        <!-- Frame-by-frame: the part's drawings -->
+                                        <TextBlock Grid.Row="8" Grid.ColumnSpan="3" Text="Drawings (frame by frame)" Foreground="#9AA4B2" Margin="0,8,0,4" />
+
+                                        <TextBlock Grid.Row="9" Text="Drawing" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="DrawingBox" Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                              SelectionChanged="DrawingBox_Changed"
+                              ToolTip="Animate mode: the drawing shown from this frame on (picking one keys it here). Setup mode: the part's rest drawing. (hidden) shows nothing." />
+
+                                        <UniformGrid Grid.Row="10" Grid.ColumnSpan="3" Columns="3" Margin="0,0,0,4">
+                                            <Button Content="New (F7)" Margin="0,0,3,0" Click="NewDrawing_Click"
+                                ToolTip="A new, empty drawing with the same size and layers. Animate mode: shown from this frame on. Setup mode: becomes the rest drawing." />
+                                            <Button Content="Copy (F6)" Margin="3,0,3,0" Click="DuplicateDrawing_Click"
+                                ToolTip="A copy of the current drawing, to change a little: the usual way to make the next frame" />
+                                            <Button x:Name="DeleteDrawingButton" Content="Delete" Margin="3,0,0,0" Click="DeleteDrawing_Click"
+                                ToolTip="Removes this drawing from the part, and its keys in every animation (undoable)" />
+                                        </UniformGrid>
+
+                                        <TextBlock Grid.Row="11" Text="Rename" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <TextBox x:Name="DrawingName" Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                             KeyDown="DrawingName_KeyDown" LostFocus="DrawingName_LostFocus"
+                             ToolTip="The current drawing's name (Enter to apply)" />
+
+                                        <UniformGrid Grid.Row="12" Grid.ColumnSpan="3" Columns="2" Margin="0,0,0,4">
+                                            <Button x:Name="ShorterButton" Content="◂ Shorter" Margin="0,0,3,0" Click="Shorter_Click"
+                                ToolTip="Shift+F5: this drawing stays one frame less; the part's later drawings move one frame earlier (Animate mode)" />
+                                            <Button x:Name="LongerButton" Content="Longer ▸" Margin="3,0,0,0" Click="Longer_Click"
+                                ToolTip="F5: this drawing stays one frame more; the part's later drawings move one frame later (Animate mode)" />
+                                        </UniformGrid>
+
+                                        <!-- Effects (VFX): blend mode, tint and opacity -->
+                                        <TextBlock Grid.Row="13" Grid.ColumnSpan="3" Text="Effects (VFX)" Foreground="#9AA4B2" Margin="0,8,0,4" />
+
+                                        <TextBlock Grid.Row="14" Text="Blend" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <ComboBox x:Name="BlendBox" Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
+                              SelectionChanged="BlendBox_Changed"
+                              ToolTip="How the part mixes with what's behind it. Add = glow (sparks, flashes, magic), Multiply = shadow, Screen = soft light. Applies to the whole animation." />
+
+                                        <TextBlock Grid.Row="15" Text="Colour / %" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                        <Border Grid.Row="15" Grid.Column="1" Height="22" Margin="0,0,2,4" BorderBrush="White" BorderThickness="1"
+                            Background="{StaticResource CheckerBrush}" Cursor="Hand" MouseLeftButtonUp="PartColorSwatch_Click"
+                            ToolTip="Tint: multiplies the drawing's colours (white = as drawn). Click to pick. Animate mode: sets a colour key here.">
+                                            <Rectangle x:Name="PartColorSwatch" />
+                                        </Border>
+                                        <TextBox x:Name="PartOpacity" Grid.Row="15" Grid.Column="2" Margin="2,0,0,4"
+                             KeyDown="PartOpacity_KeyDown" LostFocus="PartOpacity_LostFocus"
+                             ToolTip="Opacity in %: 100 = solid, 0 = invisible. Animate mode: typing sets a key here (fade in / out)." />
+
+                                        <TextBlock x:Name="PartHint" Grid.Row="16" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                                    </Grid>
+                                </StackPanel>
+                            </ScrollViewer>
                         </Grid>
-                    </ScrollViewer>
-                    <!-- Properties of the selected part (scrolls, so the tree keeps some room) -->
-                    <ScrollViewer DockPanel.Dock="Bottom" VerticalScrollBarVisibility="Auto" MaxHeight="430">
-                    <Grid x:Name="PartProps" Margin="6" Visibility="Collapsed">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock x:Name="PartTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
-               TextWrapping="Wrap" Margin="0,0,0,6" />
-
-                        <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <TextBox x:Name="PartName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-             Tag="PName" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
-
-                        <TextBlock Grid.Row="2" Text="Bone" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <ComboBox x:Name="PartBone" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-              SelectionChanged="PartBone_Changed"
-              ToolTip="Moves the part to another bone; it stays where it is on screen" />
-
-                        <TextBlock Grid.Row="3" Text="X / Y" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <TextBox x:Name="PartX" Grid.Row="3" Grid.Column="1" Margin="0,0,2,4"
-             Tag="PX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
-                        <TextBox x:Name="PartY" Grid.Row="3" Grid.Column="2" Margin="2,0,0,4"
-             Tag="PY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
-
-                        <TextBlock Grid.Row="4" Text="Rotation°" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <TextBox x:Name="PartRotation" Grid.Row="4" Grid.Column="1" Margin="0,0,2,4"
-             Tag="PRotation" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
-
-                        <TextBlock Grid.Row="5" Text="Scale" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <TextBox x:Name="PartScaleX" Grid.Row="5" Grid.Column="1" Margin="0,0,2,4"
-             Tag="PScaleX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
-                        <TextBox x:Name="PartScaleY" Grid.Row="5" Grid.Column="2" Margin="2,0,0,4"
-             Tag="PScaleY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
-
-                        <TextBlock Grid.Row="6" Text="Pivot (px)" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <TextBox x:Name="PartPivotX" Grid.Row="6" Grid.Column="1" Margin="0,0,2,4"
-             Tag="PPivotX" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus"
-             ToolTip="Pixel of the image that rotation and scaling turn around (the image doesn't move)" />
-                        <TextBox x:Name="PartPivotY" Grid.Row="6" Grid.Column="2" Margin="2,0,0,4"
-             Tag="PPivotY" KeyDown="PartField_KeyDown" LostFocus="PartField_LostFocus" />
-
-                        <UniformGrid Grid.Row="7" Grid.ColumnSpan="3" Columns="3" Margin="0,4,0,4">
-                            <Button x:Name="EditPixelsButton" Content="Edit pixels" Margin="0,0,3,0" Click="EditPixels_Click" />
-                            <Button x:Name="PartFront" Content="▲ Front" Margin="3,0,3,0" Click="PartFront_Click"
-                ToolTip="Draw this part later (in front of more parts)" />
-                            <Button x:Name="PartBack" Content="▼ Back" Margin="3,0,0,0" Click="PartBack_Click"
-                ToolTip="Draw this part earlier (behind more parts)" />
-                        </UniformGrid>
-
-                        <!-- Frame-by-frame: the part's drawings -->
-                        <TextBlock Grid.Row="8" Grid.ColumnSpan="3" Text="Drawings (frame by frame)" Foreground="#9AA4B2" Margin="0,8,0,4" />
-
-                        <TextBlock Grid.Row="9" Text="Drawing" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <ComboBox x:Name="DrawingBox" Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-              SelectionChanged="DrawingBox_Changed"
-              ToolTip="Animate mode: the drawing shown from this frame on (picking one keys it here). Setup mode: the part's rest drawing. (hidden) shows nothing." />
-
-                        <UniformGrid Grid.Row="10" Grid.ColumnSpan="3" Columns="3" Margin="0,0,0,4">
-                            <Button Content="New (F7)" Margin="0,0,3,0" Click="NewDrawing_Click"
-                ToolTip="A new, empty drawing with the same size and layers. Animate mode: shown from this frame on. Setup mode: becomes the rest drawing." />
-                            <Button Content="Copy (F6)" Margin="3,0,3,0" Click="DuplicateDrawing_Click"
-                ToolTip="A copy of the current drawing, to change a little: the usual way to make the next frame" />
-                            <Button x:Name="DeleteDrawingButton" Content="Delete" Margin="3,0,0,0" Click="DeleteDrawing_Click"
-                ToolTip="Removes this drawing from the part, and its keys in every animation (undoable)" />
-                        </UniformGrid>
-
-                        <TextBlock Grid.Row="11" Text="Rename" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <TextBox x:Name="DrawingName" Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-             KeyDown="DrawingName_KeyDown" LostFocus="DrawingName_LostFocus"
-             ToolTip="The current drawing's name (Enter to apply)" />
-
-                        <UniformGrid Grid.Row="12" Grid.ColumnSpan="3" Columns="2" Margin="0,0,0,4">
-                            <Button x:Name="ShorterButton" Content="◂ Shorter" Margin="0,0,3,0" Click="Shorter_Click"
-                ToolTip="Shift+F5: this drawing stays one frame less; the part's later drawings move one frame earlier (Animate mode)" />
-                            <Button x:Name="LongerButton" Content="Longer ▸" Margin="3,0,0,0" Click="Longer_Click"
-                ToolTip="F5: this drawing stays one frame more; the part's later drawings move one frame later (Animate mode)" />
-                        </UniformGrid>
-
-                        <!-- Effects (VFX): blend mode, tint and opacity -->
-                        <TextBlock Grid.Row="13" Grid.ColumnSpan="3" Text="Effects (VFX)" Foreground="#9AA4B2" Margin="0,8,0,4" />
-
-                        <TextBlock Grid.Row="14" Text="Blend" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <ComboBox x:Name="BlendBox" Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
-              SelectionChanged="BlendBox_Changed"
-              ToolTip="How the part mixes with what's behind it. Add = glow (sparks, flashes, magic), Multiply = shadow, Screen = soft light. Applies to the whole animation." />
-
-                        <TextBlock Grid.Row="15" Text="Colour / %" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
-                        <Border Grid.Row="15" Grid.Column="1" Height="22" Margin="0,0,2,4" BorderBrush="White" BorderThickness="1"
-            Background="{StaticResource CheckerBrush}" Cursor="Hand" MouseLeftButtonUp="PartColorSwatch_Click"
-            ToolTip="Tint: multiplies the drawing's colours (white = as drawn). Click to pick. Animate mode: sets a colour key here.">
-                            <Rectangle x:Name="PartColorSwatch" />
-                        </Border>
-                        <TextBox x:Name="PartOpacity" Grid.Row="15" Grid.Column="2" Margin="2,0,0,4"
-             KeyDown="PartOpacity_KeyDown" LostFocus="PartOpacity_LostFocus"
-             ToolTip="Opacity in %: 100 = solid, 0 = invisible. Animate mode: typing sets a key here (fade in / out)." />
-
-                        <TextBlock x:Name="PartHint" Grid.Row="16" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
                     </Grid>
-                    </ScrollViewer>
-
-                    <!-- Bone hierarchy (fills the remaining space) -->
-                    <TreeView x:Name="BoneTree" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
-                  SelectedItemChanged="BoneTree_SelectedItemChanged" />
                 </DockPanel>
 
                 <!-- ===== Viewport ===== -->
@@ -446,25 +555,28 @@
 
             <DockPanel Grid.Row="1" Grid.ColumnSpan="3">
                 <WrapPanel DockPanel.Dock="Top" Background="#24272E">
-                    <TextBlock Text="Animation" Foreground="White" VerticalAlignment="Center" Margin="8,4,6,4" />
-                    <ComboBox x:Name="AnimList" Width="160" Margin="0,4,6,4" DisplayMemberPath="Name"
-                  SelectionChanged="AnimList_Changed" />
-                    <Button Content="+ New" Padding="6,1" Margin="0,4,4,4" Click="AnimNew_Click" />
-                    <Button Content="Duplicate" Padding="6,1" Margin="0,4,4,4" Click="AnimDuplicate_Click" />
-                    <Button x:Name="AnimDeleteButton" Content="Delete" Padding="6,1" Margin="0,4,14,4" Click="AnimDelete_Click" />
+                    <!-- The open object's animations (disabled at scene level) -->
+                    <StackPanel x:Name="AnimControls" Orientation="Horizontal">
+                        <TextBlock Text="Animation" Foreground="White" VerticalAlignment="Center" Margin="8,4,6,4" />
+                        <ComboBox x:Name="AnimList" Width="160" Margin="0,4,6,4" DisplayMemberPath="Name"
+                      SelectionChanged="AnimList_Changed" />
+                        <Button Content="+ New" Padding="6,1" Margin="0,4,4,4" Click="AnimNew_Click" />
+                        <Button Content="Duplicate" Padding="6,1" Margin="0,4,4,4" Click="AnimDuplicate_Click" />
+                        <Button x:Name="AnimDeleteButton" Content="Delete" Padding="6,1" Margin="0,4,14,4" Click="AnimDelete_Click" />
 
-                    <TextBlock Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
-                    <TextBox x:Name="AnimName" Width="130" Margin="0,4,12,4" VerticalContentAlignment="Center"
-                 Tag="Name" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus" />
-                    <TextBlock Text="Length (frames)" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
-                    <TextBox x:Name="AnimLength" Width="50" Margin="0,4,12,4" VerticalContentAlignment="Center"
-                 Tag="Length" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus" />
+                        <TextBlock Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
+                        <TextBox x:Name="AnimName" Width="130" Margin="0,4,12,4" VerticalContentAlignment="Center"
+                     Tag="Name" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus" />
+                        <TextBlock Text="Length (frames)" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
+                        <TextBox x:Name="AnimLength" Width="50" Margin="0,4,12,4" VerticalContentAlignment="Center"
+                     Tag="Length" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus" />
+                        <CheckBox x:Name="AnimLoop" Content="Loop" Foreground="White" VerticalAlignment="Center"
+                      Margin="0,4,12,4" Click="AnimLoop_Click" />
+                    </StackPanel>
                     <TextBlock Text="FPS" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
                     <TextBox x:Name="AnimFps" Width="40" Margin="0,4,12,4" VerticalContentAlignment="Center"
                  Tag="Fps" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus"
                  ToolTip="Frames per second for the whole project. Timing is kept in seconds." />
-                    <CheckBox x:Name="AnimLoop" Content="Loop" Foreground="White" VerticalAlignment="Center"
-                  Margin="0,4,12,4" Click="AnimLoop_Click" />
                     <CheckBox x:Name="OnionBox" Content="Onion skin (O)" Foreground="White" VerticalAlignment="Center"
                   Margin="0,4,6,4" Click="Onion_Click"
                   ToolTip="Faint copies of the neighbouring frames: red = before, blue = after. In the paint editor: the part's previous and next drawings, under the one you paint." />

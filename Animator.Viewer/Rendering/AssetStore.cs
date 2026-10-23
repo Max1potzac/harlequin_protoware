@@ -37,6 +37,12 @@ public class AssetStore
 	}
 	public void ReplaceLayer(AssetLayer layer, SKBitmap bitmap) => _layers[layer.Id] = bitmap;
 
+	// For copied objects: the new layer gets its own copy of the old layer's pixels
+	public void CopyPixels(Guid fromLayer, Guid toLayer)
+	{
+		if (_layers.TryGetValue(fromLayer, out var source)) _layers[toLayer] = source.Copy();
+	}
+
 	// Single-image convenience: replaces all layers with one "Base" layer
 	public void Set(Asset asset, SKBitmap bitmap)
 	{
