@@ -6,11 +6,11 @@ namespace Animator.Viewer;
 
 public class EditorState
 {
-	public Skeleton Skeleton { get; }
+	public Skeleton Skeleton { get; set; }   // the rig of the object being edited
 	public Animation Animation { get; set; }
 	public UndoStack Undo { get; } = new();
 	// Every animation in the project. "Animation" is the one being edited.
-	public List<Animation> Animations { get; } = new();
+	public List<Animation> Animations { get; set; } = new();
 	public Bone? Selected { get; set; }
 	public bool AnimateMode { get; set; }
 	public bool Playing { get; set; } = true;

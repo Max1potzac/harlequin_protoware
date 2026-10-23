@@ -49,31 +49,46 @@ public partial class MainWindow
 
 	// ======================= viewport =======================
 
-	// Draws the ghosts behind the current frame, farthest first. Each one poses the rig at
-	// its own frame; afterwards the rig goes back to the frame you're on. Not while playing.
+	// Draws the ghosts behind everything, farthest first. Inside an object only that object gets
+	// them; at scene level, every visible object with "Onion skin" ticked. Each ghost poses the
+	// scene at its own frame; afterwards everything goes back to the frame you're on.
+	// Not while playing. (The canvas is in scene space.)
 	private void DrawOnionGhosts(SKCanvas canvas)
 	{
 		if (!_onion.Enabled || _state.Playing || !_renderer.ShowImages) return;
+		var ghosted = _scene.Objects.Where(o => Editing ? o == _active : o.Visible && o.Onion).ToList();
+		if (ghosted.Count == 0) return;
 
+		int now = (int)MathF.Round(ClockTime * _state.Fps);
 		bool drew = false;
 		for (int k = _onion.Before; k >= 1; k--)
-			drew |= DrawGhostAt(canvas, _state.Frame - k * _onion.Step, before: true, k, _onion.Before);
+			drew |= DrawGhostsAt(canvas, ghosted, now - k * _onion.Step, now, before: true, k, _onion.Before);
 		for (int k = _onion.After; k >= 1; k--)
-			drew |= DrawGhostAt(canvas, _state.Frame + k * _onion.Step, before: false, k, _onion.After);
+			drew |= DrawGhostsAt(canvas, ghosted, now + k * _onion.Step, now, before: false, k, _onion.After);
 
-		if (drew) PoseAt(_state.Time);
+		if (drew) PoseScene(ClockTime);
 	}
 
-	private bool DrawGhostAt(SKCanvas canvas, int frame, bool before, int distance, int count)
+	private bool DrawGhostsAt(SKCanvas canvas, List<SceneObject> ghosted, int frame, int now, bool before, int distance, int count)
 	{
-		int frames = _state.FrameCount;
-		if (frames <= 0) return false;
-		if (_state.Animation.Loop) frame = (frame % frames + frames) % frames;   // a loop wraps around
-		else if (frame < 0 || frame > frames) return false;
-		if (frame == _state.Frame) return false;
+		if (Editing)
+		{
+			// Frames of the animation being edited: a loop wraps around
+			int frames = _state.FrameCount;
+			if (frames <= 0) return false;
+			if (_state.Animation.Loop) frame = (frame % frames + frames) % frames;
+			else if (frame < 0 || frame > frames) return false;
+		}
+		else if (frame < 0)
+		{
+			return false;   // the scene clock starts at 0
+		}
+		if (frame == now) return false;
 
-		PoseAt(frame / (float)_state.Fps);
-		_renderer.DrawGhost(canvas, _skeleton, before, OnionSkin.Opacity(distance, count));
+		PoseScene(frame / (float)_state.Fps);   // all of it, so attached objects follow their holders
+		float opacity = OnionSkin.Opacity(distance, count);
+		foreach (var obj in ghosted)
+			DrawInSpace(canvas, _scene.WorldTransform(obj), () => _renderer.DrawGhost(canvas, obj.Skeleton, before, opacity));
 		return true;
 	}
 

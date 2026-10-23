@@ -7,7 +7,7 @@ public class PaintSession
 {
 	public AssetStore Store { get; }
 	public UndoStack Undo { get; }
-	public Skeleton Skeleton { get; }   // for keeping pivots in place on canvas resize
+	public Skeleton Skeleton { get; set; }   // the edited object's rig: keeps pivots in place on canvas resize
 
 	public Asset? Asset { get; private set; }
 	public AssetLayer? Layer { get; set; }

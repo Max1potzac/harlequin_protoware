@@ -27,29 +27,30 @@ public static class ProjectMapper
 	}
 
 	// The whole scene (format 6): every object with its rig and animations
-	public static ProjectDto SceneToDto(Scene scene)
+	public static ProjectDto SceneToDto(Scene scene) => new()
 	{
-		var dto = new ProjectDto { Fps = scene.Fps, Objects = new List<ObjectDto>() };
-		foreach (var o in scene.Objects)
+		Fps = scene.Fps,
+		Objects = scene.Objects.Select(ObjectToDto).ToList()
+	};
+
+	public static ObjectDto ObjectToDto(SceneObject o)
+	{
+		var dto = new ObjectDto
 		{
-			var objectDto = new ObjectDto
-			{
-				Name = o.Name,
-				Kind = o.Kind,
-				Position = Vec.From(o.Position),
-				Rotation = o.Rotation,
-				Scale = Vec.From(o.Scale),
-				Visible = o.Visible,
-				Locked = o.Locked,
-				Export = o.Export,
-				Onion = o.Onion,
-				PreviewAnimation = o.PreviewAnimation,
-				AttachObject = o.AttachObject,
-				AttachBone = o.AttachBone
-			};
-			WriteRig(objectDto, o.Skeleton, o.Animations);
-			dto.Objects.Add(objectDto);
-		}
+			Name = o.Name,
+			Kind = o.Kind,
+			Position = Vec.From(o.Position),
+			Rotation = o.Rotation,
+			Scale = Vec.From(o.Scale),
+			Visible = o.Visible,
+			Locked = o.Locked,
+			Export = o.Export,
+			Onion = o.Onion,
+			PreviewAnimation = o.PreviewAnimation,
+			AttachObject = o.AttachObject,
+			AttachBone = o.AttachBone
+		};
+		WriteRig(dto, o.Skeleton, o.Animations);
 		return dto;
 	}
 
@@ -69,24 +70,58 @@ public static class ProjectMapper
 		foreach (var o in objects)
 		{
 			if (scene.Find(o.Name) != null) throw new InvalidDataException($"Two objects are named '{o.Name}'.");
-			var (skeleton, animations) = FromDto(o);
-			var obj = new SceneObject(o.Name, o.Kind, skeleton)
-			{
-				Position = o.Position.ToVector2(),
-				Rotation = o.Rotation,
-				Scale = o.Scale.ToVector2(),
-				Visible = o.Visible,
-				Locked = o.Locked,
-				Export = o.Export,
-				Onion = o.Onion,
-				PreviewAnimation = o.PreviewAnimation,
-				AttachObject = o.AttachObject,
-				AttachBone = o.AttachBone
-			};
-			obj.Animations.AddRange(animations);
-			scene.Objects.Add(obj);
+			scene.Objects.Add(ObjectFromDto(o));
 		}
 		return scene;
+	}
+
+	public static SceneObject ObjectFromDto(ObjectDto o)
+	{
+		var (skeleton, animations) = FromDto(o);
+		var obj = new SceneObject(o.Name, o.Kind, skeleton)
+		{
+			Position = o.Position.ToVector2(),
+			Rotation = o.Rotation,
+			Scale = o.Scale.ToVector2(),
+			Visible = o.Visible,
+			Locked = o.Locked,
+			Export = o.Export,
+			Onion = o.Onion,
+			PreviewAnimation = o.PreviewAnimation,
+			AttachObject = o.AttachObject,
+			AttachBone = o.AttachBone
+		};
+		obj.Animations.AddRange(animations);
+		return obj;
+	}
+
+	// A deep copy of an object: its own bones, parts, animations and settings, sharing nothing.
+	// Its pictures and their layers get new IDs, so painting the copy never changes the original.
+	// The pixels live outside the core: LayerSources tells which old layer each new one copies.
+	public static (SceneObject Copy, Dictionary<Guid, Guid> LayerSources) CloneObject(SceneObject source, string name)
+	{
+		var dto = ObjectToDto(source);
+		dto.Name = name;
+
+		var newAssetIds = new Dictionary<Guid, Guid>();
+		var layerSources = new Dictionary<Guid, Guid>();   // new layer id → the layer it copies
+		foreach (var asset in dto.Assets)
+		{
+			var id = Guid.NewGuid();
+			newAssetIds[asset.Id] = id;
+			asset.Id = id;
+			foreach (var layer in asset.Layers)
+			{
+				var layerId = Guid.NewGuid();
+				layerSources[layerId] = layer.Id;
+				layer.Id = layerId;
+			}
+		}
+		foreach (var entry in dto.Skins.SelectMany(s => s.Entries))
+			if (newAssetIds.TryGetValue(entry.Asset, out var id))
+				entry.Asset = id;
+
+		return (ObjectFromDto(dto), layerSources);
 	}
 
 	private static void WriteRig(RigDto dto, Skeleton skeleton, IEnumerable<Animation> animations)

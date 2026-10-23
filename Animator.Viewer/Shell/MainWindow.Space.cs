@@ -113,7 +113,7 @@ public partial class MainWindow
 	{
 		float lowest = float.MaxValue;
 		foreach (var slot in _skeleton.Slots)
-			if (PartGizmo.For(_skeleton, slot, _camera.Zoom) is { } handles)
+			if (PartGizmo.For(_skeleton, slot, _camera.EditZoom) is { } handles)
 				foreach (var corner in handles.Corners)
 					lowest = MathF.Min(lowest, corner.Y);
 

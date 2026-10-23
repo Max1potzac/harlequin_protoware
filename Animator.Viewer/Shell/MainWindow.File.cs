@@ -36,16 +36,19 @@ public partial class MainWindow
 	{
 		if (!ConfirmDiscard()) return;
 		ClosePaintEditor();
-		_skeleton.Clear();
 		_assets.Clear();
 
-		// There are no rig-building tools yet, so "New" starts from the demo character
+		// "New" starts from the demo character, as the only object (a fresh rig, so nothing
+		// is shared with the old document)
+		_skeleton = new Skeleton();
 		BuildDemoRig();
 		BuildDemoAnimation();
-		_state.Animations.Clear();
-		_state.Animations.Add(_anim);
+		_state.Animations = new List<Animation> { _anim };
 		_state.Animation = _anim;
 		_scene = SingleObjectScene();
+		_active = null;
+		_sceneLevel = false;
+		EditObject(_scene.Objects[0]);
 
 		_projectPath = null;
 		ResetEditorState();
@@ -75,7 +78,10 @@ public partial class MainWindow
 		_scene = loaded.Scene;
 		_assets.ReplaceWith(loaded.Store);
 		_state.Fps = _scene.Fps;
+		_active = null;
 		EditObject(_scene.Objects[0]);
+		// A lone character opens ready to edit; a scene of several objects opens at scene level
+		_sceneLevel = _scene.Objects.Count > 1;
 
 		_projectPath = dialog.FileName;
 		ResetEditorState();
@@ -84,8 +90,11 @@ public partial class MainWindow
 	private void ResetEditorState()
 	{
 		_state.Selected = null;
+		_state.SelectedSlot = null;
 		_state.SelectedKeys.Clear();
 		_state.Time = 0;
+		_sceneTime = 0;
+		_objectTool.Selected = null;
 		_state.Playing = false;
 		_camera.Reset();
 		_state.Undo.Clear();       // the history belongs to the previous document
@@ -145,26 +154,42 @@ public partial class MainWindow
 		};
 	}
 
-	// A small picture of the character, framed around its bones
+	// A small picture of the scene as it is now, framed around every visible object
 	private SKBitmap RenderThumbnail(int size)
 	{
 		var bmp = new SKBitmap(size, size);
 		using var canvas = new SKCanvas(bmp);
 		canvas.Clear(new SKColor(40, 44, 52));
 
-		var points = _skeleton.AllBones().SelectMany(b => new[] { b.World.Translation, b.TipWorld }).ToList();
+		var shown = _scene.Objects.Where(o => o.Visible).ToList();
+		var points = new List<Vector2>();
+		foreach (var obj in shown)
+		{
+			var box = ObjectGizmo.LocalBounds(obj, _renderer);   // its parts and bones
+			var toScene = _scene.WorldTransform(obj);
+			foreach (var corner in new[] { new Vector2(box.Left, box.Top), new Vector2(box.Right, box.Top),
+										   new Vector2(box.Right, box.Bottom), new Vector2(box.Left, box.Bottom) })
+				points.Add(Vector2.Transform(corner, toScene));
+		}
 		if (points.Count == 0) return bmp;
 
 		var min = points.Aggregate(Vector2.Min);
 		var max = points.Aggregate(Vector2.Max);
 		var center = (min + max) / 2;
-		float extent = MathF.Max(max.X - min.X, max.Y - min.Y) + 160;   // margin for sprites past the bones
+		float extent = MathF.Max(max.X - min.X, max.Y - min.Y) + 40;   // a little margin
 		float scale = size / extent;
 
 		canvas.Translate(size / 2f, size / 2f);
 		canvas.Scale(scale, -scale);   // y-up, like the viewport
 		canvas.Translate(-center.X, -center.Y);
-		_renderer.DrawImages(canvas, _skeleton);
+		foreach (var obj in shown)
+		{
+			var m = SkeletonRenderer.ToSk(_scene.WorldTransform(obj));
+			canvas.Save();
+			canvas.Concat(in m);
+			_renderer.DrawImages(canvas, obj.Skeleton);
+			canvas.Restore();
+		}
 		return bmp;
 	}
 }

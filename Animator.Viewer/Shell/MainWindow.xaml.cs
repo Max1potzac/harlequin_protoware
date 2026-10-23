@@ -17,7 +17,7 @@ namespace Animator.Viewer;
 
 public partial class MainWindow : Window
 {
-	private readonly Skeleton _skeleton = new();
+	private Skeleton _skeleton = new();   // the rig of the object being edited (see MainWindow.Scene.cs)
 	private readonly AssetStore _assets = new();
 	private readonly SkeletonRenderer _renderer;
 	private readonly Camera _camera = new();
@@ -41,6 +41,8 @@ public partial class MainWindow : Window
 
 		_state = new EditorState(_skeleton, _anim);
 		_scene = SingleObjectScene();
+		EditObject(_scene.Objects[0]);
+		InitScene();   // before the other panels: an undo can change which object is open
 		_tool = new BoneTool(_state, _camera, _renderer);
 		_timeline = new TimelinePanel(_state);
 		_state.Undo.Changed += UpdateStatus;
@@ -61,7 +63,11 @@ public partial class MainWindow : Window
 		double now = _clock.Elapsed.TotalSeconds;
 		float dt = (float)(now - _last);
 		_last = now;
-		if (_state.Playing)
+		if (_state.Playing && _sceneLevel)
+		{
+			_sceneTime += dt;
+		}
+		else if (_state.Playing)
 		{
 			float before = _state.Time;
 			_state.Advance(dt);
@@ -69,11 +75,13 @@ public partial class MainWindow : Window
 		}
 		UpdateEventFlash();
 
-		PoseAt(_state.Time);
+		PoseScene(ClockTime);
+		UpdateCameraSpace();   // an object attached to a bone moves with it
 
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
 		SyncRigSelection();
+		SyncScenePanel();
 		if (PaintPanel.Visibility == Visibility.Visible)
 		{
 			FollowPaintDrawing();
@@ -91,15 +99,14 @@ public partial class MainWindow : Window
 
 		canvas.Scale((float)(e.Info.Width / Viewport.ActualWidth));   // DPI fix
 		_camera.ViewSize = new((float)Viewport.ActualWidth, (float)Viewport.ActualHeight);
-		_camera.Apply(canvas);
+		_camera.Apply(canvas);   // scene space from here on
 
 		_renderer.Zoom = _camera.Zoom;
 		_renderer.Selected = _state.Selected;
 		_renderer.SelectedSlot = _state.SelectedSlot;
 		_renderer.ShowPivotHandle = !_state.AnimateMode;   // in Animate mode, part drags set placement keys
 		_renderer.GhostBone = _tool.CreatePreview;
-		DrawOnionGhosts(canvas);   // behind everything else
-		_renderer.Draw(canvas, _skeleton);
+		DrawScene(canvas);   // onion ghosts, every object, then the open object's bones and handles
 	}
 
 	private void OnTimelinePaint(object? sender, SKPaintSurfaceEventArgs e)
@@ -122,18 +129,37 @@ public partial class MainWindow : Window
 	{
 		Viewport.Focus();
 		var pos = PosIn(Viewport, e);
-		if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2 && TryOpenPaintAt(pos)) return;
+
+		// Scene level: whole objects
+		_objectDrag = _sceneLevel;
+		if (_sceneLevel)
+		{
+			_objectTool.MouseDown(pos, e.ChangedButton, e.ClickCount);
+			if (_sceneLevel) Viewport.CaptureMouse();   // not when a double-click just opened an object
+			UpdateStatus();
+			return;
+		}
+
+		// Inside an object: double-click a part to paint it, or another object to open that one
+		if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2 && (TryOpenPaintAt(pos) || TryEnterOtherObjectAt(pos))) return;
 
 		_tool.MouseDown(pos, e.ChangedButton);
 		Viewport.CaptureMouse();
 		UpdateStatus();
 	}
 
-	private void Viewport_MouseMove(object sender, MouseEventArgs e) => _tool.MouseMove(PosIn(Viewport, e));
+	private void Viewport_MouseMove(object sender, MouseEventArgs e)
+	{
+		var pos = PosIn(Viewport, e);
+		if (_objectDrag || _sceneLevel) _objectTool.MouseMove(pos);
+		else _tool.MouseMove(pos);
+	}
 
 	private void Viewport_MouseUp(object sender, MouseButtonEventArgs e)
 	{
-		_tool.MouseUp();
+		if (_objectDrag) _objectTool.MouseUp();
+		else _tool.MouseUp();
+		_objectDrag = false;
 		Viewport.ReleaseMouseCapture();
 	}
 
@@ -194,6 +220,8 @@ public partial class MainWindow : Window
 		if (ctrl && e.Key == Key.S) { if (shift) SaveProjectAs(); else SaveProject(); e.Handled = true; return; }
 		if (ctrl && e.Key == Key.O) { OpenProject(); e.Handled = true; return; }
 		if (ctrl && e.Key == Key.N) { NewProject(); e.Handled = true; return; }
+		// Not in the middle of a drag: the drag's undo step would come out wrong
+		if (Viewport.IsMouseCaptured && (ctrl || e.Key is Key.Escape or Key.Delete or Key.Enter)) { e.Handled = true; return; }
 
 		if (ctrl && e.Key == Key.Z && !shift)
 		{
@@ -204,6 +232,10 @@ public partial class MainWindow : Window
 		{
 			_state.SelectedKeys.Clear();
 			_state.Undo.Redo();
+		}
+		else if (_sceneLevel)
+		{
+			if (!HandleSceneKey(e.Key)) return;
 		}
 		else if (ctrl && e.Key == Key.C) _timeline.Copy();
 		else if (ctrl && e.Key == Key.V) _timeline.Paste();
@@ -226,14 +258,18 @@ public partial class MainWindow : Window
 				case Key.B: FlipElbow(); break;
 				case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
 				case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
-				case Key.F: _camera.Reset(); break;
+				case Key.F: ResetView(); break;
 				case Key.E: AddEventAt(_state.Frame); break;
 				case Key.F5 when shift: ChangeHold(-1); break;
 				case Key.F5: ChangeHold(+1); break;
 				case Key.F6: NewDrawing(copy: true); break;
 				case Key.F7: NewDrawing(copy: false); break;
 				case Key.O: ToggleOnion(); break;
-				case Key.Escape: ClosePaintEditor(); break;
+				case Key.Escape:
+					// Esc closes the paint editor first, then goes back to the scene
+					if (PaintPanel.Visibility == Visibility.Visible) ClosePaintEditor();
+					else LeaveObject();
+					break;
 				default: return;
 			}
 		}
@@ -335,18 +371,32 @@ public partial class MainWindow : Window
 
 	private void UpdateStatus()
 	{
+		if (_sceneLevel)
+		{
+			Status.Text =
+				$"SCENE    Object: {_objectTool?.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
+				"Viewport: click an object = select, drag = move, drag a corner = scale (Shift: keep proportions), round handle = turn (Shift: 15° steps)\n" +
+				"Double-click an object (or Enter) = edit it.   Drag empty / middle = pan, wheel = zoom, F = reset view\n" +
+				"Each object plays its preview animation (set it in the Objects panel).   Space: play/pause   R: restart   ←/→: step\n" +
+				"Del: delete object   Ctrl+Z / Ctrl+Y: undo/redo   G: images   O: onion skin   " +
+				$"P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
+				"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as";
+			UpdateTitle();
+			return;
+		}
+
 		bool ikOn = (ActiveIk()?.SetupMix ?? 0f) > 0.5f;
 
 		Status.Text =
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
-			$"Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
-			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view\n" +
+			$"Object: {_active?.Name ?? "-"}    Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
+			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone, drag empty / middle = pan, wheel = zoom, F = reset view (centred on this object)\n" +
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
 			"Frame by frame (select a part): F7 = new drawing, F6 = copy drawing, F5 / Shift+F5 = hold longer / shorter, Del = its key here.   O = onion skin\n" +
-			"Paint: double-click a part. Over the canvas: M select, W wand, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick, Ctrl+D deselect, Ctrl+Shift+I invert\n" +
-			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   " +
+			"Paint: double-click a part (on another object: edit that object). Over the canvas: M select, W wand, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick, Ctrl+D deselect, Ctrl+Shift+I invert\n" +
+			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   Esc: back to the scene   " +
 			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
 			"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as";
 
