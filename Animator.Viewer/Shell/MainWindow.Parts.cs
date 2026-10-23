@@ -28,6 +28,7 @@ public partial class MainWindow
 		_shownSlot = _state.SelectedSlot;
 		if (_shownSlot is not { } slot) return;
 		var (_, asset) = PartData(slot);
+		int index = _skeleton.Slots.IndexOf(slot);
 		_syncingRig = true;
 
 		SetField(PartName, slot.Name);
