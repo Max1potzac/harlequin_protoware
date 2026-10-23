@@ -88,7 +88,7 @@ public class SceneTests
 
 		var dto = ProjectMapper.SceneToDto(scene);
 		dto.Objects![1].Name = "tree";
-		Assert.Throws<InvalidDataException>(() => ProjectMapper.SceneFromDto(dto));
+		Assert.Throws<System.IO.InvalidDataException>(() => ProjectMapper.SceneFromDto(dto));
 	}
 
 	[Fact]
