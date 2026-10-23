@@ -167,6 +167,24 @@ public static class ProjectMapper
 			Target = sp.Target,
 			Keys = sp.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value }).ToList()
 		},
+		PartTranslateTimeline pt => new TimelineDto
+		{
+			Type = "partTranslate",
+			Target = pt.Target,
+			Keys = pt.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+		},
+		PartRotateTimeline pr => new TimelineDto
+		{
+			Type = "partRotate",
+			Target = pr.Target,
+			Keys = pr.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value }).ToList()
+		},
+		PartScaleTimeline ps => new TimelineDto
+		{
+			Type = "partScale",
+			Target = ps.Target,
+			Keys = ps.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+		},
 		EventTimeline ev => new TimelineDto
 		{
 			Type = "events",
@@ -323,6 +341,24 @@ public static class ProjectMapper
 				{
 					var tl = new SpaceTimeline(t.Target);
 					foreach (var k in t.Keys) tl.Track.Add(k.T, k.Name, CurveType.Stepped);
+					return tl;
+				}
+			case "partTranslate":
+				{
+					var tl = new PartTranslateTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve);
+					return tl;
+				}
+			case "partRotate":
+				{
+					var tl = new PartRotateTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 0f, k.Curve);
+					return tl;
+				}
+			case "partScale":
+				{
+					var tl = new PartScaleTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 1f, k.Y ?? 1f), k.Curve);
 					return tl;
 				}
 			case "events":

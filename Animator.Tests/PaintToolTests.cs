@@ -108,6 +108,42 @@ public class PaintToolTests
 	}
 
 	[Fact]
+	public void At_the_top_tolerance_the_wand_takes_everything_drawn_but_nothing_empty()
+	{
+		var bits = MagicWand.Select(Strip(), 0, 0, tolerance: 255, contiguous: false);
+
+		Assert.Equal(15, Count(bits));   // every drawn pixel
+		Assert.False(bits[2]);           // column 2 is empty
+	}
+
+	[Fact]
+	public void Clicking_an_empty_spot_selects_the_empty_pixels()
+	{
+		var bits = MagicWand.Select(Strip(), 2, 1, tolerance: 0, contiguous: true);
+
+		Assert.Equal(3, Count(bits));   // the empty column
+		Assert.True(bits[2]);
+	}
+
+	[Fact]
+	public void Clicking_the_selection_again_with_the_wand_deselects()
+	{
+		var (session, _) = BlueDrawing();
+		var wand = new MagicWandTool();
+		session.Tool = wand;
+
+		wand.Down(session, new Vector2(1, 1));
+		Assert.NotNull(session.Selection);       // the blue square
+		wand.Down(session, new Vector2(2, 2));
+		Assert.Null(session.Selection);          // clicked it again: let go
+
+		wand.Down(session, new Vector2(1, 1));
+		session.ShiftHeld = true;                // adding what's already selected keeps it
+		wand.Down(session, new Vector2(1, 1));
+		Assert.NotNull(session.Selection);
+	}
+
+	[Fact]
 	public void Hue_saturation_value_round_trips()
 	{
 		Assert.Equal(new SKColor(255, 0, 0), ColorMath.FromHsv(0, 1, 1));

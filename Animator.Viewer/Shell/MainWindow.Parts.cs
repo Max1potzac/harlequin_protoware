@@ -21,17 +21,14 @@ public partial class MainWindow
 
 	// ======================= panel =======================
 
+	private static readonly string[] PlacementFields = { "PX", "PY", "PRotation", "PScaleX", "PScaleY" };
+
 	private void ShowPartProperties()
 	{
 		_shownSlot = _state.SelectedSlot;
 		if (_shownSlot is not { } slot) return;
-		var (att, asset) = PartData(slot);
-		int index = _skeleton.Slots.IndexOf(slot);
+		var (_, asset) = PartData(slot);
 		_syncingRig = true;
-
-		string drawing = att != null && att.Name != slot.Name ? $", showing \"{att.Name}\"" : "";
-		string size = asset != null ? $", {asset.Width}×{asset.Height} px" : "";
-		PartTitle.Text = $"Part {index + 1} of {_skeleton.Slots.Count} in draw order{size}{drawing}";
 
 		SetField(PartName, slot.Name);
 		var bones = _skeleton.AllBones().Select(b => new BoneChoice(b, b.Name)).ToList();
@@ -47,22 +44,34 @@ public partial class MainWindow
 		RefreshPartValues();
 	}
 
-	// The numbers only; runs every frame, so drags show live
+	// The numbers and the title; runs every frame, so drags and keys show live.
+	// Animate mode shows where the part is at this frame (placement keys included).
 	private void RefreshPartValues()
 	{
-		var (att, asset) = PartData(_shownSlot);
+		if (_shownSlot is not { } slot) return;
+		var (att, asset) = PartData(slot);
+		bool pose = _state.AnimateMode;
+
+		int index = _skeleton.Slots.IndexOf(slot);
+		string drawing = att != null && att.Name != slot.Name ? $", showing \"{att.Name}\"" : "";
+		string size = asset != null ? $", {asset.Width}×{asset.Height} px" : "";
+		string values = pose ? $"Placement at frame {_state.Frame}: typing or dragging sets keys" : "Rest placement (setup)";
+		string title = $"Part {index + 1} of {_skeleton.Slots.Count} in draw order{size}{drawing}\n{values}";
+		if (PartTitle.Text != title) PartTitle.Text = title;
+
 		foreach (var box in new[] { PartX, PartY, PartRotation, PartScaleX, PartScaleY, PartPivotX, PartPivotY })
-			SetField(box, att != null ? Num(PartValue(att, asset, (string)box.Tag)) : "");
+			SetField(box, att != null ? Num(PartValue(slot, att, asset, (string)box.Tag, pose)) : "");
+		PartPivotX.IsEnabled = PartPivotY.IsEnabled = !pose;   // the pivot is part of the rest setup
 		SyncDrawingChoice();
 	}
 
-	private static float? PartValue(Attachment att, Asset? asset, string field) => field switch
+	private static float? PartValue(Slot slot, Attachment att, Asset? asset, string field, bool pose) => field switch
 	{
-		"PX" => att.Offset.X,
-		"PY" => att.Offset.Y,
-		"PRotation" => Deg(att.Rotation),
-		"PScaleX" => att.Scale.X,
-		"PScaleY" => att.Scale.Y,
+		"PX" => att.Offset.X + (pose ? slot.Offset.X : 0f),
+		"PY" => att.Offset.Y + (pose ? slot.Offset.Y : 0f),
+		"PRotation" => Deg(att.Rotation + (pose ? slot.Rotation : 0f)),
+		"PScaleX" => att.Scale.X * (pose ? slot.Scale.X : 1f),
+		"PScaleY" => att.Scale.Y * (pose ? slot.Scale.Y : 1f),
 		"PPivotX" => asset != null ? att.Pivot.X * asset.Width : null,
 		"PPivotY" => asset != null ? att.Pivot.Y * asset.Height : null,
 		_ => null
@@ -99,13 +108,20 @@ public partial class MainWindow
 
 		var (att, asset) = PartData(slot);
 		if (att == null) return;
-		var current = PartValue(att, asset, field);
+		bool pose = _state.AnimateMode && PlacementFields.Contains(field);
+		var current = PartValue(slot, att, asset, field, pose);
 		if (current == null || box.Text.Trim() == Num(current)) return;
 
 		if (!TryNum(box.Text, out float v))
 		{
 			PartHint.Text = $"\"{box.Text}\" isn't a number.";
 			box.Text = Num(current);
+			return;
+		}
+
+		if (pose)
+		{
+			KeyPartField(slot, att, field, v);
 			return;
 		}
 
@@ -129,6 +145,47 @@ public partial class MainWindow
 				default: return null;
 			}
 			return $"Set part {slot.Name} {field[1..]}";   // [1..] drops the "P" prefix
+		});
+	}
+
+	// Animate mode: a typed number becomes a placement key at this frame. Keys hold what's
+	// added on top of the drawing's own placement, so the part ends up exactly where you typed.
+	private void KeyPartField(Slot slot, Attachment att, string field, float v)
+	{
+		_state.Playing = false;
+		_state.SetFrame(_state.Frame);
+		var anim = _state.Animation;
+		float t = _state.Time;
+		int frame = _state.Frame;
+
+		_state.EditStructure(() =>
+		{
+			switch (field)
+			{
+				case "PX":
+					anim.GetOrCreate(slot.Name, n => new PartTranslateTimeline(n))
+						.Track.Add(t, new Vector2(v - att.Offset.X, slot.Offset.Y));
+					break;
+				case "PY":
+					anim.GetOrCreate(slot.Name, n => new PartTranslateTimeline(n))
+						.Track.Add(t, new Vector2(slot.Offset.X, v - att.Offset.Y));
+					break;
+				case "PRotation":
+					anim.GetOrCreate(slot.Name, n => new PartRotateTimeline(n))
+						.Track.Add(t, Rad(v) - att.Rotation);
+					break;
+				case "PScaleX":
+					anim.GetOrCreate(slot.Name, n => new PartScaleTimeline(n))
+						.Track.Add(t, new Vector2(Ratio(v, att.Scale.X), slot.Scale.Y));
+					break;
+				case "PScaleY":
+					anim.GetOrCreate(slot.Name, n => new PartScaleTimeline(n))
+						.Track.Add(t, new Vector2(slot.Scale.X, Ratio(v, att.Scale.Y)));
+					break;
+				default:
+					return null;
+			}
+			return $"Key part {slot.Name} {field[1..]} @ frame {frame}";
 		});
 	}
 

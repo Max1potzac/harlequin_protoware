@@ -255,6 +255,7 @@ public partial class MainWindow
 	{
 		if (_syncingUi || _paint is null) return;
 		_paint.Tolerance = (int)e.NewValue;
+		ToleranceLabel.Text = _paint.Tolerance.ToString();
 	}
 
 	private void SampleAll_Click(object sender, RoutedEventArgs e)
@@ -413,6 +414,7 @@ public partial class MainWindow
 		SizeSlider.Value = _paint.Size;
 		SizeLabel.Text = _paint.Size.ToString();
 		ToleranceSlider.Value = _paint.Tolerance;
+		ToleranceLabel.Text = _paint.Tolerance.ToString();
 		SampleAllBox.IsChecked = _paint.SampleAllLayers;
 		GradientTransparentBox.IsChecked = _paint.GradientToTransparent;
 		WetSlider.Value = _paint.MixWet * 100;

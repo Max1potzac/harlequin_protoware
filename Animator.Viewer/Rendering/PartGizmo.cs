@@ -15,7 +15,7 @@ public static class PartGizmo
 		if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return null;
 
 		int w = asset.Width, h = asset.Height;
-		var m = att.LocalMatrix(w, h) * slot.Bone.World;
+		var m = slot.ImageToBone(att, w, h) * slot.Bone.World;
 		Vector2 P(float x, float y) => Vector2.Transform(new Vector2(x, y), m);
 
 		var corners = new[] { P(0, 0), P(w, 0), P(w, h), P(0, h) };

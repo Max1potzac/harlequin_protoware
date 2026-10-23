@@ -14,7 +14,8 @@ public class SkeletonRenderer
     public Bone? Selected { get; set; }
     public SkeletonRenderer(AssetStore assets) => _assets = assets;
 	public Slot? SelectedSlot { get; set; }
-	public bool ShowPartHandles { get; set; }   // Setup mode only
+	public bool ShowPartHandles { get; set; } = true;
+	public bool ShowPivotHandle { get; set; } = true;   // Setup mode only: the pivot is part of the rest setup
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
 	{
 		DrawAxes(canvas);
@@ -156,7 +157,7 @@ public class SkeletonRenderer
 	// Maps image pixels (y-down, origin top-left) into world space. Drawing and
 	// picking both use this, so what you click is always exactly what you see.
 	public static Matrix3x2 ImageToWorld(Slot slot, Attachment att, int width, int height) =>
-		att.LocalMatrix(width, height) * slot.Bone.World;
+		slot.ImageToBone(att, width, height) * slot.Bone.World;
 
 	// Finds the topmost part under a world point, ignoring transparent pixels
 	public (Slot Slot, Asset Asset)? Pick(Skeleton skeleton, Vector2 world)
@@ -281,7 +282,7 @@ public class SkeletonRenderer
 			}
 		}
 	}
-	// Orange box around the selected part; in Setup mode also corner, rotate and pivot handles
+	// Orange box around the selected part, with corner and rotate handles (and the pivot in Setup mode)
 	private void DrawPartGizmo(SKCanvas canvas, Skeleton skeleton)
 	{
 		if (SelectedSlot is not { } slot || PartGizmo.For(skeleton, slot, Zoom) is not { } h) return;
@@ -308,6 +309,7 @@ public class SkeletonRenderer
 
 		canvas.DrawLine(h.Top.X, h.Top.Y, h.Rotate.X, h.Rotate.Y, line);
 		canvas.DrawCircle(h.Rotate.X, h.Rotate.Y, 5 * px, fill);
+		if (!ShowPivotHandle) return;
 
 		using var pivot = new SKPaint
 		{

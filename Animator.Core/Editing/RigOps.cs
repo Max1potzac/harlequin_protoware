@@ -84,7 +84,7 @@ public static class RigOps
 		foreach (var anim in animations)
 			anim.Timelines.RemoveAll(t =>
 				(TargetsBone(t) && boneNames.Contains(t.Target)) ||
-				(t is AttachmentTimeline && slotNames.Contains(t.Target)) ||
+				(PartOps.TargetsPart(t) && slotNames.Contains(t.Target)) ||
 				(t is IkMixTimeline && ikNames.Contains(t.Target)));
 
 		// Bones that were held by a deleted bone are let go (they follow nothing from then on)
