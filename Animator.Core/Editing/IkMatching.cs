@@ -62,30 +62,20 @@ public static class IkMatching
 
 		if (toIk)
 		{
-			PinBefore(animation.GetOrCreate(c.Target.Name, n => new TranslateTimeline(n)),
+			KeyHelpers.PinBefore(animation.GetOrCreate(c.Target.Name, n => new TranslateTimeline(n)),
 					  frame, fps, Vector2.Zero);
 			SnapTargetToTip(skeleton, animation, c, time, key: true);
 		}
 		else
 		{
 			foreach (var bone in c.Bones)
-				PinBefore(animation.GetOrCreate(bone.Name, n => new RotateTimeline(n)),
+				KeyHelpers.PinBefore(animation.GetOrCreate(bone.Name, n => new RotateTimeline(n)),
 						  frame, fps, 0f);
 			BakeIkToFk(skeleton, animation, c, time, key: true);
 		}
 
 		var mix = animation.GetOrCreate(c.Name, n => new IkMixTimeline(n));
-		PinBefore(mix, frame, fps, c.SetupMix);
+		KeyHelpers.PinBefore(mix, frame, fps, c.SetupMix);
 		mix.Track.Add(time, toIk ? 1f : 0f, CurveType.Stepped);
-	}
-
-	// Keys the current value one frame earlier, stepped, so a new key at `frame`
-	// can't change anything that happens before it. Must run BEFORE that key exists.
-	private static void PinBefore<T>(TrackTimeline<T> timeline, int frame, int fps, T fallback)
-	{
-		if (frame <= 0) return;
-		float prev = (frame - 1) / (float)fps;
-		if (!timeline.Track.TrySample(prev, out var value)) value = fallback;
-		timeline.Track.Add(prev, value, CurveType.Stepped);
 	}
 }

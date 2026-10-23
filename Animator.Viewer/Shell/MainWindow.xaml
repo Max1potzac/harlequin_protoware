@@ -67,6 +67,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <TextBlock x:Name="PropsTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2" Margin="0,0,0,6" />
@@ -146,7 +148,16 @@
                       ToolTip="Which way the middle joint (elbow, knee) bends (same as the B key)" />
                             </StackPanel>
 
-                            <TextBlock x:Name="RigHint" Grid.Row="14" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
+                            <TextBlock Grid.Row="14" Text="Follows" Foreground="White" VerticalAlignment="Center" Margin="0,4,6,4" />
+                            <ComboBox x:Name="SpaceBox" Grid.Row="14" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,4,0,4"
+                  SelectionChanged="SpaceBox_Changed"
+                  ToolTip="What this bone follows from the current frame on (Animate mode). Detach it to drop or throw it, or attach it to another bone to be held." />
+
+                            <Button x:Name="ThrowButton" Grid.Row="15" Grid.ColumnSpan="3" Content="Throw / fall from this frame…" Margin="0,0,0,4"
+                Click="Throw_Click"
+                ToolTip="Detaches the bone here and bakes a thrown or falling flight into keys (Animate mode)" />
+
+                            <TextBlock x:Name="RigHint" Grid.Row="16" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
                         </Grid>
                     </ScrollViewer>
                     <Grid x:Name="PartProps" DockPanel.Dock="Bottom" Margin="6" Visibility="Collapsed">
@@ -225,6 +236,8 @@
                         MouseUp="Viewport_MouseUp" MouseWheel="Viewport_MouseWheel" />
                     <TextBlock x:Name="Status" Foreground="White" Margin="10"
                    VerticalAlignment="Bottom" IsHitTestVisible="False" TextWrapping="Wrap" />
+                    <TextBlock x:Name="EventFlash" Foreground="#8CE6A0" FontSize="16" FontWeight="Bold" Margin="12"
+                   HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False" />
                 </Grid>
             </DockPanel>
 
@@ -371,7 +384,7 @@
 
                 <skia:SKElement x:Name="TimelineView" Focusable="True" FocusVisualStyle="{x:Null}" PaintSurface="OnTimelinePaint"
                     MouseDown="Timeline_MouseDown" MouseMove="Timeline_MouseMove"
-                    MouseUp="Timeline_MouseUp" />
+                    MouseUp="Timeline_MouseUp" MouseWheel="Timeline_MouseWheel" />
             </DockPanel>
         </Grid>
     </DockPanel>

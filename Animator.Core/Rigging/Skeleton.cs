@@ -81,13 +81,14 @@ public class Skeleton
     public IkConstraint? FindIkConstraint(string name) =>
         IkConstraints.Find(c => c.Name == name);
 	public List<LookConstraint> LookConstraints { get; } = new();
-	// The full pipeline in one call: limits → world transforms → IK.
+	// The full pipeline in one call: limits → world transforms → IK → look constraints.
 	public void UpdatePose()
 	{
 		ApplyLimits();
 		UpdateWorld();
 		foreach (var c in IkConstraints) c.Solve();
 		foreach (var c in LookConstraints) c.Solve();   // after IK: targets may sit on IK-driven bones
+		UpdateHeldBones();   // a bone held by an IK hand must follow where IK put the hand
 	}
 
 	// Takes over another skeleton's contents. Everything that holds a reference to
@@ -113,7 +114,18 @@ public class Skeleton
 	public void UpdateWorld()
     {
         foreach (var root in Roots) root.UpdateWorld();
+        UpdateHeldBones();
     }
+
+	// A bone held by another bone (an attach key) is built on that bone's world transform,
+	// but the holder may come later in the hierarchy. So held bones get recomputed after
+	// everything else; a few passes also settle chains (a sword in a hand held by... a hand).
+	private void UpdateHeldBones()
+	{
+		var held = AllBones().Where(b => b.SpaceOverridden && b.SpaceParent != null).ToList();
+		for (int pass = 0; pass < 3 && held.Count > 0; pass++)
+			foreach (var bone in held) bone.UpdateWorld();
+	}
 
     // Active skin wins; falls back to default. This is what makes
     // "outfit swaps" work without duplicating the whole rig.

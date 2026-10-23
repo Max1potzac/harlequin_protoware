@@ -6,7 +6,23 @@ namespace Animator.Core.Editing;
 public static class RigOps
 {
 	public static bool TargetsBone(Timeline t) =>
-		t is RotateTimeline or TranslateTimeline or ScaleTimeline or DepthTimeline;
+		t is RotateTimeline or TranslateTimeline or ScaleTimeline or DepthTimeline or SpaceTimeline;
+
+	// Space keys also NAME bones (the bone holding this one), so renames and deletes must reach them
+	private static void RewriteHolders(IEnumerable<Animation> animations, Func<string, string?> rewrite)
+	{
+		foreach (var space in animations.SelectMany(a => a.Timelines).OfType<SpaceTimeline>())
+		{
+			var keys = space.Track.Keys;
+			for (int i = 0; i < keys.Count; i++)
+			{
+				string? holder = keys[i].Value;
+				if (string.IsNullOrEmpty(holder)) continue;   // its own parent, or detached
+				string? replacement = rewrite(holder);
+				if (replacement != holder) keys[i] = keys[i] with { Value = replacement };
+			}
+		}
+	}
 
 	public static string UniqueBoneName(Skeleton skeleton, string baseName)
 	{
@@ -70,6 +86,9 @@ public static class RigOps
 				(TargetsBone(t) && boneNames.Contains(t.Target)) ||
 				(t is AttachmentTimeline && slotNames.Contains(t.Target)) ||
 				(t is IkMixTimeline && ikNames.Contains(t.Target)));
+
+		// Bones that were held by a deleted bone are let go (they follow nothing from then on)
+		RewriteHolders(animations, holder => boneNames.Contains(holder) ? SpaceTimeline.World : holder);
 	}
 
 	public static bool RenameBone(Skeleton skeleton, IEnumerable<Animation> animations, Bone bone, string newName)
@@ -83,6 +102,7 @@ public static class RigOps
 		foreach (var anim in animations)
 			foreach (var t in anim.Timelines)
 				if (TargetsBone(t) && t.Target == oldName) t.Target = newName;
+		RewriteHolders(animations, holder => holder == oldName ? newName : holder);
 		return true;
 	}
 

@@ -25,6 +25,10 @@ public class IkConstraint
     {
         if (Mix <= 0f || Bones.Count == 0) return;   // pure FK: nothing to do
 
+        // While a bone of the chain is detached or held by another bone, the chain is broken:
+        // IK lets go and the bones play their FK keys (a severed arm shouldn't keep reaching)
+        if (Bones.Any(b => b.SpaceOverridden)) return;
+
         var target = Target.World.Translation;
 
         // Remember the FK result so we can blend back toward it

@@ -71,6 +71,25 @@ public class SkeletonRenderer
         using var selJoint = new SKPaint { Color = new SKColor(80, 220, 255), IsAntialias = true };
         using var idleJoint = new SKPaint { Color = new SKColor(255, 90, 90, 60), IsAntialias = true };
 
+        // Detached or held bones (space keys) are purple; a held bone gets a dashed line to its holder
+        using var spaceLine = new SKPaint
+        {
+            Color = new SKColor(190, 130, 255),
+            StrokeWidth = 3 * px,
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeCap = SKStrokeCap.Round
+        };
+        using var holderDash = SKPathEffect.CreateDash(new[] { 5 * px, 4 * px }, 0);
+        using var holderLine = new SKPaint
+        {
+            Color = new SKColor(190, 130, 255, 150),
+            StrokeWidth = 1.5f * px,
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            PathEffect = holderDash
+        };
+
         foreach (var bone in skeleton.AllBones())
         {
             bool sel = bone == Selected;
@@ -79,7 +98,15 @@ public class SkeletonRenderer
 
             var a = bone.World.Translation;
             var b = bone.TipWorld;
-            canvas.DrawLine(a.X, a.Y, b.X, b.Y, sel ? selLine : idle ? idleLine : line);
+
+            if (bone.SpaceOverridden && bone.SpaceParent is { } holder)
+            {
+                var h = holder.World.Translation;
+                canvas.DrawLine(a.X, a.Y, h.X, h.Y, holderLine);
+            }
+
+            var paint = sel ? selLine : bone.SpaceOverridden ? spaceLine : idle ? idleLine : line;
+            canvas.DrawLine(a.X, a.Y, b.X, b.Y, paint);
             canvas.DrawCircle(a.X, a.Y, (sel ? 6 : 5) * px, sel ? selJoint : idle ? idleJoint : joint);
         }
 		if (GhostBone is { } g)
@@ -190,7 +217,7 @@ public class SkeletonRenderer
 			};
 
 			canvas.Save();
-			if (c.Bone.Parent is { } parent)
+			if (c.Bone.SpaceParent is { } parent)
 			{
 				var m = ToSk(parent.World);
 				canvas.Concat(in m);

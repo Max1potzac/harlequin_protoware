@@ -39,4 +39,19 @@ public class Animation
         }
         return tl;
     }
+
+    // The event row, if this animation has any events
+    public EventTimeline? Events => Timelines.OfType<EventTimeline>().FirstOrDefault();
+
+    // Created on first use, and always kept as the first row so it's easy to find
+    public EventTimeline GetOrCreateEvents()
+    {
+        var events = Events;
+        if (events == null)
+        {
+            events = new EventTimeline();
+            Timelines.Insert(0, events);
+        }
+        return events;
+    }
 }

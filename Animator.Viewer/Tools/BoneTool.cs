@@ -110,9 +110,15 @@ public class BoneTool
 
 			case Drag.Move when bone != null:
 				{
-					var local = bone.WorldToParentLocal(world + _grabOffset);
-					if (!_state.AnimateMode) bone.SetupPosition += local - bone.Position;
-					bone.Position = local;
+					var target = world + _grabOffset;
+					if (!_state.AnimateMode)
+					{
+						// The rest pose is always measured from the parent, even when the
+						// animation has this bone detached or held at the current frame
+						bone.SetupPosition += ToParentSpace(bone, target) - ToParentSpace(bone, bone.World.Translation);
+					}
+					bone.Position = bone.WorldToParentLocal(target);
+					bone.UpdateWorld();   // keep World current: more mouse moves can arrive before the next frame
 					if (_state.AnimateMode) KeyTranslate(bone);
 					_changed = true;
 					break;
@@ -365,6 +371,12 @@ public class BoneTool
 	}
 
 	private static float AngleFrom(Bone bone, Vector2 world) => Angle(world - bone.World.Translation);
+
+	// A world point in the bone's hierarchy parent's space (ignoring detach / attach keys)
+	private static Vector2 ToParentSpace(Bone bone, Vector2 world) =>
+		bone.Parent != null && Matrix3x2.Invert(bone.Parent.World, out var inverse)
+			? Vector2.Transform(world, inverse)
+			: world;
 
 	private static float Angle(Vector2 v) => MathF.Atan2(v.Y, v.X);
 
