@@ -83,6 +83,7 @@ public partial class MainWindow : Window
 		_camera.Apply(canvas);
 
 		_renderer.Zoom = _camera.Zoom;
+		_renderer.Selected = _state.Selected;
 		_renderer.SelectedSlot = _state.SelectedSlot;
 		_renderer.ShowPartHandles = !_state.AnimateMode;
 		_renderer.GhostBone = _tool.CreatePreview;

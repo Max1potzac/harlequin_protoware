@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35004.147
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Core", "Animator.Core.csproj", "{38533406-13AD-433D-86B5-E2F668F9C538}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Viewer", "Animator.Viewer\Animator.Viewer.csproj", "{D39D75D9-F0BF-4589-8020-8BAE9D038A38}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Sandbox", "..\Animator.Sandbox\Animator.Sandbox.csproj", "{B135A41E-050B-4C7E-A025-618BDDB23CDD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Core", "Animator.Core\Animator.Core.csproj", "{38533406-13AD-433D-86B5-E2F668F9C538}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Viewer", "..\Animator.Viewer\Animator.Viewer.csproj", "{D39D75D9-F0BF-4589-8020-8BAE9D038A38}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Sandbox", "Animator.Sandbox\Animator.Sandbox.csproj", "{B135A41E-050B-4C7E-A025-618BDDB23CDD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -3,10 +3,8 @@ using System.Globalization;
 using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Animator.Viewer;
 

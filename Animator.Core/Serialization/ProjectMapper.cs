@@ -67,6 +67,19 @@ public static class ProjectMapper
 			dto.Skins.Add(SkinToDto(skeleton.ActiveSkin));
 		dto.ActiveSkin = skeleton.ActiveSkin?.Name;
 
+		foreach (var c in skeleton.IkConstraints)
+		{
+			dto.IkConstraints.Add(new IkDto
+			{
+				Name = c.Name,
+				Bones = c.Bones.Select(b => b.Name).ToList(),
+				Target = c.Target.Name,
+				Mix = c.SetupMix,
+				Bend = c.BendDirection,
+				Iterations = c.Iterations
+			});
+		}
+
 		foreach (var c in skeleton.LookConstraints)
 		{
 			dto.LookConstraints.Add(new LookDto
