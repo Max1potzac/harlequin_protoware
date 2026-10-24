@@ -392,8 +392,8 @@ public class XflTests
 	}
 
 	// Its parts back to front, where they are at rest (pixels, y down, its feet at 0), each with
-	// the joint it turns on and what it hangs from. The eye, the hair and the cone (a skin: it'll
-	// be swapped for others) go with the head.
+	// the joint it turns on and what it hangs from. The eye, the mouth, the hair and the cone (a
+	// skin: it'll be swapped for others) go with the head.
 	private static readonly Piece[] Zombie =
 	{
 		new("arm_upper_back", 19, -182, 37, -124, 28, -175, "body"),
@@ -404,6 +404,7 @@ public class XflTests
 		new("head", -40, -265, 40, -193, 0, -195, "body", Round: true),
 		new("hair", -46, -250, -32, -214, -39, -232, "head"),
 		new("eye", 10, -240, 22, -228, 16, -234, "head", Round: true),
+		new("mouth", -12, -212, 12, -202, 0, -207, "head"),
 		new("cone", -20, -300, 20, -255, 0, -260, "head"),
 		new("leg_upper_front", -23, -96, -1, -38, -12, -90, "body"),
 		new("leg_lower_front", -22, -50, -2, 6, -12, -45, "leg_upper_front"),
@@ -442,27 +443,61 @@ public class XflTests
 		return parent == null ? local : local * PoseOf(parent, frame);
 	}
 
-	// The layout PAM converters write: each part's picture in LIBRARY/media (at twice the size,
-	// shown at half: a 2400 resolution), a "source" symbol showing it and an "image" symbol placing
-	// it on its joint, a "main" symbol with a numbered layer per part and a keyframe on every frame,
-	// and a scene with the labels on a "flow" layer and "main" placed at the stage's corner
+	// The pictures a part shows: the mouth's two swap (open on 6 frames of each 20), the eye's two
+	// blink in a sprite of their own
+	private static string[] PicturesOf(Piece piece) => piece.Name switch
+	{
+		"mouth" => new[] { "mouth_closed", "mouth_open" },
+		"eye" => new[] { "eye_open", "eye_shut" },
+		_ => new[] { piece.Name }
+	};
+
+	// The part's name once it's brought in: its picture shown most
+	private static string PartName(Piece piece) => PicturesOf(piece)[0];
+
+	// What a part's layer in "main" shows at a frame (null: nothing, as the front forearm, dropped
+	// for the last 10 frames)
+	private static string? ZombieFrame(Piece piece, int frame)
+	{
+		var pose = PoseOf(piece, frame);
+		return piece.Name switch
+		{
+			"arm_lower_front" when frame >= 50 => null,
+			"mouth" => Instance(frame % 20 < 14 ? "image/mouth_closed" : "image/mouth_open", pose),
+			"eye" => Instance("sprite/blink", pose, attributes: $"firstFrame=\"{frame % 8}\""),
+			_ => Instance($"image/{piece.Name}", pose)
+		};
+	}
+
+	// The layout PAM converters write: each picture in LIBRARY/media (at twice the size, shown at
+	// half: a 2400 resolution), a "source" symbol showing it and an "image" symbol placing it on
+	// its part's joint, sprites for parts with animations of their own (the blinking eye), a
+	// "main" symbol with a numbered layer per part and a keyframe on every frame, and a scene with
+	// the labels on a "flow" layer and "main" placed at the stage's corner
 	private static XflTestProject ZombieProject()
 	{
 		var project = new XflTestProject { Width = 390, Height = 390, FrameRate = 30 };
 		for (int i = 0; i < Zombie.Length; i++)
 		{
 			var p = Zombie[i];
-			project.Picture($"media/{p.Name}", (int)(2 * (p.X1 - p.X0)), (int)(2 * (p.Y1 - p.Y0)),
-				new SKColor((byte)(40 + 15 * i), 150, (byte)(230 - 12 * i)), p.Round);
-			project.Symbol($"source/{p.Name}", Layer("1", Frame(0, 1, Bitmap($"media/{p.Name}", Matrix3x2.CreateScale(0.5f)))));
-			project.Symbol($"image/{p.Name}", Layer("1", Frame(0, 1,
-				Instance($"source/{p.Name}", Matrix3x2.CreateTranslation(p.X0 - p.JointX, p.Y0 - p.JointY)))));
+			foreach (string picture in PicturesOf(p))
+			{
+				project.Picture($"media/{picture}", (int)(2 * (p.X1 - p.X0)), (int)(2 * (p.Y1 - p.Y0)),
+					new SKColor((byte)(40 + 15 * i), (byte)(picture.EndsWith("open") ? 220 : 150), (byte)(230 - 12 * i)), p.Round);
+				project.Symbol($"source/{picture}", Layer("1", Frame(0, 1, Bitmap($"media/{picture}", Matrix3x2.CreateScale(0.5f)))));
+				project.Symbol($"image/{picture}", Layer("1", Frame(0, 1,
+					Instance($"source/{picture}", Matrix3x2.CreateTranslation(p.X0 - p.JointX, p.Y0 - p.JointY)))));
+			}
 		}
+		project.Symbol("sprite/blink", Layer("0",
+			Frame(0, 6, Instance("image/eye_open", Matrix3x2.Identity)),
+			Frame(6, 2, Instance("image/eye_shut", Matrix3x2.Identity))));
 		var layers = new StringBuilder();
 		for (int i = Zombie.Length - 1; i >= 0; i--)   // the front one first, as Animate lists them
 		{
 			var p = Zombie[i];
-			layers.Append(Layer($"{i}", Enumerable.Range(0, 60).Select(f => Frame(f, 1, Instance($"image/{p.Name}", PoseOf(p, f)))).ToArray()));
+			layers.Append(Layer($"{i}", Enumerable.Range(0, 60)
+				.Select(f => ZombieFrame(p, f) is { } shown ? Frame(f, 1, shown) : Frame(f, 1)).ToArray()));
 		}
 		project.Symbol("main", layers.ToString());
 		project.Scene("animation",
@@ -480,7 +515,7 @@ public class XflTests
 		{
 			using var plan = XflImportPlan.Load(ZombieProject().SaveFolder(Path.Combine(folder, "zombie")), "zombie");
 			Assert.Equal(Vector2.Zero, plan.Origin);   // it stands on the stage's corner: its feet stay at the object's origin
-			Assert.Equal(Zombie.Select(p => p.Name), plan.Parts.Select(p => p.Name));
+			Assert.Equal(Zombie.Select(PartName), plan.Parts.Select(p => p.Name));
 			Assert.Equal(new[] { ("idle", 0, 30), ("walk", 30, 60) }, plan.Animations());
 
 			// The cone is a skin: left out of working out the rig
@@ -492,7 +527,7 @@ public class XflTests
 			// A bone for each part that turns on its own, hanging from the part it turns on
 			string NameOf(int bone) => plan.Parts[rig.Bones[bone].Layer].Name;
 			var parents = Enumerable.Range(0, rig.Bones.Count).ToDictionary(NameOf, b => rig.Bones[b].Parent < 0 ? "-" : NameOf(rig.Bones[b].Parent));
-			var expected = Zombie.Where(p => p.Name is not ("eye" or "hair" or "cone")).ToDictionary(p => p.Name, p => p.Parent ?? "-");
+			var expected = Zombie.Where(p => p.Name is not ("eye" or "mouth" or "hair" or "cone")).ToDictionary(p => p.Name, p => p.Parent ?? "-");
 			Assert.Equal(expected.OrderBy(e => e.Key), parents.OrderBy(e => e.Key));
 
 			// ...on the joints it turns on (where they are at the rest pose, frame 1)
@@ -506,7 +541,7 @@ public class XflTests
 					$"{piece.Name}'s joint is at {plan.CanvasToObject(rig.Bones[b].Head)}, not {joint}");
 			}
 			var head = rig.Bones.FindIndex(b => plan.Parts[b.Layer].Name == "head");
-			foreach (string rider in new[] { "eye", "hair" })
+			foreach (string rider in new[] { "eye_open", "mouth_closed", "hair" })
 				Assert.Equal(head, rig.BoneOf[plan.Parts.FindIndex(p => p.Name == rider)]);   // they ride on the head's bone
 
 			// Brought in: the bones carry the motion, every part lands where Animate puts it
@@ -515,8 +550,10 @@ public class XflTests
 			Assert.Equal(ObjectKind.Rigged, obj.Kind);
 			var skeleton = obj.Skeleton;
 			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures).Skewed);
-			foreach (string rider in new[] { "eye", "hair", "cone" })
+			foreach (string rider in new[] { "eye_open", "mouth_closed", "hair", "cone" })
 				Assert.Equal("head", skeleton.FindSlot(rider)!.Bone.Name);
+			Assert.Equal(2, skeleton.DefaultSkin.AttachmentsFor("mouth_closed").Count());   // the mouth swaps between its two pictures
+			Assert.Equal(2, skeleton.DefaultSkin.AttachmentsFor("eye_open").Count());       // the eye blinks
 			Assert.Equal("arm_lower_front", skeleton.FindSlot("arm_lower_front")!.Bone.Name);
 			foreach (var animation in obj.Animations)
 			{
