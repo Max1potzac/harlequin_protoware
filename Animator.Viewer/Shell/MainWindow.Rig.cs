@@ -110,7 +110,8 @@ public partial class MainWindow
 			Header = $"▣ {slot.Name}   #{IndexIn(_listedOrder, slot) + 1}",   // its place in the draw order (1 = at the back)
 			Tag = slot,
 			Foreground = new SolidColorBrush(Color.FromRgb(255, 190, 110)),
-			FontStyle = FontStyles.Italic
+			FontStyle = FontStyles.Italic,
+			ContextMenu = OrderMenu(slot)   // its place in the draw order, whatever bone it's on
 		};
 		_slotItems[slot] = item;
 		return item;

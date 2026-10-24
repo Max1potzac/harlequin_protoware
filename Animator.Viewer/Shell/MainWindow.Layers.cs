@@ -76,27 +76,28 @@ public partial class MainWindow
 		RigViewSwitch.Visibility = IsDrawn ? Visibility.Collapsed : Visibility.Visible;
 		BonesViewChoice.IsChecked = !_layersView;
 		LayersViewChoice.IsChecked = _layersView;
-		string hint = "";
-		if (ShowingLayers && _skeleton.Slots.Count > 1)
-		{
-			bool keyedHere = !_state.AnimateMode && !_skeleton.DrawOrder.SequenceEqual(_skeleton.Slots);
-			hint = _state.AnimateMode ? $"Animate: dragging a part up or down keys the order at frame {_state.Frame}."
-				: keyedHere ? "The rest order. This animation draws them in another order here: Animate mode (K) shows and keys that one."
-				: "Drag a part up or down to change the order (the top one is in front).";
-		}
-		LayersHint.Text = hint;
-		LayersHint.Visibility = hint.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+		LayersHint.Text = LayersHintText();
+		LayersHint.Visibility = LayersHint.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 	}
 
-	// Every frame: the list follows the order as it changes (playing past a key, switching mode)
+	// What the line under the switch says: what dragging does now
+	private string LayersHintText()
+	{
+		if (!ShowingLayers || _skeleton.Slots.Count < 2) return "";
+		if (_state.AnimateMode) return $"Animate: dragging a part up or down keys the order at frame {_state.Frame}.";
+		return _skeleton.DrawOrder.SequenceEqual(_skeleton.Slots)
+			? "Drag a part up or down to change the order (the top one is in front)."
+			: "The rest order. This animation draws them in another order here: Animate mode (K) shows and keys that one.";
+	}
+
+	// Every frame: the list follows the order as it changes (playing past a key, switching mode),
+	// and the line under the switch what dragging would do
 	private void SyncLayerOrder()
 	{
 		if (_sceneLevel) return;
 		var now = _state.AnimateMode ? _skeleton.DrawOrder : _skeleton.Slots;
 		if (_listedAnimating != _state.AnimateMode || !now.SequenceEqual(_listedOrder)) RefreshRigPanel();
-		else if (ShowingLayers && _state.AnimateMode && LayersHint.Visibility == Visibility.Visible &&
-				 !LayersHint.Text.Contains($"frame {_state.Frame}.", StringComparison.Ordinal))
-			SyncLayersView();   // the frame it would key at
+		else if (LayersHint.Text != LayersHintText()) SyncLayersView();
 	}
 
 	// ======================= changing the order =======================
