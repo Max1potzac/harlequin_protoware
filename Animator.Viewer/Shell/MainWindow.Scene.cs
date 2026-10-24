@@ -158,18 +158,8 @@ public partial class MainWindow
 		foreach (var obj in _scene.Objects)
 		{
 			if (Editing && obj == _active) PoseAt(time);
-			else PoseOnTimeline(obj, sceneTime);
+			else ScenePlayer.Pose(obj, sceneTime);   // its clip there, or its preview animation looping
 		}
-	}
-
-	// What an object shows at a scene time: its clip there (held before and after), or, with
-	// no clips at all, its preview animation looping
-	private static void PoseOnTimeline(SceneObject obj, float sceneTime)
-	{
-		obj.Skeleton.SetToSetupPose();
-		if (obj.ClipAt(sceneTime) is { } clip) clip.Animation.Apply(obj.Skeleton, clip.AnimationTime(sceneTime));
-		else PreviewOf(obj)?.Apply(obj.Skeleton, sceneTime);   // no clips (or only ones whose animation was deleted)
-		obj.Skeleton.UpdatePose();
 	}
 
 	// Scene time kept inside the scene: wrapped when it loops, held at the end when it doesn't
@@ -193,8 +183,7 @@ public partial class MainWindow
 		_sceneState.Time = WrapSceneTime(t);
 	}
 
-	private static Animation? PreviewOf(SceneObject obj) =>
-		obj.FindAnimation(obj.PreviewAnimation) ?? obj.Animations.FirstOrDefault();
+	private static Animation? PreviewOf(SceneObject obj) => ScenePlayer.Preview(obj);
 
 	// The canvas is in scene space here. Objects are drawn in list order (first = furthest back);
 	// while you edit one, the others are faded and its bones and handles go on top of everything.
@@ -482,6 +471,10 @@ public partial class MainWindow
 		var image = new MenuItem { Header = "Drawn object from image…" };
 		image.Click += (_, _) => AddDrawnObjectFromImage();
 		menu.Items.Add(image);
+
+		var sheet = new MenuItem { Header = "Objects from a sprite sheet…" };
+		sheet.Click += (_, _) => ImportSpriteSheet();
+		menu.Items.Add(sheet);
 
 		menu.IsOpen = true;
 	}
