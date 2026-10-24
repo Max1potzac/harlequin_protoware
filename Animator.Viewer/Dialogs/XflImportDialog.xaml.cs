@@ -23,6 +23,7 @@ public partial class XflImportDialog : Window
 
 	private readonly XflImportPlan _plan;
 	private RigSuggestion? _rig;                 // the suggestion as things stand (null = no rig)
+	private readonly Dictionary<int, Matrix3x2[]> _rigMotion = new();   // its bones over the timeline, as they're worked out
 	private bool _rolesSuggested;
 	private int _picked = -1;                    // the picked part (index in the plan's parts)
 	private readonly Dictionary<int, (CheckBox Include, CheckBox InRig, TextBlock Text)> _rows = new();
@@ -345,6 +346,7 @@ public partial class XflImportDialog : Window
 	private void Refresh()
 	{
 		_rig = null;
+		_rigMotion.Clear();
 		if (_plan.SuggestRig && _plan.Parts.Any(p => p.Include))
 			Busy(() =>
 			{
@@ -453,13 +455,6 @@ public partial class XflImportDialog : Window
 	private Vector2 ToView(Vector2 point) => point * _zoom + _pan;
 	private Vector2 ToTimeline(Vector2 view) => (view - _pan) / _zoom;
 
-	// The rig's canvas → the timeline's space (the picture's)
-	private Vector2 RigToTimeline(Vector2 canvas)
-	{
-		var inObject = _plan.CanvasToObject(canvas);
-		return Matrix3x2.Invert(_plan.TimelineToObject, out var back) ? Vector2.Transform(inObject, back) : inObject;
-	}
-
 	// What to fit in the view: the parts at this frame, and a scene's stage
 	private SKRect ContentBounds()
 	{
@@ -537,44 +532,78 @@ public partial class XflImportDialog : Window
 			using var path = ShapePaths.Polyline(corners, closed: true);
 			canvas.DrawPath(path, outline);
 		}
-		if (_rig != null && _frame == _plan.SetupFrame) DrawRig(canvas, _rig);
-		ViewHint.Text = _rig != null && _frame != _plan.SetupFrame
-			? $"The rig shows on the rest pose (frame {_plan.SetupFrame + 1})   Click: pick a part   Wheel: zoom   Space: play"
+		if (_rig != null) DrawRig(canvas, _rig, _frame);
+		ViewHint.Text = _rig != null
+			? "The bones move as they'll be animated (red: a joint the parts don't turn around)   Click: pick a part   Wheel: zoom   Space: play"
 			: "Click: pick a part   Wheel: zoom   Middle drag: move around   Home: fit   Space: play";
 	}
 
+	// The object's space → the timeline's (the picture's)
+	private Vector2 ObjectToTimeline(Vector2 point) =>
+		Matrix3x2.Invert(_plan.TimelineToObject, out var back) ? Vector2.Transform(point, back) : point;
+
+	// A bone's frame from its joint and end: there, turned along it
+	private static Matrix3x2 FrameOf((Vector2 Head, Vector2 Tip) bone)
+	{
+		var along = bone.Tip - bone.Head;
+		float angle = along.LengthSquared() > 1e-8f ? MathF.Atan2(along.Y, along.X) : 0f;
+		return Matrix3x2.CreateRotation(angle) * Matrix3x2.CreateTranslation(bone.Head);
+	}
+
 	// Each bone as a long diamond from its joint (a dot: pink when it sits on its parent's end) to
-	// its tip; the picked part's bone stands out
-	private void DrawRig(SKCanvas canvas, RigSuggestion rig)
+	// its end, posed as the import will animate it at this frame (faded while its part isn't
+	// shown). A joint that doesn't stay where its parent's bone carries it (the parts don't really
+	// turn around it) gets a red line to where it should be. The picked part's bone stands out.
+	private void DrawRig(SKCanvas canvas, RigSuggestion rig, int frame)
 	{
 		using var fill = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = true };
 		using var edge = new SKPaint { Style = SKPaintStyle.Stroke, StrokeWidth = 1.2f, Color = new SKColor(30, 30, 30, 220), IsAntialias = true };
 		using var dot = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = true };
+		using var drift = new SKPaint { Style = SKPaintStyle.Stroke, StrokeWidth = 2f, Color = new SKColor(255, 60, 60), IsAntialias = true };
 		using var font = new SKFont { Size = 12 };
 		using var label = new SKPaint { IsAntialias = true, Color = SKColors.White };
 		using var shadow = new SKPaint { IsAntialias = true, Color = new SKColor(0, 0, 0, 200) };
 		int pickedBone = _picked >= 0 && _picked < rig.BoneOf.Length ? rig.BoneOf[_picked] : -1;
+		var posed = _plan.RigAt(rig, frame, _rigMotion);
+		var rest = _plan.RigAt(rig, _plan.SetupFrame, _rigMotion);
 
 		for (int b = 0; b < rig.Bones.Count; b++)
 		{
 			var bone = rig.Bones[b];
-			Vector2 head = ToView(RigToTimeline(bone.Head)), tip = ToView(RigToTimeline(bone.Tip));
+			Vector2 head = ToView(ObjectToTimeline(posed[b].Head)), tip = ToView(ObjectToTimeline(posed[b].Tip));
 			var along = tip - head;
 			float length = along.Length();
 			bool picked = b == pickedBone;
+			byte alpha = _plan.Placement(bone.Layer, frame) == null ? (byte)70 : (byte)210;
 			if (length > 1)
 			{
 				var dir = along / length;
 				var across = new Vector2(-dir.Y, dir.X) * Math.Clamp(length * 0.09f, 3f, 12f);
 				var waist = head + dir * length * 0.18f;
 				using var path = ShapePaths.Polyline(new[] { head, waist + across, tip, waist - across }, closed: true);
-				fill.Color = picked ? new SKColor(255, 140, 30, 230) : bone.Parent < 0 ? new SKColor(120, 230, 120, 210) : new SKColor(255, 230, 80, 200);
+				fill.Color = picked ? new SKColor(255, 140, 30, alpha) : bone.Parent < 0 ? new SKColor(120, 230, 120, alpha) : new SKColor(255, 230, 80, alpha);
 				canvas.DrawPath(path, fill);
 				canvas.DrawPath(path, edge);
 			}
-			dot.Color = bone.Connected ? new SKColor(255, 90, 200) : new SKColor(60, 200, 255);
+			dot.Color = (bone.Connected ? new SKColor(255, 90, 200) : new SKColor(60, 200, 255)).WithAlpha(alpha);
 			canvas.DrawCircle(head.X, head.Y, picked ? 5.5f : 4f, dot);
 			canvas.DrawCircle(head.X, head.Y, picked ? 5.5f : 4f, edge);
+
+			// Where its parent's bone carries its joint: its end, or the point the joint was at on it
+			if (bone.Parent >= 0)
+			{
+				var carried = bone.Connected
+					? posed[bone.Parent].Tip
+					: Matrix3x2.Invert(FrameOf(rest[bone.Parent]), out var fromParent)
+						? Vector2.Transform(Vector2.Transform(rest[b].Head, fromParent), FrameOf(posed[bone.Parent]))
+						: posed[b].Head;
+				var should = ToView(ObjectToTimeline(carried));
+				if (Vector2.Distance(should, head) > 3f)
+				{
+					canvas.DrawLine(should.X, should.Y, head.X, head.Y, drift);
+					canvas.DrawCircle(head.X, head.Y, 7f, drift);
+				}
+			}
 			if (picked)
 			{
 				string name = _plan.Parts[bone.Layer].Name;

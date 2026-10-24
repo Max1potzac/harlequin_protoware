@@ -22,6 +22,12 @@ public abstract class Timeline
     public abstract object CaptureKeys();             // copy of the keys, for undo
     public abstract void RestoreKeys(object keys);
 
+    // ----- cutting animations into pieces (see AnimationOps); frame n plays at n / fps seconds -----
+    // Keeps only frames first..last (both kept), moved back to start at frame 0
+    public abstract void Crop(int first, int last, float fps);
+    // Takes out frames first..last: the frames after move back to close the gap. `end`: the animation's length (seconds).
+    public abstract void Cut(int first, int last, float fps, float end);
+
 
     public virtual string Label => $"{Target} ({GetType().Name.Replace("Timeline", "")})";
 }
@@ -78,6 +84,13 @@ public abstract class TrackTimeline<T> : Timeline
         int i = IndexAt(time);
         if (i >= 0) Track.Keys[i] = Track.Keys[i] with { Curve = curve };
     }
+
+    // How its keys behave when frames are cut out: most blend from key to key
+    protected virtual KeyKind Kind => KeyKind.Blended;
+
+    public override void Crop(int first, int last, float fps) => KeyCutting<T>.Crop(Track, Kind, first, last, fps);
+
+    public override void Cut(int first, int last, float fps, float end) => KeyCutting<T>.Cut(Track, Kind, first, last, fps, end);
 }
 
 public class RotateTimeline : TrackTimeline<float>
@@ -121,6 +134,8 @@ public class ScaleTimeline : TrackTimeline<Vector2>
 public class AttachmentTimeline : TrackTimeline<string?>
 {
     public AttachmentTimeline(string slot) : base(slot, (a, b, t) => a) { }
+
+    protected override KeyKind Kind => KeyKind.FromFirstKey;   // before its first key, the rest drawing shows
 
     public void Add(float time, string? name) => Track.Add(time, name, CurveType.Stepped);
 
@@ -237,6 +252,8 @@ public class SpaceTimeline : TrackTimeline<string?>
 
 	public SpaceTimeline(string bone) : base(bone, (a, b, t) => a) { }
 
+	protected override KeyKind Kind => KeyKind.FromFirstKey;
+
 	public override void Apply(Skeleton skeleton, float time)
 	{
 		var bone = skeleton.FindBone(Target);
@@ -258,6 +275,8 @@ public class EventTimeline : TrackTimeline<AnimationEvent>
 	public const string TargetName = "events";
 
 	public EventTimeline() : base(TargetName, (a, b, t) => a) { }
+
+	protected override KeyKind Kind => KeyKind.Moments;
 
 	public override void Apply(Skeleton skeleton, float time) { }   // events don't pose the rig
 

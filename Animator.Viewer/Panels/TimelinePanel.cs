@@ -31,6 +31,14 @@ public class TimelinePanel
     // Copy/paste: frames are stored relative to the earliest copied key
     private readonly List<(Timeline Tl, int RelFrame, object Key)> _clipboard = new();
 
+    // A run of frames picked by dragging across the keys, as in a video editor (the playhead goes
+    // along): right-click it to split it off, or copy it, into an animation sequence of its own
+    public (int First, int Last)? Range { get; private set; }
+    private int _rangeAnchor;
+    private bool _picking;   // this drag picks frames (it started over the keys, not the ruler)
+
+    public void ClearRange() => Range = null;
+
     public TimelinePanel(EditorState state) => _state = state;
 
     private HashSet<(Timeline Tl, int Frame)> Sel => _state.SelectedKeys;
@@ -177,9 +185,29 @@ public class TimelinePanel
 
         canvas.DrawLine(LabelWidth, 0, LabelWidth, size.Y, divider);
 
+        if (Range is { } range) DrawRange(canvas, size, range, font);
+
         float px = FrameToX(_state.Frame);
         canvas.DrawLine(px, 0, px, size.Y, playhead);
         canvas.DrawText($"frame {_state.Frame} / {frames}", 8, 14, SKTextAlign.Left, font, text);
+    }
+
+    // The picked frames: a band over their keys, and across the ruler with how many there are
+    private void DrawRange(SKCanvas canvas, Vector2 size, (int First, int Last) range, SKFont font)
+    {
+        float x0 = MathF.Max(LabelWidth, FrameToX(range.First) - _frameWidth / 2);
+        float x1 = MathF.Min(size.X, FrameToX(range.Last) + _frameWidth / 2);
+        if (x1 <= x0) return;
+        using var band = new SKPaint { Color = new SKColor(80, 160, 255, 45) };
+        using var top = new SKPaint { Color = new SKColor(80, 160, 255, 150) };
+        using var edge = new SKPaint { Color = new SKColor(120, 190, 255, 200), StrokeWidth = 1 };
+        using var label = new SKPaint { Color = SKColors.White, IsAntialias = true };
+        canvas.DrawRect(x0, RulerHeight, x1 - x0, size.Y - RulerHeight, band);
+        canvas.DrawRect(x0, RulerHeight - 6, x1 - x0, 6, top);
+        canvas.DrawLine(x0, 0, x0, size.Y, edge);
+        canvas.DrawLine(x1, 0, x1, size.Y, edge);
+        int count = range.Last - range.First + 1;
+        canvas.DrawText($"{range.First}–{range.Last} ({count} frames)", x0 + 4, RulerHeight - 9, SKTextAlign.Left, font, label);
     }
 
     // Shape shows the curve: diamond = Linear, circle = Smooth, square = Stepped
@@ -341,13 +369,29 @@ public class TimelinePanel
         if (!shift) Sel.Clear();
         _drag = Drag.Scrub;
         Scrub(p.X);
+
+        // Over the keys, a drag picks the frames it crosses (a click lets them go); the ruler just scrubs
+        _picking = p.Y >= RulerHeight;
+        if (_picking)
+        {
+            _rangeAnchor = LastFrameAt(p.X);
+            Range = null;
+        }
     }
+
+    // A frame of the animation under an x position (not the end, where it loops)
+    private int LastFrameAt(float x) => Math.Clamp(XToFrame(x), 0, Math.Max(0, _state.FrameCount - 1));
 
     public void MouseMove(Vector2 p)
     {
         if (_drag == Drag.Scrub)
         {
             Scrub(p.X);
+            if (_picking)
+            {
+                int frame = LastFrameAt(p.X);
+                Range = frame == _rangeAnchor ? null : (Math.Min(frame, _rangeAnchor), Math.Max(frame, _rangeAnchor));
+            }
         }
         else if (_drag == Drag.Keys && _dragBefore != null)
         {
@@ -376,6 +420,7 @@ public class TimelinePanel
         }
         _drag = Drag.None;
         _dragBefore = null;
+        _picking = false;
     }
 
     private void Scrub(float x)

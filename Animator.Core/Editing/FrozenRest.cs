@@ -119,6 +119,46 @@ public static class RestEdits
 		frozen.Restore(moved);
 	}
 
+	// Moves a bone's end to `target` (world): it turns and stretches to reach it from its joint,
+	// and what's on it stays put. `snapTo`: a child whose joint is that near (one not on the end
+	// already) gets the end put exactly on its joint and is glued there; pulled away again in the
+	// same drag, it lets go. Returns the child it's glued to, if any.
+	public static Bone? MoveTip(FrozenRest frozen, Bone bone, Vector2 target, float snapTo = 0f)
+	{
+		Bone? glued = null;
+		float nearest = snapTo;
+		foreach (var child in bone.Children)
+		{
+			if (frozen.WasConnected(child)) continue;
+			float d = Vector2.Distance(target, frozen.HeadOf(child));
+			if (d > nearest) continue;
+			nearest = d;
+			glued = child;
+		}
+		if (glued != null) target = frozen.HeadOf(glued);
+		foreach (var child in bone.Children)
+			if (!frozen.WasConnected(child)) child.Connected = child == glued;
+
+		var moved = new List<Bone> { bone };
+		bone.ResetToSetup();
+		bone.UpdateWorld();
+		FrozenRest.Aim(bone, frozen.HeadOf(bone), target);
+		if (glued != null)
+		{
+			// Its joint is the end now: where it was. It turns to keep its own end where it was too.
+			moved.Add(glued);
+			glued.ResetToSetup();
+			glued.UpdateWorld();
+			if (Vector2.Distance(frozen.HeadOf(glued), frozen.TipOf(glued)) > 1e-3f)
+				FrozenRest.Aim(glued, glued.World.Translation, frozen.TipOf(glued));
+		}
+		frozen.Restore(moved);
+		return glued;
+	}
+
+	// Whether a bone's end is its own to move: no child sits on it
+	public static bool HasFreeEnd(Bone bone) => bone.Children.All(c => !c.Connected);
+
 	// Turns a bone to a rest angle (relative to its parent); its parts and child bones stay put
 	public static void Turn(FrozenRest frozen, Bone bone, float setupRotation)
 	{

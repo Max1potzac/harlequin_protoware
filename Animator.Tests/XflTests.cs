@@ -572,6 +572,29 @@ public class XflTests
 			Assert.Equal(2, skeleton.DefaultSkin.AttachmentsFor("mouth_closed").Count());   // the mouth swaps between its two pictures
 			Assert.Equal(2, skeleton.DefaultSkin.AttachmentsFor("eye_open").Count());       // the eye blinks
 			Assert.Equal("arm_lower_front", skeleton.FindSlot("arm_lower_front")!.Bone.Name);
+
+			// The import dialog shows the rig moving just as it comes in: each bone's joint and end
+			var shownOn = new Dictionary<int, Matrix3x2[]>();
+			var animations = plan.Animations();
+			for (int a = 0; a < animations.Count; a++)
+			{
+				var (_, start, end) = animations[a];
+				for (int f = start; f < end; f += 3)
+				{
+					skeleton.SetToSetupPose();
+					obj.Animations[a].Apply(skeleton, (f - start) / plan.Data.FrameRate);
+					skeleton.UpdatePose();
+					var shown = plan.RigAt(rig, f, shownOn);
+					for (int b = 0; b < rig.Bones.Count; b++)
+					{
+						var bone = skeleton.FindBone(plan.Parts[rig.Bones[b].Layer].Name)!;
+						Near(shown[b].Head, bone.World.Translation, 0.05f);
+						Near(shown[b].Tip, bone.TipWorld, 0.05f);
+					}
+				}
+			}
+			skeleton.SetToSetupPose();
+			skeleton.UpdatePose();
 			foreach (var animation in obj.Animations)
 			{
 				Assert.NotNull(animation.Find<RotateTimeline>("arm_lower_front"));

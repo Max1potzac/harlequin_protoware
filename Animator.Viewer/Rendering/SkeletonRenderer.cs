@@ -10,6 +10,7 @@ public class SkeletonRenderer
     public bool ShowImages { get; set; } = true;
     public bool ShowBones { get; set; } = true;
 	public (Vector2 A, Vector2 B)? GhostBone { get; set; }
+	public Bone? TipHandleOf { get; set; }   // a ring at this bone's end: drag it to say where the bone ends
 	public float Zoom { get; set; } = 1f;
     public Bone? Selected { get; set; }
     public SkeletonRenderer(AssetStore assets) => _assets = assets;
@@ -152,6 +153,14 @@ public class SkeletonRenderer
             canvas.DrawLine(a.X, a.Y, b.X, b.Y, paint);
             canvas.DrawCircle(a.X, a.Y, (sel ? 6 : 5) * px, sel ? selJoint : idle ? idleJoint : joint);
         }
+		if (TipHandleOf is { } ended)
+		{
+			using var ring = new SKPaint { Color = new SKColor(80, 220, 255), Style = SKPaintStyle.Stroke, StrokeWidth = 2 * px, IsAntialias = true };
+			using var hole = new SKPaint { Color = new SKColor(20, 24, 30, 200), IsAntialias = true };
+			var t = ended.TipWorld;
+			canvas.DrawCircle(t.X, t.Y, 5 * px, hole);
+			canvas.DrawCircle(t.X, t.Y, 5 * px, ring);
+		}
 		if (GhostBone is { } g)
 		{
 			using var ghost = new SKPaint
