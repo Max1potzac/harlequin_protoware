@@ -54,7 +54,7 @@ jobs:
           $report = Get-ChildItem -Recurse -Filter xfl-report.txt -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $report) { Write-Output "::notice title=XFL report::no report"; exit 0 }
           $lines = @(Get-Content $report.FullName)
-          for ($i = 0; $i -lt $lines.Count; $i += 8) {
-            $chunk = ($lines[$i..([Math]::Min($i + 7, $lines.Count - 1))] -join '%0A')
+          for ($i = 0; $i -lt $lines.Count; $i += 14) {
+            $chunk = ($lines[$i..([Math]::Min($i + 13, $lines.Count - 1))] -join '%0A')
             Write-Output "::notice title=XFL report $i::$chunk"
           }
