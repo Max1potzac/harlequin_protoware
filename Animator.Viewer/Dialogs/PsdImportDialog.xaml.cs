@@ -23,7 +23,7 @@ public partial class PsdImportDialog : Window
 	private readonly PsdImportPlan _plan;
 	private RigSuggestion? _rig;                 // the suggestion as things stand (null = no rig)
 	private int _picked = -1;                    // the picked layer (index in the plan's parts)
-	private readonly Dictionary<int, (CheckBox Tick, TextBlock Text)> _rows = new();
+	private readonly Dictionary<int, (CheckBox Tick, TextBlock Name, TextBlock Details)> _rows = new();
 	private bool _syncing;
 
 	// The picture view: canvas pixel p shows at p × _zoom + _pan (in the view's units)
@@ -34,6 +34,7 @@ public partial class PsdImportDialog : Window
 	public PsdImportDialog(PsdImportPlan plan)
 	{
 		InitializeComponent();
+		DialogLayout.FitToScreen(this);
 		_plan = plan;
 		FileTitle.Text = $"{plan.Name}   ({plan.Width} × {plan.Height} pixels, {plan.Parts.Count} layer(s))";
 		NotesText.Text = string.Join("\n", plan.Notes);
@@ -45,15 +46,20 @@ public partial class PsdImportDialog : Window
 		// Top to bottom, as Photoshop lists them
 		for (int i = plan.Parts.Count - 1; i >= 0; i--)
 		{
-			var tick = new CheckBox { IsChecked = plan.Parts[i].Include, Tag = i, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) };
+			// Its tick, then its name with what it gets under it
+			var tick = new CheckBox { IsChecked = plan.Parts[i].Include, Tag = i, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 6, 0) };
 			tick.Click += Tick_Click;
-			var text = new TextBlock { TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+			var name = new TextBlock { TextWrapping = TextWrapping.Wrap };
+			var details = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11 };
+			var text = new StackPanel();
+			text.Children.Add(name);
+			text.Children.Add(details);
 			var row = new DockPanel();
 			DockPanel.SetDock(tick, Dock.Left);
 			row.Children.Add(tick);
 			row.Children.Add(text);
-			LayerList.Items.Add(new ListBoxItem { Content = row, Tag = i });
-			_rows[i] = (tick, text);
+			LayerList.Items.Add(new ListBoxItem { Content = row, Tag = i, Padding = new Thickness(2, 2, 2, 3) });
+			_rows[i] = (tick, name, details);
 		}
 		Refresh();
 	}
@@ -193,14 +199,14 @@ public partial class PsdImportDialog : Window
 		RigFields.IsEnabled = _plan.SuggestRig;
 
 		_syncing = true;
-		foreach (var (i, (tick, text)) in _rows)
+		foreach (var (i, (tick, name, details)) in _rows)
 		{
 			var part = _plan.Parts[i];
 			tick.IsChecked = part.Include;
-			text.Inlines.Clear();
-			text.Inlines.Add(new Run(part.Name) { FontWeight = part.Include ? FontWeights.SemiBold : FontWeights.Normal });
-			string details = string.Join(" · ", Details(i));
-			if (details.Length > 0) text.Inlines.Add(new Run("   " + details) { Foreground = Brushes.Gray });
+			name.Text = part.Name;
+			name.FontWeight = part.Include ? FontWeights.SemiBold : FontWeights.Normal;
+			details.Text = string.Join(" · ", Details(i));
+			details.Visibility = details.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 		}
 
 		// The root: worked out, or any layer with a bone of its own
