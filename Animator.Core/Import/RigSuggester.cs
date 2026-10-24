@@ -223,8 +223,9 @@ public static class RigSuggester
 	// lying inside a bigger layer (an eye, a belt) rides on another layer's bone; the rest get
 	// bones. A layer lying on a bigger one but meeting layers beyond it (an arm across the body,
 	// held out from the elbow) is a limb, not a detail: it gets a bone too.
-	// included: which layers come in at all (null = all); the others are left out.
-	public static RigRole[] SuggestRoles(RigMasks m, IReadOnlyList<bool>? included = null)
+	// included: which layers come in at all (null = all); the others are left out. motion: an
+	// animation's say (a layer on another that turns or slides against it is no detail of it).
+	public static RigRole[] SuggestRoles(RigMasks m, IReadOnlyList<bool>? included = null, IRigMotion? motion = null)
 	{
 		int n = m.Count;
 		bool In(int i) => included == null || included[i];
@@ -256,6 +257,7 @@ public static class RigSuggester
 			}
 			bool detail = layers.Any(j =>
 				j != i && !Backdrop(j) && m.Area(j) > m.Area(i) && m.Overlap(i, j) >= 0.85 * m.Area(i) &&
+				!(motion?.MovesAgainst(i, j) ?? false) &&
 				(m.Area(i) < 0.04 * m.Area(j) || !layers.Any(k =>
 					k != i && k != j && !Backdrop(k) && m.Touch(i, k) > 0 && m.Overlap(k, j) < 0.5 * m.Area(k))));
 			roles[i] = detail ? RigRole.OnBone : RigRole.Bone;
@@ -266,7 +268,9 @@ public static class RigSuggester
 	// roles: what each layer gets. targets: for a Bone layer, the layer it hangs from; for an
 	// OnBone layer, the layer whose bone it rides on; -1 = worked out from the overlaps. root: the
 	// layer whose bone everything hangs from (-1 = the most central one: usually the hips or body).
-	public static RigSuggestion Suggest(RigMasks m, IReadOnlyList<RigRole> roles, IReadOnlyList<int> targets, int root = -1)
+	// motion: an animation's say on which overlaps are joints, and where they turn.
+	public static RigSuggestion Suggest(RigMasks m, IReadOnlyList<RigRole> roles, IReadOnlyList<int> targets, int root = -1,
+		IRigMotion? motion = null)
 	{
 		int n = m.Count;
 		var isBone = new bool[n];
@@ -296,8 +300,17 @@ public static class RigSuggester
 				.First();
 		}
 
-		// The tree, from the root: each step adds the layer that overlaps the rig so far the most.
-		// A layer told what it hangs from waits for that one; one meeting nothing joins the nearest.
+		// The tree, from the root: each step adds the layer that overlaps the rig so far the most
+		// (an animation makes overlaps that turn around a shared point count for more, and ones
+		// that move apart for less; a clear joint counts even without an overlap). A layer told
+		// what it hangs from waits for that one; one meeting nothing joins the nearest.
+		double Weight(int p, int c)
+		{
+			long touch = m.Touch(p, c);
+			if (motion == null) return touch;
+			if (touch > 0) return touch * motion.Factor(p, c);
+			return motion.Joint(p, c) != null ? 0.5 * motion.Factor(p, c) : 0;
+		}
 		int Chosen(int c) => targets[c] >= 0 && targets[c] < n && targets[c] != c && isBone[targets[c]] ? targets[c] : -1;
 		var parentOf = new Dictionary<int, int> { [root] = -1 };
 		var order = new List<int> { root };
@@ -305,7 +318,7 @@ public static class RigSuggester
 		while (rest.Count > 0)
 		{
 			int child = -1, parent = -1;
-			long best = 0;
+			double best = 0;
 			foreach (int c in rest)
 			{
 				int chosen = Chosen(c);
@@ -318,7 +331,7 @@ public static class RigSuggester
 				}
 				foreach (int p in order)
 				{
-					long w = m.Touch(p, c);
+					double w = Weight(p, c);
 					if (w <= best) continue;
 					best = w;
 					child = c;
@@ -362,7 +375,7 @@ public static class RigSuggester
 			}
 			else
 			{
-				head = m.Touch(p, layer) > 0 ? m.Joint(p, layer) : m.Nearest(layer, m.Centre(p));
+				head = motion?.Joint(p, layer) ?? (m.Touch(p, layer) > 0 ? m.Joint(p, layer) : m.Nearest(layer, m.Centre(p)));
 				reach = m.Farthest(layer, head) - head;
 			}
 			if (reach.Length() < m.Cell) reach = new Vector2(0, -2f * m.Cell);   // too small to tell: point up
