@@ -237,7 +237,7 @@
                                  parts as layers, in the order they're drawn whatever bone they're on -->
                             <StackPanel Grid.Row="3" Margin="6,0,6,4">
                                 <UniformGrid x:Name="RigViewSwitch" Columns="2">
-                                    <RadioButton x:Name="BonesViewChoice" Content="Bones" GroupName="RigView" IsChecked="True" Margin="0,0,1,0"
+                                    <RadioButton x:Name="BonesViewChoice" Content="Bones" GroupName="RigView" Margin="0,0,1,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="The bones, each part under the bone it's on: drag a part onto a bone to put it there, or a bone onto another to hang it there" />
                                     <RadioButton x:Name="LayersViewChoice" Content="Layers" GroupName="RigView" Margin="1,0,0,0"
