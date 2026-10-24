@@ -109,7 +109,7 @@ public static class PsdReader
 		{
 			var rec = records[i];
 			bool visible = !rec.Hidden && (open.Count == 0 || open[^1].Visible);
-			float opacity = rec.Opacity / 255f * (open.Count == 0 ? 1f : open[^1].Opacity);
+			float opacity = rec.Opacity / 255f * (rec.Section == 0 ? rec.Fill / 255f : 1f) * (open.Count == 0 ? 1f : open[^1].Opacity);
 			if (rec.Section is 1 or 2)
 			{
 				open.Add((rec.Name, visible, opacity));
@@ -183,6 +183,7 @@ public static class PsdReader
 		public readonly List<(short Id, long Length)> Channels = new();
 		public string Blend = "norm";
 		public byte Opacity = 255;
+		public byte Fill = 255;    // "fill" opacity: the layer's own pixels, not its effects
 		public bool Clipped, Hidden, HasStyle;
 		public PixelRect MaskBounds;
 		public byte MaskDefault;
@@ -248,6 +249,9 @@ public static class PsdReader
 					case "lsct":
 					case "lsdk":   // a group marker
 						rec.Section = checked((int)r.U32());
+						break;
+					case "iOpa":   // fill opacity
+						rec.Fill = r.U8();
 						break;
 					case "lfx2":
 					case "lmfx":   // layer effects ("lrFX" is there even without any)

@@ -378,12 +378,7 @@ public partial class PsdImportDialog : Window
 				var dir = along / length;
 				var across = new Vector2(-dir.Y, dir.X) * Math.Clamp(length * 0.09f, 3f, 12f);
 				var waist = head + dir * length * 0.18f;
-				using var path = new SKPath();
-				path.MoveTo(head.X, head.Y);
-				path.LineTo(waist.X + across.X, waist.Y + across.Y);
-				path.LineTo(tip.X, tip.Y);
-				path.LineTo(waist.X - across.X, waist.Y - across.Y);
-				path.Close();
+				using var path = PaintHelpers.Polyline(new[] { head, waist + across, tip, waist - across }, closed: true);
 				fill.Color = picked ? new SKColor(255, 140, 30, 230) : bone.Parent < 0 ? new SKColor(120, 230, 120, 210) : new SKColor(255, 230, 80, 200);
 				canvas.DrawPath(path, fill);
 				canvas.DrawPath(path, edge);
