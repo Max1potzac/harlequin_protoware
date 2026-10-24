@@ -312,7 +312,7 @@ public static class SheetImporter
 		using var pixels = new SKBitmap(AssetStore.InfoFor(r.W, r.H));
 		pixels.Erase(SKColors.Transparent);
 		using (var canvas = new SKCanvas(pixels))
-			canvas.DrawBitmap(sheet, -r.X, -r.Y);   // whole pixels: an exact copy
+			canvas.DrawBitmap(sheet, -r.X, -r.Y, AssetStore.Nearest, null);   // whole pixels: an exact copy
 		store.AddLayer(asset, "Base", pixels);
 		return asset;
 	}
@@ -325,7 +325,7 @@ public static class SheetImporter
 		var picture = new SKBitmap(AssetStore.InfoFor(decoded.Width, decoded.Height));
 		picture.Erase(SKColors.Transparent);
 		using (var canvas = new SKCanvas(picture))
-			canvas.DrawBitmap(decoded, 0, 0);
+			canvas.DrawBitmap(decoded, 0, 0, AssetStore.Nearest, null);
 		return picture;
 	}
 
