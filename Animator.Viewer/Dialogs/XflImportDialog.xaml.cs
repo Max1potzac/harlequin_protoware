@@ -95,6 +95,32 @@ public partial class XflImportDialog : Window
 		FrameSlider.Value = _frame;
 		_syncing = false;
 		_fitted = false;
+		ShowRigAnimations();
+		Refresh();
+	}
+
+	// The animations the rig is worked out from (shown when there are several)
+	private void ShowRigAnimations()
+	{
+		RigAnimations.Children.Clear();
+		var animations = _plan.Animations();
+		RigAnimationsLabel.Visibility = RigAnimations.Visibility = animations.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+		if (animations.Count < 2) return;
+		foreach (var (name, _, _) in animations)
+		{
+			var tick = new CheckBox { Content = name, Tag = name, IsChecked = !_plan.NotForRig.Contains(name), Margin = new Thickness(0, 0, 10, 2) };
+			tick.Click += RigAnimation_Click;
+			RigAnimations.Children.Add(tick);
+		}
+	}
+
+	private void RigAnimation_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is not CheckBox { Tag: string name } tick) return;
+		if (tick.IsChecked == true) _plan.NotForRig.Remove(name);
+		else _plan.NotForRig.Add(name);
+		_plan.Forget();
+		_rolesSuggested = false;
 		Refresh();
 	}
 
@@ -110,7 +136,11 @@ public partial class XflImportDialog : Window
 	private void Split_Click(object sender, RoutedEventArgs e)
 	{
 		_plan.SplitAtLabels = SplitBox.IsChecked == true;
-		RefreshSummary();
+		_plan.NotForRig.Clear();   // the animations aren't the same ones any more
+		_plan.Forget();
+		_rolesSuggested = false;
+		ShowRigAnimations();
+		Refresh();
 	}
 
 	private void FrameSlider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)

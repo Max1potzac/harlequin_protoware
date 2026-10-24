@@ -434,13 +434,21 @@ public class XflTests
 		return (float)(degrees * Math.PI / 180);
 	}
 
-	// Each part's own space (its origin on its joint) → the character's, at a frame
+	// Each part's own space (its origin on its joint) → the character's, at a frame. Dying (frames
+	// 60 on, if it does), its head flies off, spinning.
 	private static Matrix3x2 PoseOf(Piece piece, int frame)
 	{
 		var parent = piece.Parent == null ? null : Zombie.First(p => p.Name == piece.Parent);
 		var bob = new Vector2(0, 3 * MathF.Sin(2 * MathF.PI * (frame % 30) / 30));
-		var local = Matrix3x2.CreateRotation(TurnOf(piece.Name, frame)) *
-					Matrix3x2.CreateTranslation(parent == null ? piece.Joint + bob : piece.Joint - parent.Joint);
+		var offset = parent == null ? piece.Joint + bob : piece.Joint - parent.Joint;
+		float turn = TurnOf(piece.Name, frame);
+		if (piece.Name == "head" && frame >= 60)
+		{
+			int t = frame - 60;
+			offset += new Vector2(4 * t, -9 * t);
+			turn += 0.25f * t;
+		}
+		var local = Matrix3x2.CreateRotation(turn) * Matrix3x2.CreateTranslation(offset);
 		return parent == null ? local : local * PoseOf(parent, frame);
 	}
 
@@ -474,9 +482,11 @@ public class XflTests
 	// half: a 2400 resolution), a "source" symbol showing it and an "image" symbol placing it on
 	// its part's joint, sprites for parts with animations of their own (the blinking eye), a
 	// "main" symbol with a numbered layer per part and a keyframe on every frame, and a scene with
-	// the labels on a "flow" layer and "main" placed at the stage's corner
-	private static XflTestProject ZombieProject()
+	// the labels on a "flow" layer and "main" placed at the stage's corner. It idles and walks;
+	// and dies, if `dies`.
+	private static XflTestProject ZombieProject(bool dies = false)
 	{
+		int frames = dies ? 80 : 60;
 		var project = new XflTestProject { Width = 390, Height = 390, FrameRate = 30 };
 		for (int i = 0; i < Zombie.Length; i++)
 		{
@@ -497,15 +507,39 @@ public class XflTests
 		for (int i = Zombie.Length - 1; i >= 0; i--)   // the front one first, as Animate lists them
 		{
 			var p = Zombie[i];
-			layers.Append(Layer($"{i}", Enumerable.Range(0, 60)
+			layers.Append(Layer($"{i}", Enumerable.Range(0, frames)
 				.Select(f => ZombieFrame(p, f) is { } shown ? Frame(f, 1, shown) : Frame(f, 1)).ToArray()));
 		}
 		project.Symbol("main", layers.ToString());
 		project.Scene("animation",
-			Layer("flow", Frame(0, 30, "", "name=\"idle\" labelType=\"name\""), Frame(30, 30, "", "name=\"walk\" labelType=\"name\"")) +
-			Layer("command", Frame(0, 60)) +
-			Layer("sprite", Frame(0, 60, Instance("main", Matrix3x2.Identity))));
+			Layer("flow", Frame(0, 30, "", "name=\"idle\" labelType=\"name\""), Frame(30, 30, "", "name=\"walk\" labelType=\"name\""),
+				dies ? Frame(60, 20, "", "name=\"die\" labelType=\"name\"") : "") +
+			Layer("command", Frame(0, frames)) +
+			Layer("sprite", Frame(0, frames, Instance("main", Matrix3x2.Identity))));
 		return project;
+	}
+
+	// A bone for each part that turns on its own, hanging from the part it turns on, on the joint
+	// it turns on (where it is at the rest pose, frame 1); the eye, mouth and hair ride on the head
+	private static void HasTheZombiesRig(XflImportPlan plan, RigSuggestion rig)
+	{
+		string NameOf(int bone) => plan.Parts[rig.Bones[bone].Layer].Name;
+		var parents = Enumerable.Range(0, rig.Bones.Count).ToDictionary(NameOf, b => rig.Bones[b].Parent < 0 ? "-" : NameOf(rig.Bones[b].Parent));
+		var expected = Zombie.Where(p => p.Name is not ("eye" or "mouth" or "hair" or "cone")).ToDictionary(p => p.Name, p => p.Parent ?? "-");
+		Assert.Equal(expected.OrderBy(e => e.Key), parents.OrderBy(e => e.Key));
+
+		Assert.Equal(0, plan.SetupFrame);
+		for (int b = 0; b < rig.Bones.Count; b++)
+		{
+			if (rig.Bones[b].Parent < 0) continue;
+			var piece = Zombie.First(p => p.Name == NameOf(b));
+			var joint = Vector2.Transform(Vector2.Transform(Vector2.Zero, PoseOf(piece, 0)), plan.TimelineToObject);
+			Assert.True(Vector2.Distance(joint, plan.CanvasToObject(rig.Bones[b].Head)) < 1f,
+				$"{piece.Name}'s joint is at {plan.CanvasToObject(rig.Bones[b].Head)}, not {joint}");
+		}
+		var head = rig.Bones.FindIndex(b => plan.Parts[b.Layer].Name == "head");
+		foreach (string rider in new[] { "eye_open", "mouth_closed", "hair" })
+			Assert.Equal(head, rig.BoneOf[plan.Parts.FindIndex(p => p.Name == rider)]);
 	}
 
 	[Fact]
@@ -525,25 +559,7 @@ public class XflTests
 			plan.SuggestRoles();
 			var rig = plan.Suggest();
 
-			// A bone for each part that turns on its own, hanging from the part it turns on
-			string NameOf(int bone) => plan.Parts[rig.Bones[bone].Layer].Name;
-			var parents = Enumerable.Range(0, rig.Bones.Count).ToDictionary(NameOf, b => rig.Bones[b].Parent < 0 ? "-" : NameOf(rig.Bones[b].Parent));
-			var expected = Zombie.Where(p => p.Name is not ("eye" or "mouth" or "hair" or "cone")).ToDictionary(p => p.Name, p => p.Parent ?? "-");
-			Assert.Equal(expected.OrderBy(e => e.Key), parents.OrderBy(e => e.Key));
-
-			// ...on the joints it turns on (where they are at the rest pose, frame 1)
-			Assert.Equal(0, plan.SetupFrame);
-			for (int b = 0; b < rig.Bones.Count; b++)
-			{
-				if (rig.Bones[b].Parent < 0) continue;
-				var piece = Zombie.First(p => p.Name == NameOf(b));
-				var joint = Vector2.Transform(Vector2.Transform(Vector2.Zero, PoseOf(piece, 0)), plan.TimelineToObject);
-				Assert.True(Vector2.Distance(joint, plan.CanvasToObject(rig.Bones[b].Head)) < 1f,
-					$"{piece.Name}'s joint is at {plan.CanvasToObject(rig.Bones[b].Head)}, not {joint}");
-			}
-			var head = rig.Bones.FindIndex(b => plan.Parts[b.Layer].Name == "head");
-			foreach (string rider in new[] { "eye_open", "mouth_closed", "hair" })
-				Assert.Equal(head, rig.BoneOf[plan.Parts.FindIndex(p => p.Name == rider)]);   // they ride on the head's bone
+			HasTheZombiesRig(plan, rig);
 
 			// Brought in: the bones carry the motion, every part lands where Animate puts it
 			var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
@@ -572,6 +588,40 @@ public class XflTests
 			var drawn = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
 			Assert.Equal(ObjectKind.Drawn, drawn.Kind);
 			Assert.Equal(0, MatchesEveryFrame(plan, drawn, pictures).Skewed);
+		}
+		finally
+		{
+			Remove(folder);
+		}
+	}
+
+	[Fact]
+	public void Animations_where_parts_come_apart_can_be_left_out_of_working_out_the_rig()
+	{
+		string folder = TempFolder();
+		try
+		{
+			using var plan = XflImportPlan.Load(ZombieProject(dies: true).SaveFolder(Path.Combine(folder, "zombie")), "zombie");
+			Assert.Equal(new[] { ("idle", 0, 30), ("walk", 30, 60), ("die", 60, 80) }, plan.Animations());
+			plan.Parts.Single(p => p.Name == "cone").InRig = false;
+			plan.SuggestRig = true;
+			int body = plan.Parts.FindIndex(p => p.Name == "body"), head = plan.Parts.FindIndex(p => p.Name == "head");
+
+			// Dying, its head flies off: over every animation, its neck is no joint
+			Assert.True(plan.Motion.Quality(body, head) < RigSuggester.ClearJoint);
+
+			// Worked out from idling and walking alone, the rig is as it was
+			plan.NotForRig.Add("die");
+			plan.Forget();
+			Assert.True(plan.Motion.Quality(body, head) >= RigSuggester.ClearJoint);
+			plan.SuggestRoles();
+			HasTheZombiesRig(plan, plan.Suggest());
+
+			// And it's still brought in moving as it did, flying head and all
+			var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
+			var obj = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
+			Assert.Equal(new[] { "idle", "walk", "die" }, obj.Animations.Select(a => a.Name));
+			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures).Skewed);
 		}
 		finally
 		{

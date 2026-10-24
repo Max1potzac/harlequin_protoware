@@ -44,6 +44,9 @@
                         <Button DockPanel.Dock="Right" Content="Use the frame shown" Padding="6,1" Click="UseFrame_Click" />
                         <TextBlock x:Name="SetupText" VerticalAlignment="Center" />
                     </DockPanel>
+                    <TextBlock x:Name="RigAnimationsLabel" Text="Worked out from these animations:" Margin="0,0,0,2"
+                               ToolTip="Untick animations where parts come apart (a head falling off, an arm dropping): they'd hide the joints the others show" />
+                    <WrapPanel x:Name="RigAnimations" Margin="0,0,0,6" />
                     <DockPanel Margin="0,0,0,6">
                         <TextBlock Text="Root" VerticalAlignment="Center" Width="70"
                                    ToolTip="The bone everything else hangs from: usually the body" />

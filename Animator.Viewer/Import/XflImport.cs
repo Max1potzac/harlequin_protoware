@@ -40,6 +40,10 @@ public sealed class XflImportPlan : IDisposable
 	public int Root { get; set; } = -1;                // the part whose bone everything hangs from (-1 = worked out)
 	public Vector2 Origin { get; private set; }        // in the timeline's space: where the object's origin goes
 
+	// Animations (by name, see Animations) the rig isn't worked out from: ones where parts come
+	// apart (a head falling off) would hide the joints the others show
+	public HashSet<string> NotForRig { get; } = new();
+
 	private RigMasks? _masks;
 	private Matrix3x2 _objectToCanvas;
 	private MotionHints? _motion;
@@ -119,6 +123,7 @@ public sealed class XflImportPlan : IDisposable
 		SetupFrame = BusiestFrame();
 		Root = -1;
 		Origin = FindOrigin();
+		NotForRig.Clear();
 		Forget();
 	}
 
@@ -268,19 +273,25 @@ public sealed class XflImportPlan : IDisposable
 		return Vector2.Transform(point, _objectToCanvas);
 	}
 
-	// How the parts move against each other over the whole timeline
+	// How the parts move against each other over the timeline (but the animations left out of
+	// the rig, apart from the rest pose)
 	public MotionHints Motion
 	{
 		get
 		{
 			if (_motion != null) return _motion;
+			var used = new bool[Data.FrameCount];
+			foreach (var (name, start, end) in Animations())
+				if (!NotForRig.Contains(name))
+					for (int f = start; f < end; f++) used[f] = true;
+			used[SetupFrame] = true;
 			var placements = new List<Matrix3x2?[]>();
 			var bounds = new List<(Vector2, Vector2)>();
 			var toObject = TimelineToObject;
 			for (int i = 0; i < Parts.Count; i++)
 			{
 				var track = Data.Tracks[Parts[i].Track];
-				placements.Add(track.Frames.Select(f => f is { } p ? p.Matrix * toObject : (Matrix3x2?)null).ToArray());
+				placements.Add(track.Frames.Select((f, frame) => used[frame] && f is { } p ? p.Matrix * toObject : (Matrix3x2?)null).ToArray());
 				var box = Painter.Bounds(track.MostShown());
 				bounds.Add(box.IsEmpty ? (Vector2.Zero, Vector2.One) : (new Vector2(box.Left, box.Top), new Vector2(box.Right, box.Bottom)));
 			}
