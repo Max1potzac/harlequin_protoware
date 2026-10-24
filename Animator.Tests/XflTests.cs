@@ -595,9 +595,11 @@ public class XflTests
 							pictures.Clear();
 							var rigged = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
 							var (_, worstRigged) = MatchesEveryFrame(plan, rigged, pictures, within: 0.15f);
+							var bones = rigged.Skeleton.AllBones().Skip(1).ToList();   // under the object's own root bone
 							report.Add($"{name} / {scene.Label}: {plan.Parts.Count} part(s), {plan.Data.FrameCount} frame(s), " +
-									   $"{rigged.Skeleton.AllBones().Count() - 1} bone(s), off by {worstDrawn:0.###} px drawn and {worstRigged:0.###} px rigged at worst" +
+									   $"{bones.Count} bone(s), off by {worstDrawn:0.###} px drawn and {worstRigged:0.###} px rigged at worst" +
 									   (skewed > 0 ? $", {skewed} much skewed part-frame(s)" : "") +
+									   (bones.Count is > 1 and <= 24 ? $"; bones: {string.Join(", ", bones.Select(b => b.Parent == rigged.Skeleton.Roots[0] ? b.Name : $"{b.Name} on {b.Parent!.Name}"))}" : "") +
 									   (plan.Notes.Count > 0 ? $"; notes: {string.Join(" | ", plan.Notes)}" : ""));
 						}
 						finally
