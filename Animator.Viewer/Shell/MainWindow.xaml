@@ -15,7 +15,7 @@
                     <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S" Click="SaveAs_Click" />
                     <Separator />
                     <MenuItem Header="_Import…" InputGestureText="Ctrl+I" Click="Import_Click"
-                              ToolTip="A Photoshop file (its layers as parts, with a suggested rig if you like), or a sprite sheet (its pieces as stills and animations)" />
+                              ToolTip="A Photoshop file (its layers as parts, with a suggested rig if you like), an Animate project (.fla or .xfl: its parts and animations, with a rig worked out from them if you like), or a sprite sheet (its pieces as stills and animations)" />
                     <MenuItem Header="_Export…" InputGestureText="Ctrl+E" Click="Export_Click"
                               ToolTip="PNG pictures, a GIF, a sprite sheet or a video: of the scene, or of one object's animations" />
                     <Separator />

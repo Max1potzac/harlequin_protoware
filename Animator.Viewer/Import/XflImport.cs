@@ -345,11 +345,11 @@ public static class XflImporter
 			for (int f = 0; f < frames; f++)
 			{
 				Matrix3x2.Invert(parentWorld[f], out var toParent);
-				var (position, rotation, scale) = Local(target[bone][f] * toParent, skew);
-				rotation = previous + XflMath.Mod(rotation - previous + MathF.PI, Turn) - MathF.PI;   // continuous
-				previous = rotation;
-				local[f] = (position, rotation, scale);
-				rebuilt[f] = Matrix3x2.CreateScale(scale) * Matrix3x2.CreateRotation(rotation) * Matrix3x2.CreateTranslation(position) * parentWorld[f];
+				var (at, turn, size) = Local(target[bone][f] * toParent, skew);
+				turn = previous + XflMath.Mod(turn - previous + MathF.PI, Turn) - MathF.PI;   // continuous
+				previous = turn;
+				local[f] = (at, turn, size);
+				rebuilt[f] = Matrix3x2.CreateScale(size) * Matrix3x2.CreateRotation(turn) * Matrix3x2.CreateTranslation(at) * parentWorld[f];
 			}
 			world[bone] = rebuilt;
 			locals[bone] = local;
@@ -365,7 +365,7 @@ public static class XflImporter
 			bonesOf[part] = bone;
 		}
 
-		var slots = new Dictionary<int, (Slot Slot, Dictionary<XflDrawingKey, (Attachment Drawing, XflPicture Picture)> Drawings, int Rest)>();
+		var slots = new Dictionary<int, (Slot Slot, Dictionary<XflDrawingKey, (Attachment Drawing, XflPicture Picture)> Drawings, int RestFrame)>();
 		var pictures = new Dictionary<XflDrawingKey, XflPicture?>();
 		var shownAt = ShownScales(plan, parts);
 		try

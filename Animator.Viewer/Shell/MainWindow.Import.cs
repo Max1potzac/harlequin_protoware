@@ -6,12 +6,14 @@ using Microsoft.Win32;
 namespace Animator.Viewer;
 
 // File > Import (Ctrl+I): a Photoshop file, its layers as parts (with a suggested rig if you like),
-// or a sprite sheet, its pieces as drawn objects or parts of the open object
+// an Animate project, its parts and animations (with a rig worked out from them if you like), or a
+// sprite sheet, its pieces as drawn objects or parts of the open object
 public partial class MainWindow
 {
-	private enum ImportKind { Any, Photoshop, SpriteSheet }
+	private enum ImportKind { Any, Photoshop, Animate, SpriteSheet }
 
 	private const string PhotoshopFiles = "*.psd;*.psb";
+	private const string AnimateFiles = "*.fla;*.xfl;DOMDocument.xml;*.zip";
 	private const string PictureFiles = "*.png;*.webp;*.gif;*.bmp;*.jpg;*.jpeg";
 
 	private void Import_Click(object sender, RoutedEventArgs e) => ImportFile();
@@ -26,15 +28,18 @@ public partial class MainWindow
 			Title = kind switch
 			{
 				ImportKind.Photoshop => "Import a Photoshop file",
+				ImportKind.Animate => "Import an Animate project (.fla, or the .xfl file in its folder)",
 				ImportKind.SpriteSheet => "Import a sprite sheet",
 				_ => "Import"
 			},
 			Filter = kind switch
 			{
 				ImportKind.Photoshop => $"Photoshop files ({PhotoshopFiles})|{PhotoshopFiles}",
+				ImportKind.Animate => $"Animate projects (.fla, .xfl, a zipped XFL folder)|{AnimateFiles}",
 				ImportKind.SpriteSheet => $"Sprite sheets and pictures ({PictureFiles})|{PictureFiles}",
-				_ => $"Photoshop files and sprite sheets|{PhotoshopFiles};{PictureFiles}|" +
+				_ => $"Photoshop files, Animate projects and sprite sheets|{PhotoshopFiles};{AnimateFiles};{PictureFiles}|" +
 					 $"Photoshop files ({PhotoshopFiles})|{PhotoshopFiles}|" +
+					 $"Animate projects (.fla, .xfl, a zipped XFL folder)|{AnimateFiles}|" +
 					 $"Sprite sheets and pictures ({PictureFiles})|{PictureFiles}"
 			}
 		};
@@ -43,7 +48,10 @@ public partial class MainWindow
 		_appSettings.ImportFolder = Path.GetDirectoryName(open.FileName);
 		_appSettings.Save();
 
-		if (Path.GetExtension(open.FileName).ToLowerInvariant() is ".psd" or ".psb") ImportPhotoshop(open.FileName);
+		string ext = Path.GetExtension(open.FileName).ToLowerInvariant();
+		if (ext is ".psd" or ".psb") ImportPhotoshop(open.FileName);
+		else if (ext is ".fla" or ".xfl" or ".zip" || Path.GetFileName(open.FileName).Equals("DOMDocument.xml", StringComparison.OrdinalIgnoreCase))
+			ImportAnimate(open.FileName);
 		else ImportSpriteSheet(open.FileName);
 	}
 
@@ -91,6 +99,60 @@ public partial class MainWindow
 				made = PsdImporter.IntoScene(_scene, _assets, plan, _camera.Pan);   // in the middle of the view
 				return $"Import {name}";
 			});
+			if (made == null) return;
+			_state.Playing = false;
+			EnterObject(made);
+		}
+	}
+
+	// ======================= Animate projects =======================
+
+	private void ImportAnimate(string path)
+	{
+		// The project's name: the .fla's, or its folder's for an .xfl or DOMDocument.xml
+		string name = Path.GetExtension(path).ToLowerInvariant() is ".fla" or ".zip"
+			? Path.GetFileNameWithoutExtension(path)
+			: new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(path))!).Name;
+		XflImportPlan plan;
+		Mouse.OverrideCursor = Cursors.Wait;
+		try
+		{
+			plan = XflImportPlan.Load(path, name);
+		}
+		catch (Exception ex)
+		{
+			Mouse.OverrideCursor = null;
+			string why = ex is NotSupportedException or InvalidDataException or IOException or System.Xml.XmlException
+				? ex.Message
+				: $"Something in it couldn't be read ({ex.GetType().Name}: {ex.Message}).";
+			MessageBox.Show(this, $"{Path.GetFileName(path)} couldn't be imported.\n\n{why}", "Import an Animate project",
+				MessageBoxButton.OK, MessageBoxImage.Warning);
+			return;
+		}
+		finally
+		{
+			Mouse.OverrideCursor = null;
+		}
+
+		using (plan)
+		{
+			var dialog = new XflImportDialog(plan) { Owner = this };
+			if (dialog.ShowDialog() != true) return;
+
+			SceneObject? made = null;
+			Mouse.OverrideCursor = Cursors.Wait;
+			try
+			{
+				EditScene(() =>
+				{
+					made = XflImporter.IntoScene(_scene, _assets, plan, _camera.Pan);   // in the middle of the view
+					return $"Import {name}";
+				});
+			}
+			finally
+			{
+				Mouse.OverrideCursor = null;
+			}
 			if (made == null) return;
 			_state.Playing = false;
 			EnterObject(made);

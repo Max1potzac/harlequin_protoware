@@ -476,6 +476,10 @@ public partial class MainWindow
 		photoshop.Click += (_, _) => ImportFile(ImportKind.Photoshop);
 		menu.Items.Add(photoshop);
 
+		var animate = new MenuItem { Header = "Object from an Animate project…" };
+		animate.Click += (_, _) => ImportFile(ImportKind.Animate);
+		menu.Items.Add(animate);
+
 		var sheet = new MenuItem { Header = "Objects from a sprite sheet…" };
 		sheet.Click += (_, _) => ImportFile(ImportKind.SpriteSheet);
 		menu.Items.Add(sheet);
