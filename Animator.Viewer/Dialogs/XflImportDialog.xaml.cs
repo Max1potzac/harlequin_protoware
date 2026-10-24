@@ -482,10 +482,10 @@ public partial class XflImportDialog : Window
 			canvas.Concat(in place);
 			SKPaint? layer = null;
 			SKColorFilter? filter = null;
-			if (!color.IsIdentity)
+			if (!color.IsIdentity || p.Blend != BlendMode.Normal)
 			{
-				filter = XflPainter.ColorFilter(color);
-				layer = new SKPaint { ColorFilter = filter };
+				filter = color.IsIdentity ? null : XflPainter.ColorFilter(color);
+				layer = new SKPaint { ColorFilter = filter, BlendMode = SkeletonRenderer.ToSk(p.Blend) };
 				canvas.SaveLayer(layer);
 			}
 			_plan.Painter.Draw(canvas, p.Drawing);

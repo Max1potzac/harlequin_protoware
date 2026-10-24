@@ -54,6 +54,7 @@ public sealed class XflInstance : XflElement
 	public int? LastFrame { get; init; }
 	public Vector2 Pivot { get; init; }          // the transformation point, in the symbol's own space
 	public XflColor Color { get; init; } = XflColor.Identity;
+	public string Blend { get; init; } = "normal";   // Animate's blend mode ("multiply", "add"…)
 }
 
 // A library picture placed on a frame
@@ -475,6 +476,7 @@ public static class XflReader
 		{
 			case "DOMSymbolInstance":
 				var kind = SymbolKind(Text(e, "symbolType"));
+				if (Child(e, "filters")?.Elements().Any() == true && !doc.Notes.Contains(FilterNote)) doc.Notes.Add(FilterNote);
 				return new XflInstance
 				{
 					Matrix = ReadMatrix(e),
@@ -492,7 +494,8 @@ public static class XflReader
 					FirstFrame = Int(e, "firstFrame", 0),
 					LastFrame = Text(e, "lastFrame") is { } last && int.TryParse(last, NumberStyles.Integer, Invariant, out int l) ? l : null,
 					Pivot = ReadPoint(Child(e, "transformationPoint")),
-					Color = ReadColor(Child(Child(e, "color"), "Color"))
+					Color = ReadColor(Child(Child(e, "color"), "Color")),
+					Blend = Text(e, "blendMode") ?? "normal"
 				};
 			case "DOMBitmapInstance":
 				return new XflBitmapInstance { Matrix = ReadMatrix(e), Library = Name(e, "libraryItemName") };
@@ -513,6 +516,7 @@ public static class XflReader
 	}
 
 	private const string TextNote = "Text isn't brought in (convert it to shapes in Animate first, if you need it).";
+	private const string FilterNote = "Filters (blur, glow, drop shadow…) aren't brought in.";
 
 	private static XflShape ReadShape(XElement e)
 	{

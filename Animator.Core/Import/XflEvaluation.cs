@@ -11,8 +11,10 @@ public enum XflDrawingKind { Symbol, Bitmap, Shapes }
 public readonly record struct XflDrawingKey(XflDrawingKind Kind, string Name, int Layer = -1, int Keyframe = -1, int Run = -1);
 
 // Where a track's drawing is at one frame: Matrix takes the drawing's own space into the
-// imported timeline's (pixels, y down); Pivot is its transformation point in its own space
-public readonly record struct XflPlacement(XflDrawingKey Drawing, Matrix3x2 Matrix, XflColor Color, Vector2 Pivot);
+// imported timeline's (pixels, y down); Pivot is its transformation point in its own space;
+// Blend, how it mixes with what's behind it
+public readonly record struct XflPlacement(XflDrawingKey Drawing, Matrix3x2 Matrix, XflColor Color, Vector2 Pivot,
+	BlendMode Blend = BlendMode.Normal);
 
 // One thing that moves on its own through the animation: a symbol instance (or picture, or run
 // of shapes) on a layer, at some depth inside other symbols. It can change drawings over time.
@@ -152,12 +154,12 @@ public sealed class XflEvaluator
 	public List<(string Track, XflPlacement Placement, string LayerName, bool AutoNamed, bool Hidden)> Frame(XflTimeline timeline, string key, int frame)
 	{
 		var output = new List<(string, XflPlacement, string, bool, bool)>();
-		Visit(timeline, key, frame, Matrix3x2.Identity, XflColor.Identity, "", false, output, 0);
+		Visit(timeline, key, frame, Matrix3x2.Identity, XflColor.Identity, BlendMode.Normal, "", false, output, 0);
 		return output;
 	}
 
-	private void Visit(XflTimeline timeline, string key, int frame, Matrix3x2 parent, XflColor parentColor, string path, bool hidden,
-		List<(string, XflPlacement, string, bool, bool)> output, int depth)
+	private void Visit(XflTimeline timeline, string key, int frame, Matrix3x2 parent, XflColor parentColor, BlendMode parentBlend,
+		string path, bool hidden, List<(string, XflPlacement, string, bool, bool)> output, int depth)
 	{
 		if (depth > 32) return;
 		for (int li = timeline.Layers.Count - 1; li >= 0; li--)   // the bottom layer first
@@ -183,7 +185,7 @@ public sealed class XflEvaluator
 					inRun = false;
 					if (_doc.Bitmaps.ContainsKey(bitmap.Library))
 						output.Add(($"{layerPath}#{instances}",
-							new XflPlacement(new XflDrawingKey(XflDrawingKind.Bitmap, bitmap.Library), bitmap.Matrix * parent, parentColor, Vector2.Zero),
+							new XflPlacement(new XflDrawingKey(XflDrawingKind.Bitmap, bitmap.Library), bitmap.Matrix * parent, parentColor, Vector2.Zero, parentBlend),
 							layer.Name, layer.AutoNamed, layerHidden));
 					instances++;
 				}
@@ -200,7 +202,7 @@ public sealed class XflEvaluator
 					{
 						(matrix, color) = XflMath.Classic(keyframe, instance, target, offset / (float)keyframe.Duration);
 					}
-					AddInstance(instance, matrix * parent, color.Then(parentColor), $"{layerPath}#{instances}",
+					AddInstance(instance, matrix * parent, color.Then(parentColor), BlendOf(instance.Blend, parentBlend), $"{layerPath}#{instances}",
 						PlayedFrame(instance, layer, k, offset), layer, layerHidden, output, depth);
 					instances++;
 				}
@@ -209,7 +211,7 @@ public sealed class XflEvaluator
 					if (!inRun)
 					{
 						output.Add(($"{layerPath}~{runs}",
-							new XflPlacement(new XflDrawingKey(XflDrawingKind.Shapes, key, li, k, runs), parent, parentColor, Vector2.Zero),
+							new XflPlacement(new XflDrawingKey(XflDrawingKind.Shapes, key, li, k, runs), parent, parentColor, Vector2.Zero, parentBlend),
 							layer.Name, layer.AutoNamed, layerHidden));
 						runs++;
 					}
@@ -219,7 +221,7 @@ public sealed class XflEvaluator
 		}
 	}
 
-	private void AddInstance(XflInstance instance, Matrix3x2 world, XflColor color, string track, int symbolFrame,
+	private void AddInstance(XflInstance instance, Matrix3x2 world, XflColor color, BlendMode blend, string track, int symbolFrame,
 		XflLayer layer, bool hidden, List<(string, XflPlacement, string, bool, bool)> output, int depth)
 	{
 		var symbol = _doc.Symbol(instance.Library);
@@ -230,11 +232,26 @@ public sealed class XflEvaluator
 		}
 		if (instance.Kind == XflSymbolKind.Button || IsStatic(symbol.Name))
 		{
-			output.Add((track, new XflPlacement(new XflDrawingKey(XflDrawingKind.Symbol, symbol.Name), world, color, instance.Pivot),
+			output.Add((track, new XflPlacement(new XflDrawingKey(XflDrawingKind.Symbol, symbol.Name), world, color, instance.Pivot, blend),
 				layer.Name, layer.AutoNamed, hidden));
 			return;
 		}
-		Visit(symbol.Timeline, symbol.Name, symbolFrame, world, color, track, hidden, output, depth + 1);
+		Visit(symbol.Timeline, symbol.Name, symbolFrame, world, color, blend, track, hidden, output, depth + 1);
+	}
+
+	// An instance's blend mode, as parts can have it; "normal" (or "layer") keeps the one it's in
+	private BlendMode BlendOf(string blend, BlendMode around)
+	{
+		switch (blend)
+		{
+			case "add": return BlendMode.Add;
+			case "multiply": return BlendMode.Multiply;
+			case "screen": return BlendMode.Screen;
+			case "normal" or "layer" or "": return around;
+			default:
+				Notes.Add($"Blend modes other than add, multiply and screen aren't brought in (\"{blend}\" shows as normal).");
+				return around;
+		}
 	}
 
 	// Which frame of its own timeline a symbol shows, `offset` frames after its keyframe. Graphic

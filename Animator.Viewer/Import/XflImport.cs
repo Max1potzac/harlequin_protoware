@@ -425,7 +425,11 @@ public static class XflImporter
 				if (slot == null) continue;
 				var setup = track.Frames[plan.SetupFrame];
 				slot.SetupAttachment = setup is { } s && drawings.TryGetValue(s.Drawing, out var shown) ? shown.Item1.Name : null;
-				var color = (track.Frames[plan.SetupFrame] ?? track.Frames[rest])!.Value.Color;
+				var atRest = (track.Frames[plan.SetupFrame] ?? track.Frames[rest])!.Value;
+				var color = atRest.Color;
+				slot.Blend = atRest.Blend;
+				if (track.Frames.Any(f => f is { } shownThen && shownThen.Blend != atRest.Blend))
+					plan.Painter.Notes.Add("Some parts change their blend mode during the animation: they keep the one they have at the rest pose.");
 				slot.SetupColor = new Vector3(color.Multiply.X, color.Multiply.Y, color.Multiply.Z);
 				slot.SetupOpacity = Math.Clamp(color.Multiply.W, 0, 1);
 				slot.ResetToSetup();

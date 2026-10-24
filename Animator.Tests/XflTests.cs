@@ -31,8 +31,8 @@ public class XflTests
 	// ======================= a small Animate project =======================
 
 	// A ball tweening across the stage (eased, turning, growing and fading), a dot going round in
-	// an animated graphic symbol, a drawn square, a hidden layer and a guide. Labels "bounce" and
-	// "roll" split its 20 frames.
+	// an animated graphic symbol (adding its light), a drawn square, a hidden layer and a guide.
+	// Labels "bounce" and "roll" split its 20 frames.
 	private static XflTestProject Bouncing()
 	{
 		var project = new XflTestProject { Width = 400, Height = 300, FrameRate = 30 };
@@ -48,7 +48,7 @@ public class XflTests
 				Frame(0, 10, Instance("ball", Matrix3x2.CreateTranslation(100, 100), Vector2.Zero), "tweenType=\"motion\" acceleration=\"100\""),
 				Frame(10, 10, Instance("ball", Matrix3x2.CreateScale(1.5f) * Matrix3x2.CreateRotation(MathF.PI / 2) * Matrix3x2.CreateTranslation(300, 120),
 					Vector2.Zero, alpha: 0.5f))) +
-			Layer("spin", Frame(0, 20, Instance("spinner", Matrix3x2.CreateTranslation(200, 250)))) +
+			Layer("spin", Frame(0, 20, Instance("spinner", Matrix3x2.CreateTranslation(200, 250), attributes: "blendMode=\"add\""))) +
 			LayerWith("layerType=\"guide\"", "guide", Frame(0, 20, Instance("ball", Matrix3x2.CreateTranslation(10, 10)))) +
 			LayerWith("visible=\"false\"", "hidden", Frame(0, 20, Instance("ball", Matrix3x2.CreateTranslation(50, 50)))) +
 			Layer("square", Frame(0, 20, Shape("!400 400|1200 400|1200 1200|400 1200|400 400"))));
@@ -376,6 +376,7 @@ public class XflTests
 			Assert.Equal(ObjectKind.Drawn, obj.Kind);
 			Assert.Equal(new[] { "bounce", "roll" }, obj.Animations.Select(a => a.Name));
 			Assert.Equal(new[] { "square", "dot", "ball" }, obj.Skeleton.Slots.Select(s => s.Name));   // back to front
+			Assert.Equal(BlendMode.Add, obj.Skeleton.FindSlot("dot")!.Blend);
 			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures).Skewed);
 		}
 		finally
