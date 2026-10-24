@@ -311,6 +311,55 @@ public sealed class XflImportPlan : IDisposable
 		public bool MovesAsOne(int a, int b) => _plan.Motion.AnythingMoves && _plan.Motion.Rigid(a, b);
 	}
 
+	// A bone on a part, over the timeline, as the import animates it (object space): its joint
+	// goes where the part takes that point, and it turns as the part turns. Bones only move and
+	// turn: a part's scale and skew stay on the part. head, angle: the bone at the rest pose.
+	// Held where it last was (or first is) while the part isn't shown.
+	public Matrix3x2[] BoneMotion(int part, Vector2 head, float angle)
+	{
+		int frames = Data.FrameCount;
+		var motion = new Matrix3x2[frames];
+		var atSetup = PartToObject(part, SetupFrame) ?? Data.Tracks[Parts[part].Track].Shown.Select(f => PartToObject(part, f)).FirstOrDefault();
+		if (atSetup is not { } setup || !Matrix3x2.Invert(setup, out var fromPart))
+		{
+			Array.Fill(motion, Matrix3x2.CreateRotation(angle) * Matrix3x2.CreateTranslation(head));
+			return motion;
+		}
+		var joint = Vector2.Transform(head, fromPart);   // in the part's own space
+		float turned = angle - AngleOf(setup);
+		int first = -1;
+		for (int f = 0; f < frames; f++)
+		{
+			if (PartToObject(part, f) is { } m)
+			{
+				motion[f] = Matrix3x2.CreateRotation(AngleOf(m) + turned) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m));
+				if (first < 0) first = f;
+			}
+			else if (first >= 0) motion[f] = motion[f - 1];
+		}
+		for (int f = 0; f < first; f++) motion[f] = motion[first];
+		return motion;
+	}
+
+	// The suggested rig's bones at a frame (object space): joint and end, as the import animates
+	// them
+	public (Vector2 Head, Vector2 Tip)[] RigAt(RigSuggestion rig, int frame, Dictionary<int, Matrix3x2[]> cache)
+	{
+		var at = new (Vector2, Vector2)[rig.Bones.Count];
+		for (int b = 0; b < rig.Bones.Count; b++)
+		{
+			var bone = rig.Bones[b];
+			Vector2 head = CanvasToObject(bone.Head), tip = CanvasToObject(bone.Tip);
+			if (!cache.TryGetValue(b, out var motion))
+				cache[b] = motion = BoneMotion(bone.Layer, head, MathF.Atan2(tip.Y - head.Y, tip.X - head.X));
+			var m = motion[Math.Clamp(frame, 0, motion.Length - 1)];
+			at[b] = (m.Translation, m.Translation + new Vector2(m.M11, m.M12) * Vector2.Distance(head, tip));
+		}
+		return at;
+	}
+
+	private static float AngleOf(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
+
 	// Roles as the shapes and the motion suggest, choices cleared
 	public void SuggestRoles()
 	{
@@ -366,15 +415,7 @@ public static class XflImporter
 		// would be skewed by it), so they're rebuilt the way the editor will from the keys made.
 		var target = new Dictionary<Bone, Matrix3x2[]>();
 		foreach (var (bone, part) in bones)
-		{
-			var atSetup = plan.PartToObject(part, plan.SetupFrame)!.Value;
-			Matrix3x2.Invert(atSetup, out var fromPart);
-			var joint = Vector2.Transform(bone.World.Translation, fromPart);   // in the part's own space
-			float turned = bone.WorldRotation - AngleOf(atSetup);
-			target[bone] = Held(Enumerable.Range(0, frames).Select(f => plan.PartToObject(part, f) is { } m
-				? Matrix3x2.CreateRotation(AngleOf(m) + turned) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m))
-				: (Matrix3x2?)null).ToArray(), bone.World);
-		}
+			target[bone] = plan.BoneMotion(part, bone.World.Translation, bone.WorldRotation);
 		var world = new Dictionary<Bone, Matrix3x2[]> { [handle] = Enumerable.Repeat(handle.World, frames).ToArray() };
 		var locals = new Dictionary<Bone, (Vector2 Position, float Rotation, Vector2 Scale)[]>();
 		foreach (var bone in skeleton.AllBones().Where(b => target.ContainsKey(b)))   // parents first
@@ -562,9 +603,6 @@ public static class XflImporter
 	}
 
 	// ----- placing drawings -----
-
-	// Which way a transform's x axis points
-	private static float AngleOf(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
 
 	// A transform as a bone's local values (no skew): position, rotation, scale
 	private static (Vector2 Position, float Rotation, Vector2 Scale) Local(Matrix3x2 m)
