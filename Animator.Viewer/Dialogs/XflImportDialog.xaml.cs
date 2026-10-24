@@ -26,7 +26,7 @@ public partial class XflImportDialog : Window
 	private readonly Dictionary<int, Matrix3x2[]> _rigMotion = new();   // its bones over the timeline, as they're worked out
 	private bool _rolesSuggested;
 	private int _picked = -1;                    // the picked part (index in the plan's parts)
-	private readonly Dictionary<int, (CheckBox Include, CheckBox InRig, CheckBox Effect, TextBlock Text)> _rows = new();
+	private readonly Dictionary<int, (CheckBox Include, CheckBox InRig, CheckBox Effect, TextBlock Name, TextBlock Details)> _rows = new();
 	private bool _syncing;
 	private int _frame;
 	private readonly DispatcherTimer _player = new();
@@ -39,6 +39,7 @@ public partial class XflImportDialog : Window
 	public XflImportDialog(XflImportPlan plan)
 	{
 		InitializeComponent();
+		DialogLayout.FitToScreen(this);
 		_plan = plan;
 		ScaleBox.Text = "100";
 		RigBox.IsChecked = plan.SuggestRig;
@@ -71,31 +72,31 @@ public partial class XflImportDialog : Window
 		PartList.Items.Clear();
 		for (int i = _plan.Parts.Count - 1; i >= 0; i--)   // the front one at the top
 		{
-			var include = new CheckBox { Tag = i, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0), ToolTip = "Bring it in" };
-			include.Click += Include_Click;
-			var inRig = new CheckBox
+			// Its ticks (as the list's headings: In, Rig, FX), then its name with what it gets under it
+			var row = new Grid();
+			foreach (int width in new[] { 24, 24, 26 })
+				row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width) });
+			row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+			CheckBox Tick(int column, string tip, RoutedEventHandler click)
 			{
-				Tag = i, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0),
-				ToolTip = "Use it to work out the rig (untick skins and extras: they ride on the bone they move with)"
-			};
-			inRig.Click += InRig_Click;
-			var effect = new CheckBox
-			{
-				Tag = i, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0),
-				ToolTip = "An effect (VFX): left out of the rig, it moves on its own and is hidden at rest"
-			};
-			effect.Click += Effect_Click;
-			var text = new TextBlock { TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
-			var row = new DockPanel();
-			DockPanel.SetDock(include, Dock.Left);
-			DockPanel.SetDock(inRig, Dock.Left);
-			DockPanel.SetDock(effect, Dock.Left);
-			row.Children.Add(include);
-			row.Children.Add(inRig);
-			row.Children.Add(effect);
+				var tick = new CheckBox { Tag = i, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 0, 0), ToolTip = tip };
+				tick.Click += click;
+				Grid.SetColumn(tick, column);
+				row.Children.Add(tick);
+				return tick;
+			}
+			var include = Tick(0, "Bring it in", Include_Click);
+			var inRig = Tick(1, "Use it to work out the rig (untick skins and extras: they ride on the bone they move with)", InRig_Click);
+			var effect = Tick(2, "An effect (VFX): left out of the rig, it moves on its own and is hidden at rest", Effect_Click);
+			var name = new TextBlock { TextWrapping = TextWrapping.Wrap };
+			var details = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11 };
+			var text = new StackPanel();
+			text.Children.Add(name);
+			text.Children.Add(details);
+			Grid.SetColumn(text, 3);
 			row.Children.Add(text);
-			PartList.Items.Add(new ListBoxItem { Content = row, Tag = i, ToolTip = LayersOf(i) });
-			_rows[i] = (include, inRig, effect, text);
+			PartList.Items.Add(new ListBoxItem { Content = row, Tag = i, ToolTip = LayersOf(i), Padding = new Thickness(2, 2, 2, 3) });
+			_rows[i] = (include, inRig, effect, name, details);
 		}
 		_picked = -1;
 		_rolesSuggested = false;
@@ -415,7 +416,7 @@ public partial class XflImportDialog : Window
 		SetupText.Text = $"frame {_plan.SetupFrame + 1}";
 
 		_syncing = true;
-		foreach (var (i, (include, inRig, effect, text)) in _rows)
+		foreach (var (i, (include, inRig, effect, name, details)) in _rows)
 		{
 			var part = _plan.Parts[i];
 			include.IsChecked = part.Include;
@@ -423,10 +424,10 @@ public partial class XflImportDialog : Window
 			inRig.IsEnabled = part.Include && _plan.SuggestRig && !part.Effect;
 			effect.IsChecked = part.Effect;
 			effect.IsEnabled = part.Include;
-			text.Inlines.Clear();
-			text.Inlines.Add(new Run(part.Name) { FontWeight = part.Include ? FontWeights.SemiBold : FontWeights.Normal });
-			string details = string.Join(" · ", Details(i));
-			if (details.Length > 0) text.Inlines.Add(new Run("   " + details) { Foreground = Brushes.Gray });
+			name.Text = part.Name;
+			name.FontWeight = part.Include ? FontWeights.SemiBold : FontWeights.Normal;
+			details.Text = string.Join(" · ", Details(i));
+			details.Visibility = details.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 		}
 
 		var roots = new List<Choice>

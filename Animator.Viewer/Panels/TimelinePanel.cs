@@ -82,6 +82,8 @@ public class TimelinePanel
         using var keyPicked = new SKPaint { Color = SKColors.White, IsAntialias = true };
         using var spaceKey = new SKPaint { Color = new SKColor(190, 130, 255), IsAntialias = true };
         using var eventKey = new SKPaint { Color = new SKColor(120, 220, 140), IsAntialias = true, StrokeWidth = 1.5f };
+        using var orderKey = new SKPaint { Color = new SKColor(90, 210, 220), IsAntialias = true };
+        using var orderText = new SKPaint { Color = new SKColor(130, 215, 225), IsAntialias = true };
         using var playhead = new SKPaint { Color = new SKColor(255, 90, 90), StrokeWidth = 2 };
         using var scrollbar = new SKPaint { Color = new SKColor(255, 255, 255, 50), IsAntialias = true };
 
@@ -122,7 +124,7 @@ public class TimelinePanel
 
             canvas.Save();
             canvas.ClipRect(new SKRect(0, y, LabelWidth - 4, y + RowHeight));
-            canvas.DrawText(tl.Label, 8, y + 14, SKTextAlign.Left, font, tl is EventTimeline ? eventText : text);
+            canvas.DrawText(tl.Label, 8, y + 14, SKTextAlign.Left, font, tl is EventTimeline ? eventText : tl is DrawOrderTimeline ? orderText : text);
             canvas.Restore();
 
             if (tl is EventTimeline events)
@@ -154,6 +156,7 @@ public class TimelinePanel
                 int f = TimeToFrame(t);
                 var paint = Sel.Contains((tl, f)) ? keyPicked
                           : tl is SpaceTimeline ? spaceKey
+                          : tl is DrawOrderTimeline ? orderKey
                           : mine ? keyRow
                           : key;
                 DrawKey(canvas, FrameToX(f), cy, curve, paint);

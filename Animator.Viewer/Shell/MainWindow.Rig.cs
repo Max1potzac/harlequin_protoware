@@ -54,10 +54,12 @@ public partial class MainWindow
 		BoneTree.Items.Clear();
 		_treeItems.Clear();
 		_slotItems.Clear();
-		if (IsDrawn)
+		_dropMark = null;
+		_listedOrder = CurrentOrder().ToList();
+		_listedAnimating = _state.AnimateMode;
+		if (ShowingLayers)
 		{
-			for (int i = _skeleton.Slots.Count - 1; i >= 0; i--)   // front first, like layers
-				BoneTree.Items.Add(MakeSlotItem(_skeleton.Slots[i]));
+			BuildLayers();   // front first, like layers
 		}
 		else
 		{
@@ -65,6 +67,7 @@ public partial class MainWindow
 				BoneTree.Items.Add(MakeTreeItem(root));
 		}
 		SelectTreeItem();
+		SyncLayersView();
 		_syncingRig = false;
 
 		SyncRigMode();
@@ -104,10 +107,11 @@ public partial class MainWindow
 	{
 		var item = new TreeViewItem
 		{
-			Header = $"▣ {slot.Name}   #{_skeleton.Slots.IndexOf(slot) + 1}",
+			Header = $"▣ {slot.Name}   #{IndexIn(_listedOrder, slot) + 1}",   // its place in the draw order (1 = at the back)
 			Tag = slot,
 			Foreground = new SolidColorBrush(Color.FromRgb(255, 190, 110)),
-			FontStyle = FontStyles.Italic
+			FontStyle = FontStyles.Italic,
+			ContextMenu = OrderMenu(slot)   // its place in the draw order, whatever bone it's on
 		};
 		_slotItems[slot] = item;
 		return item;

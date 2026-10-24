@@ -131,7 +131,8 @@ public partial class MainWindow
 
 	private void BoneTree_PreviewMouseMove(object sender, MouseEventArgs e)
 	{
-		if (e.LeftButton != MouseButtonState.Pressed || _treePress is not { } press || _treeDragged == null || IsDrawn) return;
+		if (e.LeftButton != MouseButtonState.Pressed || _treePress is not { } press || _treeDragged == null) return;
+		if (ShowingLayers ? _treeDragged is not Slot : IsDrawn) return;   // layers: parts move up and down
 		var now = e.GetPosition(BoneTree);
 		if (Math.Abs(now.X - press.X) < SystemParameters.MinimumHorizontalDragDistance &&
 			Math.Abs(now.Y - press.Y) < SystemParameters.MinimumVerticalDragDistance)
@@ -143,12 +144,29 @@ public partial class MainWindow
 
 	private void BoneTree_DragOver(object sender, DragEventArgs e)
 	{
-		e.Effects = DropTarget(e) != null ? DragDropEffects.Move : DragDropEffects.None;
+		if (ShowingLayers)
+		{
+			var drop = LayerDrop(e);
+			MarkDrop(drop?.Item, drop?.InFront ?? false);
+			e.Effects = drop != null ? DragDropEffects.Move : DragDropEffects.None;
+		}
+		else e.Effects = DropTarget(e) != null ? DragDropEffects.Move : DragDropEffects.None;
 		e.Handled = true;
 	}
 
 	private void BoneTree_Drop(object sender, DragEventArgs e)
 	{
+		if (ShowingLayers)
+		{
+			var drop = LayerDrop(e);
+			MarkDrop(null, false);
+			if (drop is { } layer && e.Data.GetData("HarlequinRig") is Slot part)
+			{
+				e.Handled = true;
+				DropLayer(part, layer.Target, layer.InFront);
+			}
+			return;
+		}
 		var dragged = e.Data.GetData("HarlequinRig");
 		if (DropTarget(e) is not { } target) return;
 		e.Handled = true;

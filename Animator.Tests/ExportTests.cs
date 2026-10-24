@@ -206,6 +206,41 @@ public class ExportTests
 		}
 	}
 
+	// Milestone 13: a blue square on top of the red one, until a key brings the red one to the
+	// front at 1 second: the exported frames show the order the animation draws them in
+	[Fact]
+	public void Exported_frames_draw_the_parts_in_the_order_the_animation_keys()
+	{
+		var (scene, obj, store) = RedSquare();
+		var blue = new SKColor(30, 30, 220);
+		var asset = new Asset { Name = "blue", Width = 4, Height = 4 };
+		using (var pixels = new SKBitmap(AssetStore.InfoFor(4, 4)))
+		{
+			pixels.Erase(blue);
+			store.AddLayer(asset, "Base", pixels);
+		}
+		var skeleton = obj.Skeleton;
+		PartOps.CreatePart(skeleton, skeleton.Roots[0], asset, "blue", Vector2.Zero, 0f);   // drawn on top
+		var setup = skeleton.Slots.ToList();
+		Assert.True(DrawOrderOps.Key(obj.Animations[0], 1f, DrawOrderOps.ToEnd(setup, new[] { skeleton.FindSlot("square")! }, front: true), setup));
+		string folder = TempFolder();
+		try
+		{
+			new Exporter(scene, store, fps: 2, new ExportSettings
+			{
+				Scene = false, Object = obj, Animations = { obj.Animations[0] },
+				Format = ExportFormat.SpriteSheet, Path = Path.Combine(folder, "order.png"), Padding = 1
+			}).Run().ToList();
+			using var sheet = SKBitmap.Decode(Path.Combine(folder, "order.png"));
+			var red = new SKColor(220, 30, 30);
+			Assert.Equal(new[] { blue, blue, red, red }, Enumerable.Range(0, 4).Select(k => sheet.GetPixel(2 + 5 * k, 2)));
+		}
+		finally
+		{
+			Directory.Delete(folder, recursive: true);
+		}
+	}
+
 	[Fact]
 	public void The_scene_exports_its_stage_as_pictures_and_a_still_gif_is_one_frame()
 	{

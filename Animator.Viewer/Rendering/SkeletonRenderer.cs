@@ -199,7 +199,7 @@ public class SkeletonRenderer
 			PathEffect = dash
 		};
 
-		foreach (var slot in skeleton.Slots)
+		foreach (var slot in skeleton.DrawOrder)   // as it stands now (an animation can key it)
 		{
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
@@ -264,9 +264,10 @@ public class SkeletonRenderer
 	// Finds the topmost part under a world point, ignoring transparent pixels
 	public (Slot Slot, Asset Asset)? Pick(Skeleton skeleton, Vector2 world)
 	{
-		for (int i = skeleton.Slots.Count - 1; i >= 0; i--)   // last drawn = on top
+		var order = skeleton.DrawOrder;
+		for (int i = order.Count - 1; i >= 0; i--)   // last drawn = on top
 		{
-			var slot = skeleton.Slots[i];
+			var slot = order[i];
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			var img = _assets.Get(asset);

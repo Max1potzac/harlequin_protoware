@@ -366,6 +366,7 @@ public sealed class XflAnimationData
 	public bool FollowsDrawings { get; private set; }
 
 	private List<XflTrack> _byLayer = new(), _byDrawing = new();
+	private int[][] _layerOrder = Array.Empty<int[]>(), _drawingOrder = Array.Empty<int[]>();
 	private bool _layersReordered, _drawingsReordered;
 	private readonly List<string> _notes = new();
 
@@ -374,7 +375,7 @@ public sealed class XflAnimationData
 		get
 		{
 			if (FollowsDrawings ? _drawingsReordered : _layersReordered)
-				yield return "The parts change their stacking order during the animation: each keeps the place it has on most frames.";
+				yield return "The parts change their stacking order during the animation: it's keyed where it changes.";
 			foreach (string note in _notes) yield return note;
 		}
 	}
@@ -385,6 +386,13 @@ public sealed class XflAnimationData
 		FollowsDrawings = drawings;
 		Tracks.Clear();
 		Tracks.AddRange(drawings ? _byDrawing : _byLayer);
+	}
+
+	// The tracks a frame draws, back to front (indexes in Tracks)
+	public IReadOnlyList<int> OrderAt(int frame)
+	{
+		var orders = FollowsDrawings ? _drawingOrder : _layerOrder;
+		return frame >= 0 && frame < orders.Length ? orders[frame] : Array.Empty<int>();
 	}
 
 	public static XflAnimationData Evaluate(XflDocument doc, XflTimeline timeline, string key)
@@ -422,8 +430,8 @@ public sealed class XflAnimationData
 		var frames = layers.Select(l => l.Frames).ToList();
 		var spans = Spans(data.Labels, length);
 		var threads = XflThreading.ByDrawing(frames, data.Labels.Select(l => l.Frame).ToHashSet(), length);
-		data._byLayer = Build(XflThreading.ByLayer(frames, length), layers, drawn, spans, length, out data._layersReordered);
-		data._byDrawing = Build(threads, layers, drawn, spans, length, out data._drawingsReordered);
+		data._byLayer = Build(XflThreading.ByLayer(frames, length), layers, drawn, spans, length, out data._layerOrder, out data._layersReordered);
+		data._byDrawing = Build(threads, layers, drawn, spans, length, out data._drawingOrder, out data._drawingsReordered);
 
 		// Converted: many parts (not counting short-lived ones) go from layer to layer
 		var lasting = data._byDrawing.Where(t => !t.ShortLived).ToList();
@@ -444,9 +452,10 @@ public sealed class XflAnimationData
 		return starts.Select((s, i) => (s, i + 1 < starts.Count ? starts[i + 1] : length)).ToList();
 	}
 
-	// Tracks for parts made of pieces of layer tracks, in drawing order
+	// Tracks for parts made of pieces of layer tracks, in drawing order; and the order each frame
+	// draws them in (indexes in the tracks made)
 	private static List<XflTrack> Build(List<List<XflThreading.Piece>> parts, List<LayerTrack> layers, List<int>[] drawn,
-		List<(int Start, int End)> spans, int length, out bool reordered)
+		List<(int Start, int End)> spans, int length, out int[][] frameOrder, out bool reordered)
 	{
 		var partOf = layers.Select(_ => Enumerable.Repeat(-1, length).ToArray()).ToArray();
 		for (int p = 0; p < parts.Count; p++)
@@ -475,6 +484,17 @@ public sealed class XflAnimationData
 		reordered = behind.Keys.Any(k => behind.ContainsKey((k.B, k.A)));
 		var order = DrawingOrder(firstSeen, before, out bool cycled);
 		reordered |= cycled;
+
+		var rank = new Dictionary<int, int>();
+		foreach (int p in order) rank[p] = rank.Count;
+		frameOrder = new int[length][];
+		for (int f = 0; f < length; f++)
+		{
+			var seen = new List<int>();
+			foreach (int t in drawn[f])
+				if (partOf[t][f] is int p && p >= 0 && !seen.Contains(rank[p])) seen.Add(rank[p]);
+			frameOrder[f] = seen.ToArray();
+		}
 
 		var tracks = new List<XflTrack>();
 		foreach (int p in order)

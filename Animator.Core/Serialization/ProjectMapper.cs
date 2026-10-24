@@ -343,6 +343,12 @@ public static class ProjectMapper
 			Target = ev.Target,
 			Keys = ev.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value.Name, Data = k.Value.Data }).ToList()
 		},
+		DrawOrderTimeline order => new TimelineDto
+		{
+			Type = "drawOrder",
+			Target = order.Target,
+			Keys = order.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Order = k.Value.ToList() }).ToList()
+		},
 		_ => throw new NotSupportedException($"Saving '{timeline.GetType().Name}' is not supported yet.")
 	};
 
@@ -538,6 +544,12 @@ public static class ProjectMapper
 				{
 					var tl = new EventTimeline();
 					foreach (var k in t.Keys) tl.Add(k.T, new AnimationEvent(k.Name ?? "event", k.Data));
+					return tl;
+				}
+			case "drawOrder":
+				{
+					var tl = new DrawOrderTimeline();
+					foreach (var k in t.Keys) tl.Add(k.T, k.Order ?? new List<string>());
 					return tl;
 				}
 			default:

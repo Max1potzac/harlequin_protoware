@@ -293,7 +293,8 @@ public class XflTests
 
 	// Plays every animation the import made and checks each part on every frame: it shows the
 	// drawing the project shows there (or nothing), placed where Animate places it (turned,
-	// scaled and mirrored the same) within `within` pixels, at the same opacity. Skew is brought
+	// scaled and mirrored the same) within `within` pixels, at the same opacity, stacked in the same
+	// order. Skew is brought
 	// in turned and scaled the nearest way: where Animate skews a part a little, its pixels may
 	// be off by that much more (the skew's angle times how far they are from its transformation
 	// point); where it skews it a lot, only that point is checked. Returns how many frames of
@@ -352,6 +353,13 @@ public class XflTests
 					Assert.True(MathF.Abs(slot!.Opacity - Math.Clamp(p.Color.Multiply.W, 0, 1)) < 0.01f,
 						$"{part.Name} at frame {f}: opacity {slot.Opacity}, Animate's {p.Color.Multiply.W}");
 				}
+
+				// Stacked as Animate stacks them
+				var stacked = plan.Data.OrderAt(f).Select(t => plan.Parts.FindIndex(p => p.Track == t))
+					.Where(i => i >= 0 && plan.Parts[i].Include && plan.Placement(i, f) is { } p && !plan.Painter.Bounds(p.Drawing).IsEmpty)
+					.Select(i => plan.Parts[i].Name).ToList();
+				var drawn = skeleton.DrawOrder.Select(slot => slot.Name).Where(stacked.Contains).ToList();
+				Assert.True(stacked.SequenceEqual(drawn), $"frame {f} ({animation.Name}) stacks {string.Join(", ", drawn)}, not {string.Join(", ", stacked)}");
 			}
 		}
 		skeleton.SetToSetupPose();
@@ -759,6 +767,12 @@ public class XflTests
 				Assert.Null(skeleton.FindSlot(crumb)!.SetupAttachment);
 			}
 			Assert.Equal("arm_lower_front", skeleton.FindSlot("arm_lower_front")!.Bone.Name);
+
+			// Attacking, the crumbs go behind the forearm and in front of it: keyed (as checked on
+			// every frame above); idling and walking, the order never changes
+			Assert.Null(obj.Animations[0].DrawOrder);
+			Assert.Null(obj.Animations[1].DrawOrder);
+			Assert.NotNull(obj.Animations[2].DrawOrder);
 
 			// Or a part for each layer, as Animate's own projects have them: 14 idling and attacking,
 			// 14 walking, the forearm's one in front, the crumbs' two and the swatch's

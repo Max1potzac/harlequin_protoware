@@ -28,7 +28,6 @@ public partial class MainWindow
 		_shownSlot = _state.SelectedSlot;
 		if (_shownSlot is not { } slot) return;
 		var (_, asset) = PartData(slot);
-		int index = _skeleton.Slots.IndexOf(slot);
 		_syncingRig = true;
 
 		SetField(PartName, slot.Name);
@@ -36,8 +35,6 @@ public partial class MainWindow
 		PartBone.ItemsSource = bones;
 		PartBone.SelectedItem = bones.FirstOrDefault(c => c.Bone == slot.Bone);
 
-		PartFront.IsEnabled = index < _skeleton.Slots.Count - 1;
-		PartBack.IsEnabled = index > 0;
 		EditPixelsButton.IsEnabled = asset != null;
 		ShowDrawingChoices(slot);
 
@@ -53,11 +50,14 @@ public partial class MainWindow
 		var (att, asset) = PartData(slot);
 		bool pose = _state.AnimateMode;
 
-		int index = _skeleton.Slots.IndexOf(slot);
+		var order = pose ? _skeleton.DrawOrder : _skeleton.Slots;   // the one drawn at this frame, or the rest order
+		int index = IndexIn(order, slot);
+		PartFront.IsEnabled = index < order.Count - 1;
+		PartBack.IsEnabled = index > 0;
 		string drawing = att != null && att.Name != slot.Name ? $", showing \"{att.Name}\"" : "";
 		string size = asset != null ? $", {asset.Width}×{asset.Height} px" : "";
 		string values = pose ? $"Placement at frame {_state.Frame}: typing or dragging sets keys" : "Rest placement (setup)";
-		string title = $"Part {index + 1} of {_skeleton.Slots.Count} in draw order{size}{drawing}\n{values}";
+		string title = $"Part {index + 1} of {order.Count} in {(pose ? "this frame's" : "the")} draw order{size}{drawing}\n{values}";
 		if (PartTitle.Text != title) PartTitle.Text = title;
 
 		foreach (var box in new[] { PartX, PartY, PartRotation, PartScaleX, PartScaleY, PartPivotX, PartPivotY })
@@ -205,11 +205,10 @@ public partial class MainWindow
 	private void PartFront_Click(object sender, RoutedEventArgs e) => MovePartInOrder(+1);
 	private void PartBack_Click(object sender, RoutedEventArgs e) => MovePartInOrder(-1);
 
+	// A step forward or back in the order (keyed at the playhead in Animate mode)
 	private void MovePartInOrder(int direction)
 	{
-		if (_state.SelectedSlot is not { } slot) return;
-		_state.EditStructure(() => PartOps.MoveInDrawOrder(_skeleton, slot, direction)
-			? $"{slot.Name} {(direction > 0 ? "forward" : "backward")}" : null);
+		if (_state.SelectedSlot is { } slot) Reorder(new[] { slot }, direction, toEnd: false);
 	}
 
 	private void EditPixels_Click(object sender, RoutedEventArgs e)

@@ -536,10 +536,22 @@ public static class XflImporter
 			.Select(d => new Vector2(d.Value.Picture.Width, d.Value.Picture.Height).Length() / d.Value.Picture.Scale * shownAt.GetValueOrDefault(d.Key, 1f) * plan.Scale)
 			.DefaultIfEmpty(1f).Max();
 
+		var slotOfTrack = slots.ToDictionary(s => plan.Parts[s.Key].Track, s => s.Value.Slot);
 		foreach (var (name, start, end) in plan.Animations())
 		{
 			var animation = new Animation { Name = UniqueName(obj.Animations, name), Duration = Math.Max(1, end - start) / fps, Loop = true };
 			obj.Animations.Add(animation);
+
+			// The stacking: a draw order key wherever Animate draws the parts in another order than
+			// the one drawn so far (the rest order, to start with)
+			var stacking = skeleton.Slots.ToList();
+			for (int f = start; f < end; f++)
+			{
+				var shown = data.OrderAt(f).Where(slotOfTrack.ContainsKey).Select(t => slotOfTrack[t]).ToList();
+				if (DrawnInOrder(stacking, shown)) continue;
+				stacking = Rearranged(stacking, shown);
+				animation.GetOrCreateDrawOrder().Add((f - start) / fps, stacking.Select(slot => slot.Name));
+			}
 
 			// The bones' motion: keys wherever it isn't a straight line between them (finely enough
 			// that a part fixed on its bone needs no keys of its own)
@@ -744,6 +756,32 @@ public static class XflImporter
 	}
 
 	// ----- keys -----
+
+	// The parts shown at a frame (back to front) come in that order in `order`
+	private static bool DrawnInOrder(List<Slot> order, List<Slot> shown)
+	{
+		var showing = shown.ToHashSet();
+		int next = 0;
+		foreach (var slot in order)
+		{
+			if (!showing.Contains(slot)) continue;
+			if (shown[next] != slot) return false;
+			next++;
+		}
+		return true;
+	}
+
+	// The order with the parts shown put in the order they're shown, in the places they had (the
+	// others stay where they were)
+	private static List<Slot> Rearranged(List<Slot> order, List<Slot> shown)
+	{
+		var showing = shown.ToHashSet();
+		var result = order.ToList();
+		int next = 0;
+		for (int i = 0; i < result.Count; i++)
+			if (showing.Contains(result[i])) result[i] = shown[next++];
+		return result;
+	}
 
 	// Values over a stretch (nulls = hidden then): the gaps held from the value before (or after)
 	private static T[] Held<T>(T?[] values, T fallback) where T : struct
