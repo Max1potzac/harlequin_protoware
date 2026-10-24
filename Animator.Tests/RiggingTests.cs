@@ -1,3 +1,4 @@
+using System.IO;
 using Animator.Core.Import;
 using Animator.Core.Utilities;
 using Animator.Viewer;
