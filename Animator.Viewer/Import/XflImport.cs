@@ -350,15 +350,20 @@ public static class XflImporter
 		skeleton.SetToSetupPose();
 		skeleton.UpdateWorld();
 
-		// Each bone's world over time (held while its part is hidden), rebuilt the way the editor
-		// will from the keys made (so skew dropped up a chain doesn't add up down it)
+		// Each bone's world over time, held while its part is hidden: it turns as its part turns,
+		// and its joint goes where the part takes that point. Bones only move and turn: a part's
+		// scale and skew stay on the part (on a bone that scaled unevenly, a part turning on it
+		// would be skewed by it), so they're rebuilt the way the editor will from the keys made.
 		var target = new Dictionary<Bone, Matrix3x2[]>();
 		foreach (var (bone, part) in bones)
 		{
 			var atSetup = plan.PartToObject(part, plan.SetupFrame)!.Value;
 			Matrix3x2.Invert(atSetup, out var fromPart);
-			var boneInPart = bone.World * fromPart;
-			target[bone] = Held(Enumerable.Range(0, frames).Select(f => plan.PartToObject(part, f) is { } m ? boneInPart * m : (Matrix3x2?)null).ToArray(), bone.World);
+			var joint = Vector2.Transform(bone.World.Translation, fromPart);   // in the part's own space
+			float turned = bone.WorldRotation - AngleOf(atSetup);
+			target[bone] = Held(Enumerable.Range(0, frames).Select(f => plan.PartToObject(part, f) is { } m
+				? Matrix3x2.CreateRotation(AngleOf(m) + turned) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m))
+				: (Matrix3x2?)null).ToArray(), bone.World);
 		}
 		var world = new Dictionary<Bone, Matrix3x2[]> { [handle] = Enumerable.Repeat(handle.World, frames).ToArray() };
 		var locals = new Dictionary<Bone, (Vector2 Position, float Rotation, Vector2 Scale)[]>();
@@ -551,6 +556,9 @@ public static class XflImporter
 		public float Worst { get; private set; }
 		public void See(float skewRadians) => Worst = MathF.Max(Worst, MathF.Abs(skewRadians) * 180 / MathF.PI);
 	}
+
+	// Which way a transform's x axis points
+	private static float AngleOf(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
 
 	// A transform as a bone's local values (no skew): position, rotation, scale
 	private static (Vector2 Position, float Rotation, Vector2 Scale) Local(Matrix3x2 m, SkewMeter skew)
