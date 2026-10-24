@@ -1,0 +1,108 @@
+<Window x:Class="Animator.Viewer.Dialogs.XflImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
+        Title="Import an Animate project" Width="1200" Height="820" MinWidth="860" MinHeight="580"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown" Closed="Window_Closed">
+    <DockPanel>
+
+        <!-- ===== Settings ===== -->
+        <ScrollViewer DockPanel.Dock="Right" Width="400" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="10">
+                <TextBlock x:Name="FileTitle" FontWeight="Bold" TextWrapping="Wrap" />
+                <TextBlock x:Name="NotesText" Foreground="Gray" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                <!-- Timeline and animations -->
+                <TextBlock Text="Timeline" FontWeight="Bold" Margin="0,12,0,4" />
+                <ComboBox x:Name="TimelineBox" SelectionChanged="Timeline_Changed"
+                          ToolTip="A scene, or a symbol with its own animation (a character in a bigger scene, say)" />
+                <TextBlock x:Name="TimelineText" Foreground="Gray" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <CheckBox x:Name="SplitBox" Content="An animation for each frame label" Margin="0,6,0,0" Click="Split_Click"
+                          ToolTip="Each label starts an animation that runs to the next label (idle, walk, attack…). Without it, the whole timeline is one animation." />
+
+                <!-- Parts -->
+                <TextBlock Text="Parts" FontWeight="Bold" Margin="0,14,0,4" />
+                <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                           Text="Each thing that moves on its own becomes a part (the top one is at the top here). First tick: bring it in. Second tick: use it to work out the rig; untick skins, extras and things shown alongside their alternatives, and they'll ride on the bone they move with." />
+                <ListBox x:Name="PartList" Height="260" SelectionChanged="PartList_Changed" />
+                <UniformGrid Columns="2" Margin="0,4,0,0">
+                    <Button Content="Bring them all in" Margin="0,0,3,0" Click="TickAll_Click" />
+                    <Button Content="Only the visible ones" Margin="3,0,0,0" Click="TickVisible_Click"
+                            ToolTip="Brings in the parts on layers shown in Animate, and leaves out the ones on hidden layers" />
+                </UniformGrid>
+
+                <!-- Rig -->
+                <TextBlock Text="Rig" FontWeight="Bold" Margin="0,14,0,4" />
+                <CheckBox x:Name="RigBox" Content="Suggest a rig from the animation" Click="Rig_Click"
+                          ToolTip="Bones where the parts turn around each other, keyed to move as they did. Without it, the project comes in as a drawn object: its parts, moving on their own." />
+                <StackPanel x:Name="RigFields" Margin="0,6,0,0">
+                    <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                               Text="Parts that turn around a point they share get bones jointed there; details lying on another part ride on its bone. Change any of it below; the picture shows it on the rest pose." />
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="Rest pose" VerticalAlignment="Center" Width="70"
+                                   ToolTip="The frame whose pose the rig is fitted to and the parts rest in" />
+                        <Button DockPanel.Dock="Right" Content="Use the frame shown" Padding="6,1" Click="UseFrame_Click" />
+                        <TextBlock x:Name="SetupText" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock x:Name="RigAnimationsLabel" Text="Worked out from these animations:" Margin="0,0,0,2"
+                               ToolTip="Untick animations where parts come apart (a head falling off, an arm dropping): they'd hide the joints the others show" />
+                    <WrapPanel x:Name="RigAnimations" Margin="0,0,0,6" />
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="Root" VerticalAlignment="Center" Width="70"
+                                   ToolTip="The bone everything else hangs from: usually the body" />
+                        <ComboBox x:Name="RootBox" SelectionChanged="Root_Changed" />
+                    </DockPanel>
+                    <Border BorderBrush="#A0A0A0" BorderThickness="1" Padding="8" Margin="0,0,0,6">
+                        <StackPanel x:Name="PartFields">
+                            <TextBlock x:Name="PartTitle" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6" />
+                            <RadioButton x:Name="OwnBoneChoice" GroupName="Role" Content="Its own bone (a part that bends or turns)"
+                                         Checked="Role_Changed" />
+                            <RadioButton x:Name="OnBoneChoice" GroupName="Role" Margin="0,4,0,0" Checked="Role_Changed"
+                                         Content="No bone: it rides on another part's bone" />
+                            <DockPanel Margin="0,8,0,0">
+                                <TextBlock x:Name="TargetLabel" Text="Hangs from" VerticalAlignment="Center" Width="70" />
+                                <ComboBox x:Name="TargetBox" SelectionChanged="Target_Changed" />
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+                    <Button Content="Suggest the roles again" HorizontalAlignment="Left" Padding="8,1" Click="SuggestRoles_Click"
+                            ToolTip="Forgets the changes above and works out each part's role from the shapes and the motion again" />
+                </StackPanel>
+
+                <!-- Size -->
+                <TextBlock Text="Size" FontWeight="Bold" Margin="0,14,0,4" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="ScaleBox" Width="50" LostFocus="Scale_Changed" KeyDown="Scale_KeyDown"
+                             ToolTip="Big projects can come in smaller: 50 = half the size, in pixels and in placement" />
+                    <TextBlock Text="% of the project's size" VerticalAlignment="Center" Margin="6,0,0,0" />
+                </StackPanel>
+
+                <TextBlock x:Name="Summary" TextWrapping="Wrap" Margin="0,14,0,0" />
+                <TextBlock x:Name="ErrorText" Foreground="#C03030" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <Button Content="Import" IsDefault="True" Width="80" Margin="0,0,6,0" Click="Import_Click" />
+                    <Button Content="Cancel" IsCancel="True" Width="75" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== Frames ===== -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="8,4,8,8">
+            <Button x:Name="PlayButton" DockPanel.Dock="Left" Content="▶" Width="32" Margin="0,0,8,0" Click="Play_Click"
+                    ToolTip="Play the timeline (Space)" />
+            <TextBlock x:Name="FrameText" DockPanel.Dock="Right" Width="150" VerticalAlignment="Center" Margin="8,0,0,0" />
+            <Slider x:Name="FrameSlider" Minimum="0" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1"
+                    VerticalAlignment="Center" ValueChanged="FrameSlider_Changed" />
+        </DockPanel>
+
+        <!-- ===== The picture ===== -->
+        <Grid>
+            <skia:SKElement x:Name="PreviewView" Focusable="True" PaintSurface="PreviewView_Paint"
+                            MouseDown="PreviewView_MouseDown" MouseMove="PreviewView_MouseMove"
+                            MouseUp="PreviewView_MouseUp" MouseWheel="PreviewView_MouseWheel" />
+            <TextBlock x:Name="ViewHint" Text="Click: pick a part   Wheel: zoom   Middle drag: move around   Home: fit   Space: play"
+                       Foreground="#9AA4B2" Margin="8" VerticalAlignment="Bottom" IsHitTestVisible="False" />
+        </Grid>
+    </DockPanel>
+</Window>
