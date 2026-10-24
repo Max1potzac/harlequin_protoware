@@ -1,27 +1,4 @@
-namespace Animator.Core.Export;
-
-// A rectangle of pixels on a picture: left, top, width and height (y down, like the picture)
-public readonly record struct PixelRect(int X, int Y, int W, int H)
-{
-	public int Right => X + W;
-	public int Bottom => Y + H;
-	public bool Contains(int x, int y) => x >= X && y >= Y && x < Right && y < Bottom;
-	public bool Intersects(PixelRect o) => X < o.Right && o.X < Right && Y < o.Bottom && o.Y < Bottom;
-
-	public static PixelRect Union(PixelRect a, PixelRect b)
-	{
-		int x = Math.Min(a.X, b.X), y = Math.Min(a.Y, b.Y);
-		return new PixelRect(x, y, Math.Max(a.Right, b.Right) - x, Math.Max(a.Bottom, b.Bottom) - y);
-	}
-
-	// How many empty pixels lie between two rectangles (0 when they touch or overlap)
-	public static int Gap(PixelRect a, PixelRect b)
-	{
-		int dx = Math.Max(0, Math.Max(a.X - b.Right, b.X - a.Right));
-		int dy = Math.Max(0, Math.Max(a.Y - b.Bottom, b.Y - a.Bottom));
-		return Math.Max(dx, dy);
-	}
-}
+namespace Animator.Core.Import;
 
 // Cuts a sprite sheet into pieces. Pictures come in as their alpha (opacity) only: one byte per
 // pixel, row after row.

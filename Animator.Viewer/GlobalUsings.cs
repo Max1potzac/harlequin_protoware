@@ -13,3 +13,5 @@ global using Animator.Viewer.Files;
 global using Animator.Core.Scenes;
 global using Animator.Core.Export;
 global using Animator.Viewer.Export;
+global using Animator.Core.Import;
+global using Animator.Viewer.Import;
