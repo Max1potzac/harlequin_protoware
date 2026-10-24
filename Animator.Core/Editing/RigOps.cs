@@ -91,6 +91,53 @@ public static class RigOps
 		RewriteHolders(animations, holder => boneNames.Contains(holder) ? SpaceTimeline.World : holder);
 	}
 
+	// Deletes a bone but keeps what's on it: its parts and child bones go to its parent, staying
+	// exactly where they are. A root bone can't go this way: there's nothing to take its parts.
+	public static bool DissolveBone(Skeleton skeleton, IEnumerable<Animation> animations, Bone bone)
+	{
+		if (bone.Parent is not { } parent) return false;
+		foreach (var slot in skeleton.Slots.Where(s => s.Bone == bone).ToList())
+			PartOps.MoveToBone(skeleton, slot, parent);
+		foreach (var child in bone.Children.ToList())
+		{
+			SetConnected(child, false);   // it was on this bone's end, not on the new parent's
+			Reparent(skeleton, child, parent);
+		}
+		DeleteBone(skeleton, animations, bone);   // nothing left on it: just the bone and its keys go
+		return true;
+	}
+
+	// Adds the bones of a suggested rig (see RigSuggester) under `under` (null = as root bones),
+	// named after their layers. toObject: a canvas point (the suggestion's pixels) in the object's
+	// space. Returns the new bones, in the suggestion's order.
+	public static Bone[] AddSuggestedBones(Skeleton skeleton, Bone? under, RigSuggestion rig,
+		Func<Vector2, Vector2> toObject, IReadOnlyList<string> layerNames)
+	{
+		skeleton.SetToSetupPose();
+		skeleton.UpdateWorld();
+		var bones = new Bone[rig.Bones.Count];
+		for (int b = 0; b < bones.Length; b++)
+		{
+			var suggested = rig.Bones[b];
+			var parent = suggested.Parent >= 0 ? bones[suggested.Parent] : under;
+			Vector2 head = toObject(suggested.Head), tip = toObject(suggested.Tip);
+			var along = tip - head;
+			float angle = MathF.Atan2(along.Y, along.X);
+			var local = head;
+			if (parent != null && Matrix3x2.Invert(parent.World, out var toParent))
+			{
+				local = Vector2.Transform(head, toParent);
+				angle -= parent.WorldRotation;
+			}
+			var bone = AddBone(skeleton, parent, layerNames[suggested.Layer], local, angle, MathF.Max(1f, along.Length()));
+			if (suggested.Connected && suggested.Parent >= 0) bone.Connected = true;
+			bone.ResetToSetup();
+			bone.UpdateWorld();
+			bones[b] = bone;
+		}
+		return bones;
+	}
+
 	public static bool RenameBone(Skeleton skeleton, IEnumerable<Animation> animations, Bone bone, string newName)
 	{
 		newName = newName.Trim();

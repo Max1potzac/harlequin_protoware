@@ -127,7 +127,7 @@ public class PsdImportTests
 	private static bool Circle(int i, int j, int r) => (i - r + 0.5) * (i - r + 0.5) + (j - r + 0.5) * (j - r + 0.5) <= r * r;
 
 	// On a 200 × 300 canvas: a backdrop, a body, a head with an eye, and an arm in two pieces
-	private static readonly (string Name, (PixelRect Bounds, byte[] Alpha) Shape)[] Figure =
+	internal static readonly (string Name, (PixelRect Bounds, byte[] Alpha) Shape)[] Figure =
 	{
 		("background", Shape(0, 0, 200, 300)),
 		("torso", Shape(70, 80, 60, 100)),
@@ -200,6 +200,32 @@ public class PsdImportTests
 		Assert.Equal(rig.BoneOf[1], rig.BoneOf[5]);
 		Assert.Equal(-1, rig.BoneOf[3]);
 		Assert.Equal(3, rig.Bones.Count);
+	}
+
+	[Fact]
+	public void An_arm_across_the_body_is_a_limb_and_the_hips_are_the_root_even_under_a_big_head()
+	{
+		var parts = new (string Name, (PixelRect Bounds, byte[] Alpha) Shape)[]
+		{
+			("torso", Shape(80, 180, 80, 120)),
+			("hips", Shape(75, 290, 90, 40)),
+			("head", Shape(50, 50, 140, 140, (i, j) => Circle(i, j, 70))),   // bigger than the body
+			("thigh", Shape(90, 320, 25, 60)),
+			("shin", Shape(88, 375, 25, 20)),
+			("upper arm", Shape(100, 200, 65, 20)),  // lies on the body…
+			("forearm", Shape(155, 205, 70, 14)),    // …and goes on beyond it
+			("eye", Shape(100, 100, 10, 10))
+		};
+		var masks = RigMasks.Build(300, 400, parts.Select(p => p.Shape.Bounds).ToList(), parts.Select(p => p.Shape.Alpha).ToList());
+
+		var roles = RigSuggester.SuggestRoles(masks);
+		Assert.Equal(RigRole.Bone, roles[5]);     // the upper arm: a limb, not a detail of the body
+		Assert.Equal(RigRole.OnBone, roles[7]);   // the eye: a detail of the head
+
+		var rig = RigSuggester.Suggest(masks, roles, Enumerable.Repeat(-1, parts.Length).ToList());
+		Assert.Equal(1, rig.RootLayer);           // the hips: the middle of the figure
+		Assert.Equal(5, ParentLayer(rig, 6));     // the forearm hangs from the upper arm
+		Assert.Equal(0, ParentLayer(rig, 5));     // which hangs from the body
 	}
 
 	[Fact]
@@ -307,6 +333,41 @@ public class PsdImportTests
 		return layer;
 	}
 
+	// Your own files: put Photoshop files in Animator.Tests/PrivateFiles (git leaves them out) and
+	// run the tests. Each must come in as a drawn object and with a suggested rig, every layer
+	// where it was in the file. (Nothing there: nothing to check.)
+	[Fact]
+	public void Photoshop_files_of_your_own_come_in_both_ways()
+	{
+		string folder = Path.Combine(AppContext.BaseDirectory, "PrivateFiles");
+		if (!Directory.Exists(folder)) return;
+		foreach (string path in Directory.GetFiles(folder).Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) ||
+																	   f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase)))
+		{
+			var doc = PsdReader.Read(path);
+			using var plan = PsdImportPlan.FromDocument(doc, Path.GetFileNameWithoutExtension(path));
+			var store = new AssetStore();
+
+			var drawn = PsdImporter.IntoScene(new Scene(), store, plan, Vector2.Zero);
+			Assert.Equal(plan.Parts.Count(p => p.Include), drawn.Skeleton.Slots.Count);
+
+			plan.SuggestRig = true;
+			plan.SuggestRoles();
+			var rigged = PsdImporter.IntoScene(new Scene(), store, plan, Vector2.Zero);
+			Assert.Single(rigged.Skeleton.Roots);
+			var included = plan.Parts.Where(p => p.Include).ToList();   // the parts, in the order they came in
+			Assert.Equal(included.Count, rigged.Skeleton.Slots.Count);
+			for (int i = 0; i < included.Count; i++)
+			{
+				var (part, slot) = (included[i], rigged.Skeleton.Slots[i]);
+				var drawing = rigged.Skeleton.DefaultSkin.Get(slot.Name, slot.Name)!;
+				var placed = Vector2.Transform(drawing.Offset, slot.Bone.World);
+				var expected = new Vector2(part.Middle.X - plan.Width / 2f, plan.Height / 2f - part.Middle.Y);
+				Assert.True(Vector2.Distance(placed, expected) < 0.05f, $"{Path.GetFileName(path)}: {slot.Name} moved");
+			}
+		}
+	}
+
 	[Fact]
 	public void A_suggested_rig_brings_bones_with_each_part_on_its_bone_upright()
 	{
@@ -325,10 +386,11 @@ public class PsdImportTests
 
 		Assert.Equal(ObjectKind.Rigged, obj.Kind);
 		var skeleton = obj.Skeleton;
-		var torso = Assert.Single(skeleton.Roots);
-		Assert.Equal("torso", torso.Name);
+		var root = Assert.Single(skeleton.Roots);   // at the object's origin: a handle for the whole rig
 		var bones = skeleton.AllBones().ToDictionary(b => b.Name);
-		Assert.Equal(new[] { "forearm", "head", "torso", "upper arm" }, bones.Keys.OrderBy(k => k));
+		Assert.Equal(new[] { "forearm", "head", "root", "torso", "upper arm" }, bones.Keys.OrderBy(k => k));
+		var torso = bones["torso"];
+		Assert.Same(root, torso.Parent);
 		Assert.Same(torso, bones["head"].Parent);
 		Assert.Same(bones["upper arm"], bones["forearm"].Parent);
 		Assert.True(bones["forearm"].Connected);

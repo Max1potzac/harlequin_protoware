@@ -273,31 +273,12 @@ public static class PsdImporter
 			return drawn;
 		}
 
+		// The new object's root bone stays at its origin, a handle for the whole rig; the suggested
+		// bones hang from it
 		var rig = plan.Suggest();
 		var obj = SceneOps.AddRigged(scene, plan.Name, position);
 		var skeleton = obj.Skeleton;
-		skeleton.Roots.Clear();   // the new object's own root bone makes way for the suggested ones
-
-		var bones = new Bone[rig.Bones.Count];
-		for (int b = 0; b < bones.Length; b++)
-		{
-			var suggested = rig.Bones[b];
-			var parent = suggested.Parent >= 0 ? bones[suggested.Parent] : null;
-			Vector2 head = ToObject(suggested.Head), tip = ToObject(suggested.Tip);
-			var along = tip - head;
-			float angle = MathF.Atan2(along.Y, along.X);
-			var local = head;
-			if (parent != null && Matrix3x2.Invert(parent.World, out var toParent))
-			{
-				local = Vector2.Transform(head, toParent);
-				angle -= parent.WorldRotation;
-			}
-			var bone = RigOps.AddBone(skeleton, parent, plan.Parts[suggested.Layer].Name, local, angle, MathF.Max(1f, along.Length()));
-			if (suggested.Connected && parent != null) bone.Connected = true;
-			bone.ResetToSetup();
-			bone.UpdateWorld();
-			bones[b] = bone;
-		}
+		var bones = RigOps.AddSuggestedBones(skeleton, skeleton.Roots[0], rig, ToObject, plan.Parts.Select(p => p.Name).ToList());
 
 		for (int i = 0; i < plan.Parts.Count; i++)
 		{

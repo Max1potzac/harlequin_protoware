@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Your own test files (see Animator.Tests/PrivateFiles/README.md): never committed
+Animator.Tests/PrivateFiles/*
+!Animator.Tests/PrivateFiles/README.md

@@ -201,6 +201,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="2*" MinHeight="50" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="3*" MinHeight="80" />
@@ -211,26 +212,39 @@
                           ToolTip="Setup mode: a new bone started near the selected bone's end (Ctrl+drag), or a joint dragged near its parent's end, snaps exactly onto it and stays there (&quot;On parent's end&quot; in the bone panel). Pull it further away to free it." />
                                 <TextBlock x:Name="RigTitle" Text="Rig" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" />
                             </DockPanel>
-                            <UniformGrid Grid.Row="1" Columns="3" Margin="6,0,6,6">
-                                <Button x:Name="AddBoneButton" Content="+ Bone" Margin="0,0,3,0" Click="AddBone_Click"
+
+                            <!-- Rigging: for a rigged object, how bones move over the art; a drawn object can get bones -->
+                            <Grid Grid.Row="1" Margin="8,0,6,6">
+                                <CheckBox x:Name="KeepPartsBox" Content="Parts stay put when bones move" Foreground="White"
+                          VerticalAlignment="Center" Click="KeepParts_Click"
+                          ToolTip="Setup mode: dragging a joint or turning a bone leaves every part, and every other joint, where it is: for fitting bones to finished art. Off: the parts on a bone move with it." />
+                                <Button x:Name="GiveBonesButton" Content="Give it bones ▾" Click="GiveBones_Click" Visibility="Collapsed"
+                        ToolTip="Makes this drawn object a rigged one: a root bone you draw the rest from (Ctrl+drag), or bones suggested from its parts' shapes. The parts stay where they are." />
+                            </Grid>
+                            <UniformGrid Grid.Row="2" Columns="4" Margin="6,0,6,6">
+                                <Button x:Name="AddBoneButton" Content="+ Bone" Margin="0,0,2,0" Click="AddBone_Click"
                             ToolTip="Adds a child of the selected bone (or a root bone). Tip: Ctrl+drag in the viewport draws one." />
-                                <Button Content="+ Part ▾" Margin="3,0,3,0" Click="AddPart_Click"
+                                <Button Content="+ Part ▾" Margin="2,0,2,0" Click="AddPart_Click"
                             ToolTip="Adds a part (blank, or from an image) to the selected bone" />
-                                <Button x:Name="DeleteButton" Content="Delete" Margin="3,0,0,0" Click="Delete_Click"
-                            ToolTip="Deletes the selected part, or the selected bone with everything on it (undoable)" />
+                                <Button x:Name="BindButton" Content="Bind ▾" Margin="2,0,2,0" Click="Bind_Click"
+                            ToolTip="Puts parts on bones (they stay where they are): on the nearest bones, or see the ways to do it by hand" />
+                                <Button x:Name="DeleteButton" Content="Delete ▾" Margin="2,0,0,0" Click="Delete_Click"
+                            ToolTip="Deletes the selected part, or the selected bone: keeping what's on it (it goes to the bone above), or with everything on it. Undoable." />
                             </UniformGrid>
 
-                            <!-- Bone hierarchy -->
-                            <TreeView x:Name="BoneTree" Grid.Row="2" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
-                      SelectedItemChanged="BoneTree_SelectedItemChanged" />
-                            <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" Background="#1B1D22"
+                            <!-- Bone hierarchy: drag a part onto a bone to put it there, or a bone onto another to hang it there -->
+                            <TreeView x:Name="BoneTree" Grid.Row="3" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
+                      SelectedItemChanged="BoneTree_SelectedItemChanged" AllowDrop="True"
+                      PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseMove="BoneTree_PreviewMouseMove"
+                      DragOver="BoneTree_DragOver" Drop="BoneTree_Drop" />
+                            <GridSplitter Grid.Row="4" Height="5" HorizontalAlignment="Stretch" Background="#1B1D22"
                           ResizeDirection="Rows" ToolTip="Drag to give the tree or the properties more room" />
 
                             <!-- Properties of the selected bone or part (one shows at a time) -->
-                            <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+                            <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <TextBlock x:Name="DrawnHint" Margin="8,6,8,6" Foreground="#9AA4B2" TextWrapping="Wrap" Visibility="Collapsed"
-                       Text="A drawn object has no bones, just parts (layers): click one in the list above or in the viewport. + Part ▾ adds one, ▲ Front / ▼ Back change their order. Double-click a part to paint it." />
+                       Text="A drawn object has no bones, just parts (layers): click one in the list above or in the viewport. + Part ▾ adds one, ▲ Front / ▼ Back change their order. Double-click a part to paint it. To animate it with bones, Give it bones ▾ above." />
                                     <Grid x:Name="BoneProps" Margin="6">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />

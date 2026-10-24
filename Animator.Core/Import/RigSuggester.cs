@@ -219,8 +219,10 @@ public sealed class RigMasks
 public static class RigSuggester
 {
 	// Roles a rig would likely give the layers. A backdrop (covering most of the canvas), a layer
-	// over the whole figure that meets most of the others (line art for everything), or one lying
-	// inside a bigger layer (an eye, a belt) rides on another layer's bone; the rest get bones.
+	// over the whole figure that meets most of the others (line art for everything), or a detail
+	// lying inside a bigger layer (an eye, a belt) rides on another layer's bone; the rest get
+	// bones. A layer lying on a bigger one but meeting layers beyond it (an arm across the body,
+	// held out from the elbow) is a limb, not a detail: it gets a bone too.
 	// included: which layers come in at all (null = all); the others are left out.
 	public static RigRole[] SuggestRoles(RigMasks m, IReadOnlyList<bool>? included = null)
 	{
@@ -252,16 +254,18 @@ public static class RigSuggester
 					continue;
 				}
 			}
-			bool inside = layers.Any(j =>
-				j != i && !Backdrop(j) && m.Area(j) > m.Area(i) && m.Overlap(i, j) >= 0.85 * m.Area(i));
-			roles[i] = inside ? RigRole.OnBone : RigRole.Bone;
+			bool detail = layers.Any(j =>
+				j != i && !Backdrop(j) && m.Area(j) > m.Area(i) && m.Overlap(i, j) >= 0.85 * m.Area(i) &&
+				(m.Area(i) < 0.04 * m.Area(j) || !layers.Any(k =>
+					k != i && k != j && !Backdrop(k) && m.Touch(i, k) > 0 && m.Overlap(k, j) < 0.5 * m.Area(k))));
+			roles[i] = detail ? RigRole.OnBone : RigRole.Bone;
 		}
 		return roles;
 	}
 
 	// roles: what each layer gets. targets: for a Bone layer, the layer it hangs from; for an
 	// OnBone layer, the layer whose bone it rides on; -1 = worked out from the overlaps. root: the
-	// layer whose bone everything hangs from (-1 = the biggest layer that meets the most others).
+	// layer whose bone everything hangs from (-1 = the most central one: usually the hips or body).
 	public static RigSuggestion Suggest(RigMasks m, IReadOnlyList<RigRole> roles, IReadOnlyList<int> targets, int root = -1)
 	{
 		int n = m.Count;
@@ -279,10 +283,18 @@ public static class RigSuggester
 		var bones = Enumerable.Range(0, n).Where(i => isBone[i]).ToList();
 
 		if (root < 0 || root >= n || !isBone[root])
+		{
+			// The most central layer: of the biggest group of layers that meet, the one the fewest
+			// steps away from the farthest of them (then the biggest). A big head meets many
+			// layers, but the hips sit in the middle of the figure.
+			var reach = bones.ToDictionary(i => i, i => Reach(m, bones, i));
 			root = bones
-				.OrderByDescending(i => (long)m.Area(i) * (1 + bones.Count(j => j != i && m.Touch(i, j) > 0)))
+				.OrderByDescending(i => reach[i].Count)
+				.ThenBy(i => reach[i].Farthest)
+				.ThenByDescending(i => m.Area(i))
 				.ThenBy(i => i)
 				.First();
+		}
 
 		// The tree, from the root: each step adds the layer that overlaps the rig so far the most.
 		// A layer told what it hangs from waits for that one; one meeting nothing joins the nearest.
@@ -416,5 +428,25 @@ public static class RigSuggester
 			if (!isBone[i] && roles[i] != RigRole.LeaveOut)
 				result.BoneOf[i] = boneIndex[OwnerOf(i)];
 		return result;
+	}
+
+	// How many of the layers can be reached from one through layers that meet, and how many steps
+	// away the farthest of them is
+	private static (int Count, int Farthest) Reach(RigMasks m, List<int> layers, int start)
+	{
+		var steps = new Dictionary<int, int> { [start] = 0 };
+		var queue = new Queue<int>();
+		queue.Enqueue(start);
+		while (queue.Count > 0)
+		{
+			int at = queue.Dequeue();
+			foreach (int next in layers)
+				if (!steps.ContainsKey(next) && m.Touch(at, next) > 0)
+				{
+					steps[next] = steps[at] + 1;
+					queue.Enqueue(next);
+				}
+		}
+		return (steps.Count, steps.Values.Max());
 	}
 }

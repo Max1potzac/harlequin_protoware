@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -31,6 +32,7 @@ public partial class MainWindow
 	private void InitRigPanel()
 	{
 		LookShapeBox.ItemsSource = Enum.GetValues<LookShape>();
+		KeepPartsBox.IsChecked = _tool.KeepPartsInPlace = _appSettings.KeepPartsInPlace;
 		_state.Undo.Changed += RefreshRigPanel;
 		RefreshRigPanel();
 	}
@@ -74,9 +76,11 @@ public partial class MainWindow
 	{
 		bool drawn = IsDrawn;
 		RigTitle.Text = drawn ? "Parts" : "Rig";
-		AddBoneButton.IsEnabled = !drawn;
-		SnapJointsBox.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
+		AddBoneButton.IsEnabled = BindButton.IsEnabled = !drawn;
+		SnapJointsBox.Visibility = KeepPartsBox.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
+		GiveBonesButton.Visibility = drawn ? Visibility.Visible : Visibility.Collapsed;
 		PartBoneLabel.Visibility = PartBone.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
+		if (_tool is not null) _tool.BonesEnabled = !drawn;   // also after undoing "Give it bones"
 	}
 
 	private TreeViewItem MakeTreeItem(Bone bone)
@@ -177,7 +181,7 @@ public partial class MainWindow
 		PartProps.Visibility = part ? Visibility.Visible : Visibility.Collapsed;
 		BoneProps.Visibility = part || drawn ? Visibility.Collapsed : Visibility.Visible;
 		DrawnHint.Visibility = !part && drawn ? Visibility.Visible : Visibility.Collapsed;
-		DeleteButton.Content = part || drawn ? "Delete part" : "Delete bone";
+		DeleteButton.Content = part || drawn ? "Delete" : "Delete ▾";   // a bone: what happens to what's on it
 		DeleteButton.IsEnabled = part || (_state.Selected != null && !drawn);
 
 		if (part) ShowPartProperties();
@@ -354,6 +358,28 @@ public partial class MainWindow
 		var look = LookOf(bone);
 		_state.EditStructure(() =>
 		{
+			// Parts stay put: the place, angle and length change, nothing else moves on screen
+			if (_tool.KeepPartsInPlace && field is "X" or "Y" or "Rotation" or "Length")
+			{
+				var frozen = FrozenRest.Capture(_skeleton);
+				switch (field)
+				{
+					case "X" or "Y":
+						RigOps.SetConnected(bone, false);
+						var local = field == "X" ? new Vector2(v, bone.SetupPosition.Y) : new Vector2(bone.SetupPosition.X, v);
+						var target = bone.Parent is { } parent ? Vector2.Transform(local, parent.World) : local;
+						RestEdits.MoveJoint(frozen, bone, target);
+						break;
+					case "Rotation":
+						RestEdits.Turn(frozen, bone, Rad(v));
+						break;
+					default:
+						RestEdits.Stretch(frozen, bone, v);
+						break;
+				}
+				return $"Set {bone.Name} {field} (parts stay put)";
+			}
+
 			switch (field)
 			{
 				case "X":
@@ -492,10 +518,42 @@ public partial class MainWindow
 		});
 	}
 
+	// A part goes at once; for a bone, a menu: keep what's on it, or delete that too
 	private void Delete_Click(object sender, RoutedEventArgs e)
 	{
-		if (_state.SelectedSlot is { } slot) DeletePart(slot);
-		else if (!IsDrawn) DeleteSelectedBone();   // a drawn object's one bone stays
+		if (_state.SelectedSlot is { } slot)
+		{
+			DeletePart(slot);
+			return;
+		}
+		if (IsDrawn || _state.Selected is not { } bone) return;   // a drawn object's one bone stays
+
+		var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = PlacementMode.Bottom };
+		if (bone.Parent is { } parent)
+		{
+			var keep = new MenuItem { Header = $"Delete \"{bone.Name}\": its parts and bones go to \"{parent.Name}\"" };
+			keep.Click += (_, _) => DissolveSelectedBone();
+			menu.Items.Add(keep);
+		}
+		var all = new MenuItem { Header = $"Delete \"{bone.Name}\" with everything on it" };
+		all.Click += (_, _) => DeleteSelectedBone();
+		menu.Items.Add(all);
+		menu.IsOpen = true;
+	}
+
+	// Deletes the bone but not what's on it: its parts and child bones hang from its parent now,
+	// staying exactly where they are
+	private void DissolveSelectedBone()
+	{
+		if (_state.Selected is not { Parent: { } parent } bone) return;
+		_state.SelectedKeys.Clear();
+		EditStructureAndScene(() =>
+		{
+			if (_active != null) SceneOps.ReleaseFromBones(_scene, _active, new HashSet<string> { bone.Name });   // objects it carried stay put
+			if (!RigOps.DissolveBone(_skeleton, _state.Animations, bone)) return null;
+			_state.Selected = parent;
+			return $"Delete bone {bone.Name} (what was on it went to {parent.Name})";
+		});
 	}
 
 	private void DeleteSelectedBone()
