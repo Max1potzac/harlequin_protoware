@@ -293,10 +293,12 @@ public class XflTests
 
 	// Plays every animation the import made and checks each part on every frame: it shows the
 	// drawing the project shows there (or nothing), placed where Animate places it (turned,
-	// scaled and mirrored the same) within `within` pixels, at the same opacity. Where Animate
-	// skews a part (brought in turned and scaled the nearest way) only its transformation point
-	// is checked. Returns how many frames of parts were skewed.
-	internal static int MatchesEveryFrame(XflImportPlan plan, SceneObject obj,
+	// scaled and mirrored the same) within `within` pixels, at the same opacity. Skew is brought
+	// in turned and scaled the nearest way: where Animate skews a part a little, its pixels may
+	// be off by that much more (the skew's angle times how far they are from its transformation
+	// point); where it skews it a lot, only that point is checked. Returns how many frames of
+	// parts were skewed a lot, and how far off a pixel was at worst.
+	internal static (int Skewed, float Worst) MatchesEveryFrame(XflImportPlan plan, SceneObject obj,
 		Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)> pictures, float within = 0.1f)
 	{
 		var skeleton = obj.Skeleton;
@@ -304,6 +306,7 @@ public class XflTests
 		Assert.Equal(animations.Count, obj.Animations.Count);
 		float fps = plan.Data.FrameRate;
 		int skewed = 0;
+		float worst = 0;
 		for (int a = 0; a < animations.Count; a++)
 		{
 			var (_, start, end) = animations[a];
@@ -332,15 +335,19 @@ public class XflTests
 					var actual = SkeletonRenderer.ImageToWorld(slot!, drawing, asset.Width, asset.Height);
 					var expected = pixelToDrawing * p.Matrix * plan.TimelineToObject;
 					var (_, _, ax, ay) = XflMath.Decompose(p.Matrix);
-					bool skew = MathF.Abs(XflMath.Mod(ay - ax + MathF.PI, 2 * MathF.PI) - MathF.PI) > 0.5f * MathF.PI / 180;
-					if (skew) skewed++;
-					var points = skew
-						? new[] { new Vector2(drawing.Pivot.X * asset.Width, drawing.Pivot.Y * asset.Height) }
+					float skew = MathF.Abs(XflMath.Mod(ay - ax + MathF.PI, 2 * MathF.PI) - MathF.PI);
+					bool muchSkewed = skew > 2f * MathF.PI / 180;
+					if (muchSkewed) skewed++;
+					var pivot = new Vector2(drawing.Pivot.X * asset.Width, drawing.Pivot.Y * asset.Height);
+					var points = muchSkewed
+						? new[] { pivot }
 						: new[] { Vector2.Zero, new Vector2(asset.Width, 0), new Vector2(0, asset.Height), new Vector2(asset.Width, asset.Height) };
 					foreach (var point in points)
 					{
 						float off = Vector2.Distance(Vector2.Transform(point, expected), Vector2.Transform(point, actual));
-						Assert.True(off <= within, $"{part.Name} is {off:0.###} pixels off at frame {f} ({animation.Name})");
+						float slant = skew * Vector2.Distance(Vector2.Transform(point, expected), Vector2.Transform(pivot, expected));
+						worst = MathF.Max(worst, off - slant);
+						Assert.True(off <= within + slant, $"{part.Name} is {off:0.###} pixels off at frame {f} ({animation.Name}, skewed {skew * 180 / MathF.PI:0.##}°)");
 					}
 					Assert.True(MathF.Abs(slot!.Opacity - Math.Clamp(p.Color.Multiply.W, 0, 1)) < 0.01f,
 						$"{part.Name} at frame {f}: opacity {slot.Opacity}, Animate's {p.Color.Multiply.W}");
@@ -349,7 +356,7 @@ public class XflTests
 		}
 		skeleton.SetToSetupPose();
 		skeleton.UpdatePose();
-		return skewed;
+		return (skewed, worst);
 	}
 
 	[Fact]
@@ -369,7 +376,7 @@ public class XflTests
 			Assert.Equal(ObjectKind.Drawn, obj.Kind);
 			Assert.Equal(new[] { "bounce", "roll" }, obj.Animations.Select(a => a.Name));
 			Assert.Equal(new[] { "square", "dot", "ball" }, obj.Skeleton.Slots.Select(s => s.Name));   // back to front
-			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures));
+			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures).Skewed);
 		}
 		finally
 		{
@@ -507,7 +514,7 @@ public class XflTests
 			var obj = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
 			Assert.Equal(ObjectKind.Rigged, obj.Kind);
 			var skeleton = obj.Skeleton;
-			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures));
+			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures).Skewed);
 			foreach (string rider in new[] { "eye", "hair", "cone" })
 				Assert.Equal("head", skeleton.FindSlot(rider)!.Bone.Name);
 			Assert.Equal("arm_lower_front", skeleton.FindSlot("arm_lower_front")!.Bone.Name);
@@ -526,7 +533,7 @@ public class XflTests
 			pictures.Clear();
 			var drawn = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
 			Assert.Equal(ObjectKind.Drawn, drawn.Kind);
-			Assert.Equal(0, MatchesEveryFrame(plan, drawn, pictures));
+			Assert.Equal(0, MatchesEveryFrame(plan, drawn, pictures).Skewed);
 		}
 		finally
 		{
@@ -540,7 +547,8 @@ public class XflTests
 	// them out) and run the tests: each scene comes in drawn and rigged, every part on every frame
 	// where Animate puts it. Where a project has Animate's own published values beside it
 	// (expected.csv: the first instance's matrix and colour on each frame), it's checked
-	// against those too. (Nothing there: nothing to check.)
+	// against those too. Every project is tried; what went wrong with any is listed at the end
+	// (and in xfl-report.txt beside the tests). (Nothing there: nothing to check.)
 	[Fact]
 	public void Animate_projects_of_your_own_come_in_frame_for_frame()
 	{
@@ -550,36 +558,66 @@ public class XflTests
 			.Concat(Directory.GetFiles(folder, "*.fla", SearchOption.AllDirectories))
 			.OrderBy(p => p, StringComparer.Ordinal).ToList();
 		var report = new List<string>();
+		var failed = new List<string>();
 		foreach (string path in projects)
 		{
-			string name = Path.GetFileName(path) == "DOMDocument.xml" ? Path.GetFileName(Path.GetDirectoryName(path))! : Path.GetFileNameWithoutExtension(path);
-			using var plan = XflImportPlan.Load(path, name);
-			foreach (var scene in plan.Timelines.Where(t => t.Scene).ToList())
+			string name = Path.GetFileName(path) == "DOMDocument.xml"
+				? Path.GetRelativePath(folder, Path.GetDirectoryName(path)!)
+				: Path.GetRelativePath(folder, path);
+			void Try(string what, Action check)
 			{
-				plan.Choose(scene);
-				var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
-				var drawn = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
-				int skewed = MatchesEveryFrame(plan, drawn, pictures, within: 0.15f);
-
-				plan.SuggestRig = true;
-				plan.SuggestRoles();
-				pictures.Clear();
-				var rigged = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
-				MatchesEveryFrame(plan, rigged, pictures, within: 0.15f);
-				plan.SuggestRig = false;
-				report.Add($"{name} / {scene.Label}: {plan.Parts.Count} part(s), {plan.Data.FrameCount} frame(s), " +
-						   $"{rigged.Skeleton.AllBones().Count() - 1} bone(s), {skewed} skewed part-frame(s)" +
-						   (plan.Notes.Count > 0 ? $"; notes: {string.Join(" | ", plan.Notes)}" : ""));
+				try { check(); }
+				catch (Exception e)
+				{
+					string line = $"{name} {what}: FAILED: {e.GetType().Name}: {e.Message.Split('\n')[0]}";
+					failed.Add(line);
+					report.Add(line);
+				}
 			}
-
-			string animateValues = Path.Combine(Path.GetDirectoryName(path)!, "expected.csv");
-			if (Path.GetFileName(path) == "DOMDocument.xml" && File.Exists(animateValues))
+			XflImportPlan? plan = null;
+			Try("(reading)", () => plan = XflImportPlan.Load(path, Path.GetFileNameWithoutExtension(name)));
+			if (plan == null) continue;
+			using (plan)
 			{
-				plan.Choose(plan.Timelines.First(t => t.Scene));
-				report.Add($"{name}: Animate's values: {SameAsAnimate(plan, animateValues)}");
+				foreach (var scene in plan.Timelines.Where(t => t.Scene).ToList())
+				{
+					Try($"/ {scene.Label}", () =>
+					{
+						plan.Choose(scene);
+						var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
+						var drawn = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
+						var (skewed, worstDrawn) = MatchesEveryFrame(plan, drawn, pictures, within: 0.15f);
+
+						plan.SuggestRig = true;
+						try
+						{
+							plan.SuggestRoles();
+							pictures.Clear();
+							var rigged = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
+							var (_, worstRigged) = MatchesEveryFrame(plan, rigged, pictures, within: 0.15f);
+							report.Add($"{name} / {scene.Label}: {plan.Parts.Count} part(s), {plan.Data.FrameCount} frame(s), " +
+									   $"{rigged.Skeleton.AllBones().Count() - 1} bone(s), off by {worstDrawn:0.###} px drawn and {worstRigged:0.###} px rigged at worst" +
+									   (skewed > 0 ? $", {skewed} much skewed part-frame(s)" : "") +
+									   (plan.Notes.Count > 0 ? $"; notes: {string.Join(" | ", plan.Notes)}" : ""));
+						}
+						finally
+						{
+							plan.SuggestRig = false;
+						}
+					});
+				}
+
+				string animateValues = Path.Combine(Path.GetDirectoryName(path)!, "expected.csv");
+				if (Path.GetFileName(path) == "DOMDocument.xml" && File.Exists(animateValues))
+					Try("(Animate's values)", () =>
+					{
+						plan.Choose(plan.Timelines.First(t => t.Scene));
+						report.Add($"{name}: Animate's values: {SameAsAnimate(plan, animateValues)}");
+					});
 			}
 		}
 		File.WriteAllLines(Path.Combine(AppContext.BaseDirectory, "xfl-report.txt"), report);
+		Assert.True(failed.Count == 0, $"{failed.Count} of {projects.Count} project(s) went wrong:\n" + string.Join("\n", failed));
 	}
 
 	// Compares the first instance on stage with Animate's own values on every frame (matrix in
