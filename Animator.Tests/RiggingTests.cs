@@ -167,6 +167,54 @@ public class RiggingTests
 		StayedPut(skeleton, before);
 	}
 
+	[Fact]
+	public void A_bones_end_goes_where_its_dragged_and_everything_stays_put()
+	{
+		var (skeleton, upper, _, hand, _) = Arm();
+		var before = AllPlaced(skeleton);
+		Assert.True(RestEdits.HasFreeEnd(hand));
+		Assert.False(RestEdits.HasFreeEnd(upper));   // the forearm sits on its end: moving that joint moves it
+
+		// The hand ends at (240, 30) now: it turns and stretches from its joint, nothing else moves
+		Assert.Null(RestEdits.MoveTip(FrozenRest.Capture(skeleton), hand, new Vector2(240, 30)));
+		Near(new Vector2(200, 0), hand.World.Translation);
+		Near(new Vector2(240, 30), hand.TipWorld);
+		Assert.Equal(50f, hand.Length, 3);
+		StayedPut(skeleton, before);
+	}
+
+	[Fact]
+	public void A_bones_end_snaps_onto_a_childs_joint_and_lets_go_when_pulled_away()
+	{
+		// A bone along x to (100, 0), with a child hanging free at (150, 10)
+		var skeleton = new Skeleton();
+		var arm = new Bone { Name = "arm", Length = 100 };
+		var hand = new Bone { Name = "hand", Length = 30, SetupPosition = new Vector2(150, 10) };
+		arm.AddChild(hand);
+		skeleton.Roots.Add(arm);
+		Part(skeleton, arm, "arm part", new Vector2(50, 0));
+		Part(skeleton, hand, "hand part", new Vector2(15, 0), 0.4f);
+		skeleton.SetToSetupPose();
+		skeleton.UpdateWorld();
+		var before = AllPlaced(skeleton);
+		Assert.True(RestEdits.HasFreeEnd(arm));
+
+		var frozen = FrozenRest.Capture(skeleton);   // one drag
+		Assert.Same(hand, RestEdits.MoveTip(frozen, arm, new Vector2(148, 12), snapTo: 5));
+		Assert.True(hand.Connected);
+		Near(new Vector2(150, 10), arm.TipWorld);   // exactly on the hand's joint
+		Near(new Vector2(150, 10), hand.World.Translation);
+		Near(new Vector2(180, 10), hand.TipWorld);
+		StayedPut(skeleton, before);
+
+		Assert.Null(RestEdits.MoveTip(frozen, arm, new Vector2(130, -20), snapTo: 5));
+		Assert.False(hand.Connected);
+		Near(new Vector2(130, -20), arm.TipWorld);
+		Near(new Vector2(150, 10), hand.World.Translation);
+		Near(new Vector2(180, 10), hand.TipWorld);
+		StayedPut(skeleton, before);
+	}
+
 	// ======================= deleting bones =======================
 
 	[Fact]

@@ -109,6 +109,7 @@ public partial class MainWindow : Window
 		_renderer.ShowBones = !IsDrawn;                    // a drawn object's one bone stays hidden
 		_renderer.PartsOf = !_sceneLevel && !IsDrawn && _state.SelectedSlot == null ? _state.Selected : null;   // what's on the selected bone
 		_renderer.GhostBone = _tool.CreatePreview;
+		_renderer.TipHandleOf = !_sceneLevel && !IsDrawn ? _tool.TipHandle : null;   // Setup mode: where the selected bone ends
 		DrawScene(canvas);   // onion ghosts, every object, then the open object's bones and handles
 	}
 
@@ -424,7 +425,7 @@ public partial class MainWindow : Window
 		Status.Text =
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
 			$"Object: {_active?.Name ?? "-"}    Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
-			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone (started near the selected bone's end, it snaps onto it), Alt+click a part = put it on the selected bone, drag empty / middle = pan, wheel = zoom, F = reset view (centred on this object)\n" +
+			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone (started near the selected bone's end, it snaps onto it), Alt+click a part = put it on the selected bone, drag the ring at a bone's end = where it ends (Setup mode), drag empty / middle = pan, wheel = zoom, F = reset view (centred on this object)\n" +
 			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +

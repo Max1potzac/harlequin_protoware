@@ -5,7 +5,7 @@ namespace Animator.Viewer.Tools;
 
 public class BoneTool
 {
-	private enum Drag { None, Move, Rotate, Pan, Create, PartMove, PartRotate, PartScale, PartPivot }
+	private enum Drag { None, Move, Rotate, Tip, Pan, Create, PartMove, PartRotate, PartScale, PartPivot }
 
 	private readonly EditorState _state;
 	private readonly Camera _camera;
@@ -58,6 +58,11 @@ public class BoneTool
 	private StructureSnapshot? _rigBefore;        // for undo: the drag changes more than the one bone
 	private Vector2 _pressWorld;
 
+	// The ring at the selected bone's end (Setup mode, when no child sits on that end): dragging
+	// it says where the bone ends
+	public Bone? TipHandle =>
+		!_state.AnimateMode && BonesEnabled && _state.SelectedSlot == null && _state.Selected is { } bone && RestEdits.HasFreeEnd(bone) ? bone : null;
+
 	private bool _createJoined;                              // the bone being drawn starts on the parent's end
 	private Vector2 _setupAtStart, _jointAtStart, _poseOffset;   // a joint drag in Setup mode
 
@@ -106,7 +111,15 @@ public class BoneTool
 		// 1. Handles of the selected part (in Animate mode, dragging one sets placement keys)
 		if (_state.SelectedSlot is { } selected && TryPartHandle(selected, world)) return;
 
-		// 2. Bones
+		// 2. The ring at the selected bone's end (nearer it than the joint, for a bone with no length)
+		if (TipHandle is { } ending && Vector2.Distance(world, ending.TipWorld) <= HandlePickPx / _camera.EditZoom &&
+			Vector2.Distance(world, ending.TipWorld) < Vector2.Distance(world, ending.World.Translation))
+		{
+			BeginTipDrag(ending, world);
+			return;
+		}
+
+		// 3. Bones
 		if (BonesEnabled)
 		{
 			var hit = HitJoint(world);
@@ -115,14 +128,14 @@ public class BoneTool
 			if (hit != null) { BeginBoneDrag(hit, mode, world); return; }
 		}
 
-		// 3. Anywhere inside the selected part's box (even transparent pixels): move it
+		// 4. Anywhere inside the selected part's box (even transparent pixels): move it
 		if (_state.SelectedSlot is { } current && InsidePart(current, world))
 		{
 			BeginPartDrag(current, Drag.PartMove, world);
 			return;
 		}
 
-		// 4. Any part's visible pixels: select it, and move it if you drag
+		// 5. Any part's visible pixels: select it, and move it if you drag
 		if (_renderer.Pick(_state.Skeleton, world) is { } part)
 		{
 			_state.SelectedSlot = part.Slot;
@@ -131,7 +144,7 @@ public class BoneTool
 			return;
 		}
 
-		// 5. Empty space: deselect and pan
+		// 6. Empty space: deselect and pan
 		_state.Selected = null;
 		_state.SelectedSlot = null;
 		_drag = Drag.Pan;
@@ -165,6 +178,16 @@ public class BoneTool
 					var target = world + _grabOffset;
 					if (_state.AnimateMode) KeyJoint(bone, target);
 					else MoveRestJoint(bone, target);
+					_changed = true;
+					break;
+				}
+
+			case Drag.Tip when bone != null:
+				{
+					// Where the bone ends: with parts staying put, snapping onto a child's joint
+					var target = world + _grabOffset;
+					if (_frozen != null) RestEdits.MoveTip(_frozen, bone, target, SnapJoints ? SnapPx / _camera.EditZoom : 0f);
+					else FrozenRest.Aim(bone, bone.World.Translation, target);   // what's on it turns with it
 					_changed = true;
 					break;
 				}
@@ -208,6 +231,9 @@ public class BoneTool
 				break;
 			case Drag.Move or Drag.Rotate:
 				FinishBoneDrag();
+				break;
+			case Drag.Tip:
+				FinishTipDrag();
 				break;
 			case Drag.PartMove or Drag.PartRotate or Drag.PartScale or Drag.PartPivot:
 				FinishPartDrag();
@@ -270,6 +296,24 @@ public class BoneTool
 			}
 		}
 		_before = null;
+		_rigBefore = null;
+		_frozen = null;
+	}
+
+	// Setup mode: the end of a bone no child sits on, dragged to where it should end
+	private void BeginTipDrag(Bone bone, Vector2 world)
+	{
+		_drag = Drag.Tip;
+		_changed = false;
+		_grabOffset = bone.TipWorld - world;
+		_rigBefore = _state.CaptureStructure();
+		_frozen = KeepPartsInPlace ? FrozenRest.Capture(_state.Skeleton) : null;
+	}
+
+	private void FinishTipDrag()
+	{
+		if (_changed && _rigBefore != null && _state.Selected is { } bone)
+			_state.PushStructure(_rigBefore, $"Set where {bone.Name} ends" + (_frozen != null ? " (parts stay put)" : ""));
 		_rigBefore = null;
 		_frozen = null;
 	}
