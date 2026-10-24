@@ -22,11 +22,11 @@ public abstract class Timeline
     public abstract object CaptureKeys();             // copy of the keys, for undo
     public abstract void RestoreKeys(object keys);
 
-    // ----- cutting animations into pieces (see AnimationOps); times in seconds, `frame` one frame long -----
-    // Keeps only what's from `from` to `to` (both kept), moved back to start at 0
-    public abstract void Crop(float from, float to, float frame);
-    // Takes out what's from `from` to `to`: what's after moves back to close the gap. `end`: the animation's length.
-    public abstract void Cut(float from, float to, float frame, float end);
+    // ----- cutting animations into pieces (see AnimationOps); frame n plays at n / fps seconds -----
+    // Keeps only frames first..last (both kept), moved back to start at frame 0
+    public abstract void Crop(int first, int last, float fps);
+    // Takes out frames first..last: the frames after move back to close the gap. `end`: the animation's length (seconds).
+    public abstract void Cut(int first, int last, float fps, float end);
 
 
     public virtual string Label => $"{Target} ({GetType().Name.Replace("Timeline", "")})";
@@ -88,9 +88,9 @@ public abstract class TrackTimeline<T> : Timeline
     // How its keys behave when frames are cut out: most blend from key to key
     protected virtual KeyKind Kind => KeyKind.Blended;
 
-    public override void Crop(float from, float to, float frame) => KeyCutting<T>.Crop(Track, Kind, from, to, frame);
+    public override void Crop(int first, int last, float fps) => KeyCutting<T>.Crop(Track, Kind, first, last, fps);
 
-    public override void Cut(float from, float to, float frame, float end) => KeyCutting<T>.Cut(Track, Kind, from, to, frame, end);
+    public override void Cut(int first, int last, float fps, float end) => KeyCutting<T>.Cut(Track, Kind, first, last, fps, end);
 }
 
 public class RotateTimeline : TrackTimeline<float>

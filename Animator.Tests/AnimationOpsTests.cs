@@ -124,4 +124,40 @@ public class AnimationOpsTests
 		var bit = AnimationOps.Extract(straight, 10, 40, Fps, "bit");
 		Assert.Equal(2, bit.Find<RotateTimeline>("arm")!.Track.Keys.Count);
 	}
+
+	// Keys an import or a changed frame rate left between frames (a turn eased from frame 6.5, a
+	// hit at 9.5) go with the frame before them: cut out with it, or kept with it
+	private static (Skeleton Skeleton, Animation Animation) Between()
+	{
+		var (skeleton, _) = Waving();
+		var animation = new Animation { Name = "odd", Duration = 20f / Fps };
+		var turn = animation.GetOrCreate("arm", n => new RotateTimeline(n)).Track;
+		turn.Add(0f, 0f, CurveType.Linear);
+		turn.Add(6.5f / Fps, 1f, CurveType.Smooth);
+		turn.Add(12.5f / Fps, 3f, CurveType.Linear);
+		turn.Add(20f / Fps, 0f, CurveType.Linear);
+		animation.GetOrCreateEvents().Add(9.5f / Fps, new AnimationEvent("hit"));
+		return (skeleton, animation);
+	}
+
+	[Fact]
+	public void Keys_between_frames_go_with_the_frame_before_them()
+	{
+		var (skeleton, original) = Between();
+
+		// Frames 7-9 split off: the hit (while frame 9 shows) goes with them, once
+		var (_, odd) = Between();
+		var piece = AnimationOps.Split(odd, 7, 9, Fps, "bit");
+		for (int f = 0; f <= 2; f++) Same(skeleton, original, 7 + f, piece, f);
+		for (int f = 0; f <= 6; f++) Same(skeleton, original, f, odd, f);
+		for (int f = 7; f <= 17; f++) Same(skeleton, original, f + 3, odd, f);
+		Assert.Single(piece.Events!.Track.Keys);
+		Assert.Null(odd.Events);
+
+		// Frames 0-6 cut: the key at 6.5 goes with frame 6, and nothing lands in front of frame 0
+		var (_, head) = Between();
+		AnimationOps.Cut(head, 0, 6, Fps);
+		Assert.Equal(13, Frames(head));
+		for (int f = 0; f <= 13; f++) Same(skeleton, original, f + 7, head, f);
+	}
 }
