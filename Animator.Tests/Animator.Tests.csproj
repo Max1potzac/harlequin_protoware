@@ -19,6 +19,11 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
+  <!-- Files the tests read (a Photoshop file written by another program, ImageMagick) -->
+  <ItemGroup>
+    <None Update="Files\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Animator.Core\Animator.Core.csproj" />
     <ProjectReference Include="..\Animator.Viewer\Animator.Viewer.csproj" />

@@ -529,7 +529,7 @@ public partial class SpriteSheetDialog : Window
 		float viewW = (float)SheetView.ActualWidth, viewH = (float)SheetView.ActualHeight;
 
 		var whole = ToView(new PixelRect(0, 0, _sheet.Width, _sheet.Height));
-		DrawChecker(canvas, whole, viewW, viewH);
+		Checkerboard.Draw(canvas, whole, viewW, viewH);
 		canvas.Save();
 		canvas.Translate(_pan.X, _pan.Y);
 		canvas.Scale(_zoom);
@@ -596,26 +596,6 @@ public partial class SpriteSheetDialog : Window
 			};
 			canvas.DrawRect(ToView(BandRect()), band);
 		}
-	}
-
-	// A checkerboard behind the sheet, so see-through pixels show (only the part in view)
-	private static void DrawChecker(SKCanvas canvas, SKRect sheet, float viewW, float viewH)
-	{
-		var area = SKRect.Intersect(sheet, new SKRect(0, 0, viewW, viewH));
-		if (area.IsEmpty) return;
-		using var light = new SKPaint { Color = new SKColor(204, 204, 204) };
-		using var dark = new SKPaint { Color = new SKColor(158, 158, 158) };
-		canvas.DrawRect(area, light);
-
-		const float cell = 8;
-		int cx0 = (int)((area.Left - sheet.Left) / cell), cy0 = (int)((area.Top - sheet.Top) / cell);
-		canvas.Save();
-		canvas.ClipRect(area);
-		for (int cy = cy0; sheet.Top + cy * cell < area.Bottom; cy++)
-			for (int cx = cx0; sheet.Left + cx * cell < area.Right; cx++)
-				if ((cx + cy) % 2 == 1)
-					canvas.DrawRect(SKRect.Create(sheet.Left + cx * cell, sheet.Top + cy * cell, cell, cell), dark);
-		canvas.Restore();
 	}
 
 	// The dragged band in whole sheet pixels, inside the sheet

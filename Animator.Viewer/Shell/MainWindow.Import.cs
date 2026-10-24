@@ -1,31 +1,107 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.Win32;
 
 namespace Animator.Viewer;
 
-// File > Import sprite sheet (Ctrl+I): a sheet's pieces as drawn objects, or as parts of the
-// open object. Pieces that make an animation become one part showing them frame by frame.
+// File > Import (Ctrl+I): a Photoshop file, its layers as parts (with a suggested rig if you like),
+// or a sprite sheet, its pieces as drawn objects or parts of the open object
 public partial class MainWindow
 {
-	private void ImportSheet_Click(object sender, RoutedEventArgs e) => ImportSpriteSheet();
+	private enum ImportKind { Any, Photoshop, SpriteSheet }
 
-	private void ImportSpriteSheet()
+	private const string PhotoshopFiles = "*.psd;*.psb";
+	private const string PictureFiles = "*.png;*.webp;*.gif;*.bmp;*.jpg;*.jpeg";
+
+	private void Import_Click(object sender, RoutedEventArgs e) => ImportFile();
+
+	private void ImportFile(ImportKind kind = ImportKind.Any)
 	{
 		if (_exporting) return;
 		_paint.Tool.Deactivate(_paint);   // a half-placed figure lands first
 
 		var open = new OpenFileDialog
 		{
-			Title = "Import a sprite sheet",
-			Filter = "Pictures (*.png;*.webp;*.gif;*.bmp;*.jpg;*.jpeg)|*.png;*.webp;*.gif;*.bmp;*.jpg;*.jpeg"
+			Title = kind switch
+			{
+				ImportKind.Photoshop => "Import a Photoshop file",
+				ImportKind.SpriteSheet => "Import a sprite sheet",
+				_ => "Import"
+			},
+			Filter = kind switch
+			{
+				ImportKind.Photoshop => $"Photoshop files ({PhotoshopFiles})|{PhotoshopFiles}",
+				ImportKind.SpriteSheet => $"Sprite sheets and pictures ({PictureFiles})|{PictureFiles}",
+				_ => $"Photoshop files and sprite sheets|{PhotoshopFiles};{PictureFiles}|" +
+					 $"Photoshop files ({PhotoshopFiles})|{PhotoshopFiles}|" +
+					 $"Sprite sheets and pictures ({PictureFiles})|{PictureFiles}"
+			}
 		};
 		if (_appSettings.ImportFolder is { } folder && Directory.Exists(folder)) open.InitialDirectory = folder;
 		if (open.ShowDialog(this) != true) return;
 		_appSettings.ImportFolder = Path.GetDirectoryName(open.FileName);
 		_appSettings.Save();
 
-		using var sheet = SheetImporter.LoadPicture(open.FileName);
+		if (Path.GetExtension(open.FileName).ToLowerInvariant() is ".psd" or ".psb") ImportPhotoshop(open.FileName);
+		else ImportSpriteSheet(open.FileName);
+	}
+
+	// ======================= Photoshop =======================
+
+	private void ImportPhotoshop(string path)
+	{
+		string name = Path.GetFileNameWithoutExtension(path);
+		PsdImportPlan plan;
+		Mouse.OverrideCursor = Cursors.Wait;
+		try
+		{
+			plan = PsdImportPlan.FromDocument(PsdReader.Read(path), name);
+			_ = plan.Masks;   // the layers' shapes, for suggesting a rig: worked out while the cursor waits
+		}
+		catch (Exception ex)
+		{
+			Mouse.OverrideCursor = null;
+			string why = ex is NotSupportedException or InvalidDataException or IOException
+				? ex.Message
+				: $"Something in it couldn't be read ({ex.GetType().Name}: {ex.Message}).";
+			MessageBox.Show(this, $"{Path.GetFileName(path)} couldn't be imported.\n\n{why}", "Import a Photoshop file",
+				MessageBoxButton.OK, MessageBoxImage.Warning);
+			return;
+		}
+		finally
+		{
+			Mouse.OverrideCursor = null;
+		}
+
+		using (plan)
+		{
+			if (plan.Parts.Count == 0)
+			{
+				MessageBox.Show(this, "There's nothing to bring in: every layer of the file is empty.", "Import a Photoshop file",
+					MessageBoxButton.OK, MessageBoxImage.Information);
+				return;
+			}
+			var dialog = new PsdImportDialog(plan) { Owner = this };
+			if (dialog.ShowDialog() != true) return;
+
+			SceneObject? made = null;
+			EditScene(() =>
+			{
+				made = PsdImporter.IntoScene(_scene, _assets, plan, _camera.Pan);   // in the middle of the view
+				return $"Import {name}";
+			});
+			if (made == null) return;
+			_state.Playing = false;
+			EnterObject(made);
+		}
+	}
+
+	// ======================= sprite sheets =======================
+
+	private void ImportSpriteSheet(string path)
+	{
+		using var sheet = SheetImporter.LoadPicture(path);
 		if (sheet == null)
 		{
 			MessageBox.Show(this, "That file couldn't be read as a picture.", "Import sprite sheet",
@@ -39,8 +115,8 @@ public partial class MainWindow
 			return;
 		}
 
-		string name = Path.GetFileNameWithoutExtension(open.FileName);
-		var json = ReadSheetJson(Path.ChangeExtension(open.FileName, ".json"));
+		string name = Path.GetFileNameWithoutExtension(path);
+		var json = ReadSheetJson(Path.ChangeExtension(path, ".json"));
 
 		// Parts go where new parts go: on a drawn object's own bone, or on the selected bone
 		// (the first one when none is selected)

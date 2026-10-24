@@ -2,7 +2,7 @@ using System.IO;
 using System.Numerics;
 using SkiaSharp;
 
-namespace Animator.Viewer.Export;
+namespace Animator.Viewer.Import;
 
 // How the frames of an animation line up when they aren't all the same size
 public enum FrameAnchor { Centre, Bottom, Origin }

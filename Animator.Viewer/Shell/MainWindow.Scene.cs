@@ -472,8 +472,12 @@ public partial class MainWindow
 		image.Click += (_, _) => AddDrawnObjectFromImage();
 		menu.Items.Add(image);
 
+		var photoshop = new MenuItem { Header = "Object from a Photoshop file…" };
+		photoshop.Click += (_, _) => ImportFile(ImportKind.Photoshop);
+		menu.Items.Add(photoshop);
+
 		var sheet = new MenuItem { Header = "Objects from a sprite sheet…" };
-		sheet.Click += (_, _) => ImportSpriteSheet();
+		sheet.Click += (_, _) => ImportFile(ImportKind.SpriteSheet);
 		menu.Items.Add(sheet);
 
 		menu.IsOpen = true;
