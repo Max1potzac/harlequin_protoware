@@ -11,7 +11,7 @@ internal sealed class PsdTestLayer
 	public int Left, Top, Width, Height;
 	public byte[] Rgba = Array.Empty<byte>();     // straight RGBA, Width × Height
 	public byte Opacity = 255;
-	public bool Hidden, Clipped, UnicodeName, Raw, NoAlpha;
+	public bool Hidden, Clipped, UnicodeName, Raw;
 	public string Blend = "norm";
 	public int Section;                           // 0 = a layer; 1 = a group's top; 3 = a group's bottom
 	public (int Left, int Top, int Width, int Height, byte Outside, byte[] Values)? Mask;
@@ -138,7 +138,7 @@ internal static class PsdTestFile
 			foreach (short id in new short[] { -1, 0, 1, 2 }) list.Add((id, new byte[] { 0, 0 }));
 			return list;
 		}
-		if (!layer.NoAlpha) list.Add((-1, Encode(Plane(3), layer.Width, layer.Height, depth, psb, layer.Raw)));
+		list.Add((-1, Encode(Plane(3), layer.Width, layer.Height, depth, psb, layer.Raw)));
 		for (short c = 0; c < 3; c++) list.Add((c, Encode(Plane(c), layer.Width, layer.Height, depth, psb, layer.Raw)));
 		if (layer.Mask is { } m) list.Add((-2, Encode(m.Values, m.Width, m.Height, depth, psb, layer.Raw)));
 		return list;
