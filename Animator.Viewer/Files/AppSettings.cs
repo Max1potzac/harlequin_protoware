@@ -9,6 +9,7 @@ public sealed class AppSettings
 {
 	public string? FfmpegPath { get; set; }      // ffmpeg.exe, for exporting videos
 	public string? ExportFolder { get; set; }    // where the last export went
+	public string? ImportFolder { get; set; }    // where the last imported sprite sheet came from
 
 	private static string FilePath => Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Harlequin", "settings.json");

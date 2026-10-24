@@ -14,6 +14,8 @@
                     <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="Save_Click" />
                     <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S" Click="SaveAs_Click" />
                     <Separator />
+                    <MenuItem Header="_Import sprite sheet…" InputGestureText="Ctrl+I" Click="ImportSheet_Click"
+                              ToolTip="Cuts a sprite sheet into pieces: stills and animations, as new objects or as parts of the open object" />
                     <MenuItem Header="_Export…" InputGestureText="Ctrl+E" Click="Export_Click"
                               ToolTip="PNG pictures, a GIF, a sprite sheet or a video: of the scene, or of one object's animations" />
                     <Separator />

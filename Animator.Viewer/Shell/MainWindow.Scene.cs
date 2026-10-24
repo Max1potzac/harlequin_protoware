@@ -472,6 +472,10 @@ public partial class MainWindow
 		image.Click += (_, _) => AddDrawnObjectFromImage();
 		menu.Items.Add(image);
 
+		var sheet = new MenuItem { Header = "Objects from a sprite sheet…" };
+		sheet.Click += (_, _) => ImportSpriteSheet();
+		menu.Items.Add(sheet);
+
 		menu.IsOpen = true;
 	}
 

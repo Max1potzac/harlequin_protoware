@@ -1,0 +1,141 @@
+<Window x:Class="Animator.Viewer.Dialogs.SpriteSheetDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
+        Title="Import a sprite sheet" Width="1150" Height="760" MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown">
+    <DockPanel>
+
+        <!-- ===== The steps ===== -->
+        <ScrollViewer DockPanel.Dock="Right" Width="350" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="10">
+                <TextBlock x:Name="SheetTitle" FontWeight="Bold" TextWrapping="Wrap" />
+
+                <!-- 1. Cutting -->
+                <TextBlock Text="1. Cut it into pieces" FontWeight="Bold" Margin="0,12,0,4" />
+                <RadioButton x:Name="GridMode" GroupName="Cut" Content="A grid (frames of one size)" Checked="Mode_Changed" />
+                <Grid x:Name="GridFields" Margin="18,4,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="50" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="50" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Frame size" VerticalAlignment="Center" Margin="0,0,6,4" />
+                    <TextBox x:Name="CellWidthBox" Grid.Column="1" Margin="0,0,0,4" KeyDown="Field_KeyDown" />
+                    <TextBlock Grid.Column="2" Text="×" VerticalAlignment="Center" Margin="6,0,6,4" />
+                    <TextBox x:Name="CellHeightBox" Grid.Column="3" Margin="0,0,0,4" KeyDown="Field_KeyDown" />
+                    <TextBlock Grid.Row="1" Text="First one at" VerticalAlignment="Center" Margin="0,0,6,4"
+                               ToolTip="Pixels from the sheet's left and top edges to the first frame" />
+                    <TextBox x:Name="OffsetXBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,4" KeyDown="Field_KeyDown" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="," VerticalAlignment="Center" Margin="6,0,6,4" />
+                    <TextBox x:Name="OffsetYBox" Grid.Row="1" Grid.Column="3" Margin="0,0,0,4" KeyDown="Field_KeyDown" />
+                    <TextBlock Grid.Row="2" Text="Gap between" VerticalAlignment="Center" Margin="0,0,6,0"
+                               ToolTip="Empty pixels between frames, across and down" />
+                    <TextBox x:Name="GapXBox" Grid.Row="2" Grid.Column="1" KeyDown="Field_KeyDown" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" Text="," VerticalAlignment="Center" Margin="6,0,6,0" />
+                    <TextBox x:Name="GapYBox" Grid.Row="2" Grid.Column="3" KeyDown="Field_KeyDown" />
+                </Grid>
+
+                <RadioButton x:Name="FindMode" GroupName="Cut" Content="Find the separate sprites (on see-through sheets)" Checked="Mode_Changed" />
+                <StackPanel x:Name="FindFields" Orientation="Horizontal" Margin="18,4,0,6">
+                    <TextBlock Text="join bits closer than" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <TextBox x:Name="JoinBox" Width="36" KeyDown="Field_KeyDown"
+                             ToolTip="Bits closer than this many pixels count as one sprite (a detached eye, a spark)" />
+                    <TextBlock Text="px, skip smaller than" VerticalAlignment="Center" Margin="4,0,4,0" />
+                    <TextBox x:Name="SmallestBox" Width="36" KeyDown="Field_KeyDown" ToolTip="Specks smaller than this are left out" />
+                </StackPanel>
+
+                <RadioButton x:Name="HandMode" GroupName="Cut" Content="Draw them by hand" Checked="Mode_Changed" />
+                <TextBlock x:Name="HandHint" Margin="18,2,0,6" Foreground="Gray" TextWrapping="Wrap"
+                           Text="Drag on the sheet to draw a piece (Ctrl+drag picks pieces instead). Del removes the picked ones. The pieces there are stay, so you can fix up a cut." />
+
+                <RadioButton x:Name="JsonMode" GroupName="Cut" Content="As its JSON file says" Checked="Mode_Changed" />
+                <TextBlock x:Name="JsonHint" Margin="18,2,0,6" Foreground="Gray" TextWrapping="Wrap" />
+
+                <DockPanel Margin="0,4,0,0">
+                    <Button x:Name="CutButton" DockPanel.Dock="Right" Content="Cut again" Padding="8,1" Click="Cut_Click"
+                            ToolTip="Cuts the sheet with the settings above (Enter in a field does too). Animations made so far are dropped." />
+                    <TextBlock x:Name="PieceCount" Foreground="Gray" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </DockPanel>
+
+                <!-- 2. Animations -->
+                <TextBlock Text="2. Make animations" FontWeight="Bold" Margin="0,16,0,4" />
+                <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                           Text="Pick pieces on the sheet (click; Ctrl+click adds or removes; drag around several), then make them an animation: they play left to right, top to bottom (cut by its JSON: in the JSON's order). Pieces in no animation are stills." />
+                <UniformGrid Columns="2" Margin="0,0,0,4">
+                    <Button Content="Make an animation" Margin="0,0,3,0" Click="MakeAnimation_Click"
+                            ToolTip="The picked pieces become one animation's frames" />
+                    <Button Content="An animation per row" Margin="3,0,0,0" Click="AnimationPerRow_Click"
+                            ToolTip="Each row of pieces (of the picked ones, or of all the stills) becomes an animation: the usual layout of a character's sheet" />
+                </UniformGrid>
+                <Button Content="Leave out / put back" Margin="0,0,0,6" Click="LeaveOut_Click"
+                        ToolTip="Picked pieces aren't brought in (a logo, a label). Click again to bring them back." />
+                <ListBox x:Name="AnimationList" Height="100" SelectionChanged="AnimationList_Changed" />
+                <Grid x:Name="AnimationFields" Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Name" VerticalAlignment="Center" Margin="0,0,8,4" />
+                    <TextBox x:Name="AnimationName" Grid.Column="1" Margin="0,0,0,4" LostFocus="AnimationField_Changed" KeyDown="AnimationField_KeyDown" />
+                    <TextBlock Grid.Row="1" Text="Each frame shows" VerticalAlignment="Center" Margin="0,0,8,4" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBox x:Name="AnimationHold" Width="40" LostFocus="AnimationField_Changed" KeyDown="AnimationField_KeyDown"
+                                 ToolTip="1 = every frame of the project's frame rate, 2 = &quot;on twos&quot; (half as fast)…" />
+                        <TextBlock x:Name="HoldUnit" Text="frame(s)" VerticalAlignment="Center" Margin="6,0,0,0" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="2" Text="Line up by" VerticalAlignment="Center" Margin="0,0,8,4" />
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                        <ComboBox x:Name="AnimationAnchor" Width="130" SelectionChanged="AnimationAnchor_Changed"
+                                  ToolTip="Frames of different sizes are lined up at this point (bottom middle keeps feet on the ground)" />
+                        <CheckBox x:Name="AnimationLoop" Content="Loop" VerticalAlignment="Center" Margin="12,0,0,0" Click="AnimationLoop_Click" />
+                    </StackPanel>
+                    <Button Grid.Row="3" Grid.ColumnSpan="2" Content="Remove this animation (its pieces become stills)" Margin="0,2,0,0"
+                            Click="RemoveAnimation_Click" />
+                </Grid>
+                <Border Height="150" Margin="0,8,0,0" BorderBrush="#808080" BorderThickness="1"
+                        ToolTip="The picked animation playing, as it will in the project">
+                    <skia:SKElement x:Name="PreviewView" PaintSurface="PreviewView_Paint" />
+                </Border>
+
+                <!-- 3. Bringing them in -->
+                <TextBlock Text="3. Bring them in" FontWeight="Bold" Margin="0,16,0,4" />
+                <RadioButton x:Name="ObjectsChoice" GroupName="Into" Content="As new drawn objects" Checked="Into_Changed" />
+                <CheckBox x:Name="TogetherBox" Content="All the animations in one object (one character's moves)" Margin="18,4,0,0"
+                          Click="Into_Changed" />
+                <RadioButton x:Name="PartsChoice" GroupName="Into" Margin="0,6,0,0" Checked="Into_Changed" />
+                <CheckBox x:Name="StillsBox" Content="Bring in the stills too (the pieces in no animation)" Margin="0,8,0,0" Click="Into_Changed" />
+                <CheckBox x:Name="SharpBox" Content="Show pixels sharp (pixel art; P switches it later)" Margin="0,6,0,0"
+                          ToolTip="Draws every picture with hard pixel edges instead of smoothing them when zoomed" />
+                <TextBlock x:Name="Summary" TextWrapping="Wrap" Margin="0,10,0,0" />
+                <TextBlock x:Name="ErrorText" Foreground="#C03030" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                    <Button Content="Import" IsDefault="True" Width="80" Margin="0,0,6,0" Click="Import_Click" />
+                    <Button Content="Cancel" IsCancel="True" Width="75" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== The sheet ===== -->
+        <Grid>
+            <skia:SKElement x:Name="SheetView" Focusable="True" PaintSurface="SheetView_Paint"
+                            MouseDown="SheetView_MouseDown" MouseMove="SheetView_MouseMove"
+                            MouseUp="SheetView_MouseUp" MouseWheel="SheetView_MouseWheel" />
+            <TextBlock Text="Wheel: zoom   Middle drag: move around   Home: fit" Foreground="#9AA4B2" Margin="8"
+                       VerticalAlignment="Bottom" IsHitTestVisible="False" />
+        </Grid>
+    </DockPanel>
+</Window>
