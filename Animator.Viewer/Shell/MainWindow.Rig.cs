@@ -480,7 +480,7 @@ public partial class MainWindow
 	{
 		if (_syncingRig || _shownBone is not { } bone || BoneParent.SelectedItem is not BoneChoice choice) return;
 		_state.EditStructure(() =>
-			RigOps.Reparent(_skeleton, bone, choice.Bone) ? $"Parent {bone.Name} to {choice.Label}" : null);
+			HangBone(bone, choice.Bone) ? $"Parent {bone.Name} to {choice.Label}" : null);
 	}
 
 	private void LookTarget_Changed(object sender, SelectionChangedEventArgs e)

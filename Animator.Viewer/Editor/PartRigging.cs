@@ -9,6 +9,35 @@ public static class PartRigging
 {
 	private static readonly SKSamplingOptions Smooth = new(SKFilterMode.Linear, SKMipmapMode.None);
 
+	// "Give it bones": a drawn object becomes a rigged one. Its hidden bone becomes a root bone you
+	// can see, at the object's origin, pointing up, `length` long; with `suggest`, bones suggested
+	// from its parts' shapes hang from it, each part on its own. Every part stays exactly where it
+	// is. Returns how many bones were suggested.
+	public static int GiveBones(SceneObject obj, AssetStore store, float length, bool suggest)
+	{
+		var skeleton = obj.Skeleton;
+		obj.Kind = ObjectKind.Rigged;
+		var root = skeleton.Roots.FirstOrDefault() ?? RigOps.AddBone(skeleton, null, "root", Vector2.Zero, 0f, 0f);
+		var frozen = FrozenRest.Capture(skeleton);
+		root.Length = MathF.Max(1f, length);
+		RestEdits.Turn(frozen, root, MathF.PI / 2);   // pointing up, the parts staying where they are
+		return suggest ? SuggestBones(skeleton, store, root) : 0;
+	}
+
+	// "Bind": each part goes on the bone nearest to most of it (see NearestBone), staying where it
+	// is. Returns how many moved.
+	public static int PartsToNearestBones(Skeleton skeleton, AssetStore store, IEnumerable<Slot> slots)
+	{
+		int moved = 0;
+		foreach (var slot in slots.ToList())
+		{
+			skeleton.SetToSetupPose();
+			skeleton.UpdateWorld();
+			if (NearestBone(skeleton, slot, store) is { } bone && PartOps.MoveToBone(skeleton, slot, bone)) moved++;
+		}
+		return moved;
+	}
+
 	// The drawing a part shows in the rest pose, its pixels, and where they land (image pixels → world)
 	private static (SKBitmap Image, Matrix3x2 ToWorld)? RestShape(Skeleton skeleton, Slot slot, AssetStore store)
 	{

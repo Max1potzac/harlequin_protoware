@@ -33,14 +33,22 @@ public class RiggingTests
 	private static Dictionary<string, (Vector2 At, float Angle)> AllPlaced(Skeleton skeleton) =>
 		skeleton.Slots.ToDictionary(s => s.Name, s => Placed(skeleton, s));
 
-	private static void StayedPut(Skeleton skeleton, Dictionary<string, (Vector2 At, float Angle)> before)
+	// Every part is where it was, within `within` (a pixel's thousandth; after many edits, its hundredth)
+	private static void StayedPut(Skeleton skeleton, Dictionary<string, (Vector2 At, float Angle)> before, float within = 1e-3f)
 	{
 		foreach (var slot in skeleton.Slots)
 		{
 			var (at, angle) = Placed(skeleton, slot);
-			Near(before[slot.Name].At, at);
+			Assert.True(Vector2.Distance(before[slot.Name].At, at) < within,
+				$"{slot.Name} moved from {before[slot.Name].At} to {at}");
 			Assert.Equal(0, MathUtil.ShortestAngle(angle - before[slot.Name].Angle), 3);
 		}
+	}
+
+	private static void Rest(Skeleton skeleton)
+	{
+		skeleton.SetToSetupPose();
+		skeleton.UpdateWorld();
 	}
 
 	// A straight arm along x: the upper arm from (0, 0) to (100, 0), the forearm on its end to
@@ -245,14 +253,11 @@ public class RiggingTests
 		skeleton.UpdateWorld();
 		var before = AllPlaced(skeleton);
 
-		// What "Give it bones ▾ > Bones suggested from its parts" does
-		obj.Kind = ObjectKind.Rigged;
+		// Give it bones ▾ > Bones suggested from its parts
 		var root = skeleton.Roots[0];
-		var frozen = FrozenRest.Capture(skeleton);
-		root.Length = 40;
-		RestEdits.Turn(frozen, root, MathF.PI / 2);
-		int added = PartRigging.SuggestBones(skeleton, store, root);
+		int added = PartRigging.GiveBones(obj, store, 40, suggest: true);
 
+		Assert.Equal(ObjectKind.Rigged, obj.Kind);
 		Assert.Equal(4, added);   // body, head, upper arm, forearm
 		var bones = skeleton.AllBones().ToDictionary(b => b.Name);
 		Assert.Same(root, bones["torso"].Parent);
@@ -263,5 +268,279 @@ public class RiggingTests
 		skeleton.SetToSetupPose();
 		skeleton.UpdateWorld();
 		StayedPut(skeleton, before);
+	}
+
+	// ======================= a whole character, start to finish =======================
+
+	// A round-ended stroke from A to B, R on each side of it (a dot when A = B), in picture pixels
+	private static (Vector2 A, Vector2 B, float R) Stroke(float x0, float y0, float x1, float y1, float r) =>
+		(new Vector2(x0, y0), new Vector2(x1, y1), r);
+
+	private static float ToSegment(Vector2 p, Vector2 a, Vector2 b)
+	{
+		var ab = b - a;
+		float t = ab.LengthSquared() < 1e-6f ? 0f : Math.Clamp(Vector2.Dot(p - a, ab) / ab.LengthSquared(), 0f, 1f);
+		return Vector2.Distance(p, a + ab * t);
+	}
+
+	// A Photoshop layer of one colour, the shape of a stroke
+	private static PsdLayer Layer(string name, SKColor colour, (Vector2 A, Vector2 B, float R) s)
+	{
+		int x0 = (int)MathF.Floor(MathF.Min(s.A.X, s.B.X) - s.R), y0 = (int)MathF.Floor(MathF.Min(s.A.Y, s.B.Y) - s.R);
+		int x1 = (int)MathF.Ceiling(MathF.Max(s.A.X, s.B.X) + s.R), y1 = (int)MathF.Ceiling(MathF.Max(s.A.Y, s.B.Y) + s.R);
+		var bounds = new PixelRect(x0, y0, x1 - x0, y1 - y0);
+		var pixels = new byte[bounds.W * bounds.H * 4];
+		for (int y = 0; y < bounds.H; y++)
+			for (int x = 0; x < bounds.W; x++)
+			{
+				if (ToSegment(new Vector2(x0 + x + 0.5f, y0 + y + 0.5f), s.A, s.B) > s.R) continue;
+				int i = (y * bounds.W + x) * 4;
+				(pixels[i], pixels[i + 1], pixels[i + 2], pixels[i + 3]) = (colour.Red, colour.Green, colour.Blue, (byte)255);
+			}
+		return new PsdLayer { Name = name, Bounds = bounds, Pixels = pixels };
+	}
+
+	// A character standing with its arms held out, on a 400 × 520 picture, in 17 layers the way a
+	// Photoshop file has them: bottom to top, the far arm and leg, the body, the near leg and arm
+	private static readonly (string Name, (Vector2 A, Vector2 B, float R) Shape)[] Character =
+	{
+		("back upper arm", Stroke(232, 148, 286, 212, 12)),
+		("back forearm", Stroke(286, 212, 326, 280, 10)),
+		("back hand", Stroke(332, 292, 332, 292, 14)),
+		("back thigh", Stroke(220, 288, 226, 378, 15)),
+		("back shin", Stroke(226, 378, 229, 458, 12)),
+		("back foot", Stroke(229, 468, 262, 472, 10)),
+		("hips", Stroke(180, 272, 220, 272, 26)),
+		("torso", Stroke(200, 160, 200, 240, 38)),
+		("neck", Stroke(200, 104, 200, 140, 11)),
+		("head", Stroke(200, 64, 200, 64, 44)),
+		("eye", Stroke(216, 56, 216, 56, 6)),
+		("front thigh", Stroke(180, 288, 174, 378, 15)),
+		("front shin", Stroke(174, 378, 171, 458, 12)),
+		("front foot", Stroke(171, 468, 138, 472, 10)),
+		("front upper arm", Stroke(168, 148, 114, 212, 12)),
+		("front forearm", Stroke(114, 212, 74, 280, 10)),
+		("front hand", Stroke(68, 292, 68, 292, 14))
+	};
+
+	// The character brought in from its layers as a drawn object, the way File > Import does it
+	private static (SceneObject Obj, AssetStore Store) DrawnCharacter()
+	{
+		var doc = new PsdDocument { Width = 400, Height = 520, Depth = 8 };
+		for (int k = 0; k < Character.Length; k++)
+			doc.Layers.Add(Layer(Character[k].Name, new SKColor((byte)(40 + k * 12), 140, (byte)(230 - k * 11)), Character[k].Shape));
+		var store = new AssetStore();
+		using var plan = PsdImportPlan.FromDocument(doc, "character");
+		var obj = PsdImporter.IntoScene(new Scene(), store, plan, Vector2.Zero);
+		Assert.Equal(ObjectKind.Drawn, obj.Kind);
+		Rest(obj.Skeleton);
+		return (obj, store);
+	}
+
+	// A picture pixel in the object: the picture's middle is the object's origin, and y points up
+	private static Vector2 O(float x, float y) => new(x - 200, 260 - y);
+
+	// What Ctrl+drag does: a bone under `parent` from one picture pixel to another…
+	private static Bone Draw(Skeleton skeleton, Bone parent, float x0, float y0, float x1, float y1)
+	{
+		Rest(skeleton);
+		var bone = RigOps.AddBoneBetween(skeleton, parent, O(x0, y0), O(x1, y1));
+		Rest(skeleton);
+		return bone;
+	}
+
+	// …or started on the parent's end, so it's glued there
+	private static Bone DrawOn(Skeleton skeleton, Bone parent, float x1, float y1)
+	{
+		Rest(skeleton);
+		var bone = RigOps.AddBoneBetween(skeleton, parent, parent.TipWorld, O(x1, y1));
+		bone.Connected = true;
+		Rest(skeleton);
+		return bone;
+	}
+
+	// Posing `turned` (Animate mode) moves the parts on it and below it, and nothing else
+	private static void TurningMovesWhatsOnIt(Skeleton skeleton, Bone turned, Dictionary<string, (Vector2 At, float Angle)> rest)
+	{
+		Rest(skeleton);
+		turned.Rotation = turned.SetupRotation + 0.5f;
+		skeleton.UpdateWorld();
+		bool anyMoved = false;
+		foreach (var slot in skeleton.Slots)
+		{
+			bool carried = slot.Bone == turned || slot.Bone.IsDescendantOf(turned);
+			float moved = Vector2.Distance(rest[slot.Name].At, Placed(skeleton, slot).At);
+			if (carried) anyMoved |= moved > 1f;
+			else Assert.True(moved < 0.01f, $"{slot.Name} moved {moved} though it isn't on {turned.Name}");
+		}
+		Assert.True(anyMoved, $"nothing on {turned.Name} moved");
+		Rest(skeleton);
+	}
+
+	[Fact]
+	public void A_drawn_character_gets_bones_drawn_by_hand_and_works_as_a_rig()
+	{
+		var (obj, store) = DrawnCharacter();
+		var skeleton = obj.Skeleton;
+		var before = AllPlaced(skeleton);
+
+		// Give it bones ▾ > Just a root bone: it's rigged now, the root pointing up from its origin
+		Assert.Equal(0, PartRigging.GiveBones(obj, store, 40, suggest: false));
+		Assert.Equal(ObjectKind.Rigged, obj.Kind);
+		var root = Assert.Single(skeleton.Roots);
+		Rest(skeleton);
+		Near(new Vector2(0, 40), root.TipWorld);
+		StayedPut(skeleton, before);
+
+		// Ctrl+drag the bones over the picture: up the body to the head, out along the arms, down the legs
+		var torso = Draw(skeleton, root, 200, 272, 200, 140);
+		var neck = DrawOn(skeleton, torso, 200, 104);
+		var head = DrawOn(skeleton, neck, 200, 20);
+		var expected = new Dictionary<string, Bone> { ["torso"] = torso, ["neck"] = neck, ["head"] = head, ["eye"] = head };
+		foreach (var (side, s) in new[] { ("front", -1f), ("back", 1f) })   // the front arm and leg are on the left
+		{
+			var upper = Draw(skeleton, torso, 200 + 32 * s, 148, 200 + 86 * s, 212);
+			var fore = DrawOn(skeleton, upper, 200 + 126 * s, 280);
+			var hand = DrawOn(skeleton, fore, 200 + 138 * s, 304);
+			var thigh = Draw(skeleton, root, 200 + 20 * s, 288, 200 + 26 * s, 378);
+			var shin = DrawOn(skeleton, thigh, 200 + 29 * s, 458);
+			var foot = DrawOn(skeleton, shin, 200 + 62 * s, 472);
+			expected[$"{side} upper arm"] = upper;
+			expected[$"{side} forearm"] = fore;
+			expected[$"{side} hand"] = hand;
+			expected[$"{side} thigh"] = thigh;
+			expected[$"{side} shin"] = shin;
+			expected[$"{side} foot"] = foot;
+		}
+		Assert.Equal(16, skeleton.AllBones().Count());
+		StayedPut(skeleton, before);
+
+		// Bind ▾ > Every part onto its nearest bone
+		Assert.True(PartRigging.PartsToNearestBones(skeleton, store, skeleton.Slots) > 0);
+		Rest(skeleton);
+		StayedPut(skeleton, before);
+		foreach (var (part, bone) in expected)
+			Assert.True(skeleton.FindSlot(part)!.Bone == bone, $"{part} went on {skeleton.FindSlot(part)!.Bone.Name}");
+		Assert.DoesNotContain(skeleton.Slots, slot => slot.Bone == root);
+
+		// The front elbow wasn't quite on the picture's elbow: drag it there
+		var frozen = FrozenRest.Capture(skeleton);
+		RestEdits.MoveJoint(frozen, expected["front forearm"], O(116, 206));
+		Rest(skeleton);
+		Near(O(116, 206), expected["front upper arm"].TipWorld);
+		Near(O(116, 206), expected["front forearm"].World.Translation);
+		Near(O(62, 304), expected["front hand"].TipWorld);
+		StayedPut(skeleton, before, 0.01f);
+
+		// It works as a rig: turning the front upper arm swings the front arm, and nothing else
+		var arm = expected["front upper arm"];
+		Assert.Equal(new[] { "front forearm", "front hand", "front upper arm" },
+			skeleton.Slots.Where(slot => slot.Bone == arm || slot.Bone.IsDescendantOf(arm)).Select(slot => slot.Name).OrderBy(name => name));
+		TurningMovesWhatsOnIt(skeleton, arm, before);
+		TurningMovesWhatsOnIt(skeleton, torso, before);
+	}
+
+	[Fact]
+	public void A_drawn_character_given_suggested_bones_can_be_fixed_by_hand()
+	{
+		var (obj, store) = DrawnCharacter();
+		var skeleton = obj.Skeleton;
+		var before = AllPlaced(skeleton);
+
+		// Give it bones ▾ > Bones suggested from its parts
+		Assert.Equal(16, PartRigging.GiveBones(obj, store, 40, suggest: true));   // all but the eye, which rides on the head
+		Rest(skeleton);
+		StayedPut(skeleton, before, 0.01f);
+		var root = Assert.Single(skeleton.Roots);
+		var bones = skeleton.AllBones().ToDictionary(b => b.Name);
+		Assert.Same(root, bones["torso"].Parent);   // the middle of the figure
+		Assert.Same(bones["torso"], bones["hips"].Parent);
+		Assert.Same(bones["neck"], bones["head"].Parent);
+		Assert.Same(bones["front upper arm"], bones["front forearm"].Parent);
+		Assert.Same(bones["front forearm"], bones["front hand"].Parent);
+		Assert.Same(bones["back thigh"], bones["back shin"].Parent);
+		Assert.Same(bones["back shin"], bones["back foot"].Parent);
+		Assert.Same(bones["head"], skeleton.FindSlot("eye")!.Bone);
+		foreach (var slot in skeleton.Slots.Where(slot => slot.Name != "eye"))
+			Assert.Same(bones[slot.Name], slot.Bone);   // each part on its own bone
+
+		FixUpByHand(skeleton, store, before);
+	}
+
+	// Your own files: put Photoshop files in Animator.Tests/PrivateFiles (git leaves them out) and
+	// run the tests. Each comes in as a drawn object, gets suggested bones and is fixed up by hand,
+	// every part staying where it was. (Nothing there: nothing to check.)
+	[Fact]
+	public void Photoshop_files_of_your_own_can_be_given_bones_and_fixed_by_hand()
+	{
+		string folder = Path.Combine(AppContext.BaseDirectory, "PrivateFiles");
+		if (!Directory.Exists(folder)) return;
+		foreach (string path in Directory.GetFiles(folder).Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) ||
+																	   f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase)))
+		{
+			var store = new AssetStore();
+			using var plan = PsdImportPlan.FromDocument(PsdReader.Read(path), Path.GetFileNameWithoutExtension(path));
+			var obj = PsdImporter.IntoScene(new Scene(), store, plan, Vector2.Zero);
+			var skeleton = obj.Skeleton;
+			Rest(skeleton);
+			var before = AllPlaced(skeleton);
+
+			Assert.True(PartRigging.GiveBones(obj, store, 40, suggest: true) > 0, $"{Path.GetFileName(path)}: no bones suggested");
+			Rest(skeleton);
+			StayedPut(skeleton, before, 0.01f);
+			FixUpByHand(skeleton, store, before);
+		}
+	}
+
+	// Fixing up a rig by hand, each step checked against where every part was (`before`): every
+	// joint dragged (one on its parent's end takes the end along), every bone turned and stretched,
+	// a bone dragged onto another in the list, one deleted keeping what's on it, then every part
+	// onto its nearest bone. After all that, posing a bone moves what's on it, and nothing else.
+	private static void FixUpByHand(Skeleton skeleton, AssetStore store, Dictionary<string, (Vector2 At, float Angle)> before)
+	{
+		var root = Assert.Single(skeleton.Roots);
+		var bones = skeleton.AllBones().Where(b => b.Parent != null).ToList();
+		Assert.NotEmpty(bones);
+
+		foreach (var bone in bones)
+		{
+			var frozen = FrozenRest.Capture(skeleton);
+			RestEdits.MoveJoint(frozen, bone, frozen.HeadOf(bone) + new Vector2(3, -2));
+			RestEdits.MoveJoint(frozen, bone, frozen.HeadOf(bone) + new Vector2(6, -4));   // the next mouse move
+			RestEdits.Turn(FrozenRest.Capture(skeleton), bone, bone.SetupRotation + 0.05f);
+			RestEdits.Stretch(FrozenRest.Capture(skeleton), bone, bone.Length * 1.1f);
+		}
+		Rest(skeleton);
+		StayedPut(skeleton, before, 0.01f);
+
+		// Dragged onto the root in the list (with "parts stay put", it lets go of its parent's end first)
+		if (bones.LastOrDefault(b => b.Parent != root) is { } moving)
+		{
+			RigOps.SetConnected(moving, false);
+			Assert.True(RigOps.Reparent(skeleton, moving, root));
+			Rest(skeleton);
+			StayedPut(skeleton, before, 0.01f);
+		}
+
+		// Delete ▾ > keep what's on it: its parts and bones go to its parent
+		if (skeleton.AllBones().FirstOrDefault(b => b.Parent != null && b.Children.Count > 0 && skeleton.Slots.Any(slot => slot.Bone == b))
+			is { Parent: { } parent } doomed)
+		{
+			var itsParts = skeleton.Slots.Where(slot => slot.Bone == doomed).ToList();
+			Assert.True(RigOps.DissolveBone(skeleton, new List<Animation>(), doomed));
+			Rest(skeleton);
+			StayedPut(skeleton, before, 0.01f);
+			Assert.All(itsParts, slot => Assert.Same(parent, slot.Bone));
+		}
+
+		// Bind ▾ > Every part onto its nearest bone
+		PartRigging.PartsToNearestBones(skeleton, store, skeleton.Slots);
+		Rest(skeleton);
+		StayedPut(skeleton, before, 0.01f);
+		if (skeleton.AllBones().Any(b => b.Parent != null))
+			Assert.DoesNotContain(skeleton.Slots, slot => slot.Bone == root);
+
+		var carrying = skeleton.AllBones().FirstOrDefault(b => b.Parent != null && skeleton.Slots.Any(slot => slot.Bone == b && Vector2.Distance(Placed(skeleton, slot).At, b.World.Translation) > 4f));
+		if (carrying != null) TurningMovesWhatsOnIt(skeleton, carrying, before);
 	}
 }

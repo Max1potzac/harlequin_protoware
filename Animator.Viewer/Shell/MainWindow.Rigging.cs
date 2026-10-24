@@ -1,4 +1,3 @@
-using System.Numerics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -40,23 +39,19 @@ public partial class MainWindow
 		menu.IsOpen = true;
 	}
 
-	// The drawn object becomes a rigged one. Its hidden bone becomes a root bone you can see, at the
-	// object's origin, pointing up; with `suggest`, bones from its parts' shapes hang from it, each
-	// part on its own. Every part stays exactly where it is.
+	// The drawn object becomes a rigged one (see PartRigging.GiveBones): every part stays exactly
+	// where it is
 	private void GiveBones(bool suggest)
 	{
 		if (_active is not { Kind: ObjectKind.Drawn } obj) return;
 		ClosePaintEditor();
+		_skeleton.SetToSetupPose();
+		_skeleton.UpdateWorld();
+		float height = _renderer.ImageBounds(_skeleton) is { } box ? box.Height : 200f;
 		int suggested = 0;
 		bool done = EditStructureAndScene(() =>
 		{
-			obj.Kind = ObjectKind.Rigged;
-			var root = _skeleton.Roots.FirstOrDefault() ?? RigOps.AddBone(_skeleton, null, "root", Vector2.Zero, 0f, 0f);
-			var frozen = FrozenRest.Capture(_skeleton);
-			float height = _renderer.ImageBounds(_skeleton) is { } box ? box.Height : 200f;
-			root.Length = Math.Clamp(height * 0.12f, 30f, 200f);
-			RestEdits.Turn(frozen, root, MathF.PI / 2);   // pointing up, the parts staying where they are
-			if (suggest) suggested = PartRigging.SuggestBones(_skeleton, _assets, root);
+			suggested = PartRigging.GiveBones(obj, _assets, Math.Clamp(height * 0.12f, 30f, 200f), suggest);
 			return suggest ? $"Give {obj.Name} suggested bones" : $"Give {obj.Name} a root bone";
 		});
 		if (!done) return;
@@ -106,16 +101,19 @@ public partial class MainWindow
 	{
 		_state.EditStructure(() =>
 		{
-			int moved = 0;
-			foreach (var slot in slots)
-			{
-				_skeleton.SetToSetupPose();
-				_skeleton.UpdateWorld();
-				if (PartRigging.NearestBone(_skeleton, slot, _assets) is { } bone && PartOps.MoveToBone(_skeleton, slot, bone)) moved++;
-			}
+			int moved = PartRigging.PartsToNearestBones(_skeleton, _assets, slots);
 			ShowRigHint(moved > 0 ? $"{moved} part(s) moved onto other bones." : "Every part already was on its nearest bone.");
 			return moved > 0 ? $"Put {what} on the nearest bones" : null;
 		});
+	}
+
+	// Hangs a bone from another (null = a root bone). With "parts stay put", one on its parent's end
+	// lets go first, so it and what's on it stay where they are; otherwise it moves onto the new
+	// parent's end. (Inside EditStructure: if it can't, the snapshot puts the joint back.)
+	private bool HangBone(Bone bone, Bone? parent)
+	{
+		if (_tool.KeepPartsInPlace && parent != bone.Parent) RigOps.SetConnected(bone, false);
+		return RigOps.Reparent(_skeleton, bone, parent);
 	}
 
 	// ======================= dragging in the list =======================
@@ -164,7 +162,7 @@ public partial class MainWindow
 		else if (dragged is Bone bone)
 		{
 			_state.EditStructure(() =>
-				RigOps.Reparent(_skeleton, bone, target) ? $"Hang {bone.Name} from {target.Name}" : null);
+				HangBone(bone, target) ? $"Hang {bone.Name} from {target.Name}" : null);
 			_state.Selected = bone;
 			_state.SelectedSlot = null;
 		}
