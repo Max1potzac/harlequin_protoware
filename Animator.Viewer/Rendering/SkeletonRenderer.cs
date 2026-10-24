@@ -294,8 +294,9 @@ public class SkeletonRenderer
 		canvas.Restore();
 	}
 
-	// The world-space box around every visible part (null = nothing to draw)
-	public SKRect? ImageBounds(Skeleton skeleton)
+	// The world-space box around every visible part (null = nothing to draw). The margin leaves
+	// room for smoothing at the edges (exports use none: they round out to whole pixels).
+	public SKRect? ImageBounds(Skeleton skeleton, float margin = 2)
 	{
 		float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
 		foreach (var slot in skeleton.Slots)
@@ -315,7 +316,7 @@ public class SkeletonRenderer
 		}
 		if (minX > maxX) return null;
 		var rect = new SKRect(minX, minY, maxX, maxY);
-		rect.Inflate(2, 2);   // room for smoothing at the edges
+		rect.Inflate(margin, margin);
 		return rect;
 	}
 

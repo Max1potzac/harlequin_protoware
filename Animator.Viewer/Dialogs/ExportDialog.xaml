@@ -1,0 +1,118 @@
+<Window x:Class="Animator.Viewer.Dialogs.ExportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="14" Width="440">
+
+        <!-- What -->
+        <TextBlock Text="What" FontWeight="Bold" Margin="0,0,0,4" />
+        <RadioButton x:Name="SceneChoice" GroupName="What" Content="The scene, over its timeline (a video, a GIF, pictures)"
+                     Checked="Choice_Changed" />
+        <RadioButton x:Name="ObjectChoice" GroupName="What" Content="One object's animations (for a game)" Margin="0,4,0,0"
+                     Checked="Choice_Changed" />
+        <Grid x:Name="ObjectFields" Margin="20,6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="Object" VerticalAlignment="Center" Margin="0,0,8,4" />
+            <ComboBox x:Name="ObjectBox" Grid.Column="1" Margin="0,0,0,4" DisplayMemberPath="Name"
+                      SelectionChanged="ObjectBox_Changed" />
+            <TextBlock Grid.Row="1" Text="Animations" Margin="0,2,8,0" />
+            <ListBox x:Name="AnimationList" Grid.Row="1" Grid.Column="1" Height="92"
+                     ToolTip="Each ticked animation is exported: its own files, or its own row on a sprite sheet" />
+        </Grid>
+
+        <!-- Format -->
+        <TextBlock Text="Format" FontWeight="Bold" Margin="0,14,0,4" />
+        <ComboBox x:Name="FormatBox" SelectionChanged="Format_Changed" />
+        <TextBlock x:Name="FormatHint" Foreground="Gray" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+        <!-- Options (only the ones the format uses show) -->
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="80" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock x:Name="AreaLabel" Text="Area" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <ComboBox x:Name="AreaBox" Grid.Column="1" Margin="0,0,0,6"
+                      ToolTip="The stage: exactly the scene's frame. Everything: just big enough for what shows in these frames." />
+
+            <TextBlock Grid.Row="1" Text="Frames" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <StackPanel x:Name="RangeFields" Orientation="Horizontal">
+                    <TextBlock Text="from" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <TextBox x:Name="FromBox" Width="50" />
+                    <TextBlock Text="to" VerticalAlignment="Center" Margin="6,0,4,0" />
+                    <TextBox x:Name="ToBox" Width="50" />
+                </StackPanel>
+                <TextBlock Text="every" VerticalAlignment="Center" Margin="10,0,4,0" />
+                <TextBox x:Name="StepBox" Width="36"
+                         ToolTip="1 = every frame. 2 = every second frame (half the frame rate, half the files)" />
+                <TextBlock Text="frame(s)" VerticalAlignment="Center" Margin="4,0,0,0" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="2" Text="Scale" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBox x:Name="ScaleBox" Width="50"
+                         ToolTip="1 = one pixel per unit, as in the editor. 2 = twice as big, 0.5 = half" />
+                <CheckBox x:Name="PixelBox" Content="Pixel art (crisp, no smoothing)" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </StackPanel>
+
+            <TextBlock Grid.Row="3" Text="Background" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <CheckBox x:Name="TransparentBox" Content="See-through" VerticalAlignment="Center" Click="Transparent_Click"
+                          ToolTip="No background. (GIFs: pixels less than half see-through become fully see-through.)" />
+                <Border x:Name="BackgroundSwatchBorder" Width="40" Height="20" Margin="12,0,0,0" BorderBrush="Gray" BorderThickness="1"
+                        Cursor="Hand" MouseLeftButtonUp="BackgroundSwatch_Click" ToolTip="Click to pick the background colour">
+                    <Rectangle x:Name="BackgroundSwatch" />
+                </Border>
+            </StackPanel>
+
+            <TextBlock x:Name="SheetLabel" Grid.Row="4" Text="Sheet" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <StackPanel x:Name="SheetFields" Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <CheckBox x:Name="RowBox" Content="A row per animation" VerticalAlignment="Center" />
+                <TextBlock Text="columns" VerticalAlignment="Center" Margin="12,0,4,0" />
+                <TextBox x:Name="ColumnsBox" Width="36" ToolTip="0 = automatic" />
+                <TextBlock Text="gap" VerticalAlignment="Center" Margin="12,0,4,0" />
+                <TextBox x:Name="PaddingBox" Width="36" ToolTip="Empty pixels between the frames (and around the sheet)" />
+            </StackPanel>
+
+            <TextBlock x:Name="GifLabel" Grid.Row="5" Text="GIF" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <StackPanel x:Name="GifFields" Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <CheckBox x:Name="LoopBox" Content="Loop" VerticalAlignment="Center" />
+                <CheckBox x:Name="DitherBox" Content="Dither" VerticalAlignment="Center" Margin="12,0,0,0"
+                          ToolTip="Smoother gradients with GIF's 256 colours, but grainier. Leave it off for pixel art and flat colours." />
+            </StackPanel>
+
+            <TextBlock x:Name="VideoLabel" Grid.Row="6" Text="FFmpeg" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <DockPanel x:Name="VideoFields" Grid.Row="6" Grid.Column="1" Margin="0,0,0,6">
+                <Button DockPanel.Dock="Right" Content="Browse…" Padding="8,1" Margin="6,0,0,0" Click="FfmpegBrowse_Click" />
+                <TextBox x:Name="FfmpegBox" IsReadOnly="True"
+                         ToolTip="Videos are made with FFmpeg, a free program (ffmpeg.org). Point to its ffmpeg.exe, or leave it empty if it's installed for the whole system." />
+            </DockPanel>
+        </Grid>
+
+        <TextBlock x:Name="ErrorText" Foreground="#C03030" TextWrapping="Wrap" Margin="0,6,0,0" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Export…" IsDefault="True" Width="90" Margin="0,0,6,0" Click="Export_Click" />
+            <Button Content="Cancel" IsCancel="True" Width="75" />
+        </StackPanel>
+    </StackPanel>
+</Window>

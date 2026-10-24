@@ -63,6 +63,7 @@ public partial class MainWindow : Window
 		double now = _clock.Elapsed.TotalSeconds;
 		float dt = (float)(now - _last);
 		_last = now;
+		if (_exporting) return;   // the export poses the scene itself, frame by frame
 		if (_state.Playing && _sceneLevel)
 		{
 			AdvanceScene(dt);
@@ -245,6 +246,7 @@ public partial class MainWindow : Window
 		if (ctrl && e.Key == Key.S) { if (shift) SaveProjectAs(); else SaveProject(); e.Handled = true; return; }
 		if (ctrl && e.Key == Key.O) { OpenProject(); e.Handled = true; return; }
 		if (ctrl && e.Key == Key.N) { NewProject(); e.Handled = true; return; }
+		if (ctrl && e.Key == Key.E) { ExportProject(); e.Handled = true; return; }
 		// Not in the middle of a drag: the drag's undo step would come out wrong
 		if ((Viewport.IsMouseCaptured || TimelineView.IsMouseCaptured) && (ctrl || e.Key is Key.Escape or Key.Delete or Key.Enter))
 		{
@@ -410,7 +412,7 @@ public partial class MainWindow : Window
 				"Objects without clips loop their preview animation.   Wheel / Shift+wheel / Ctrl+wheel = scroll / scroll in time / zoom\n" +
 				"Space: play/pause   R: restart   ←/→: step   Del: delete clip (or object)   Ctrl+Z / Ctrl+Y: undo/redo   G: images   O: onion skin   " +
 				$"P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
-				"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as";
+				"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as   Ctrl+E export";
 			UpdateTitle();
 			return;
 		}
@@ -428,7 +430,7 @@ public partial class MainWindow : Window
 			"Paint: double-click a part (on another object: edit that object). Over the canvas: M select, W wand, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick, Ctrl+D deselect, Ctrl+Shift+I invert\n" +
 			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   Esc: back to the scene   " +
 			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
-			"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as";
+			"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as   Ctrl+E export";
 
 		UpdateTitle();
 	}
