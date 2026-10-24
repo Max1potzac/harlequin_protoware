@@ -100,7 +100,7 @@ public partial class MainWindow
 			return $"{(split ? "Split" : "Copy")} frames {range.First}–{range.Last} of {source.Name} into {name}";
 		});
 		_timeline.ClearRange();
-		if (split) _state.SetFrame(Math.Min(range.First, _state.FrameCount));   // where they were
+		if (split) _state.SetFrame(Math.Min(range.First, _state.FrameCount - 1));   // where they were (or the last frame left)
 		AnimHint.Text = $"\"{name}\" is in the animation list ({range.Last - range.First + 1} frames).";
 		TimelineView.InvalidateVisual();
 	}
