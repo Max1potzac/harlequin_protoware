@@ -13,6 +13,9 @@ public sealed class XflPart
 	public string Where { get; init; } = "";           // its layers, for showing ("legs / thigh")
 	public bool Include { get; set; } = true;          // brought in at all
 	public bool InRig { get; set; } = true;            // used to work out the rig (skins, extras: leave out)
+	// An effect (VFX): crumbs, splashes, sparks. Left out of the rig, it moves on its own (on the
+	// object's own bone) and is hidden at rest, showing where the animations show it.
+	public bool Effect { get; set; }
 	public RigRole Role { get; set; } = RigRole.Bone;  // in a suggested rig
 	public int Target { get; set; } = -1;              // the part it hangs from / rides on (-1 = worked out)
 }
@@ -76,6 +79,10 @@ public sealed class XflImportPlan : IDisposable
 		get
 		{
 			var notes = Document.Notes.Concat(Data.Notes).Concat(Painter.Notes).ToList();
+			if (Data.FollowsDrawings)
+				notes.Add("Parts move from layer to layer in this project (the way converters write PvZ2 animations): each part follows its drawings across them.");
+			if (Data.Tracks.Any(t => t.ShortLived))
+				notes.Add("Parts that only show for a moment (crumbs, splashes, sparks…) start as effects: left out of the rig, moving on their own, hidden at rest.");
 			if (WorstSkew > 1f)
 				notes.Add($"Some parts are skewed (up to {WorstSkew:0}°): skew isn't supported yet, so they'll be turned and scaled the nearest way instead.");
 			return notes.Distinct().ToList();
@@ -107,6 +114,26 @@ public sealed class XflImportPlan : IDisposable
 		Data = XflAnimationData.Evaluate(Document, timeline, choice.Key);
 		Painter?.Dispose();
 		Painter = new XflPainter(Document, Data.Evaluator);
+		NotForRig.Clear();
+		MakeParts();
+	}
+
+	// Parts follow their drawings from layer to layer (for projects whose layers don't keep to one
+	// thing: the way converters write PvZ2 animations), or there's one part per layer. It starts as
+	// the project looks.
+	public bool FollowDrawings
+	{
+		get => Data.FollowsDrawings;
+		set
+		{
+			if (value == Data.FollowsDrawings) return;
+			Data.Follow(value);
+			MakeParts();
+		}
+	}
+
+	private void MakeParts()
+	{
 		Parts.Clear();
 		var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		for (int t = 0; t < Data.Tracks.Count; t++)
@@ -118,12 +145,11 @@ public sealed class XflImportPlan : IDisposable
 			string unique = name;
 			for (int i = 2; !used.Add(unique); i++) unique = $"{name} {i}";
 			track.Name = unique;
-			Parts.Add(new XflPart { Track = t, Name = unique, Where = track.Id, Include = !track.Hidden });
+			Parts.Add(new XflPart { Track = t, Name = unique, Where = track.Id, Include = !track.Hidden, Effect = track.ShortLived });
 		}
 		SetupFrame = BusiestFrame();
 		Root = -1;
 		Origin = FindOrigin();
-		NotForRig.Clear();
 		Forget();
 	}
 
@@ -150,18 +176,24 @@ public sealed class XflImportPlan : IDisposable
 		return w * h >= 0.5f * content.Width * content.Height ? middle : Vector2.Zero;
 	}
 
-	// The frame showing the most parts (the earliest of those): a good rest pose
+	// The earliest frame showing the most parts: a good rest pose. Effects don't count, nor (where
+	// parts show in several animations) ones only one animation shows: a helper like PvZ2's ground
+	// swatch, a prop for one move.
 	private int BusiestFrame()
 	{
+		var starts = Data.Labels.Select(l => l.Frame).Append(0).Where(f => f < Data.FrameCount).Distinct().OrderBy(f => f).ToList();
+		var spans = starts.Select((s, i) => (Start: s, End: i + 1 < starts.Count ? starts[i + 1] : Data.FrameCount)).ToList();
+		var counted = Parts.Where(p => p.Include && !p.Effect)
+			.Select(p => (Track: Data.Tracks[p.Track], In: spans.Count(span => Enumerable.Range(span.Start, span.End - span.Start).Any(f => Data.Tracks[p.Track].Frames[f] != null))))
+			.ToList();
+		if (counted.Any(c => c.In > 1)) counted = counted.Where(c => c.In > 1).ToList();
 		int best = 0, most = -1;
 		for (int f = 0; f < Data.FrameCount; f++)
 		{
-			int shown = Parts.Count(p => p.Include && Data.Tracks[p.Track].Frames[f] != null);
-			if (shown > most)
-			{
-				most = shown;
-				best = f;
-			}
+			int shown = counted.Count(c => c.Track.Frames[f] != null);
+			if (shown <= most) continue;
+			most = shown;
+			best = f;
 		}
 		return best;
 	}
@@ -208,7 +240,8 @@ public sealed class XflImportPlan : IDisposable
 
 	// ======================= the rig =======================
 
-	private bool UsedForRig(int part) => Parts[part].Include && Parts[part].InRig && Placement(part, SetupFrame) != null;
+	private bool UsedForRig(int part) =>
+		Parts[part].Include && Parts[part].InRig && !Parts[part].Effect && Placement(part, SetupFrame) != null;
 
 	// The parts' shapes at the rest pose, on a canvas (y down, at most 2048 pixels across)
 	public RigMasks Masks
@@ -441,8 +474,8 @@ public static class XflImporter
 		var bonesOf = new Dictionary<int, Bone>();
 		foreach (int part in parts)
 		{
-			Bone? bone = null;
-			if (rig != null && rig.BoneOf[part] >= 0) bone = bones[rig.BoneOf[part]].Bone;
+			Bone? bone = plan.Parts[part].Effect ? handle : null;   // an effect moves on its own
+			if (bone == null && rig != null && rig.BoneOf[part] >= 0) bone = bones[rig.BoneOf[part]].Bone;
 			bone ??= MovesWith(plan, part, bones.Select(b => b.Bone).ToList(), world, frames) ?? handle;
 			bonesOf[part] = bone;
 		}
@@ -475,7 +508,7 @@ public static class XflImporter
 					if (pictures != null) pictures[drawing] = (key, picture.PixelToLocal);
 				}
 				if (slot == null) continue;
-				var setup = track.Frames[plan.SetupFrame];
+				var setup = plan.Parts[part].Effect ? null : track.Frames[plan.SetupFrame];   // an effect is hidden at rest
 				slot.SetupAttachment = setup is { } s && drawings.TryGetValue(s.Drawing, out var shown) ? shown.Item1.Name : null;
 				var atRest = (track.Frames[plan.SetupFrame] ?? track.Frames[rest])!.Value;
 				var color = atRest.Color;

@@ -26,7 +26,7 @@ public partial class XflImportDialog : Window
 	private readonly Dictionary<int, Matrix3x2[]> _rigMotion = new();   // its bones over the timeline, as they're worked out
 	private bool _rolesSuggested;
 	private int _picked = -1;                    // the picked part (index in the plan's parts)
-	private readonly Dictionary<int, (CheckBox Include, CheckBox InRig, TextBlock Text)> _rows = new();
+	private readonly Dictionary<int, (CheckBox Include, CheckBox InRig, CheckBox Effect, TextBlock Text)> _rows = new();
 	private bool _syncing;
 	private int _frame;
 	private readonly DispatcherTimer _player = new();
@@ -65,6 +65,7 @@ public partial class XflImportDialog : Window
 		TimelineText.Text = $"{_plan.Data.FrameCount} frame(s)" +
 			(labels.Count > 0 ? $", labels: {string.Join(", ", labels.Select(l => l.Name))}" : ", no frame labels");
 		SplitBox.IsEnabled = labels.Count > 0;
+		FollowBox.IsChecked = _plan.FollowDrawings;
 
 		_rows.Clear();
 		PartList.Items.Clear();
@@ -74,19 +75,27 @@ public partial class XflImportDialog : Window
 			include.Click += Include_Click;
 			var inRig = new CheckBox
 			{
-				Tag = i, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0),
+				Tag = i, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 4, 0),
 				ToolTip = "Use it to work out the rig (untick skins and extras: they ride on the bone they move with)"
 			};
 			inRig.Click += InRig_Click;
+			var effect = new CheckBox
+			{
+				Tag = i, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0),
+				ToolTip = "An effect (VFX): left out of the rig, it moves on its own and is hidden at rest"
+			};
+			effect.Click += Effect_Click;
 			var text = new TextBlock { TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
 			var row = new DockPanel();
 			DockPanel.SetDock(include, Dock.Left);
 			DockPanel.SetDock(inRig, Dock.Left);
+			DockPanel.SetDock(effect, Dock.Left);
 			row.Children.Add(include);
 			row.Children.Add(inRig);
+			row.Children.Add(effect);
 			row.Children.Add(text);
-			PartList.Items.Add(new ListBoxItem { Content = row, Tag = i });
-			_rows[i] = (include, inRig, text);
+			PartList.Items.Add(new ListBoxItem { Content = row, Tag = i, ToolTip = LayersOf(i) });
+			_rows[i] = (include, inRig, effect, text);
 		}
 		_picked = -1;
 		_rolesSuggested = false;
@@ -208,6 +217,39 @@ public partial class XflImportDialog : Window
 		Refresh();
 	}
 
+	private void Effect_Click(object sender, RoutedEventArgs e)
+	{
+		if (sender is not CheckBox { Tag: int i } tick) return;
+		_plan.Parts[i].Effect = tick.IsChecked == true;
+		Refresh();
+	}
+
+	// Parts following their drawings from layer to layer, or one per layer: new parts
+	private void Follow_Click(object sender, RoutedEventArgs e)
+	{
+		bool follow = FollowBox.IsChecked == true;
+		if (follow == _plan.FollowDrawings) return;
+		Busy(() => _plan.FollowDrawings = follow);
+		Rebuild();
+	}
+
+	// Where a part's frames come from, for its tooltip: each layer it's on, with its frames
+	// (counted from 1, as Animate counts them)
+	private string? LayersOf(int part)
+	{
+		var pieces = _plan.Data.Tracks[_plan.Parts[part].Track].Pieces;
+		if (pieces.Count == 0) return null;
+		static string Span(XflTrackPiece p) => p.Start == p.End ? $"{p.Start + 1}" : $"{p.Start + 1}–{p.End + 1}";
+		var lines = pieces.GroupBy(p => p.Layer).Select(g =>
+		{
+			var spans = g.Select(Span).ToList();
+			string frames = spans.Count > 8 ? string.Join(", ", spans.Take(8)) + $" and {spans.Count - 8} more" : string.Join(", ", spans);
+			return $"{(g.Key.Trim().Length > 0 ? g.Key.Trim() : "(a layer with no name)")}: frames {frames}";
+		}).ToList();
+		if (lines.Count > 12) lines = lines.Take(12).Append($"… and {lines.Count - 12} more layers").ToList();
+		return string.Join("\n", lines);
+	}
+
 	private void TickAll_Click(object sender, RoutedEventArgs e)
 	{
 		foreach (var part in _plan.Parts) part.Include = true;
@@ -257,6 +299,7 @@ public partial class XflImportDialog : Window
 
 	private void SuggestRoles_Click(object sender, RoutedEventArgs e)
 	{
+		foreach (var part in _plan.Parts) part.Effect = _plan.Data.Tracks[part.Track].ShortLived;
 		_rolesSuggested = false;
 		Refresh();
 	}
@@ -268,14 +311,25 @@ public partial class XflImportDialog : Window
 		Refresh();
 	}
 
+	// An effect, or a role in the rig (which puts it in the rig)
 	private void Role_Changed(object sender, RoutedEventArgs e)
 	{
 		if (_syncing || _picked < 0) return;
 		var part = _plan.Parts[_picked];
-		var role = OnBoneChoice.IsChecked == true ? RigRole.OnBone : RigRole.Bone;
-		if (part.Role == role) return;
-		part.Role = role;
-		part.Target = -1;
+		if (EffectChoice.IsChecked == true)
+		{
+			if (part.Effect) return;
+			part.Effect = true;
+		}
+		else
+		{
+			var role = OnBoneChoice.IsChecked == true ? RigRole.OnBone : RigRole.Bone;
+			if (!part.Effect && part.InRig && part.Role == role) return;
+			part.Effect = false;
+			part.InRig = true;
+			part.Role = role;
+			part.Target = -1;
+		}
 		Refresh();
 	}
 
@@ -361,12 +415,14 @@ public partial class XflImportDialog : Window
 		SetupText.Text = $"frame {_plan.SetupFrame + 1}";
 
 		_syncing = true;
-		foreach (var (i, (include, inRig, text)) in _rows)
+		foreach (var (i, (include, inRig, effect, text)) in _rows)
 		{
 			var part = _plan.Parts[i];
 			include.IsChecked = part.Include;
-			inRig.IsChecked = part.InRig;
-			inRig.IsEnabled = part.Include && _plan.SuggestRig;
+			inRig.IsChecked = part.InRig && !part.Effect;
+			inRig.IsEnabled = part.Include && _plan.SuggestRig && !part.Effect;
+			effect.IsChecked = part.Effect;
+			effect.IsEnabled = part.Include;
 			text.Inlines.Clear();
 			text.Inlines.Add(new Run(part.Name) { FontWeight = part.Include ? FontWeights.SemiBold : FontWeights.Normal });
 			string details = string.Join(" · ", Details(i));
@@ -378,7 +434,7 @@ public partial class XflImportDialog : Window
 			new(-1, _rig != null && _rig.RootLayer >= 0 ? $"Worked out ({_plan.Parts[_rig.RootLayer].Name})" : "Worked out")
 		};
 		for (int i = _plan.Parts.Count - 1; i >= 0; i--)
-			if (_plan.Parts[i].Include && _plan.Parts[i].InRig && _plan.Parts[i].Role == RigRole.Bone)
+			if (_plan.Parts[i].Include && _plan.Parts[i].InRig && !_plan.Parts[i].Effect && _plan.Parts[i].Role == RigRole.Bone)
 				roots.Add(new Choice(i, _plan.Parts[i].Name));
 		RootBox.ItemsSource = roots;
 		RootBox.SelectedItem = roots.FirstOrDefault(c => c.Part == _plan.Root) ?? roots[0];
@@ -396,6 +452,11 @@ public partial class XflImportDialog : Window
 		int drawings = track.Frames.Where(f => f != null).Select(f => f!.Value.Drawing).Distinct().Count();
 		if (drawings > 1) yield return $"{drawings} drawings";
 		if (track.Hidden) yield return "on a hidden layer";
+		if (part.Effect)
+		{
+			yield return $"effect, shown on {track.Shown.Count()} of {_plan.Data.FrameCount} frames";
+			yield break;
+		}
 		if (track.Frames[_plan.SetupFrame] == null) yield return "not shown at the rest pose";
 		if (_rig == null || !part.Include) yield break;
 		if (!part.InRig || _rig.BoneOf[i] < 0) yield return "rides on the bone it moves with";
@@ -408,20 +469,24 @@ public partial class XflImportDialog : Window
 	{
 		_syncing = true;
 		var part = _picked >= 0 ? _plan.Parts[_picked] : null;
-		PartFields.IsEnabled = part != null && part.Include && part.InRig && _rig != null;
+		PartFields.IsEnabled = part != null && part.Include && _rig != null;
 		if (part == null)
 		{
 			PartTitle.Text = "Pick a part to change what it gets";
-			OwnBoneChoice.IsChecked = OnBoneChoice.IsChecked = false;
+			OwnBoneChoice.IsChecked = OnBoneChoice.IsChecked = EffectChoice.IsChecked = false;
 			TargetBox.ItemsSource = null;
 			TargetLabel.Text = "Hangs from";
 			_syncing = false;
 			return;
 		}
 
-		PartTitle.Text = !part.Include ? $"{part.Name} (not brought in)" : !part.InRig ? $"{part.Name} (left out of the rig)" : part.Name;
-		OwnBoneChoice.IsChecked = part.Role == RigRole.Bone;
-		OnBoneChoice.IsChecked = part.Role == RigRole.OnBone;
+		PartTitle.Text = !part.Include ? $"{part.Name} (not brought in)"
+			: part.Effect ? $"{part.Name} (an effect)"
+			: !part.InRig ? $"{part.Name} (left out of the rig)" : part.Name;
+		bool inRig = part.InRig && !part.Effect;
+		OwnBoneChoice.IsChecked = inRig && part.Role == RigRole.Bone;
+		OnBoneChoice.IsChecked = inRig && part.Role == RigRole.OnBone;
+		EffectChoice.IsChecked = part.Effect;
 		TargetLabel.Text = part.Role == RigRole.Bone ? "Hangs from" : "Rides on";
 
 		bool isRoot = _rig != null && _rig.RootLayer == _picked;
@@ -430,11 +495,11 @@ public partial class XflImportDialog : Window
 			: "Worked out from the overlaps and the motion";
 		var choices = new List<Choice> { new(-1, worked) };
 		for (int i = _plan.Parts.Count - 1; i >= 0; i--)
-			if (i != _picked && _plan.Parts[i].Include && _plan.Parts[i].InRig && (part.Role == RigRole.OnBone || _plan.Parts[i].Role == RigRole.Bone))
+			if (i != _picked && _plan.Parts[i].Include && _plan.Parts[i].InRig && !_plan.Parts[i].Effect && (part.Role == RigRole.OnBone || _plan.Parts[i].Role == RigRole.Bone))
 				choices.Add(new Choice(i, _plan.Parts[i].Name));
 		TargetBox.ItemsSource = choices;
 		TargetBox.SelectedItem = choices.FirstOrDefault(c => c.Part == part.Target) ?? choices[0];
-		TargetBox.IsEnabled = !isRoot;
+		TargetBox.IsEnabled = !isRoot && inRig;
 		_syncing = false;
 	}
 
