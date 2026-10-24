@@ -38,7 +38,8 @@ public partial class MainWindow
 
 	private void RigView_Changed(object sender, RoutedEventArgs e)
 	{
-		if (_syncingRig) return;
+		// (not while the window is still being built: the switch is set once the panel fills in)
+		if (_syncingRig || !IsLoaded || BonesViewChoice == null || LayersViewChoice == null) return;
 		_layersView = LayersViewChoice.IsChecked == true;
 		RefreshRigPanel();
 	}
