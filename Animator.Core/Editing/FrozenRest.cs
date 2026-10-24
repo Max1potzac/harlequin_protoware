@@ -8,7 +8,7 @@ namespace Animator.Core.Editing;
 public sealed class FrozenRest
 {
 	private readonly Skeleton _skeleton;
-	private readonly Dictionary<Bone, (Vector2 Head, Vector2 Tip, float Angle)> _bones = new();
+	private readonly Dictionary<Bone, (Vector2 Head, Vector2 Tip, float Angle, bool Connected)> _bones = new();
 	private readonly List<(Attachment Drawing, Slot Slot, Matrix3x2 Frame)> _drawings = new();
 
 	private FrozenRest(Skeleton skeleton) => _skeleton = skeleton;
@@ -19,7 +19,7 @@ public sealed class FrozenRest
 		skeleton.SetToSetupPose();
 		skeleton.UpdateWorld();
 		foreach (var bone in skeleton.AllBones())
-			frozen._bones[bone] = (bone.World.Translation, bone.TipWorld, bone.WorldRotation);
+			frozen._bones[bone] = (bone.World.Translation, bone.TipWorld, bone.WorldRotation, bone.Connected);
 		foreach (var slot in skeleton.Slots)
 			foreach (var drawing in skeleton.AllSkins().SelectMany(s => s.AttachmentsFor(slot.Name)).Distinct())
 				frozen._drawings.Add((drawing, slot, PartOps.FrameOf(drawing) * slot.Bone.World));
@@ -29,6 +29,7 @@ public sealed class FrozenRest
 	// Where a bone's joint and end were when this was captured
 	public Vector2 HeadOf(Bone bone) => _bones.TryGetValue(bone, out var b) ? b.Head : bone.World.Translation;
 	public Vector2 TipOf(Bone bone) => _bones.TryGetValue(bone, out var b) ? b.Tip : bone.TipWorld;
+	public bool WasConnected(Bone bone) => _bones.TryGetValue(bone, out var b) ? b.Connected : bone.Connected;
 
 	// Everything back where it was, except the `moved` bones (whose rest values were just set).
 	// A bone glued to its parent's end follows that end and turns and stretches to keep its own
@@ -83,15 +84,17 @@ public sealed class FrozenRest
 // caller captures `frozen` before the edit starts and computes every step of a drag from it.
 public static class RestEdits
 {
-	// Moves a bone's joint to `target` (world). A joint glued to its parent's end takes that end
-	// along: the parent turns and stretches to it. The bone itself turns and stretches so its own
-	// end stays where it was. `snapTo`: glue a free joint to its parent's end when it's that near.
+	// Moves a bone's joint to `target` (world). A joint that was glued to its parent's end when
+	// `frozen` was captured is that end too (an elbow): the parent turns and stretches to it. The
+	// bone itself turns and stretches so its own end stays where it was. `snapTo`: a free joint
+	// glues on to its parent's end when it's that near, and lets go again when pulled away.
 	public static void MoveJoint(FrozenRest frozen, Bone bone, Vector2 target, float snapTo = 0f)
 	{
 		var moved = new List<Bone> { bone };
 		var parent = bone.Parent;
-		if (bone.Connected && parent != null)
+		if (frozen.WasConnected(bone) && parent != null)
 		{
+			bone.Connected = true;
 			FrozenRest.Aim(parent, frozen.HeadOf(parent), target);
 			moved.Add(parent);
 		}
@@ -109,6 +112,7 @@ public static class RestEdits
 
 		var top = parent != null && moved.Contains(parent) ? parent : bone;
 		top.ResetToSetup();
+		bone.ResetToSetup();   // on its parent's end, its place follows the parent's new length
 		top.UpdateWorld();
 		if (Vector2.Distance(frozen.HeadOf(bone), frozen.TipOf(bone)) > 1e-3f)   // a bone with no length just moves
 			FrozenRest.Aim(bone, bone.World.Translation, frozen.TipOf(bone));

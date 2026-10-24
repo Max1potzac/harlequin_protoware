@@ -115,14 +115,46 @@ public class RiggingTests
 	[Fact]
 	public void A_free_joint_dragged_onto_its_parents_end_snaps_on()
 	{
-		var (skeleton, _, _, _, badge) = Arm();
+		var (skeleton, upper, _, _, badge) = Arm();
 		var before = AllPlaced(skeleton);
 
-		RestEdits.MoveJoint(FrozenRest.Capture(skeleton), badge, new Vector2(102, 1), snapTo: 5);
+		var frozen = FrozenRest.Capture(skeleton);   // one drag: every mouse move starts from here
+		RestEdits.MoveJoint(frozen, badge, new Vector2(102, 1), snapTo: 5);
 
 		Assert.True(badge.Connected);
 		Near(new Vector2(100, 0), badge.World.Translation);
 		Near(new Vector2(60, 20), badge.TipWorld);   // its own end stayed
+		StayedPut(skeleton, before);
+
+		// Pulled on past it, it lets go again, and the upper arm's end isn't dragged along
+		RestEdits.MoveJoint(frozen, badge, new Vector2(80, 10), snapTo: 5);
+		Assert.False(badge.Connected);
+		Near(new Vector2(80, 10), badge.World.Translation);
+		Near(new Vector2(60, 20), badge.TipWorld);
+		Near(new Vector2(100, 0), upper.TipWorld);
+		StayedPut(skeleton, before);
+	}
+
+	[Fact]
+	public void An_elbow_moves_as_one_joint_until_it_is_freed()
+	{
+		// Dragged twice: the second drag starts glued too, so it moves the shared joint again
+		var (skeleton, upper, fore, _, _) = Arm();
+		var before = AllPlaced(skeleton);
+		RestEdits.MoveJoint(FrozenRest.Capture(skeleton), fore, new Vector2(90, 20));
+		RestEdits.MoveJoint(FrozenRest.Capture(skeleton), fore, new Vector2(95, -10), snapTo: 5);
+		Assert.True(fore.Connected);
+		Near(new Vector2(95, -10), upper.TipWorld);
+		Near(new Vector2(200, 0), fore.TipWorld);
+		StayedPut(skeleton, before);
+
+		// Freed first (the way typing a place in the bone panel does), it moves on its own
+		RigOps.SetConnected(fore, false);
+		RestEdits.MoveJoint(FrozenRest.Capture(skeleton), fore, new Vector2(120, 0));
+		Assert.False(fore.Connected);
+		Near(new Vector2(95, -10), upper.TipWorld);
+		Near(new Vector2(120, 0), fore.World.Translation);
+		Near(new Vector2(200, 0), fore.TipWorld);
 		StayedPut(skeleton, before);
 	}
 

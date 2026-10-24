@@ -361,11 +361,11 @@ public partial class MainWindow
 			// Parts stay put: the place, angle and length change, nothing else moves on screen
 			if (_tool.KeepPartsInPlace && field is "X" or "Y" or "Rotation" or "Length")
 			{
+				if (field is "X" or "Y") RigOps.SetConnected(bone, false);   // typing a place frees it from the parent's end
 				var frozen = FrozenRest.Capture(_skeleton);
 				switch (field)
 				{
 					case "X" or "Y":
-						RigOps.SetConnected(bone, false);
 						var local = field == "X" ? new Vector2(v, bone.SetupPosition.Y) : new Vector2(bone.SetupPosition.X, v);
 						var target = bone.Parent is { } parent ? Vector2.Transform(local, parent.World) : local;
 						RestEdits.MoveJoint(frozen, bone, target);
