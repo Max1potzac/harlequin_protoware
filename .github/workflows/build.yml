@@ -16,6 +16,15 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      # Throwaway check: real Animate projects (JPEXS's test files, GPL, fetched here only, never committed)
+      - name: Fetch real Animate projects
+        shell: pwsh
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/jindrapetrik/jpexs-decompiler.git jpexs
+          git -C jpexs sparse-checkout set libsrc/ffdec_lib/testdata/motion_object libsrc/ffdec_lib/testdata/tween libsrc/ffdec_lib/testdata/timeline libsrc/ffdec_lib/testdata/subsprite_anim libsrc/ffdec_lib/testdata/scenes libsrc/ffdec_lib/testdata/gfx libsrc/ffdec_lib/testdata/nested_masks libsrc/ffdec_lib/testdata/morphshape
+          New-Item -ItemType Directory -Force Animator.Tests/PrivateFiles/jpexs | Out-Null
+          Copy-Item -Recurse jpexs/libsrc/ffdec_lib/testdata/* Animator.Tests/PrivateFiles/jpexs/
+
       - name: Build
         run: dotnet build Harlequin.sln --configuration Release
 
@@ -36,4 +45,16 @@ jobs:
           foreach ($result in $run.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' }) {
             $message = ($result.Output.ErrorInfo.Message -replace "`r?`n", '%0A')
             Write-Output "::error title=$($result.testName)::$message"
+          }
+
+      - name: XFL report
+        if: always()
+        shell: pwsh
+        run: |
+          $report = Get-ChildItem -Recurse -Filter xfl-report.txt -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $report) { Write-Output "::notice title=XFL report::no report"; exit 0 }
+          $lines = @(Get-Content $report.FullName)
+          for ($i = 0; $i -lt $lines.Count; $i += 8) {
+            $chunk = ($lines[$i..([Math]::Min($i + 7, $lines.Count - 1))] -join '%0A')
+            Write-Output "::notice title=XFL report $i::$chunk"
           }
