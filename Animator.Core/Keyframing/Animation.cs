@@ -54,4 +54,19 @@ public class Animation
         }
         return events;
     }
+
+    // The draw order row, if this animation changes the order parts are drawn in
+    public DrawOrderTimeline? DrawOrder => Timelines.OfType<DrawOrderTimeline>().FirstOrDefault();
+
+    // Created on first use, near the top (just under the events)
+    public DrawOrderTimeline GetOrCreateDrawOrder()
+    {
+        var order = DrawOrder;
+        if (order == null)
+        {
+            order = new DrawOrderTimeline();
+            Timelines.Insert(Timelines.Count > 0 && Timelines[0] is EventTimeline ? 1 : 0, order);
+        }
+        return order;
+    }
 }

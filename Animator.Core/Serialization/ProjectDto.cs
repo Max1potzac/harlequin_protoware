@@ -157,7 +157,7 @@ public class AnimationDto
 public class TimelineDto
 {
 	public string Type { get; set; } = "";    // rotate, translate, scale, depth, attachment, ikMix, space, events,
-	                                          // partTranslate, partRotate, partScale, partColor, partOpacity
+	                                          // partTranslate, partRotate, partScale, partColor, partOpacity, drawOrder
 	public string Target { get; set; } = "";
 	public List<KeyDto> Keys { get; set; } = new();
 }
@@ -165,7 +165,8 @@ public class TimelineDto
 // One shape for every key type: rotate/ikMix/partRotate/partOpacity use X,
 // translate/scale/depth/partTranslate/partScale use X+Y, partColor uses X+Y+Z (red, green, blue),
 // attachment uses Name (null = hide the slot), space uses Name (null = own parent,
-// "" = detached, otherwise the holding bone), events use Name + Data
+// "" = detached, otherwise the holding bone), events use Name + Data, drawOrder uses Order (the
+// parts' names, back to front; since format 8)
 public class KeyDto
 {
 	public float T { get; set; }
@@ -175,6 +176,7 @@ public class KeyDto
 	public float? Z { get; set; }
 	public string? Name { get; set; }
 	public string? Data { get; set; }
+	public List<string>? Order { get; set; }
 }
 public class LookDto
 {

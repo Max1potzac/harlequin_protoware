@@ -202,6 +202,7 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="2*" MinHeight="50" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="3*" MinHeight="80" />
@@ -232,19 +233,34 @@
                             ToolTip="Deletes the selected part, or the selected bone: keeping what's on it (it goes to the bone above), or with everything on it. Undoable." />
                             </UniformGrid>
 
-                            <!-- Bone hierarchy: drag a part onto a bone to put it there, or a bone onto another to hang it there -->
-                            <TreeView x:Name="BoneTree" Grid.Row="3" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
+                            <!-- Two views of the same object: its bones (parts under the bone they're on), or its
+                                 parts as layers, in the order they're drawn whatever bone they're on -->
+                            <StackPanel Grid.Row="3" Margin="6,0,6,4">
+                                <UniformGrid x:Name="RigViewSwitch" Columns="2">
+                                    <RadioButton x:Name="BonesViewChoice" Content="Bones" GroupName="RigView" IsChecked="True" Margin="0,0,1,0"
+                                                 Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
+                                                 ToolTip="The bones, each part under the bone it's on: drag a part onto a bone to put it there, or a bone onto another to hang it there" />
+                                    <RadioButton x:Name="LayersViewChoice" Content="Layers" GroupName="RigView" Margin="1,0,0,0"
+                                                 Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
+                                                 ToolTip="Every part in the order it's drawn, the top one in front, whatever bone it's on. Drag one up or down to change the order; right-click for more (Ctrl+] / Ctrl+[ a step, with Shift all the way). In Animate mode, that keys the order at the playhead." />
+                                </UniformGrid>
+                                <TextBlock x:Name="LayersHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="2,4,2,0" Visibility="Collapsed" />
+                            </StackPanel>
+
+                            <!-- Bones: drag a part onto a bone to put it there, or a bone onto another to hang it there.
+                                 Layers: drag a part up or down to change the order. -->
+                            <TreeView x:Name="BoneTree" Grid.Row="4" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
                       SelectedItemChanged="BoneTree_SelectedItemChanged" AllowDrop="True"
                       PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseMove="BoneTree_PreviewMouseMove"
-                      DragOver="BoneTree_DragOver" Drop="BoneTree_Drop" />
-                            <GridSplitter Grid.Row="4" Height="5" HorizontalAlignment="Stretch" Background="#1B1D22"
+                      DragOver="BoneTree_DragOver" DragLeave="BoneTree_DragLeave" Drop="BoneTree_Drop" />
+                            <GridSplitter Grid.Row="5" Height="5" HorizontalAlignment="Stretch" Background="#1B1D22"
                           ResizeDirection="Rows" ToolTip="Drag to give the tree or the properties more room" />
 
                             <!-- Properties of the selected bone or part (one shows at a time) -->
-                            <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto">
+                            <ScrollViewer Grid.Row="6" VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <TextBlock x:Name="DrawnHint" Margin="8,6,8,6" Foreground="#9AA4B2" TextWrapping="Wrap" Visibility="Collapsed"
-                       Text="A drawn object has no bones, just parts (layers): click one in the list above or in the viewport. + Part ▾ adds one, ▲ Front / ▼ Back change their order. Double-click a part to paint it. To animate it with bones, Give it bones ▾ above." />
+                       Text="A drawn object has no bones, just parts (layers): click one in the list above or in the viewport. + Part ▾ adds one; drag one up or down in the list (or ▲ Front / ▼ Back) to change their order. Double-click a part to paint it. To animate it with bones, Give it bones ▾ above." />
                                     <Grid x:Name="BoneProps" Margin="6">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -426,9 +442,9 @@
                                         <UniformGrid Grid.Row="7" Grid.ColumnSpan="3" Columns="3" Margin="0,4,0,4">
                                             <Button x:Name="EditPixelsButton" Content="Edit pixels" Margin="0,0,3,0" Click="EditPixels_Click" />
                                             <Button x:Name="PartFront" Content="▲ Front" Margin="3,0,3,0" Click="PartFront_Click"
-                                ToolTip="Draw this part later (in front of more parts)" />
+                                ToolTip="Draw this part in front of one more part (Ctrl+]; Ctrl+Shift+] in front of all). In Animate mode, that keys the order." />
                                             <Button x:Name="PartBack" Content="▼ Back" Margin="3,0,0,0" Click="PartBack_Click"
-                                ToolTip="Draw this part earlier (behind more parts)" />
+                                ToolTip="Draw this part behind one more part (Ctrl+[; Ctrl+Shift+[ behind all). In Animate mode, that keys the order." />
                                         </UniformGrid>
 
                                         <!-- Frame-by-frame: the part's drawings -->

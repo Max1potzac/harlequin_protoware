@@ -288,3 +288,24 @@ public class EventTimeline : TrackTimeline<AnimationEvent>
 	public IEnumerable<AnimationEvent> Between(float from, float to) =>
 		Track.Keys.Where(k => k.Time > from && k.Time <= to).Select(k => k.Value);
 }
+// Draw order keys: the order the parts are drawn in from each key on (back to front, by name),
+// held until the next key. Before the first key, the setup order; a part added since a key was
+// made goes where the setup order has it (see Skeleton.SetDrawOrder).
+public class DrawOrderTimeline : TrackTimeline<string[]>
+{
+	public const string TargetName = "draw order";
+
+	public DrawOrderTimeline() : base(TargetName, (a, b, t) => a) { }
+
+	protected override KeyKind Kind => KeyKind.FromFirstKey;
+
+	public override string Label => "Draw order";
+
+	public void Add(float time, IEnumerable<string> order) => Track.Add(time, order.ToArray(), CurveType.Stepped);
+
+	public override void Apply(Skeleton skeleton, float time)
+	{
+		if (Track.Keys.Count == 0 || time < Track.Keys[0].Time) return;
+		if (Track.TrySample(time, out var order)) skeleton.SetDrawOrder(order);
+	}
+}

@@ -47,6 +47,7 @@ public static class PartOps
 		foreach (var skin in skeleton.AllSkins()) skin.RemoveSlot(slot.Name);
 		foreach (var anim in animations)
 			anim.Timelines.RemoveAll(t => TargetsPart(t) && t.Target == slot.Name);
+		DrawOrderOps.Forget(animations, new HashSet<string> { slot.Name });
 		RemoveUnusedAssets(skeleton);
 	}
 
@@ -71,6 +72,7 @@ public static class PartOps
 		foreach (var anim in animations)
 			foreach (var t in anim.Timelines)
 				if (TargetsPart(t) && t.Target == oldName) t.Target = newName;
+		DrawOrderOps.Rename(animations, oldName, newName);
 		return true;
 	}
 

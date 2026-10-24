@@ -5,7 +5,7 @@ namespace Animator.Core.Rigging;
 public class Skeleton
 {
     public List<Bone> Roots { get; } = new();
-    public List<Slot> Slots { get; } = new();          // list order = draw order
+    public List<Slot> Slots { get; } = new();          // list order = the setup draw order (back to front)
     public Dictionary<Guid, Asset> Assets { get; } = new();
 
     public Skin DefaultSkin { get; } = new() { Name = "default" };
@@ -52,6 +52,40 @@ public class Skeleton
                 yield return b;
     }
     public Slot? FindSlot(string name) => Slots.Find(s => s.Name == name);
+
+	// The order the parts are drawn in right now, back to front: the setup order (Slots'), unless
+	// an animation's draw order keys say otherwise (kept until the pose is reset)
+	private List<Slot>? _drawOrder;
+	public IReadOnlyList<Slot> DrawOrder => _drawOrder is { } order && order.Count == Slots.Count ? order : Slots;
+
+	// Back to the setup order (until a draw order key sets another)
+	public void ResetDrawOrder() => _drawOrder = null;
+
+	// Draws the parts in this order (back to front, by name). A part it doesn't name (one added
+	// since) goes just in front of the part it's in front of in the setup order.
+	public void SetDrawOrder(IReadOnlyList<string> names)
+	{
+		var bySlot = new Dictionary<string, Slot>(StringComparer.Ordinal);
+		foreach (var slot in Slots) bySlot.TryAdd(slot.Name, slot);
+		var order = new List<Slot>(Slots.Count);
+		var placed = new HashSet<Slot>();
+		foreach (string name in names)
+			if (bySlot.TryGetValue(name, out var slot) && placed.Add(slot)) order.Add(slot);
+		for (int i = 0; i < Slots.Count && placed.Count < Slots.Count; i++)
+		{
+			if (placed.Contains(Slots[i])) continue;
+			int at = 0;
+			for (int j = i - 1; j >= 0; j--)
+				if (placed.Contains(Slots[j]))
+				{
+					at = order.IndexOf(Slots[j]) + 1;
+					break;
+				}
+			order.Insert(at, Slots[i]);
+			placed.Add(Slots[i]);
+		}
+		_drawOrder = order.SequenceEqual(Slots) ? null : order;
+	}
     public void ApplyLimits()
     {
         foreach (var root in Roots) ApplyLimits(root);
@@ -67,6 +101,7 @@ public class Skeleton
 	{
 		foreach (var root in Roots) ResetBone(root);
 		foreach (var slot in Slots) slot.ResetToSetup();
+		_drawOrder = null;
 		foreach (var c in IkConstraints) c.Mix = c.SetupMix;
 		foreach (var c in LookConstraints) c.Mix = c.SetupMix;
 	}
@@ -99,6 +134,7 @@ public class Skeleton
 		Roots.AddRange(other.Roots);
 		Slots.Clear();
 		Slots.AddRange(other.Slots);
+		_drawOrder = null;
 		Assets.Clear();
 		foreach (var (id, asset) in other.Assets) Assets[id] = asset;
 		IkConstraints.Clear();

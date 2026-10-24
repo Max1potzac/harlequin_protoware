@@ -82,6 +82,7 @@ public partial class MainWindow : Window
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
 		SyncRigSelection();
+		SyncLayerOrder();
 		SyncScenePanel();
 		if (PaintPanel.Visibility == Visibility.Visible)
 		{
@@ -273,6 +274,11 @@ public partial class MainWindow : Window
 		else if (_sceneLevel)
 		{
 			if (!HandleSceneKey(e.Key)) return;
+		}
+		else if (ctrl && e.Key is Key.OemCloseBrackets or Key.OemOpenBrackets)
+		{
+			// The selected part a step forward / back in the draw order (with Shift, all the way)
+			if (_state.SelectedSlot is { } part) Reorder(new[] { part }, e.Key == Key.OemCloseBrackets ? +1 : -1, toEnd: shift);
 		}
 		else if (ctrl && e.Key == Key.C) _timeline.Copy();
 		else if (ctrl && e.Key == Key.V) _timeline.Paste();

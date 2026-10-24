@@ -86,6 +86,7 @@ public static class RigOps
 				(TargetsBone(t) && boneNames.Contains(t.Target)) ||
 				(PartOps.TargetsPart(t) && slotNames.Contains(t.Target)) ||
 				(t is IkMixTimeline && ikNames.Contains(t.Target)));
+		DrawOrderOps.Forget(animations, slotNames);
 
 		// Bones that were held by a deleted bone are let go (they follow nothing from then on)
 		RewriteHolders(animations, holder => boneNames.Contains(holder) ? SpaceTimeline.World : holder);
