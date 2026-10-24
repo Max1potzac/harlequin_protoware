@@ -337,7 +337,6 @@ public static class XflImporter
 		var handle = skeleton.Roots[0];
 		skeleton.SetToSetupPose();
 		skeleton.UpdateWorld();
-		var skew = new SkewMeter();
 
 		// ----- bones: the suggested ones, each moving with its part -----
 		var bones = new List<(Bone Bone, int Part)>();
@@ -376,7 +375,7 @@ public static class XflImporter
 			for (int f = 0; f < frames; f++)
 			{
 				Matrix3x2.Invert(parentWorld[f], out var toParent);
-				var (at, turn, size) = Local(target[bone][f] * toParent, skew);
+				var (at, turn, size) = Local(target[bone][f] * toParent);
 				turn = previous + XflMath.Mod(turn - previous + MathF.PI, Turn) - MathF.PI;   // continuous
 				previous = turn;
 				local[f] = (at, turn, size);
@@ -416,7 +415,7 @@ public static class XflImporter
 					var pivot = track.Frames[rest]?.Pivot ?? Vector2.Zero;
 					var drawing = NewDrawing(skeleton, store, ref slot, bone, plan.Parts[part].Name, plan.Painter.Notes, key, data.Evaluator.DrawingName(key), picture, pivot);
 					var (offset, rotation, scale) = Placement(PictureToBone(plan, part, rest, picture, drawing,
-						world.TryGetValue(bone, out var exact) ? exact[rest] : bone.World), skew);
+						world.TryGetValue(bone, out var exact) ? exact[rest] : bone.World));
 					drawing.Offset = offset;
 					drawing.Rotation = rotation;
 					drawing.Scale = scale;
@@ -508,7 +507,7 @@ public static class XflImporter
 				for (int f = start; f < end; f++)
 				{
 					if (track.Frames[f] is not { } p || !drawings.TryGetValue(p.Drawing, out var d)) continue;
-					var (o, r, s) = Placement(PictureToBone(plan, part, f, d.Picture, d.Drawing, BoneAt(bone, f)), skew);
+					var (o, r, s) = Placement(PictureToBone(plan, part, f, d.Picture, d.Drawing, BoneAt(bone, f)));
 					float turn = r - d.Drawing.Rotation;
 					turn = previous + XflMath.Mod(turn - previous + MathF.PI, Turn) - MathF.PI;
 					previous = turn;
@@ -540,9 +539,7 @@ public static class XflImporter
 				}
 			}
 		}
-		obj.PreviewAnimation = obj.Animations.FirstOrDefault()?.Name;
-		if (skew.Worst > 1f)
-			plan.Painter.Notes.Add($"Some parts are skewed (up to {skew.Worst:0}°): skew isn't supported yet, so they're turned and scaled the nearest way instead.");
+		obj.PreviewAnimation = obj.Animations.FirstOrDefault()?.Name;   // (the skew dropped is the parts' own: the plan's notes say how much)
 
 		skeleton.SetToSetupPose();
 		skeleton.UpdatePose();
@@ -551,20 +548,13 @@ public static class XflImporter
 
 	// ----- placing drawings -----
 
-	private sealed class SkewMeter
-	{
-		public float Worst { get; private set; }
-		public void See(float skewRadians) => Worst = MathF.Max(Worst, MathF.Abs(skewRadians) * 180 / MathF.PI);
-	}
-
 	// Which way a transform's x axis points
 	private static float AngleOf(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
 
 	// A transform as a bone's local values (no skew): position, rotation, scale
-	private static (Vector2 Position, float Rotation, Vector2 Scale) Local(Matrix3x2 m, SkewMeter skew)
+	private static (Vector2 Position, float Rotation, Vector2 Scale) Local(Matrix3x2 m)
 	{
-		var (sx, sy, ax, ay) = XflMath.Decompose(m);
-		skew.See(XflMath.Mod(ay - ax + MathF.PI, Turn) - MathF.PI);
+		var (sx, sy, ax, _) = XflMath.Decompose(m);
 		return (m.Translation, ax, new Vector2(sx, sy));
 	}
 
@@ -578,11 +568,7 @@ public static class XflImporter
 		return Matrix3x2.CreateScale(1, -1) * Matrix3x2.CreateTranslation(pivot) * picture.PixelToLocal * toObject * toBone;
 	}
 
-	private static (Vector2 Offset, float Rotation, Vector2 Scale) Placement(Matrix3x2 m, SkewMeter skew)
-	{
-		var (position, rotation, scale) = Local(m, skew);
-		return (position, rotation, scale);
-	}
+	private static (Vector2 Offset, float Rotation, Vector2 Scale) Placement(Matrix3x2 m) => Local(m);
 
 	// How big each drawing is ever shown (the larger of its axes' scales)
 	private static Dictionary<XflDrawingKey, float> ShownScales(XflImportPlan plan, List<int> parts)
