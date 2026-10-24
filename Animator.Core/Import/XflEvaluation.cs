@@ -361,7 +361,8 @@ public sealed class XflAnimationData
 			}
 		}
 
-		foreach (string track in DrawingOrder(firstSeen, before, out bool reordered))
+		var order = DrawingOrder(firstSeen, before, out bool reordered);
+		foreach (string track in order)
 		{
 			var (layer, auto, hidden) = info[track];
 			data.Tracks.Add(new XflTrack { Id = track, LayerName = layer, AutoNamed = auto, Hidden = hidden, Frames = placements[track] });
