@@ -530,7 +530,8 @@ public class XflTests
 	// one layer, walking (30-59) on another, attacking (60-89, idling's poses again) on the first
 	// again, but for the front forearm, which goes to a layer in front of the others halfway
 	// through. Crumbs fly off for a few frames each, on layers of their own and on the one the
-	// forearm left.
+	// forearm left. Walking, a ground swatch scrolls by under its feet (PvZ2 keeps one there for
+	// the game to time the steps by).
 	private const int ConvertedFrames = 90;
 
 	private static XflTestProject ConvertedZombieProject()
@@ -568,6 +569,10 @@ public class XflTests
 		Crumb(1, 64, 69, new Vector2(-45, -140));
 		Crumb(2, 66, 72, new Vector2(-40, -128));
 		Crumb(101 - 2 * forearm, 78, 82, new Vector2(-48, -135));   // on the layer the forearm left
+		project.Picture("media/ground_swatch", 60, 6, new SKColor(120, 200, 255));
+		project.Symbol("image/ground_swatch", Layer("1", Frame(0, 1, Bitmap("media/ground_swatch", Matrix3x2.CreateTranslation(-30, -3)))));
+		for (int f = 30; f < 60; f++)
+			Show(110, f, Instance("image/ground_swatch", Matrix3x2.CreateTranslation(30 - f, 0)));
 
 		var layers = new StringBuilder(Layer("labels", Frame(0, 30, "", "name=\"idle\" labelType=\"name\""),
 			Frame(30, 30, "", "name=\"walk\" labelType=\"name\""), Frame(60, 30, "", "name=\"attack\" labelType=\"name\"")));
@@ -724,14 +729,15 @@ public class XflTests
 			// and the crumbs on their own, even the one on the forearm's layer
 			Assert.True(plan.FollowDrawings);
 			var crumbs = new[] { "crumb", "crumb 2" };
-			Assert.Equal(Zombie.Select(PartName).Concat(crumbs).OrderBy(n => n, StringComparer.Ordinal),
+			Assert.Equal(Zombie.Select(PartName).Concat(crumbs).Append("ground_swatch").OrderBy(n => n, StringComparer.Ordinal),
 				plan.Parts.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
 			int forearm = plan.Parts.FindIndex(p => p.Name == "arm_lower_front");
 			Assert.Equal(new[] { "Layer 75", "Layer 74", "Layer 10" }, plan.Data.Tracks[plan.Parts[forearm].Track].Pieces.Select(p => p.Layer).Distinct());
 			for (int f = 0; f < ConvertedFrames; f++)   // (left out for walking's last 10 frames)
 				Assert.Equal(f is < 50 or >= 60, plan.Placement(forearm, f) is { Drawing.Kind: XflDrawingKind.Symbol } p && p.Drawing.Name == "image/arm_lower_front");
 
-			// The crumbs only show for a moment: effects, which the rest pose doesn't go by
+			// The crumbs only show for a moment: effects. The rest pose goes by neither them nor the
+			// swatch only walking shows: it's idling's first frame.
 			Assert.Equal(crumbs, plan.Parts.Where(p => p.Effect).Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
 			Assert.Equal(0, plan.SetupFrame);
 
@@ -755,11 +761,11 @@ public class XflTests
 			Assert.Equal("arm_lower_front", skeleton.FindSlot("arm_lower_front")!.Bone.Name);
 
 			// Or a part for each layer, as Animate's own projects have them: 14 idling and attacking,
-			// 14 walking, the forearm's one in front, and the crumbs' two
+			// 14 walking, the forearm's one in front, the crumbs' two and the swatch's
 			plan.FollowDrawings = false;
-			Assert.Equal(31, plan.Parts.Count);
+			Assert.Equal(32, plan.Parts.Count);
 			plan.FollowDrawings = true;
-			Assert.Equal(16, plan.Parts.Count);
+			Assert.Equal(17, plan.Parts.Count);
 		}
 		finally
 		{

@@ -176,18 +176,24 @@ public sealed class XflImportPlan : IDisposable
 		return w * h >= 0.5f * content.Width * content.Height ? middle : Vector2.Zero;
 	}
 
-	// The frame showing the most parts (the earliest of those; effects don't count): a good rest pose
+	// The earliest frame showing the most parts: a good rest pose. Effects don't count, nor (where
+	// parts show in several animations) ones only one animation shows: a helper like PvZ2's ground
+	// swatch, a prop for one move.
 	private int BusiestFrame()
 	{
+		var starts = Data.Labels.Select(l => l.Frame).Append(0).Where(f => f < Data.FrameCount).Distinct().OrderBy(f => f).ToList();
+		var spans = starts.Select((s, i) => (Start: s, End: i + 1 < starts.Count ? starts[i + 1] : Data.FrameCount)).ToList();
+		var counted = Parts.Where(p => p.Include && !p.Effect)
+			.Select(p => (Track: Data.Tracks[p.Track], In: spans.Count(span => Enumerable.Range(span.Start, span.End - span.Start).Any(f => Data.Tracks[p.Track].Frames[f] != null))))
+			.ToList();
+		if (counted.Any(c => c.In > 1)) counted = counted.Where(c => c.In > 1).ToList();
 		int best = 0, most = -1;
 		for (int f = 0; f < Data.FrameCount; f++)
 		{
-			int shown = Parts.Count(p => p.Include && !p.Effect && Data.Tracks[p.Track].Frames[f] != null);
-			if (shown > most)
-			{
-				most = shown;
-				best = f;
-			}
+			int shown = counted.Count(c => c.Track.Frames[f] != null);
+			if (shown <= most) continue;
+			most = shown;
+			best = f;
 		}
 		return best;
 	}
