@@ -90,6 +90,37 @@ public class PaintToolTests
 	private static int Count(bool[] bits) => bits.Count(b => b);
 
 	[Fact]
+	public void Fill_takes_the_connected_area_or_with_contiguous_off_that_colour_everywhere()
+	{
+		foreach (bool contiguous in new[] { true, false })
+		{
+			var store = new AssetStore();
+			var asset = new Asset { Name = "strip", Width = 6, Height = 3 };
+			using (var strip = new SKBitmap(AssetStore.InfoFor(6, 3)))
+			{
+				strip.Erase(SKColors.Transparent);
+				foreach (int x in new[] { 0, 1, 3, 4 })
+					for (int y = 0; y < 3; y++)
+						strip.SetPixel(x, y, new SKColor(220, 30, 30));
+				store.AddLayer(asset, "Base", strip);
+			}
+			var fill = new FillTool();
+			var session = new PaintSession(store, new UndoStack(), new Skeleton(), fill) { Tolerance = 0, Contiguous = contiguous };
+			session.Open(asset);
+			session.SetColor(new SKColor(30, 60, 220));
+
+			fill.Down(session, new Vector2(0.5f, 0.5f));
+
+			var layer = store.GetLayer(asset.Layers[0])!;
+			int painted = 0;
+			for (int x = 0; x < 6; x++)
+				for (int y = 0; y < 3; y++)
+					if (layer.GetPixel(x, y).Blue > 200) painted++;
+			Assert.Equal(contiguous ? 6 : 12, painted);   // columns 0–1, or every red column
+		}
+	}
+
+	[Fact]
 	public void The_wand_selects_the_connected_area_of_a_colour()
 	{
 		var bits = MagicWand.Select(Strip(), 0, 0, tolerance: 0, contiguous: true);

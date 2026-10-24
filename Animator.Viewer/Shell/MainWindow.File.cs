@@ -89,6 +89,7 @@ public partial class MainWindow
 			Loop = true
 		};
 		var background = SceneOps.AddDrawn(scene, "background", Vector2.Zero);
+		background.Locked = true;   // clicks on the stage go to the objects in front; open it from the list to paint
 		var drawing = new Asset { Name = "background", Width = width, Height = height };
 		_assets.AddLayer(drawing, "Base", null);   // blank, to paint
 		PartOps.CreatePart(background.Skeleton, background.Skeleton.Roots[0], drawing, "background", Vector2.Zero, 0f);
@@ -139,7 +140,7 @@ public partial class MainWindow
 		_sceneTimeAtZero = 0;
 		_objectTool.Selected = null;   // and the selected clip
 		_state.Playing = false;
-		_camera.Reset();
+		ResetView();   // an animation's stage fits the view
 		_state.Undo.Clear();       // the history belongs to the previous document
 		_state.Undo.MarkSaved();   // a freshly opened document has no unsaved changes
 		UpdateStatus();

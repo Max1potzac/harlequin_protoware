@@ -168,7 +168,7 @@ public partial class MainWindow
 	{
 		obj.Skeleton.SetToSetupPose();
 		if (obj.ClipAt(sceneTime) is { } clip) clip.Animation.Apply(obj.Skeleton, clip.AnimationTime(sceneTime));
-		else if (obj.Clips.Count == 0) PreviewOf(obj)?.Apply(obj.Skeleton, sceneTime);
+		else PreviewOf(obj)?.Apply(obj.Skeleton, sceneTime);   // no clips (or only ones whose animation was deleted)
 		obj.Skeleton.UpdatePose();
 	}
 
@@ -266,11 +266,20 @@ public partial class MainWindow
 		canvas.DrawRect(new SKRect(-w, -h, w, h), edge);
 	}
 
-	// F: zoom 1, centred on the open object's origin (at scene level, on the scene's)
+	// F: zoom 1, centred on the open object's origin. At scene level: the whole stage in view
+	// (or zoom 1 on the scene's origin, without a stage).
 	private void ResetView()
 	{
 		_camera.Reset();
-		if (Editing) _camera.Pan = _camera.Space.Translation;
+		if (Editing)
+		{
+			_camera.Pan = _camera.Space.Translation;
+		}
+		else if (_scene.HasStage && _camera.ViewSize.X > 0 && _camera.ViewSize.Y > 0)
+		{
+			float fit = MathF.Min(_camera.ViewSize.X / _scene.StageWidth, _camera.ViewSize.Y / _scene.StageHeight);
+			_camera.Zoom = Math.Clamp(fit * 0.9f, 0.1f, 20f);
+		}
 	}
 
 	// Draws in an object's space. The renderer keeps lines and handles the same size on screen.
