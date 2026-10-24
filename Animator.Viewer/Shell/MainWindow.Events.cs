@@ -77,9 +77,10 @@ public partial class MainWindow
 	// ---------- timeline right-click menus ----------
 
 	// Right-click on keys
-	private void ShowKeyMenu()
+	private void ShowKeyMenu((int First, int Last)? picked = null)
 	{
 		var menu = new ContextMenu();
+		if (picked is { } range) AddSequenceItems(menu, range);
 
 		if (_timeline.SelectionIsEvents)
 		{
@@ -120,9 +121,10 @@ public partial class MainWindow
 	}
 
 	// Right-click on an empty spot
-	private void ShowTimelineMenu(int frame)
+	private void ShowTimelineMenu(int frame, (int First, int Last)? picked = null)
 	{
 		var menu = new ContextMenu();
+		if (picked is { } range) AddSequenceItems(menu, range);
 		var add = new MenuItem { Header = $"Add event at frame {frame}…" };
 		add.Click += (_, _) => AddEventAt(frame);
 		menu.Items.Add(add);

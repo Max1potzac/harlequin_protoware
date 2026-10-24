@@ -37,7 +37,8 @@ public partial class MainWindow
 	private void SwitchAnimation(Animation animation)
 	{
 		_state.Animation = animation;
-		_state.SelectedKeys.Clear();   // selected keys belong to the old animation
+		_state.SelectedKeys.Clear();   // selected keys (and picked frames) belong to the old animation
+		_timeline.ClearRange();
 		_state.Time = 0;
 		_state.Playing = false;
 	}
@@ -51,6 +52,57 @@ public partial class MainWindow
 			string candidate = $"{baseName}{i}";
 			if (!used.Contains(candidate)) return candidate;
 		}
+	}
+
+	// ---------- animation sequences ----------
+
+	// The picked frames' menu items: split them off into an animation sequence, or copy them into one
+	private void AddSequenceItems(ContextMenu menu, (int First, int Last) range)
+	{
+		bool all = range.First == 0 && range.Last >= _state.FrameCount - 1;
+		var split = new MenuItem
+		{
+			Header = $"Split into animation sequence (frames {range.First}–{range.Last})…",
+			IsEnabled = !all,   // nothing would be left of this one: copy it, or rename it
+			ToolTip = "The frames become an animation of their own, starting at frame 0; here they're taken out and the frames after them move up"
+		};
+		split.Click += (_, _) => MakeSequence(range, split: true);
+		menu.Items.Add(split);
+		var copy = new MenuItem { Header = "Copy into a new animation sequence…", ToolTip = "The same, but this animation keeps them" };
+		copy.Click += (_, _) => MakeSequence(range, split: false);
+		menu.Items.Add(copy);
+		var unpick = new MenuItem { Header = "Let go of the frames", InputGestureText = "Esc" };
+		unpick.Click += (_, _) => { _timeline.ClearRange(); TimelineView.InvalidateVisual(); };
+		menu.Items.Add(unpick);
+		menu.Items.Add(new Separator());
+	}
+
+	// The picked frames as an animation sequence of their own, named in a dialog. Split off: they
+	// leave this animation (the frames after them move up). Staying on this animation, more can be
+	// split off one after another.
+	private void MakeSequence((int First, int Last) range, bool split)
+	{
+		_state.Playing = false;
+		var source = _state.Animation;
+		int fps = _state.Fps;
+		var taken = _state.Animations.Select(a => a.Name).ToHashSet();
+		var dialog = new SequenceDialog(source.Name, range.First, range.Last, split,
+			UniqueAnimationName($"{source.Name}_{range.First}-{range.Last}"), taken) { Owner = this };
+		if (dialog.ShowDialog() != true) return;
+
+		string name = dialog.SequenceName;
+		_state.EditStructure(() =>
+		{
+			var piece = split
+				? AnimationOps.Split(source, range.First, range.Last, fps, name)
+				: AnimationOps.Extract(source, range.First, range.Last, fps, name);
+			_state.Animations.Insert(_state.Animations.IndexOf(source) + 1, piece);
+			return $"{(split ? "Split" : "Copy")} frames {range.First}–{range.Last} of {source.Name} into {name}";
+		});
+		_timeline.ClearRange();
+		if (split) _state.SetFrame(Math.Min(range.First, _state.FrameCount));   // where they were
+		AnimHint.Text = $"\"{name}\" is in the animation list ({range.Last - range.First + 1} frames).";
+		TimelineView.InvalidateVisual();
 	}
 
 	// ---------- list & buttons ----------

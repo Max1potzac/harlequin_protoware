@@ -192,8 +192,11 @@ public partial class MainWindow : Window
 
 		if (e.ChangedButton == MouseButton.Right)
 		{
-			if (_timeline.SelectForMenu(p)) ShowKeyMenu();
-			else if (_timeline.IsInKeyArea(p)) ShowTimelineMenu(_timeline.FrameAt(p.X));
+			// Inside the picked frames, their menu comes first
+			int frame = _timeline.FrameAt(p.X);
+			(int, int)? picked = _timeline.Range is { } range && frame >= range.First && frame <= range.Last ? range : null;
+			if (_timeline.SelectForMenu(p)) ShowKeyMenu(picked);
+			else if (_timeline.IsInKeyArea(p) || picked != null) ShowTimelineMenu(frame, picked);
 			return;
 		}
 		if (e.ChangedButton != MouseButton.Left) return;
@@ -300,8 +303,9 @@ public partial class MainWindow : Window
 				case Key.F7: NewDrawing(copy: false); break;
 				case Key.O: ToggleOnion(); break;
 				case Key.Escape:
-					// Esc closes the paint editor first, then goes back to the scene
+					// Esc closes the paint editor first, then lets go of picked frames, then goes back to the scene
 					if (PaintPanel.Visibility == Visibility.Visible) ClosePaintEditor();
+					else if (_timeline.Range != null) _timeline.ClearRange();
 					else LeaveObject();
 					break;
 				default: return;
@@ -426,7 +430,7 @@ public partial class MainWindow : Window
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
 			$"Object: {_active?.Name ?? "-"}    Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
 			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone (started near the selected bone's end, it snaps onto it), Alt+click a part = put it on the selected bone, drag the ring at a bone's end = where it ends (Setup mode), drag empty / middle = pan, wheel = zoom, F = reset view (centred on this object)\n" +
-			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead\n" +
+			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead, drag across empty frames = pick them (right-click: split into an animation sequence)\n" +
 			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
 			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
 			"Frame by frame (select a part): F7 = new drawing, F6 = copy drawing, F5 / Shift+F5 = hold longer / shorter, Del = its key here.   O = onion skin\n" +
