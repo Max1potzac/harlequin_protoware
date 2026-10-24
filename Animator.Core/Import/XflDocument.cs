@@ -132,7 +132,7 @@ public sealed class XflFrame
 	public int Duration { get; init; } = 1;
 	public int End => Index + Duration;
 	public XflTween Tween { get; init; }
-	public float Acceleration { get; init; }                // a classic tween's ease, -100 (slow start) .. 100
+	public float Acceleration { get; init; }                // a classic tween's ease as the file has it: -100 (fast start) .. 100 (slow start)
 	public List<Vector2>? CustomEase { get; init; }         // or its own curve: Bézier points, x = time, y = progress
 	public XflRotate Rotate { get; init; }
 	public int RotateTimes { get; init; }

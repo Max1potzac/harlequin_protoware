@@ -430,10 +430,10 @@ public partial class XflImportDialog : Window
 		return Matrix3x2.Invert(_plan.TimelineToObject, out var back) ? Vector2.Transform(inObject, back) : inObject;
 	}
 
+	// What to fit in the view: the parts at this frame, and a scene's stage
 	private SKRect ContentBounds()
 	{
-		if (_plan.Timeline.Scene) return new SKRect(0, 0, _plan.Document.Width, _plan.Document.Height);
-		var bounds = SKRect.Empty;
+		var bounds = _plan.Timeline.Scene ? new SKRect(0, 0, _plan.Document.Width, _plan.Document.Height) : SKRect.Empty;
 		for (int i = 0; i < _plan.Parts.Count; i++)
 			if (_plan.Placement(i, _frame) is { } p)
 			{

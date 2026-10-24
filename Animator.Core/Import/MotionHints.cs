@@ -5,15 +5,20 @@ namespace Animator.Core.Import;
 // What an animation says about how two layers move against each other, for suggesting a rig
 public interface IRigMotion
 {
-	// How much an overlap between them counts as a joint: 1 = the animation can't tell, more =
-	// they clearly turn around a point they share, less = they move apart
-	double Factor(int a, int b);
+	// How surely they're jointed: null = the animation can't tell (they never move against each
+	// other); 0..1 = how well a point they share stays put on both while they move
+	// (RigSuggester.ClearJoint and above: clearly a joint)
+	double? Strength(int a, int b);
 
 	// Where they turn against each other (canvas pixels), when that's clear
 	Vector2? Joint(int a, int b);
 
 	// Whether they move against each other at all
 	bool MovesAgainst(int a, int b);
+
+	// Whether they move as one: on stage together, never moving against each other, in an
+	// animation where things do move (a hat on a head)
+	bool MovesAsOne(int a, int b);
 }
 
 // For each pair of parts on stage together, the point that stays put on both while they move
@@ -25,6 +30,7 @@ public sealed class MotionHints
 	private readonly double?[,] _quality;       // 0..1, null = no telling
 	private readonly Vector2?[,] _joint;        // in the object, at the setup frame
 	private readonly bool[,] _moves;
+	private readonly bool[,] _rigid;            // shown together, never moving against each other
 
 	private MotionHints(int n)
 	{
@@ -32,11 +38,18 @@ public sealed class MotionHints
 		_quality = new double?[n, n];
 		_joint = new Vector2?[n, n];
 		_moves = new bool[n, n];
+		_rigid = new bool[n, n];
 	}
 
 	public double? Quality(int a, int b) => _quality[a, b];
 	public Vector2? Joint(int a, int b) => _joint[a, b];
 	public bool MovesAgainst(int a, int b) => _moves[a, b];
+
+	// Shown together (on a few frames at least) and never moving against each other
+	public bool Rigid(int a, int b) => _rigid[a, b];
+
+	// Whether anything moves against anything else: if not, the animation says nothing
+	public bool AnythingMoves { get; private set; }
 
 	// placements[i][f]: part i's own space → the object at frame f (null = not shown); bounds[i]:
 	// the part's drawing in its own space (min, max); setup: the frame the joints are wanted at
@@ -54,15 +67,17 @@ public sealed class MotionHints
 		for (int a = 0; a < n; a++)
 			for (int b = a + 1; b < n; b++)
 			{
-				var (quality, joint, moves) = FitPair(placements[a], placements[b], bounds[a], bounds[b], size[a], size[b], setup);
+				var (quality, joint, moves, rigid) = FitPair(placements[a], placements[b], bounds[a], bounds[b], size[a], size[b], setup);
 				hints._quality[a, b] = hints._quality[b, a] = quality;
 				hints._joint[a, b] = hints._joint[b, a] = joint;
 				hints._moves[a, b] = hints._moves[b, a] = moves;
+				hints._rigid[a, b] = hints._rigid[b, a] = rigid;
+				hints.AnythingMoves |= moves;
 			}
 		return hints;
 	}
 
-	private static (double? Quality, Vector2? Joint, bool Moves) FitPair(Matrix3x2?[] pa, Matrix3x2?[] pb,
+	private static (double? Quality, Vector2? Joint, bool Moves, bool Rigid) FitPair(Matrix3x2?[] pa, Matrix3x2?[] pb,
 		(Vector2 Min, Vector2 Max) boundsA, (Vector2 Min, Vector2 Max) boundsB, float sizeA, float sizeB, int setup)
 	{
 		// b's space → a's space, on every frame both are shown
@@ -70,7 +85,7 @@ public sealed class MotionHints
 		for (int f = 0; f < pa.Length && f < pb.Length; f++)
 			if (pa[f] is { } ma && pb[f] is { } mb && Matrix3x2.Invert(ma, out var toA))
 				relative.Add(mb * toA);
-		if (relative.Count < 3) return (null, null, false);
+		if (relative.Count < 3) return (null, null, false, false);
 
 		// How much b turns and moves in a's space
 		var middleB = (boundsB.Min + boundsB.Max) / 2;
@@ -89,7 +104,7 @@ public sealed class MotionHints
 		float turn = maxAngle - minAngle;
 		float scaleA = pa[setup] is { } sa ? MathF.Sqrt(MathF.Abs(sa.M11 * sa.M22 - sa.M12 * sa.M21)) : 1f;
 		float small = MathF.Min(sizeA, sizeB);
-		if (turn < 2 * MathF.PI / 180 && drift * scaleA < MathF.Max(0.5f, 0.01f * small)) return (null, null, false);   // they move as one
+		if (turn < 2 * MathF.PI / 180 && drift * scaleA < MathF.Max(0.5f, 0.01f * small)) return (null, null, false, true);   // they move as one
 
 		// The point q (b's space) landing on the same point p (a's space) on every frame:
 		// minimise Σ |q·R − p|², with a faint pull of q to b's middle so it's always defined
@@ -108,7 +123,7 @@ public sealed class MotionHints
 		normal[2, 2] += 1e-9;
 		normal[3, 3] += 1e-9;
 		var x = Solve(normal, rhs);
-		if (x == null) return (null, null, true);
+		if (x == null) return (null, null, true, false);
 		var q = new Vector2((float)x[0], (float)x[1]);
 		var p = new Vector2((float)x[2], (float)x[3]);
 		double squares = relative.Sum(each => (double)Vector2.DistanceSquared(Vector2.Transform(q, each), p));
@@ -123,7 +138,7 @@ public sealed class MotionHints
 			quality *= 0.25;
 
 		Vector2? joint = pb[setup] is { } atSetup ? Vector2.Transform(q, atSetup) : null;
-		return (quality, joint, true);
+		return (quality, joint, true, false);
 	}
 
 	// How far a point is outside a box (0 inside)

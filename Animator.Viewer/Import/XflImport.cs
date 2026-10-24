@@ -38,6 +38,7 @@ public sealed class XflImportPlan : IDisposable
 	public float Scale { get; set; } = 1f;
 	public int SetupFrame { get; set; }                // the rest pose: this frame's placement
 	public int Root { get; set; } = -1;                // the part whose bone everything hangs from (-1 = worked out)
+	public Vector2 Origin { get; private set; }        // in the timeline's space: where the object's origin goes
 
 	private RigMasks? _masks;
 	private Matrix3x2 _objectToCanvas;
@@ -117,7 +118,31 @@ public sealed class XflImportPlan : IDisposable
 		}
 		SetupFrame = BusiestFrame();
 		Root = -1;
+		Origin = FindOrigin();
 		Forget();
+	}
+
+	// A scene's stage centre, or its corner (0, 0) when the drawing sits mostly off the stage
+	// around that corner, the way PvZ2 animations stand their characters on it; a symbol's own origin
+	private Vector2 FindOrigin()
+	{
+		var middle = new Vector2(Document.Width / 2, Document.Height / 2);
+		if (!Timeline.Scene) return Vector2.Zero;
+		var content = SKRect.Empty;
+		var bounds = new Dictionary<XflDrawingKey, SKRect>();
+		foreach (var track in Data.Tracks)
+			foreach (var p in track.Frames)
+			{
+				if (p is not { } placed) continue;
+				if (!bounds.TryGetValue(placed.Drawing, out var box)) bounds[placed.Drawing] = box = Painter.Bounds(placed.Drawing);
+				if (box.IsEmpty) continue;
+				var onStage = SkeletonRenderer.ToSk(placed.Matrix).MapRect(box);
+				content = content.IsEmpty ? onStage : SKRect.Union(content, onStage);
+			}
+		if (content.IsEmpty) return middle;
+		float w = MathF.Max(0, MathF.Min(content.Right, Document.Width) - MathF.Max(content.Left, 0));
+		float h = MathF.Max(0, MathF.Min(content.Bottom, Document.Height) - MathF.Max(content.Top, 0));
+		return w * h >= 0.5f * content.Width * content.Height ? middle : Vector2.Zero;
 	}
 
 	// The frame showing the most parts (the earliest of those): a good rest pose
@@ -145,11 +170,8 @@ public sealed class XflImportPlan : IDisposable
 
 	// ======================= spaces =======================
 
-	// The played timeline's space (pixels, y down) → the object's (y up): a scene's stage is
-	// centred on the object's origin, a symbol keeps its own origin
-	public Matrix3x2 TimelineToObject =>
-		(Timeline.Scene ? Matrix3x2.CreateTranslation(-Document.Width / 2, -Document.Height / 2) : Matrix3x2.Identity) *
-		Matrix3x2.CreateScale(Scale, -Scale);
+	// The played timeline's space (pixels, y down) → the object's (y up), Origin at its origin
+	public Matrix3x2 TimelineToObject => Matrix3x2.CreateTranslation(-Origin) * Matrix3x2.CreateScale(Scale, -Scale);
 
 	// A part's own space → the object, at a frame (null = not shown then)
 	public Matrix3x2? PartToObject(int part, int frame) =>
@@ -271,10 +293,11 @@ public sealed class XflImportPlan : IDisposable
 	{
 		private readonly XflImportPlan _plan;
 		public MotionAdapter(XflImportPlan plan) => _plan = plan;
-		public double Factor(int a, int b) => _plan.Motion.Quality(a, b) is { } q ? 0.2 + 1.3 * q : 1;
+		public double? Strength(int a, int b) => _plan.Motion.Quality(a, b);
 		public Vector2? Joint(int a, int b) =>
-			_plan.Motion.Quality(a, b) is >= 0.5 && _plan.Motion.Joint(a, b) is { } j ? _plan.ObjectToCanvas(j) : null;
+			_plan.Motion.Quality(a, b) >= RigSuggester.ClearJoint && _plan.Motion.Joint(a, b) is { } j ? _plan.ObjectToCanvas(j) : null;
 		public bool MovesAgainst(int a, int b) => _plan.Motion.MovesAgainst(a, b);
+		public bool MovesAsOne(int a, int b) => _plan.Motion.AnythingMoves && _plan.Motion.Rigid(a, b);
 	}
 
 	// Roles as the shapes and the motion suggest, choices cleared
@@ -301,7 +324,10 @@ public static class XflImporter
 {
 	private const float Turn = 2 * MathF.PI;
 
-	public static SceneObject IntoScene(Scene scene, AssetStore store, XflImportPlan plan, Vector2 position)
+	// pictures: if given, each drawing made, with what it shows and its pixels → that drawing's
+	// own space (for checking the result)
+	public static SceneObject IntoScene(Scene scene, AssetStore store, XflImportPlan plan, Vector2 position,
+		IDictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>? pictures = null)
 	{
 		var data = plan.Data;
 		int frames = data.FrameCount;
@@ -366,7 +392,7 @@ public static class XflImporter
 		}
 
 		var slots = new Dictionary<int, (Slot Slot, Dictionary<XflDrawingKey, (Attachment Drawing, XflPicture Picture)> Drawings, int RestFrame)>();
-		var pictures = new Dictionary<XflDrawingKey, XflPicture?>();
+		var rendered = new Dictionary<XflDrawingKey, XflPicture?>();
 		var shownAt = ShownScales(plan, parts);
 		try
 		{
@@ -379,16 +405,18 @@ public static class XflImporter
 				var drawings = new Dictionary<XflDrawingKey, (Attachment, XflPicture)>();
 				foreach (var key in track.Frames.Where(f => f != null).Select(f => f!.Value.Drawing).Distinct())
 				{
-					if (!pictures.TryGetValue(key, out var picture))
-						pictures[key] = picture = MakePicture(plan, key, shownAt.GetValueOrDefault(key, 1f));
+					if (!rendered.TryGetValue(key, out var picture))
+						rendered[key] = picture = MakePicture(plan, key, shownAt.GetValueOrDefault(key, 1f));
 					if (picture == null) continue;
 					var pivot = track.Frames[rest]?.Pivot ?? Vector2.Zero;
 					var drawing = NewDrawing(skeleton, store, ref slot, bone, plan.Parts[part].Name, plan.Painter.Notes, key, data.Evaluator.DrawingName(key), picture, pivot);
-					var (offset, rotation, scale) = Placement(PictureToBone(plan, part, rest, picture, drawing, bone, world), skew);
+					var (offset, rotation, scale) = Placement(PictureToBone(plan, part, rest, picture, drawing,
+						world.TryGetValue(bone, out var exact) ? exact[rest] : bone.World), skew);
 					drawing.Offset = offset;
 					drawing.Rotation = rotation;
 					drawing.Scale = scale;
 					drawings[key] = (drawing, picture);
+					if (pictures != null) pictures[drawing] = (key, picture.PixelToLocal);
 				}
 				if (slot == null) continue;
 				var setup = track.Frames[plan.SetupFrame];
@@ -402,27 +430,56 @@ public static class XflImporter
 		}
 		finally
 		{
-			foreach (var p in pictures.Values) p?.Dispose();
+			foreach (var p in rendered.Values) p?.Dispose();
 		}
 
 		// ----- animations -----
 		obj.Animations.Clear();
 		float fps = data.FrameRate;
+
+		// How far a part reaches from its pivot (object units), so a small turn or scale of it can
+		// be told in pixels
+		float Reach(int part) => slots[part].Drawings
+			.Select(d => new Vector2(d.Value.Picture.Width, d.Value.Picture.Height).Length() / d.Value.Picture.Scale * shownAt.GetValueOrDefault(d.Key, 1f) * plan.Scale)
+			.DefaultIfEmpty(1f).Max();
+
 		foreach (var (name, start, end) in plan.Animations())
 		{
 			var animation = new Animation { Name = UniqueName(obj.Animations, name), Duration = Math.Max(1, end - start) / fps, Loop = true };
 			obj.Animations.Add(animation);
 
+			// The bones' motion: keys wherever it isn't a straight line between them (finely enough
+			// that a part fixed on its bone needs no keys of its own)
 			foreach (var (bone, _) in bones)
 			{
 				var local = locals[bone];
-				AddKeys(animation, start, end, fps, i => local[i].Rotation - bone.SetupRotation, 0.002f,
+				AddKeys(animation, start, end, fps, i => local[i].Rotation - bone.SetupRotation, 0.0001f,
 					() => animation.GetOrCreate(bone.Name, n => new RotateTimeline(n)).Track);
-				AddKeys(animation, start, end, fps, i => local[i].Position - bone.SetupPosition, 0.05f,
+				AddKeys(animation, start, end, fps, i => local[i].Position - bone.SetupPosition, 0.01f,
 					() => animation.GetOrCreate(bone.Name, n => new TranslateTimeline(n)).Track);
-				AddKeys(animation, start, end, fps, i => new Vector2(local[i].Scale.X / NonZero(bone.SetupScale.X), local[i].Scale.Y / NonZero(bone.SetupScale.Y)), 0.002f,
+				AddKeys(animation, start, end, fps, i => new Vector2(local[i].Scale.X / NonZero(bone.SetupScale.X), local[i].Scale.Y / NonZero(bone.SetupScale.Y)), 0.0001f,
 					() => animation.GetOrCreate(bone.Name, n => new ScaleTimeline(n)).Track, Vector2.One);
 			}
+
+			// The bones as those keys pose them (a hair off the motion where keys were left out):
+			// the parts are placed against that, so they land exactly where Animate draws them
+			var posed = new Dictionary<Bone, Matrix3x2[]>();
+			if (bones.Count > 0)
+			{
+				var all = skeleton.AllBones().ToList();
+				foreach (var bone in all) posed[bone] = new Matrix3x2[end - start];
+				for (int f = start; f < end; f++)
+				{
+					skeleton.SetToSetupPose();
+					animation.Apply(skeleton, (f - start) / fps);
+					skeleton.UpdateWorld();
+					foreach (var bone in all) posed[bone][f - start] = bone.World;
+				}
+				skeleton.SetToSetupPose();
+				skeleton.UpdateWorld();
+			}
+			Matrix3x2 BoneAt(Bone bone, int f) =>
+				posed.TryGetValue(bone, out var keyed) ? keyed[f - start] : world.TryGetValue(bone, out var exact) ? exact[f] : bone.World;
 
 			foreach (var (part, (slot, drawings, rest)) in slots)
 			{
@@ -446,7 +503,7 @@ public static class XflImporter
 				for (int f = start; f < end; f++)
 				{
 					if (track.Frames[f] is not { } p || !drawings.TryGetValue(p.Drawing, out var d)) continue;
-					var (o, r, s) = Placement(PictureToBone(plan, part, f, d.Picture, d.Drawing, bone, world), skew);
+					var (o, r, s) = Placement(PictureToBone(plan, part, f, d.Picture, d.Drawing, BoneAt(bone, f)), skew);
 					float turn = r - d.Drawing.Rotation;
 					turn = previous + XflMath.Mod(turn - previous + MathF.PI, Turn) - MathF.PI;
 					previous = turn;
@@ -456,11 +513,12 @@ public static class XflImporter
 				var held = Held(placements);
 				if (held != null)
 				{
-					AddKeys(animation, start, end, fps, i => held[i - start].Offset, 0.05f,
+					float fine = MathF.Max(1e-5f, 0.02f / Reach(part));   // a turn or scale moving its farthest pixel 1/50 pixel
+					AddKeys(animation, start, end, fps, i => held[i - start].Offset, 0.02f,
 						() => animation.GetOrCreate(slot.Name, n => new PartTranslateTimeline(n)).Track);
-					AddKeys(animation, start, end, fps, i => held[i - start].Rotation, 0.002f,
+					AddKeys(animation, start, end, fps, i => held[i - start].Rotation, fine,
 						() => animation.GetOrCreate(slot.Name, n => new PartRotateTimeline(n)).Track);
-					AddKeys(animation, start, end, fps, i => held[i - start].Scale, 0.002f,
+					AddKeys(animation, start, end, fps, i => held[i - start].Scale, fine,
 						() => animation.GetOrCreate(slot.Name, n => new PartScaleTimeline(n)).Track, Vector2.One);
 				}
 
@@ -504,12 +562,11 @@ public static class XflImporter
 
 	// A drawing's picture (y down) → its bone, at a frame, as the scaled / turned / moved part of
 	// Attachment.LocalMatrix (its pivot and the y flip taken off first)
-	private static Matrix3x2 PictureToBone(XflImportPlan plan, int part, int frame, XflPicture picture, Attachment drawing, Bone bone,
-		Dictionary<Bone, Matrix3x2[]> world)
+	private static Matrix3x2 PictureToBone(XflImportPlan plan, int part, int frame, XflPicture picture, Attachment drawing, Matrix3x2 boneWorld)
 	{
 		var toObject = plan.PartToObject(part, frame)!.Value;
-		Matrix3x2.Invert(world.TryGetValue(bone, out var w) ? w[frame] : bone.World, out var toBone);
-		var pivot = new Vector2(drawing.Pivot.X * picture.Image.Width, drawing.Pivot.Y * picture.Image.Height);
+		Matrix3x2.Invert(boneWorld, out var toBone);
+		var pivot = new Vector2(drawing.Pivot.X * picture.Width, drawing.Pivot.Y * picture.Height);
 		return Matrix3x2.CreateScale(1, -1) * Matrix3x2.CreateTranslation(pivot) * picture.PixelToLocal * toObject * toBone;
 	}
 
@@ -547,7 +604,7 @@ public static class XflImporter
 	private static Attachment NewDrawing(Skeleton skeleton, AssetStore store, ref Slot? slot, Bone bone, string partName,
 		HashSet<string> notes, XflDrawingKey key, string drawingName, XflPicture picture, Vector2 pivot)
 	{
-		var asset = new Asset { Name = drawingName, Width = picture.Image.Width, Height = picture.Image.Height };
+		var asset = new Asset { Name = drawingName, Width = picture.Width, Height = picture.Height };
 		store.AddLayer(asset, "Base", picture.Image);
 		Attachment drawing;
 		if (slot == null)
@@ -572,7 +629,7 @@ public static class XflImporter
 		}
 		// It turns around the animator's transformation point
 		var local = (pivot - picture.Origin) * picture.Scale;
-		drawing.Pivot = new Vector2(local.X / picture.Image.Width, local.Y / picture.Image.Height);
+		drawing.Pivot = new Vector2(local.X / picture.Width, local.Y / picture.Height);
 		return drawing;
 	}
 
@@ -691,16 +748,20 @@ public static class XflImporter
 }
 
 // A drawing made into a picture: `Scale` pixels per unit of its own space, its top-left pixel
-// corner at Origin
+// corner at Origin. Its size stays known after the pixels are let go (they're copied into assets).
 public sealed class XflPicture : IDisposable
 {
 	public SKBitmap Image { get; }
+	public int Width { get; }
+	public int Height { get; }
 	public Vector2 Origin { get; }
 	public float Scale { get; }
 
 	public XflPicture(SKBitmap image, Vector2 origin, float scale)
 	{
 		Image = image;
+		Width = image.Width;
+		Height = image.Height;
 		Origin = origin;
 		Scale = scale;
 	}

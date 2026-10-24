@@ -255,11 +255,15 @@ public static class RigSuggester
 					continue;
 				}
 			}
+			bool Bigger(int j) => m.Area(j) > m.Area(i) || m.Area(j) == m.Area(i) && j < i;
 			bool detail = layers.Any(j =>
 				j != i && !Backdrop(j) && m.Area(j) > m.Area(i) && m.Overlap(i, j) >= 0.85 * m.Area(i) &&
 				!(motion?.MovesAgainst(i, j) ?? false) &&
 				(m.Area(i) < 0.04 * m.Area(j) || !layers.Any(k =>
 					k != i && k != j && !Backdrop(k) && m.Touch(i, k) > 0 && m.Overlap(k, j) < 0.5 * m.Area(k))));
+			// An animation adds: a layer moving as one with a bigger one it touches (a hat on a
+			// head) needs no bone of its own either
+			detail |= motion is { } said && layers.Any(j => j != i && !Backdrop(j) && Bigger(j) && m.Touch(i, j) > 0 && said.MovesAsOne(i, j));
 			roles[i] = detail ? RigRole.OnBone : RigRole.Bone;
 		}
 		return roles;
@@ -286,12 +290,27 @@ public static class RigSuggester
 		}
 		var bones = Enumerable.Range(0, n).Where(i => isBone[i]).ToList();
 
+		// How much a layer hanging from another counts. Without an animation: how much they
+		// overlap. With one, the animation decides where it can: a clear joint (a point they share
+		// stays put on both while they turn) beats any overlap, and layers turning against each
+		// other with no such point hardly count. The overlap breaks ties, and decides for layers
+		// that never move against each other.
+		double Weight(int p, int c)
+		{
+			long touch = m.Touch(p, c);
+			if (motion == null) return touch;
+			if (touch > 0 && motion.MovesAsOne(p, c)) return 2e6 + touch;   // moving as one: surer still than a joint
+			if (motion.Strength(p, c) is not { } q) return touch;
+			if (q >= ClearJoint) return 1e6 * Math.Round(q * 20) / 20 + touch;
+			return touch * (0.05 + q);
+		}
+
 		if (root < 0 || root >= n || !isBone[root])
 		{
 			// The most central layer: of the biggest group of layers that meet, the one the fewest
 			// steps away from the farthest of them (then the biggest). A big head meets many
 			// layers, but the hips sit in the middle of the figure.
-			var reach = bones.ToDictionary(i => i, i => Reach(m, bones, i));
+			var reach = bones.ToDictionary(i => i, i => Reach(bones, i, (a, b) => Weight(a, b) > 0));
 			root = bones
 				.OrderByDescending(i => reach[i].Count)
 				.ThenBy(i => reach[i].Farthest)
@@ -300,17 +319,9 @@ public static class RigSuggester
 				.First();
 		}
 
-		// The tree, from the root: each step adds the layer that overlaps the rig so far the most
-		// (an animation makes overlaps that turn around a shared point count for more, and ones
-		// that move apart for less; a clear joint counts even without an overlap). A layer told
-		// what it hangs from waits for that one; one meeting nothing joins the nearest.
-		double Weight(int p, int c)
-		{
-			long touch = m.Touch(p, c);
-			if (motion == null) return touch;
-			if (touch > 0) return touch * motion.Factor(p, c);
-			return motion.Joint(p, c) != null ? 0.5 * motion.Factor(p, c) : 0;
-		}
+		// The tree, from the root: each step adds the layer that hangs from the rig so far the
+		// most surely (see Weight). A layer told what it hangs from waits for that one; one meeting
+		// nothing joins the nearest.
 		int Chosen(int c) => targets[c] >= 0 && targets[c] < n && targets[c] != c && isBone[targets[c]] ? targets[c] : -1;
 		var parentOf = new Dictionary<int, int> { [root] = -1 };
 		var order = new List<int> { root };
@@ -411,14 +422,14 @@ public static class RigSuggester
 		}
 
 		// The rest ride on bones: the one chosen (through layers riding on others), or else the bone
-		// layer they overlap the most
+		// layer they move as one with, or overlap the most
 		int Automatic(int i)
 		{
 			int owner = bones[0];
-			var key = (-1, -1, float.MinValue);
+			var key = (-1, -1, -1, float.MinValue);
 			foreach (int j in bones)
 			{
-				var k = (m.Overlap(i, j), m.Touch(i, j), -Vector2.Distance(m.Centre(i), m.Centre(j)));
+				var k = (motion?.MovesAsOne(i, j) == true ? 1 : 0, m.Overlap(i, j), m.Touch(i, j), -Vector2.Distance(m.Centre(i), m.Centre(j)));
 				if (k.CompareTo(key) <= 0) continue;
 				key = k;
 				owner = j;
@@ -443,9 +454,12 @@ public static class RigSuggester
 		return result;
 	}
 
+	// How surely two layers an animation shows turning around a point they share are jointed there
+	public const double ClearJoint = 0.5;
+
 	// How many of the layers can be reached from one through layers that meet, and how many steps
 	// away the farthest of them is
-	private static (int Count, int Farthest) Reach(RigMasks m, List<int> layers, int start)
+	private static (int Count, int Farthest) Reach(List<int> layers, int start, Func<int, int, bool> meets)
 	{
 		var steps = new Dictionary<int, int> { [start] = 0 };
 		var queue = new Queue<int>();
@@ -454,7 +468,7 @@ public static class RigSuggester
 		{
 			int at = queue.Dequeue();
 			foreach (int next in layers)
-				if (!steps.ContainsKey(next) && m.Touch(at, next) > 0)
+				if (!steps.ContainsKey(next) && meets(at, next))
 				{
 					steps[next] = steps[at] + 1;
 					queue.Enqueue(next);
