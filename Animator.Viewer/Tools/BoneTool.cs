@@ -51,6 +51,13 @@ public class BoneTool
 	// Off inside a drawn object: its one bone is hidden, so only parts can be picked and moved
 	public bool BonesEnabled { get; set; } = true;
 
+	// "Parts stay put" (Setup mode): moving or turning a bone leaves every part, and every other
+	// joint, where it is, so bones can be fitted to finished art. Off: the parts move with the bone.
+	public bool KeepPartsInPlace { get; set; } = true;
+	private FrozenRest? _frozen;                  // where everything was when the drag started
+	private StructureSnapshot? _rigBefore;        // for undo: the drag changes more than the one bone
+	private Vector2 _pressWorld;
+
 	private bool _createJoined;                              // the bone being drawn starts on the parent's end
 	private Vector2 _setupAtStart, _jointAtStart, _poseOffset;   // a joint drag in Setup mode
 
@@ -82,6 +89,17 @@ public class BoneTool
 			var parent = _state.Selected;
 			_createJoined = SnapJoints && parent != null && NearEnd(parent, world);
 			CreatePreview = (_createJoined ? parent!.TipWorld : world, world);
+			return;
+		}
+
+		// Alt+click a part: it goes on the selected bone, staying where it is
+		if (setup && BonesEnabled && Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) && _state.SelectedSlot == null &&
+			_state.Selected is { } holder && _renderer.Pick(_state.Skeleton, world) is { } clicked)
+		{
+			var slot = clicked.Slot;
+			_state.EditStructure(() =>
+				PartOps.MoveToBone(_state.Skeleton, slot, holder) ? $"Put part {slot.Name} on {holder.Name}" : null);
+			_drag = Drag.None;
 			return;
 		}
 
@@ -135,6 +153,13 @@ public class BoneTool
 				CreatePreview = (preview.A, world);
 				break;
 
+			case Drag.Move when bone != null && _frozen != null:
+				// Parts stay put: the joint goes where the mouse took it, nothing else moves
+				RestEdits.MoveJoint(_frozen, bone, _frozen.HeadOf(bone) + (world - _pressWorld),
+					SnapJoints ? SnapPx / _camera.EditZoom : 0f);
+				_changed = true;
+				break;
+
 			case Drag.Move when bone != null:
 				{
 					var target = world + _grabOffset;
@@ -149,9 +174,16 @@ public class BoneTool
 					float angle = AngleFrom(bone, world);
 					float step = MathUtil.ShortestAngle(angle - _lastAngle);
 					_lastAngle = angle;
-					if (!_state.AnimateMode) bone.SetupRotation += step;
-					bone.Rotation += step;
-					if (_state.AnimateMode) KeyRotate(bone);
+					if (_frozen != null)
+					{
+						RestEdits.Turn(_frozen, bone, bone.SetupRotation + step);   // what's on it stays put
+					}
+					else
+					{
+						if (!_state.AnimateMode) bone.SetupRotation += step;
+						bone.Rotation += step;
+						if (_state.AnimateMode) KeyRotate(bone);
+					}
 					_changed = true;
 					break;
 				}
@@ -206,19 +238,40 @@ public class BoneTool
 
 		_before = PoseSnapshot.Capture(bone, _state.Animation);
 		_changed = false;
+
+		// Parts stay put (Setup mode): the drag works on the rest pose, keeping everything else
+		// where it is, so it's undone as a change of the whole rig
+		_frozen = null;
+		_rigBefore = null;
+		if (!_state.AnimateMode && KeepPartsInPlace)
+		{
+			_rigBefore = _state.CaptureStructure();
+			_pressWorld = world;
+			_frozen = FrozenRest.Capture(_state.Skeleton);   // puts the rig in its rest pose
+			_lastAngle = AngleFrom(bone, world);             // measured from the rest joint, then
+		}
 	}
 
 	private void FinishBoneDrag()
 	{
-		if (_changed && _before != null && _state.Selected is { } bone)
+		if (_changed && _state.Selected is { } bone)
 		{
-			var after = PoseSnapshot.Capture(bone, _state.Animation);
 			string verb = _drag == Drag.Move ? "Move" : "Rotate";
-			string where = _state.AnimateMode ? $" (key @ frame {_state.Frame})" : "";
-			_state.Undo.Push(new SnapshotCommand<PoseSnapshot>(
-				$"{verb} {bone.Name}{where}", _before, after, s => s.Restore()));
+			if (_rigBefore != null)
+			{
+				_state.PushStructure(_rigBefore, $"{verb} {bone.Name} (parts stay put)");
+			}
+			else if (_before != null)
+			{
+				var after = PoseSnapshot.Capture(bone, _state.Animation);
+				string where = _state.AnimateMode ? $" (key @ frame {_state.Frame})" : "";
+				_state.Undo.Push(new SnapshotCommand<PoseSnapshot>(
+					$"{verb} {bone.Name}{where}", _before, after, s => s.Restore()));
+			}
 		}
 		_before = null;
+		_rigBefore = null;
+		_frozen = null;
 	}
 
 	private void FinishCreate()

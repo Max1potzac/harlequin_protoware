@@ -167,6 +167,9 @@ public class SkeletonRenderer
 		}
 	}
 
+	// The parts on this bone get a dashed outline (the selected bone: what's on it)
+	public Bone? PartsOf { get; set; }
+
 	// Slot list order = draw order (first drawn is at the back)
 	private void DrawSlots(SKCanvas canvas, Skeleton skeleton)
 	{
@@ -176,6 +179,15 @@ public class SkeletonRenderer
 			Style = SKPaintStyle.Stroke,
 			StrokeWidth = 2f / Zoom,
 			IsAntialias = true
+		};
+		using var dash = SKPathEffect.CreateDash(new[] { 6f / Zoom, 4f / Zoom }, 0);
+		using var onBone = new SKPaint
+		{
+			Color = new SKColor(255, 170, 60, 220),
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1.5f / Zoom,
+			IsAntialias = true,
+			PathEffect = dash
 		};
 
 		foreach (var slot in skeleton.Slots)
@@ -190,6 +202,7 @@ public class SkeletonRenderer
 			canvas.Concat(in m);
 			DrawPart(canvas, slot, bmp);
 			if (asset == Highlight) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
+			else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, onBone);
 			canvas.Restore();
 		}
 	}
@@ -276,9 +289,12 @@ public class SkeletonRenderer
 	public void DrawImages(SKCanvas canvas, Skeleton skeleton)
 	{
 		var highlight = Highlight;
-		Highlight = null;
+		var partsOf = PartsOf;
+		Highlight = null;   // just the pictures
+		PartsOf = null;
 		DrawSlots(canvas, skeleton);
 		Highlight = highlight;
+		PartsOf = partsOf;
 	}
 
 	// One onion-skin ghost: the parts in the skeleton's current pose, tinted and see-through.

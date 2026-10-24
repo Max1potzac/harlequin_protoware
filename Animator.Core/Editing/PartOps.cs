@@ -96,25 +96,32 @@ public static class PartOps
 
 		var attachments = skeleton.AllSkins().SelectMany(s => s.AttachmentsFor(slot.Name)).Distinct();
 		foreach (var att in attachments)
-		{
-			// The part's frame in world space, re-expressed relative to the new bone
-			var world = Matrix3x2.CreateScale(att.Scale)
-					  * Matrix3x2.CreateRotation(att.Rotation)
-					  * Matrix3x2.CreateTranslation(att.Offset)
-					  * slot.Bone.World;
-			var local = world * toNewBone;
-
-			float sx = new Vector2(local.M11, local.M12).Length();
-			float sy = new Vector2(local.M21, local.M22).Length();
-			if (local.M11 * local.M22 - local.M12 * local.M21 < 0) sy = -sy;   // mirrored
-
-			att.Offset = local.Translation;
-			att.Rotation = MathF.Atan2(local.M12, local.M11);
-			att.Scale = new Vector2(sx, sy);
-		}
+			PlaceFrame(att, FrameOf(att) * slot.Bone.World, newBone.World);   // the same place, measured from the new bone
 
 		slot.Bone = newBone;
 		return true;
+	}
+
+	// A drawing's placement on its bone: scaled, turned, then moved (the pivot sits at the offset)
+	public static Matrix3x2 FrameOf(Attachment drawing) =>
+		Matrix3x2.CreateScale(drawing.Scale)
+		* Matrix3x2.CreateRotation(drawing.Rotation)
+		* Matrix3x2.CreateTranslation(drawing.Offset);
+
+	// Sets a drawing's placement so it lands at `frameWorld` (a FrameOf times a bone's world)
+	// on a bone whose world transform is `boneWorld`
+	public static void PlaceFrame(Attachment drawing, Matrix3x2 frameWorld, Matrix3x2 boneWorld)
+	{
+		if (!Matrix3x2.Invert(boneWorld, out var toBone)) return;   // a bone squashed flat
+		var local = frameWorld * toBone;
+
+		float sx = new Vector2(local.M11, local.M12).Length();
+		float sy = new Vector2(local.M21, local.M22).Length();
+		if (local.M11 * local.M22 - local.M12 * local.M21 < 0) sy = -sy;   // mirrored
+
+		drawing.Offset = local.Translation;
+		drawing.Rotation = MathF.Atan2(local.M12, local.M11);
+		drawing.Scale = new Vector2(sx, sy);
 	}
 
 	// Moves the pivot to an image pixel WITHOUT moving the image: the offset compensates

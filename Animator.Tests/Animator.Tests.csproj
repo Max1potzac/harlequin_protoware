@@ -22,6 +22,8 @@
   <!-- Files the tests read (a Photoshop file written by another program, ImageMagick) -->
   <ItemGroup>
     <None Update="Files\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- and your own files, if you put some in PrivateFiles (git leaves them out) -->
+    <None Update="PrivateFiles\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
