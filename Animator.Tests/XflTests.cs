@@ -488,6 +488,26 @@ public class XflTests
 	{
 		int frames = dies ? 80 : 60;
 		var project = new XflTestProject { Width = 390, Height = 390, FrameRate = 30 };
+		ZombieLibrary(project);
+		var layers = new StringBuilder();
+		for (int i = Zombie.Length - 1; i >= 0; i--)   // the front one first, as Animate lists them
+		{
+			var p = Zombie[i];
+			layers.Append(Layer($"{i}", Enumerable.Range(0, frames)
+				.Select(f => ZombieFrame(p, f) is { } shown ? Frame(f, 1, shown) : Frame(f, 1)).ToArray()));
+		}
+		project.Symbol("main", layers.ToString());
+		project.Scene("animation",
+			Layer("flow", Frame(0, 30, "", "name=\"idle\" labelType=\"name\""), Frame(30, 30, "", "name=\"walk\" labelType=\"name\""),
+				dies ? Frame(60, 20, "", "name=\"die\" labelType=\"name\"") : "") +
+			Layer("command", Frame(0, frames)) +
+			Layer("sprite", Frame(0, frames, Instance("main", Matrix3x2.Identity))));
+		return project;
+	}
+
+	// The character's pictures and symbols, as PAM converters write them
+	private static void ZombieLibrary(XflTestProject project)
+	{
 		for (int i = 0; i < Zombie.Length; i++)
 		{
 			var p = Zombie[i];
@@ -503,19 +523,58 @@ public class XflTests
 		project.Symbol("sprite/blink", Layer("0",
 			Frame(0, 6, Instance("image/eye_open", Matrix3x2.Identity)),
 			Frame(6, 2, Instance("image/eye_shut", Matrix3x2.Identity))));
-		var layers = new StringBuilder();
-		for (int i = Zombie.Length - 1; i >= 0; i--)   // the front one first, as Animate lists them
+	}
+
+	// The same character as other converters write it: the scene's own layers hold the parts, a
+	// keyframe on every frame, but not a layer to a part. Idling (frames 0-29) each part is on
+	// one layer, walking (30-59) on another, attacking (60-89, idling's poses again) on the first
+	// again, but for the front forearm, which goes to a layer in front of the others halfway
+	// through. Crumbs fly off for a few frames each, on layers of their own and on the one the
+	// forearm left.
+	private const int ConvertedFrames = 90;
+
+	private static XflTestProject ConvertedZombieProject()
+	{
+		var project = new XflTestProject { Width = 390, Height = 390, FrameRate = 30 };
+		ZombieLibrary(project);
+		project.Picture("media/crumb", 10, 10, new SKColor(230, 160, 60), round: true);
+		project.Symbol("source/crumb", Layer("1", Frame(0, 1, Bitmap("media/crumb", Matrix3x2.CreateScale(0.5f)))));
+		project.Symbol("image/crumb", Layer("1", Frame(0, 1, Instance("source/crumb", Matrix3x2.CreateTranslation(-2.5f, -2.5f)))));
+
+		// What each layer shows on each frame, by its number (the higher, the further back)
+		var shows = new SortedDictionary<int, string?[]>();
+		void Show(int layer, int frame, string? what)
 		{
-			var p = Zombie[i];
-			layers.Append(Layer($"{i}", Enumerable.Range(0, frames)
-				.Select(f => ZombieFrame(p, f) is { } shown ? Frame(f, 1, shown) : Frame(f, 1)).ToArray()));
+			if (what == null) return;
+			if (!shows.TryGetValue(layer, out var frames)) shows[layer] = frames = new string?[ConvertedFrames];
+			frames[frame] = what;
 		}
-		project.Symbol("main", layers.ToString());
-		project.Scene("animation",
-			Layer("flow", Frame(0, 30, "", "name=\"idle\" labelType=\"name\""), Frame(30, 30, "", "name=\"walk\" labelType=\"name\""),
-				dies ? Frame(60, 20, "", "name=\"die\" labelType=\"name\"") : "") +
-			Layer("command", Frame(0, frames)) +
-			Layer("sprite", Frame(0, frames, Instance("main", Matrix3x2.Identity))));
+		int forearm = Array.FindIndex(Zombie, p => p.Name == "arm_lower_front");
+		for (int i = 0; i < Zombie.Length; i++)
+			for (int f = 0; f < ConvertedFrames; f++)
+			{
+				int layer = f is >= 30 and < 60 ? 100 - 2 * i : i == forearm && f >= 75 ? 10 : 101 - 2 * i;
+				Show(layer, f, ZombieFrame(Zombie[i], f < 60 ? f : f - 60));
+			}
+		void Crumb(int layer, int start, int end, Vector2 from)
+		{
+			for (int f = start; f <= end; f++)
+			{
+				int t = f - start;
+				Show(layer, f, Instance("image/crumb",
+					Matrix3x2.CreateRotation(0.4f * t) * Matrix3x2.CreateTranslation(from + new Vector2(5 * t, -6 * t + 0.6f * t * t))));
+			}
+		}
+		Crumb(1, 64, 69, new Vector2(-45, -140));
+		Crumb(2, 66, 72, new Vector2(-40, -128));
+		Crumb(101 - 2 * forearm, 78, 82, new Vector2(-48, -135));   // on the layer the forearm left
+
+		var layers = new StringBuilder(Layer("labels", Frame(0, 30, "", "name=\"idle\" labelType=\"name\""),
+			Frame(30, 30, "", "name=\"walk\" labelType=\"name\""), Frame(60, 30, "", "name=\"attack\" labelType=\"name\"")));
+		foreach (var (number, frames) in shows)   // the top one first
+			layers.Append(Layer($"Layer {number}", Enumerable.Range(0, ConvertedFrames)
+				.Select(f => frames[f] is { } shown ? Frame(f, 1, shown) : Frame(f, 1)).ToArray()));
+		project.Scene("Scene 1", layers.ToString());
 		return project;
 	}
 
@@ -652,6 +711,62 @@ public class XflTests
 		}
 	}
 
+	[Fact]
+	public void Parts_a_converter_moves_between_layers_are_followed_and_short_lived_ones_become_effects()
+	{
+		string folder = TempFolder();
+		try
+		{
+			using var plan = XflImportPlan.Load(ConvertedZombieProject().SaveFolder(Path.Combine(folder, "converted")), "zombie");
+			Assert.Equal(new[] { ("idle", 0, 30), ("walk", 30, 60), ("attack", 60, 90) }, plan.Animations());
+
+			// Each part is followed from layer to layer: one part for each, whatever layer it's on,
+			// and the crumbs on their own, even the one on the forearm's layer
+			Assert.True(plan.FollowDrawings);
+			var crumbs = new[] { "crumb", "crumb 2" };
+			Assert.Equal(Zombie.Select(PartName).Concat(crumbs).OrderBy(n => n, StringComparer.Ordinal),
+				plan.Parts.Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
+			int forearm = plan.Parts.FindIndex(p => p.Name == "arm_lower_front");
+			Assert.Equal(new[] { "Layer 75", "Layer 74", "Layer 10" }, plan.Data.Tracks[plan.Parts[forearm].Track].Pieces.Select(p => p.Layer).Distinct());
+			for (int f = 0; f < ConvertedFrames; f++)   // (left out for walking's last 10 frames)
+				Assert.Equal(f is < 50 or >= 60, plan.Placement(forearm, f) is { Drawing.Kind: XflDrawingKind.Symbol } p && p.Drawing.Name == "image/arm_lower_front");
+
+			// The crumbs only show for a moment: effects, which the rest pose doesn't go by
+			Assert.Equal(crumbs, plan.Parts.Where(p => p.Effect).Select(p => p.Name).OrderBy(n => n, StringComparer.Ordinal));
+			Assert.Equal(0, plan.SetupFrame);
+
+			// The rig comes out as it does with a layer for each part
+			plan.Parts.Single(p => p.Name == "cone").InRig = false;
+			plan.SuggestRig = true;
+			plan.SuggestRoles();
+			HasTheZombiesRig(plan, plan.Suggest());
+
+			// Brought in, every part lands where Animate puts it, the crumbs moving on the object's
+			// own bone and hidden at rest
+			var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
+			var obj = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
+			Assert.Equal(0, MatchesEveryFrame(plan, obj, pictures).Skewed);
+			var skeleton = obj.Skeleton;
+			foreach (string crumb in crumbs)
+			{
+				Assert.Same(skeleton.Roots[0], skeleton.FindSlot(crumb)!.Bone);
+				Assert.Null(skeleton.FindSlot(crumb)!.SetupAttachment);
+			}
+			Assert.Equal("arm_lower_front", skeleton.FindSlot("arm_lower_front")!.Bone.Name);
+
+			// Or a part for each layer, as Animate's own projects have them: 14 idling and attacking,
+			// 14 walking, the forearm's one in front, and the crumbs' two
+			plan.FollowDrawings = false;
+			Assert.Equal(31, plan.Parts.Count);
+			plan.FollowDrawings = true;
+			Assert.Equal(16, plan.Parts.Count);
+		}
+		finally
+		{
+			Remove(folder);
+		}
+	}
+
 	// ======================= your own projects =======================
 
 	// Put Animate projects in Animator.Tests/PrivateFiles (a .fla, or an XFL folder; git leaves
@@ -707,7 +822,8 @@ public class XflTests
 							var rigged = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
 							var (_, worstRigged) = MatchesEveryFrame(plan, rigged, pictures, within: 0.15f);
 							var bones = rigged.Skeleton.AllBones().Skip(1).ToList();   // under the object's own root bone
-							report.Add($"{name} / {scene.Label}: {plan.Parts.Count} part(s), {plan.Data.FrameCount} frame(s), " +
+							report.Add($"{name} / {scene.Label}: {plan.Parts.Count} part(s) ({plan.Parts.Count(p => p.Effect)} effect(s)" +
+									   (plan.FollowDrawings ? ", followed from layer to layer" : "") + $"), {plan.Data.FrameCount} frame(s), " +
 									   $"{bones.Count} bone(s), off by {worstDrawn:0.###} px drawn and {worstRigged:0.###} px rigged at worst" +
 									   (skewed > 0 ? $", {skewed} much skewed part-frame(s)" : "") +
 									   (bones.Count is > 1 and <= 24 ? $"; bones: {string.Join(", ", bones.Select(b => b.Parent == rigged.Skeleton.Roots[0] ? b.Name : $"{b.Name} on {b.Parent!.Name}"))}" : "") +

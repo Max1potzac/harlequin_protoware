@@ -23,7 +23,9 @@
                 <!-- Parts -->
                 <TextBlock Text="Parts" FontWeight="Bold" Margin="0,14,0,4" />
                 <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
-                           Text="Each thing that moves on its own becomes a part (the top one is at the top here). First tick: bring it in. Second tick: use it to work out the rig; untick skins, extras and things shown alongside their alternatives, and they'll ride on the bone they move with." />
+                           Text="Each thing that moves on its own becomes a part (the top one is at the top here). First tick: bring it in. Second tick: use it to work out the rig; untick skins, extras and things shown alongside their alternatives, and they'll ride on the bone they move with. Third tick: an effect (VFX), such as crumbs, splashes or sparks: left out of the rig, it moves on its own and is hidden at rest. Parts that only show for a moment start as effects." />
+                <CheckBox x:Name="FollowBox" Content="Parts follow their drawings from layer to layer" Margin="0,0,0,6" Click="Follow_Click"
+                          ToolTip="For projects where a part moves to another layer from one animation to the next, or a layer shows something else for a while (the way converters write PvZ2 animations). Without it, each layer is a part. It starts ticked when the project looks that way." />
                 <ListBox x:Name="PartList" Height="260" SelectionChanged="PartList_Changed" />
                 <UniformGrid Columns="2" Margin="0,4,0,0">
                     <Button Content="Bring them all in" Margin="0,0,3,0" Click="TickAll_Click" />
@@ -59,6 +61,9 @@
                                          Checked="Role_Changed" />
                             <RadioButton x:Name="OnBoneChoice" GroupName="Role" Margin="0,4,0,0" Checked="Role_Changed"
                                          Content="No bone: it rides on another part's bone" />
+                            <RadioButton x:Name="EffectChoice" GroupName="Role" Margin="0,4,0,0" Checked="Role_Changed"
+                                         Content="An effect (VFX): no bone, it moves on its own"
+                                         ToolTip="Crumbs, splashes, sparks: left out of the rig, it moves on the object's own bone, keyed where it goes, and is hidden at rest" />
                             <DockPanel Margin="0,8,0,0">
                                 <TextBlock x:Name="TargetLabel" Text="Hangs from" VerticalAlignment="Center" Width="70" />
                                 <ComboBox x:Name="TargetBox" SelectionChanged="Target_Changed" />
@@ -66,7 +71,7 @@
                         </StackPanel>
                     </Border>
                     <Button Content="Suggest the roles again" HorizontalAlignment="Left" Padding="8,1" Click="SuggestRoles_Click"
-                            ToolTip="Forgets the changes above and works out each part's role from the shapes and the motion again" />
+                            ToolTip="Forgets the changes above and works out each part's role from the shapes and the motion again (and which parts are effects: the ones that only show for a moment)" />
                 </StackPanel>
 
                 <!-- Size -->

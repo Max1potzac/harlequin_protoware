@@ -17,15 +17,20 @@ public readonly record struct XflPlacement(XflDrawingKey Drawing, Matrix3x2 Matr
 	BlendMode Blend = BlendMode.Normal);
 
 // One thing that moves on its own through the animation: a symbol instance (or picture, or run
-// of shapes) on a layer, at some depth inside other symbols. It can change drawings over time.
+// of shapes) on a layer, at some depth inside other symbols, or (in projects whose layers don't
+// keep to one thing, see XflThreading) on several layers in turn. It can change drawings over time.
 public sealed class XflTrack
 {
-	public string Id { get; init; } = "";                 // layer indexes and instance numbers down the symbols
-	public string LayerName { get; init; } = "";
+	public string Id { get; init; } = "";                 // layer indexes and instance numbers down the symbols (" + " between layers)
+	public string LayerName { get; init; } = "";          // the layer it's on most
 	public bool AutoNamed { get; init; }
-	public bool Hidden { get; init; }                     // on a layer hidden in Animate
+	public bool Hidden { get; init; }                     // on layers hidden in Animate
 	public XflPlacement?[] Frames { get; init; } = Array.Empty<XflPlacement?>();   // null = not on stage
 	public string Name { get; set; } = "";
+	public IReadOnlyList<XflTrackPiece> Pieces { get; init; } = Array.Empty<XflTrackPiece>();   // where its frames come from
+	// Shown for under half of each animation it's in (frame labels start them): a crumb flying
+	// off, a splash, a spark
+	public bool ShortLived { get; init; }
 
 	public IEnumerable<int> Shown => Enumerable.Range(0, Frames.Length).Where(f => Frames[f] != null);
 
@@ -33,6 +38,9 @@ public sealed class XflTrack
 	public XflDrawingKey MostShown() =>
 		Frames.Where(f => f != null).GroupBy(f => f!.Value.Drawing).OrderByDescending(g => g.Count()).First().Key;
 }
+
+// Frames Start..End (both shown) of a track came from the layer named Layer
+public readonly record struct XflTrackPiece(string Layer, int Start, int End);
 
 public static class XflMath
 {
@@ -341,15 +349,43 @@ public sealed class XflEvaluator
 }
 
 // A whole timeline played out: every track's placement at every frame, the tracks in drawing
-// order (back to front), and the frame labels
+// order (back to front), and the frame labels. The tracks are one per layer (and instance on it),
+// or, for projects whose layers don't keep to one thing, parts followed by their drawings from
+// layer to layer (see XflThreading); Follow picks which.
 public sealed class XflAnimationData
 {
 	public float FrameRate { get; init; }
 	public int FrameCount { get; init; }
 	public List<XflTrack> Tracks { get; } = new();
 	public List<(string Name, int Frame)> Labels { get; } = new();
-	public List<string> Notes { get; } = new();
 	public XflEvaluator Evaluator { get; init; } = null!;
+
+	// Parts move from layer to layer here (as converters write them): following their drawings is
+	// the way to see them
+	public bool LooksConverted { get; private set; }
+	public bool FollowsDrawings { get; private set; }
+
+	private List<XflTrack> _byLayer = new(), _byDrawing = new();
+	private bool _layersReordered, _drawingsReordered;
+	private readonly List<string> _notes = new();
+
+	public IEnumerable<string> Notes
+	{
+		get
+		{
+			if (FollowsDrawings ? _drawingsReordered : _layersReordered)
+				yield return "The parts change their stacking order during the animation: each keeps the place it has on most frames.";
+			foreach (string note in _notes) yield return note;
+		}
+	}
+
+	// The tracks: parts followed by their drawings from layer to layer, or one per layer
+	public void Follow(bool drawings)
+	{
+		FollowsDrawings = drawings;
+		Tracks.Clear();
+		Tracks.AddRange(drawings ? _byDrawing : _byLayer);
+	}
 
 	public static XflAnimationData Evaluate(XflDocument doc, XflTimeline timeline, string key)
 	{
@@ -357,64 +393,148 @@ public sealed class XflAnimationData
 		int length = timeline.Length;
 		var data = new XflAnimationData { FrameRate = doc.FrameRate, FrameCount = length, Evaluator = evaluator };
 
-		var placements = new Dictionary<string, XflPlacement?[]>(StringComparer.Ordinal);
-		var info = new Dictionary<string, (string Layer, bool Auto, bool Hidden)>(StringComparer.Ordinal);
-		var firstSeen = new Dictionary<string, int>(StringComparer.Ordinal);
-		var before = new HashSet<(string, string)>();
-		for (int f = 0; f < length; f++)
-		{
-			var drawn = evaluator.Frame(timeline, key, f);
-			for (int i = 0; i < drawn.Count; i++)
-			{
-				var (track, placement, layer, auto, hidden) = drawn[i];
-				if (!placements.TryGetValue(track, out var frames))
-				{
-					placements[track] = frames = new XflPlacement?[length];
-					info[track] = (layer, auto, hidden);
-					firstSeen[track] = firstSeen.Count;
-				}
-				if (frames[f] == null) frames[f] = placement;   // the same track twice in a frame: the first counts
-				if (i > 0 && drawn[i - 1].Track != track) before.Add((drawn[i - 1].Track, track));
-			}
-		}
-
-		var order = DrawingOrder(firstSeen, before, out bool reordered);
-		foreach (string track in order)
-		{
-			var (layer, auto, hidden) = info[track];
-			data.Tracks.Add(new XflTrack { Id = track, LayerName = layer, AutoNamed = auto, Hidden = hidden, Frames = placements[track] });
-		}
-		if (reordered) data.Notes.Add("The parts change their stacking order during the animation: it's kept as it is at first.");
-
 		foreach (var layer in timeline.Layers)
 			foreach (var frame in layer.Frames)
 				if (frame.Label is { } label && !data.Labels.Any(l => l.Name == label) && frame.Index < length)
 					data.Labels.Add((label, frame.Index));
 		data.Labels.Sort((a, b) => a.Frame.CompareTo(b.Frame));
 
-		data.Notes.AddRange(evaluator.Notes.OrderBy(n => n));
+		// Every layer (and instance on it) as a track, in the order they first show, and what each
+		// frame draws, back to front
+		var index = new Dictionary<string, int>(StringComparer.Ordinal);
+		var layers = new List<LayerTrack>();
+		var drawn = new List<int>[length];
+		for (int f = 0; f < length; f++)
+		{
+			drawn[f] = new List<int>();
+			foreach (var (track, placement, layer, auto, hidden) in evaluator.Frame(timeline, key, f))
+			{
+				if (!index.TryGetValue(track, out int t))
+				{
+					index[track] = t = layers.Count;
+					layers.Add(new LayerTrack(track, layer, auto, hidden, new XflPlacement?[length]));
+				}
+				if (layers[t].Frames[f] == null) layers[t].Frames[f] = placement;   // the same track twice in a frame: the first counts
+				if (drawn[f].Count == 0 || drawn[f][^1] != t) drawn[f].Add(t);
+			}
+		}
+
+		var frames = layers.Select(l => l.Frames).ToList();
+		var spans = Spans(data.Labels, length);
+		var threads = XflThreading.ByDrawing(frames, data.Labels.Select(l => l.Frame).ToHashSet(), length);
+		data._byLayer = Build(XflThreading.ByLayer(frames, length), layers, drawn, spans, length, out data._layersReordered);
+		data._byDrawing = Build(threads, layers, drawn, spans, length, out data._drawingsReordered);
+
+		// Converted: many parts (not counting short-lived ones) go from layer to layer
+		var lasting = data._byDrawing.Where(t => !t.ShortLived).ToList();
+		int moving = lasting.Count(t => t.Id.Contains(" + ", StringComparison.Ordinal));
+		data.LooksConverted = moving >= Math.Max(2, lasting.Count / 4);
+		data.Follow(data.LooksConverted);
+
+		data._notes.AddRange(evaluator.Notes.OrderBy(n => n));
 		return data;
 	}
 
-	// Back to front: whatever is drawn before something else on some frame comes first, in the
-	// order they appeared otherwise; a part that's in front at one time and behind at another
-	// keeps where it first was
-	private static List<string> DrawingOrder(Dictionary<string, int> firstSeen, HashSet<(string A, string B)> before, out bool reordered)
+	private sealed record LayerTrack(string Id, string Layer, bool Auto, bool Hidden, XflPlacement?[] Frames);
+
+	// The animations' spans of frames: label to label (and the frames before the first label)
+	private static List<(int Start, int End)> Spans(List<(string Name, int Frame)> labels, int length)
+	{
+		var starts = labels.Select(l => l.Frame).Append(0).Where(f => f < length).Distinct().OrderBy(f => f).ToList();
+		return starts.Select((s, i) => (s, i + 1 < starts.Count ? starts[i + 1] : length)).ToList();
+	}
+
+	// Tracks for parts made of pieces of layer tracks, in drawing order
+	private static List<XflTrack> Build(List<List<XflThreading.Piece>> parts, List<LayerTrack> layers, List<int>[] drawn,
+		List<(int Start, int End)> spans, int length, out bool reordered)
+	{
+		var partOf = layers.Select(_ => Enumerable.Repeat(-1, length).ToArray()).ToArray();
+		for (int p = 0; p < parts.Count; p++)
+			foreach (var piece in parts[p])
+				for (int f = piece.Start; f <= piece.End; f++)
+					partOf[piece.Track][f] = p;
+
+		// Which part is drawn just behind which, on how many frames
+		var firstSeen = new Dictionary<int, int>();
+		var behind = new Dictionary<(int A, int B), int>();
+		for (int f = 0; f < length; f++)
+		{
+			int previous = -1;
+			foreach (int t in drawn[f])
+			{
+				int p = partOf[t][f];
+				if (p < 0) continue;
+				firstSeen.TryAdd(p, firstSeen.Count);
+				if (previous >= 0 && previous != p) behind[(previous, p)] = behind.GetValueOrDefault((previous, p)) + 1;
+				previous = p;
+			}
+		}
+		// A pair drawn both ways round keeps the way it's drawn on most frames
+		var before = behind.Where(b => !behind.TryGetValue((b.Key.B, b.Key.A), out int other) || b.Value >= other)
+			.Select(b => b.Key).ToHashSet();
+		reordered = behind.Keys.Any(k => behind.ContainsKey((k.B, k.A)));
+		var order = DrawingOrder(firstSeen, before, out bool cycled);
+		reordered |= cycled;
+
+		var tracks = new List<XflTrack>();
+		foreach (int p in order)
+		{
+			var pieces = parts[p].OrderBy(x => x.Start).ToList();
+			var on = pieces.Select(x => x.Track).Distinct().ToList();
+			int main = on.OrderByDescending(t => pieces.Where(x => x.Track == t).Sum(x => x.End - x.Start + 1)).First();
+			var placements = new XflPlacement?[length];
+			foreach (var piece in pieces)
+				for (int f = piece.Start; f <= piece.End; f++)
+					placements[f] = layers[piece.Track].Frames[f];
+			tracks.Add(new XflTrack
+			{
+				Id = string.Join(" + ", on.Select(t => layers[t].Id)),
+				LayerName = layers[main].Layer,
+				AutoNamed = layers[main].Auto,
+				Hidden = on.All(t => layers[t].Hidden),
+				Frames = placements,
+				Pieces = pieces.Select(x => new XflTrackPiece(layers[x.Track].Layer, x.Start, x.End)).ToList(),
+				ShortLived = ShortLived(placements, spans)
+			});
+		}
+		return tracks;
+	}
+
+	// Shown for under half of each animation it's shown in at all
+	private static bool ShortLived(XflPlacement?[] frames, List<(int Start, int End)> spans)
+	{
+		bool shownAtAll = false;
+		foreach (var (start, end) in spans)
+		{
+			int shown = 0;
+			for (int f = start; f < end; f++)
+				if (frames[f] != null) shown++;
+			if (shown == 0) continue;
+			if (2 * shown >= end - start) return false;
+			shownAtAll = true;
+		}
+		return shownAtAll;
+	}
+
+	// Back to front: whatever is drawn before something else (on most of the frames they're both
+	// drawn) comes first, in the order they appeared otherwise; where that goes round in a circle,
+	// it's broken where it started
+	private static List<int> DrawingOrder(Dictionary<int, int> firstSeen, HashSet<(int A, int B)> before, out bool reordered)
 	{
 		reordered = false;
-		var after = firstSeen.Keys.ToDictionary(k => k, _ => new List<string>(), StringComparer.Ordinal);
-		var waiting = firstSeen.Keys.ToDictionary(k => k, _ => 0, StringComparer.Ordinal);
+		var after = firstSeen.Keys.ToDictionary(k => k, _ => new List<int>());
+		var waiting = firstSeen.Keys.ToDictionary(k => k, _ => 0);
 		foreach (var (a, b) in before)
 		{
 			after[a].Add(b);
 			waiting[b]++;
 		}
-		var ready = new SortedSet<(int Seen, string Track)>(firstSeen.Where(p => waiting[p.Key] == 0).Select(p => (p.Value, p.Key)));
-		var left = new SortedSet<(int Seen, string Track)>(firstSeen.Select(p => (p.Value, p.Key)));
-		var order = new List<string>();
+		var ready = new SortedSet<(int Seen, int Part)>(firstSeen.Where(p => waiting[p.Key] == 0).Select(p => (p.Value, p.Key)));
+		var left = new SortedSet<(int Seen, int Part)>(firstSeen.Select(p => (p.Value, p.Key)));
+		var order = new List<int>();
 		while (left.Count > 0)
 		{
-			(int Seen, string Track) next;
+			(int Seen, int Part) next;
 			if (ready.Count > 0) next = ready.Min;
 			else
 			{
@@ -423,8 +543,8 @@ public sealed class XflAnimationData
 			}
 			ready.Remove(next);
 			left.Remove(next);
-			order.Add(next.Track);
-			foreach (string b in after[next.Track])
+			order.Add(next.Part);
+			foreach (int b in after[next.Part])
 				if (--waiting[b] == 0 && left.Contains((firstSeen[b], b)))
 					ready.Add((firstSeen[b], b));
 		}
