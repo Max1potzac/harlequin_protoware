@@ -80,6 +80,25 @@ public class SpriteSheetImportTests
 	}
 
 	[Fact]
+	public void A_flat_background_colour_can_become_see_through()
+	{
+		using var sheet = Blank(4, 2);
+		sheet.Erase(SKColors.Magenta);
+		sheet.SetPixel(1, 0, SKColors.Red);
+		sheet.SetPixel(2, 1, SKColors.Red);
+
+		using var keyed = SheetImporter.WithoutColourAt(sheet, 0, 0, out int taken);
+
+		Assert.Equal(6, taken);
+		Assert.Equal(0, keyed.GetPixel(0, 0).Alpha);
+		Assert.Equal(SKColors.Red, keyed.GetPixel(1, 0));
+		Assert.Equal(SKColors.Magenta, sheet.GetPixel(0, 0));   // the sheet itself stays as it was
+		// …and now the sprite can be found (the two red pixels touch at a corner: one sprite)
+		Assert.Equal(new[] { new PixelRect(1, 0, 2, 2) },
+			SpriteSheetSlicer.Find(SheetImporter.Alpha(keyed), 4, 2, gap: 0, smallest: 1));
+	}
+
+	[Fact]
 	public void Pieces_read_in_rows_from_the_top_left()
 	{
 		var order = SpriteSheetSlicer.ReadingOrder(new[]

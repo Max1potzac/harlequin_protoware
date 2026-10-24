@@ -11,6 +11,9 @@
             <StackPanel Margin="10">
                 <TextBlock x:Name="SheetTitle" FontWeight="Bold" TextWrapping="Wrap" />
 
+                <CheckBox x:Name="KeyBox" Margin="0,8,0,0" Click="Key_Click"
+                          ToolTip="For sheets drawn on a flat colour (magenta, green…): every pixel of that colour becomes see-through, in the pieces too" />
+
                 <!-- 1. Cutting -->
                 <TextBlock Text="1. Cut it into pieces" FontWeight="Bold" Margin="0,12,0,4" />
                 <RadioButton x:Name="GridMode" GroupName="Cut" Content="A grid (frames of one size)" Checked="Mode_Changed" />
@@ -22,6 +25,7 @@
                         <ColumnDefinition Width="50" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -40,9 +44,15 @@
                     <TextBox x:Name="GapXBox" Grid.Row="2" Grid.Column="1" KeyDown="Field_KeyDown" />
                     <TextBlock Grid.Row="2" Grid.Column="2" Text="," VerticalAlignment="Center" Margin="6,0,6,0" />
                     <TextBox x:Name="GapYBox" Grid.Row="2" Grid.Column="3" KeyDown="Field_KeyDown" />
+                    <TextBlock Grid.Row="3" Text="Or a grid of" VerticalAlignment="Center" Margin="0,6,6,0"
+                               ToolTip="Frames across × frames down: works out the frame size from the sheet's size (and the offset and gaps)" />
+                    <TextBox x:Name="SplitXBox" Grid.Row="3" Grid.Column="1" Margin="0,6,0,0" KeyDown="Field_KeyDown" TextChanged="Split_Changed" />
+                    <TextBlock Grid.Row="3" Grid.Column="2" Text="×" VerticalAlignment="Center" Margin="6,6,6,0" />
+                    <TextBox x:Name="SplitYBox" Grid.Row="3" Grid.Column="3" Margin="0,6,0,0" KeyDown="Field_KeyDown" TextChanged="Split_Changed" />
                 </Grid>
 
-                <RadioButton x:Name="FindMode" GroupName="Cut" Content="Find the separate sprites (on see-through sheets)" Checked="Mode_Changed" />
+                <RadioButton x:Name="FindMode" GroupName="Cut" Content="Find the separate sprites (on see-through sheets)" Checked="Mode_Changed"
+                             ToolTip="Each sprite gets a box that fits it tightly. Animation frames laid out on a regular grid line up exactly when cut as a grid instead." />
                 <StackPanel x:Name="FindFields" Orientation="Horizontal" Margin="18,4,0,6">
                     <TextBlock Text="join bits closer than" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <TextBox x:Name="JoinBox" Width="36" KeyDown="Field_KeyDown"

@@ -58,6 +58,7 @@ public partial class MainWindow
 		if (dialog.ShowDialog() != true) return;
 		_renderer.PixelArt = dialog.SharpPixels;
 		var plan = dialog.Plan;
+		using var keyed = plan.Sheet != sheet ? plan.Sheet : null;   // a copy with its background colour taken out
 		string step = $"Import sprite sheet {name}";
 
 		if (dialog.IntoOpenObject && target != null && bone != null)

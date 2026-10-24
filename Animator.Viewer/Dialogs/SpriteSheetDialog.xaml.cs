@@ -28,8 +28,10 @@ public partial class SpriteSheetDialog : Window
 	public const int MaxPieceSize = 4096;   // like any imported picture
 	private static readonly SKSamplingOptions Smooth = new(SKFilterMode.Linear, SKMipmapMode.None);
 
-	private readonly SKBitmap _sheet;
-	private readonly byte[] _alpha;
+	private readonly SKBitmap _original;
+	private SKBitmap? _keyed;       // a copy with the background colour made see-through
+	private SKBitmap _sheet;        // the one in use: one of those two
+	private byte[] _alpha;          // its opacity, for cutting
 	private readonly SpriteSheetJson? _json;
 	private readonly int _fps;
 	private readonly HashSet<SheetPiece> _picked = new();
@@ -60,7 +62,7 @@ public partial class SpriteSheetDialog : Window
 		bool sharpPixels, int fps)
 	{
 		InitializeComponent();
-		_sheet = sheet;
+		_original = _sheet = sheet;
 		_alpha = SheetImporter.Alpha(sheet);
 		_json = json;
 		_fps = Math.Max(1, fps);
@@ -68,6 +70,29 @@ public partial class SpriteSheetDialog : Window
 
 		SheetTitle.Text = $"{name}   ({sheet.Width} × {sheet.Height} pixels)";
 		AnimationAnchor.ItemsSource = Anchors;
+
+		// A sheet drawn on a flat colour: that colour can become see-through. It's ticked to begin
+		// with when the sheet has no see-through pixels and the corners' colour covers much of it.
+		var corner = sheet.GetPixel(0, 0);
+		KeyBox.IsEnabled = corner.Alpha == 255;
+		KeyBox.Content = corner.Alpha == 255
+			? $"Make the background colour see-through (#{corner.Red:X2}{corner.Green:X2}{corner.Blue:X2}, as in the top-left corner)"
+			: "The background is see-through already";
+		if (corner.Alpha == 255 && _alpha.All(a => a == 255))
+		{
+			var keyed = SheetImporter.WithoutColourAt(sheet, 0, 0, out int taken);
+			bool corners = new[]
+			{
+				sheet.GetPixel(sheet.Width - 1, 0), sheet.GetPixel(0, sheet.Height - 1), sheet.GetPixel(sheet.Width - 1, sheet.Height - 1)
+			}.All(c => c == corner);
+			if (corners && taken >= 0.3 * sheet.Width * sheet.Height)
+			{
+				_keyed = keyed;
+				KeyBox.IsChecked = true;
+				UseSheet(keyed);
+			}
+			else keyed.Dispose();
+		}
 
 		// A strip of square frames is a common sheet: guess that, else 64 × 64
 		int shortSide = Math.Min(sheet.Width, sheet.Height), longSide = Math.Max(sheet.Width, sheet.Height);
@@ -96,7 +121,13 @@ public partial class SpriteSheetDialog : Window
 			PreviewView.InvalidateVisual();
 		};
 		Loaded += (_, _) => _timer.Start();
-		Closed += (_, _) => _timer.Stop();
+		Closed += (_, _) =>
+		{
+			_timer.Stop();
+			// The copy without the background goes with the plan when it's imported (whoever
+			// imports it disposes of it); otherwise it's not needed any more
+			if (_keyed != null && (DialogResult != true || Plan.Sheet != _keyed)) _keyed.Dispose();
+		};
 
 		_ready = true;
 		// The JSON if there is one, else the separate sprites of a see-through sheet, else a grid
@@ -110,7 +141,45 @@ public partial class SpriteSheetDialog : Window
 
 	private bool Hand => HandMode.IsChecked == true;
 
+	// ======================= the background colour =======================
+
+	private void UseSheet(SKBitmap sheet)
+	{
+		_sheet = sheet;
+		_alpha = SheetImporter.Alpha(sheet);
+		Plan.Sheet = sheet;
+	}
+
+	private void Key_Click(object sender, RoutedEventArgs e)
+	{
+		if (KeyBox.IsChecked == true)
+		{
+			_keyed ??= SheetImporter.WithoutColourAt(_original, 0, 0, out _);
+			UseSheet(_keyed);
+		}
+		else
+		{
+			UseSheet(_original);
+		}
+		if (Hand) RefreshAll(CurrentAnimation);   // drawn by hand: the pieces stay, only what's in them changes
+		else Cut();                               // finding sprites needs the see-through pixels
+	}
+
 	// ======================= cutting =======================
+
+	// "Or a grid of 8 × 4": the frame size that splits the sheet evenly (after the offset and gaps)
+	private void Split_Changed(object sender, TextChangedEventArgs e)
+	{
+		if (!_ready || !int.TryParse(SplitXBox.Text.Trim(), out int across) || !int.TryParse(SplitYBox.Text.Trim(), out int down) ||
+			across < 1 || down < 1)
+			return;
+		int Number(TextBox box) => int.TryParse(box.Text.Trim(), out int n) ? Math.Max(0, n) : 0;
+		int w = (_sheet.Width - Number(OffsetXBox) - (across - 1) * Number(GapXBox)) / across;
+		int h = (_sheet.Height - Number(OffsetYBox) - (down - 1) * Number(GapYBox)) / down;
+		if (w < 1 || h < 1) return;
+		CellWidthBox.Text = w.ToString();
+		CellHeightBox.Text = h.ToString();
+	}
 
 	private void Mode_Changed(object sender, RoutedEventArgs e)
 	{

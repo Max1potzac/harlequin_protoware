@@ -42,7 +42,7 @@ public sealed class SheetImportPlan
 		Name = name;
 	}
 
-	public SKBitmap Sheet { get; }
+	public SKBitmap Sheet { get; set; }   // the pixels the pieces are cut from
 	public string Name { get; set; }
 	public List<SheetPiece> Pieces { get; } = new();
 	public List<SheetAnimation> Animations { get; } = new();
@@ -327,6 +327,24 @@ public static class SheetImporter
 		using (var canvas = new SKCanvas(picture))
 			canvas.DrawBitmap(decoded, 0, 0, AssetStore.Nearest, null);
 		return picture;
+	}
+
+	// A copy of the picture with every pixel of the colour at (x, y) made see-through, for sheets
+	// drawn on a flat background colour. `taken` = how many pixels that was.
+	public static SKBitmap WithoutColourAt(SKBitmap picture, int x, int y, out int taken)
+	{
+		var pixels = PixelBuffer.Read(picture);
+		int key = pixels.Data[y * picture.Width + x];
+		taken = 0;
+		for (int i = 0; i < pixels.Data.Length; i++)
+		{
+			if (pixels.Data[i] != key) continue;
+			pixels.Data[i] = 0;   // see-through (premultiplied, so all zero)
+			taken++;
+		}
+		var copy = new SKBitmap(picture.Info);
+		pixels.WriteTo(copy);
+		return copy;
 	}
 
 	// Each pixel's opacity, for cutting the sheet up
