@@ -11,6 +11,7 @@ public class ObjectTool
 	private enum Drag { None, Pan, Move, Rotate, Scale }
 
 	private readonly Func<Scene> _scene;
+	private readonly SceneState _sceneState;
 	private readonly Camera _camera;
 	private readonly SkeletonRenderer _renderer;
 	private readonly UndoStack _undo;
@@ -29,14 +30,20 @@ public class ObjectTool
 	private const float BonePickPx = 6f;
 	private const float DragStartPx = 3f;
 
-	public SceneObject? Selected { get; set; }
+	// Shared with the Objects panel and the scene timeline
+	public SceneObject? Selected
+	{
+		get => _sceneState.Selected;
+		set => _sceneState.Selected = value;
+	}
 
 	// Double-click on an object: the main window opens it
 	public event Action<SceneObject>? EnterRequested;
 
-	public ObjectTool(Func<Scene> scene, Camera camera, SkeletonRenderer renderer, UndoStack undo)
+	public ObjectTool(Func<Scene> scene, SceneState sceneState, Camera camera, SkeletonRenderer renderer, UndoStack undo)
 	{
 		_scene = scene;
+		_sceneState = sceneState;
 		_camera = camera;
 		_renderer = renderer;
 		_undo = undo;

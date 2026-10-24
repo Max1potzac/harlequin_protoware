@@ -197,7 +197,41 @@ public partial class MainWindow
 
 		foreach (var rb in ToolButtons.Children.OfType<RadioButton>())
 			rb.IsChecked = (string)rb.Tag == name;
+		SyncToolOptions();
 	}
+
+	// Only the options the current tool uses are shown (changing one never switches tools)
+	private void SyncToolOptions()
+	{
+		var t = _paint.Tool;
+		bool strokes = t == _pencil || t == _brush || t == _eraser || t == _mixer;
+		bool outline = t == _figure && _paint.FigureStyle != FigureStyle.Filled;   // the figure's line width
+		bool bySimilarColour = t == _fill || t == _wand;
+
+		Show(SizeOption, strokes || outline);
+		Show(ToleranceOption, bySimilarColour);
+		Show(ContiguousBox, bySimilarColour);
+		Show(SampleAllBox, bySimilarColour || t == _mixer);
+		Show(MixOptions, t == _mixer);
+		Show(GradientTransparentBox, t == _gradient);
+		Show(SelectShapeOption, t == _select);
+		Show(SelectModeOption, t == _select || t == _wand);
+		Show(FigureOptions, t == _figure);
+		Show(SidesOption, _paint.Figure == FigureShape.Polygon);
+
+		ToolOptionsTitle.Text = t switch
+		{
+			_ when t == _move => "Move: drag the selected pixels (or the whole layer when nothing is selected).",
+			_ when t == _picker => "Picker: click or drag over the picture to take its colour (Alt+click works with most tools).",
+			_ => $"{ToolLabel(t)}:"
+		};
+
+		static void Show(UIElement element, bool visible) =>
+			element.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+	}
+
+	private string ToolLabel(PaintTool t) =>
+		ToolButtons.Children.OfType<RadioButton>().FirstOrDefault(rb => rb.IsChecked == true)?.Tag as string ?? t.Name;
 
 	private void Tool_Click(object sender, RoutedEventArgs e) =>
 		SelectTool((string)((FrameworkElement)sender).Tag);
@@ -282,12 +316,10 @@ public partial class MainWindow
 		_paint.MixLoad = (float)(LoadSlider.Value / 100);
 	}
 
-	// Picking a shape also switches to the Figure tool
 	private void FigureShape_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingUi || _paint is null) return;
 		ReadFigureOptions();
-		SelectTool("Figure");
 	}
 
 	private void FigureOption_Click(object sender, RoutedEventArgs e) => ReadFigureOptions();
@@ -301,12 +333,13 @@ public partial class MainWindow
 		_paint.FigureSmooth = FigureSmoothBox.IsChecked == true;
 		_paint.PolygonSides = (int)SidesSlider.Value;
 		SidesLabel.Text = _paint.PolygonSides.ToString();
+		SyncToolOptions();   // sides only for polygons, a line width only with an outline
 	}
+
 	private void FigureStyle_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingUi || _paint is null) return;
 		ReadFigureOptions();
-		SelectTool("Figure");
 	}
 
 	private void SwapColors_Click(object sender, RoutedEventArgs e) => _paint.SwapColors();
@@ -332,7 +365,6 @@ public partial class MainWindow
 		if (_syncingUi || _paint is null || SelectShapeBox.SelectedItem is not SelectShape shape) return;
 		_select.Cancel();   // a shape half-made with the old setting is dropped
 		_paint.SelectShape = shape;
-		SelectTool("Select");
 	}
 
 	private void SelectMode_Changed(object sender, SelectionChangedEventArgs e)
@@ -344,8 +376,7 @@ public partial class MainWindow
 	private void Contiguous_Click(object sender, RoutedEventArgs e)
 	{
 		if (_paint is null) return;
-		_paint.WandContiguous = ContiguousBox.IsChecked == true;
-		SelectTool("Wand");
+		_paint.Contiguous = ContiguousBox.IsChecked == true;
 	}
 
 	private void InvertSelection_Click(object sender, RoutedEventArgs e) => _paint.InvertSelection();
@@ -437,7 +468,7 @@ public partial class MainWindow
 		SidesLabel.Text = _paint.PolygonSides.ToString();
 		SelectShapeBox.SelectedItem = _paint.SelectShape;
 		SelectModeBox.SelectedItem = _paint.SelectMode;
-		ContiguousBox.IsChecked = _paint.WandContiguous;
+		ContiguousBox.IsChecked = _paint.Contiguous;
 
 		LayerList.Items.Clear();
 		for (int i = asset.Layers.Count - 1; i >= 0; i--)
@@ -467,6 +498,7 @@ public partial class MainWindow
 
 		_syncingUi = false;
 		SyncLayerFields();
+		SyncToolOptions();
 	}
 
 	// Name and opacity of the active layer

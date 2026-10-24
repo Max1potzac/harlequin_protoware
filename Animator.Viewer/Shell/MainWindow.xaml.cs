@@ -65,7 +65,7 @@ public partial class MainWindow : Window
 		_last = now;
 		if (_state.Playing && _sceneLevel)
 		{
-			_sceneTime += dt;
+			AdvanceScene(dt);
 		}
 		else if (_state.Playing)
 		{
@@ -115,7 +115,9 @@ public partial class MainWindow : Window
 		if (TimelineView.ActualWidth <= 0) return;
 		var canvas = e.Surface.Canvas;
 		canvas.Scale((float)(e.Info.Width / TimelineView.ActualWidth));   // same DPI fix
-		_timeline.Draw(canvas, new Vector2((float)TimelineView.ActualWidth, (float)TimelineView.ActualHeight));
+		var size = new Vector2((float)TimelineView.ActualWidth, (float)TimelineView.ActualHeight);
+		if (_sceneLevel) _sceneTimeline.Draw(canvas, size);   // at scene level: the scene timeline
+		else _timeline.Draw(canvas, size);
 	}
 
 	// ---------- viewport mouse ----------
@@ -169,10 +171,21 @@ public partial class MainWindow : Window
 
 	// ---------- timeline mouse ----------
 
+	private bool _sceneTimelineDrag;   // the current timeline press went to the scene timeline
+
 	private void Timeline_MouseDown(object sender, MouseButtonEventArgs e)
 	{
 		TimelineView.Focus();
 		var p = PosIn(TimelineView, e);
+
+		_sceneTimelineDrag = _sceneLevel;
+		if (_sceneLevel)
+		{
+			_sceneTimeline.MouseDown(p, e.ChangedButton, e.ClickCount);
+			if (_sceneLevel && e.ChangedButton == MouseButton.Left) TimelineView.CaptureMouse();   // not if a clip just opened
+			UpdateStatus();
+			return;
+		}
 
 		if (e.ChangedButton == MouseButton.Right)
 		{
@@ -194,15 +207,26 @@ public partial class MainWindow : Window
 		UpdateStatus();
 	}
 
-	private void Timeline_MouseMove(object sender, MouseEventArgs e) => _timeline.MouseMove(PosIn(TimelineView, e));
+	private void Timeline_MouseMove(object sender, MouseEventArgs e)
+	{
+		var p = PosIn(TimelineView, e);
+		if (_sceneTimelineDrag) _sceneTimeline.MouseMove(p);
+		else _timeline.MouseMove(p);
+	}
 
 	private void Timeline_MouseUp(object sender, MouseButtonEventArgs e)
 	{
-		_timeline.MouseUp();
+		if (_sceneTimelineDrag) _sceneTimeline.MouseUp();
+		else _timeline.MouseUp();
+		_sceneTimelineDrag = false;
 		TimelineView.ReleaseMouseCapture();
 	}
 
-	private void Timeline_MouseWheel(object sender, MouseWheelEventArgs e) => _timeline.Wheel(e.Delta);
+	private void Timeline_MouseWheel(object sender, MouseWheelEventArgs e)
+	{
+		if (_sceneLevel) _sceneTimeline.Wheel(PosIn(TimelineView, e), e.Delta);
+		else _timeline.Wheel(e.Delta);
+	}
 
 	// ---------- keyboard ----------
 
@@ -222,7 +246,11 @@ public partial class MainWindow : Window
 		if (ctrl && e.Key == Key.O) { OpenProject(); e.Handled = true; return; }
 		if (ctrl && e.Key == Key.N) { NewProject(); e.Handled = true; return; }
 		// Not in the middle of a drag: the drag's undo step would come out wrong
-		if (Viewport.IsMouseCaptured && (ctrl || e.Key is Key.Escape or Key.Delete or Key.Enter)) { e.Handled = true; return; }
+		if ((Viewport.IsMouseCaptured || TimelineView.IsMouseCaptured) && (ctrl || e.Key is Key.Escape or Key.Delete or Key.Enter))
+		{
+			e.Handled = true;
+			return;
+		}
 
 		if (ctrl && e.Key == Key.Z && !shift)
 		{
@@ -378,8 +406,9 @@ public partial class MainWindow : Window
 				$"SCENE    Object: {_objectTool?.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
 				"Viewport: click an object = select, drag = move, drag a corner = scale (Shift: keep proportions), round handle = turn (Shift: 15° steps)\n" +
 				"Double-click an object (or Enter) = edit it.   Drag empty / middle = pan, wheel = zoom, F = reset view\n" +
-				"Each object plays its preview animation (set it in the Objects panel).   Space: play/pause   R: restart   ←/→: step\n" +
-				"Del: delete object   Ctrl+Z / Ctrl+Y: undo/redo   G: images   O: onion skin   " +
+				"Scene timeline: right-click a row = add a clip, drag a clip = move, drag its edges = length / trim, double-click = edit it in place\n" +
+				"Objects without clips loop their preview animation.   Wheel / Shift+wheel / Ctrl+wheel = scroll / scroll in time / zoom\n" +
+				"Space: play/pause   R: restart   ←/→: step   Del: delete clip (or object)   Ctrl+Z / Ctrl+Y: undo/redo   G: images   O: onion skin   " +
 				$"P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
 				"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as";
 			UpdateTitle();

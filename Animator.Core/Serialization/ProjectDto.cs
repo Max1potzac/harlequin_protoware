@@ -18,6 +18,13 @@ public class ProjectDto : RigDto
 {
 	public int Fps { get; set; } = 30;
 	public List<ObjectDto>? Objects { get; set; }
+
+	// Since format 7: what the project is for, and the scene timeline (null = the defaults)
+	public ProjectKind? Kind { get; set; }
+	public float? SceneDuration { get; set; }
+	public bool? SceneLoop { get; set; }
+	public int? StageWidth { get; set; }
+	public int? StageHeight { get; set; }
 }
 
 // One object in the scene: its place and settings, plus its rig and animations
@@ -35,6 +42,17 @@ public class ObjectDto : RigDto
 	public string? PreviewAnimation { get; set; }
 	public string? AttachObject { get; set; }   // attached to this object's bone (null = free)
 	public string? AttachBone { get; set; }
+	public List<ClipDto>? Clips { get; set; }   // on the scene timeline (format 7)
+}
+
+// A clip of one of the object's animations on the scene timeline, in seconds
+public class ClipDto
+{
+	public string Animation { get; set; } = "";
+	public float Start { get; set; }
+	public float Length { get; set; }
+	public float Offset { get; set; }
+	public bool Loop { get; set; }
 }
 
 // A rig: bones, parts, pixels, skins, constraints and its animations

@@ -32,26 +32,68 @@ public partial class MainWindow
 
 	// ---------- new / open ----------
 
+	// A character (for games) or an animation (a scene to play over time): same kind of file,
+	// different starting points
 	private void NewProject()
 	{
 		if (!ConfirmDiscard()) return;
+		var dialog = new NewProjectDialog(_state.Fps) { Owner = this };
+		if (dialog.ShowDialog() != true) return;
+
 		ClosePaintEditor();
 		_assets.Clear();
-
-		// "New" starts from the demo character, as the only object (a fresh rig, so nothing
-		// is shared with the old document)
-		_skeleton = new Skeleton();
-		BuildDemoRig();
-		BuildDemoAnimation();
-		_state.Animations = new List<Animation> { _anim };
-		_state.Animation = _anim;
-		_scene = SingleObjectScene();
+		_state.Fps = dialog.Fps;
+		_scene = dialog.Kind == ProjectKind.Animation
+			? AnimationTemplate(dialog.StageWidth, dialog.StageHeight, dialog.LengthFrames)
+			: CharacterTemplate(dialog.UseDemo);
 		_active = null;
-		_sceneLevel = false;
+		_sceneLevel = _scene.Kind == ProjectKind.Animation;   // an animation starts at the scene
 		EditObject(_scene.Objects[0]);
 
 		_projectPath = null;
 		ResetEditorState();
+	}
+
+	// One character to open right away: the demo one, or a rig with one bone to build on.
+	// A fresh rig either way, so nothing is shared with the old document.
+	private Scene CharacterTemplate(bool demo)
+	{
+		_skeleton = new Skeleton();
+		if (demo)
+		{
+			BuildDemoRig();
+			BuildDemoAnimation();
+		}
+		else
+		{
+			_skeleton.Roots.Add(new Bone { Name = "root", Length = 60, SetupRotation = MathF.PI / 2 });   // pointing up
+			_anim = new Animation { Name = "animation", Duration = 2f, Loop = true };
+		}
+		_state.Animations = new List<Animation> { _anim };
+		_state.Animation = _anim;
+		var scene = SingleObjectScene();
+		scene.Kind = ProjectKind.Character;
+		return scene;
+	}
+
+	// A scene to play over time: a stage, its length, and a blank background the stage's size
+	private Scene AnimationTemplate(int width, int height, int frames)
+	{
+		var scene = new Scene
+		{
+			Fps = _state.Fps,
+			Kind = ProjectKind.Animation,
+			StageWidth = width,
+			StageHeight = height,
+			Duration = frames / (float)_state.Fps,
+			Loop = true
+		};
+		var background = SceneOps.AddDrawn(scene, "background", Vector2.Zero);
+		background.Locked = true;   // clicks on the stage go to the objects in front; open it from the list to paint
+		var drawing = new Asset { Name = "background", Width = width, Height = height };
+		_assets.AddLayer(drawing, "Base", null);   // blank, to paint
+		PartOps.CreatePart(background.Skeleton, background.Skeleton.Roots[0], drawing, "background", Vector2.Zero, 0f);
+		return scene;
 	}
 
 	private void OpenProject()
@@ -80,8 +122,9 @@ public partial class MainWindow
 		_state.Fps = _scene.Fps;
 		_active = null;
 		EditObject(_scene.Objects[0]);
-		// A lone character opens ready to edit; a scene of several objects opens at scene level
-		_sceneLevel = _scene.Objects.Count > 1;
+		// A lone character opens ready to edit; an animation, or a scene of several objects,
+		// opens at scene level
+		_sceneLevel = _scene.Objects.Count > 1 || _scene.Kind == ProjectKind.Animation;
 
 		_projectPath = dialog.FileName;
 		ResetEditorState();
@@ -93,10 +136,11 @@ public partial class MainWindow
 		_state.SelectedSlot = null;
 		_state.SelectedKeys.Clear();
 		_state.Time = 0;
-		_sceneTime = 0;
-		_objectTool.Selected = null;
+		_sceneState.Time = 0;
+		_sceneTimeAtZero = 0;
+		_objectTool.Selected = null;   // and the selected clip
 		_state.Playing = false;
-		_camera.Reset();
+		ResetView();   // an animation's stage fits the view
 		_state.Undo.Clear();       // the history belongs to the previous document
 		_state.Undo.MarkSaved();   // a freshly opened document has no unsaved changes
 		UpdateStatus();

@@ -235,7 +235,7 @@ public sealed class MagicWandTool : PaintTool
 		}
 
 		var sample = s.SampleAllLayers && s.Composite is { } merged ? PixelBuffer.Read(merged) : PixelBuffer.Read(layer);
-		var bits = MagicWand.Select(sample, x, y, s.Tolerance, s.WandContiguous);
+		var bits = MagicWand.Select(sample, x, y, s.Tolerance, s.Contiguous);
 		var shape = SelectionMask.FromBits(asset.Width, asset.Height, bits);
 		s.ApplySelection(shape, mode, "Magic wand");
 	}

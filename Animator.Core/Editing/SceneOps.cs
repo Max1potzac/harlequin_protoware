@@ -85,6 +85,85 @@ public static class SceneOps
 		return true;
 	}
 
+	// ======================= clips on the scene timeline =======================
+	// A track never has two clips at the same time: clips can't overlap or pass each other.
+	// minLength is the shortest a clip may be (one frame, in seconds).
+
+	// A clip of `animation` on the object's track at `start`, one full play long. If `start` is
+	// inside another clip it goes right after that one, and it's shortened to fit before the next.
+	// null = there's no room there.
+	public static SceneClip? AddClip(SceneObject obj, Animation animation, float start, float minLength)
+	{
+		SortClips(obj);
+		start = MathF.Max(0f, start);
+		foreach (var c in obj.Clips)   // in time order, so a run of clips is skipped as a whole
+			if (start >= c.Start && start < c.End) start = c.End;
+
+		float room = obj.Clips.Where(c => c.Start >= start).Select(c => c.Start).DefaultIfEmpty(float.PositiveInfinity).Min() - start;
+		float length = MathF.Min(MathF.Max(animation.Duration, minLength), room);
+		if (length < minLength - 1e-5f) return null;
+
+		var clip = new SceneClip(animation, start, length);
+		obj.Clips.Add(clip);
+		SortClips(obj);
+		return clip;
+	}
+
+	// Slides a clip along its track, between its neighbours and not before the scene's start
+	public static void MoveClip(SceneObject obj, SceneClip clip, float start)
+	{
+		var (prev, next) = Neighbours(obj, clip);
+		float min = prev?.End ?? 0f;
+		float max = (next?.Start ?? float.PositiveInfinity) - clip.Length;
+		clip.Start = Math.Clamp(start, min, MathF.Max(min, max));
+	}
+
+	// Drags the clip's end: longer loops (or holds) the animation, shorter cuts it
+	public static void SetClipEnd(SceneObject obj, SceneClip clip, float end, float minLength)
+	{
+		var (_, next) = Neighbours(obj, clip);
+		float min = clip.Start + minLength;
+		float max = next?.Start ?? float.PositiveInfinity;
+		clip.Length = Math.Clamp(end, min, MathF.Max(min, max)) - clip.Start;
+	}
+
+	// Drags the clip's start, keeping its end: trims frames off the front of the animation (or
+	// brings them back), so what's left stays where it was in time. Never before the previous
+	// clip, the scene's start, or the animation's first frame.
+	public static void SetClipStart(SceneObject obj, SceneClip clip, float start, float minLength)
+	{
+		var (prev, _) = Neighbours(obj, clip);
+		float end = clip.End;
+		float min = MathF.Max(prev?.End ?? 0f, clip.Start - clip.Offset);
+		float max = end - minLength;
+		start = Math.Clamp(start, min, MathF.Max(min, max));
+		clip.Offset = MathF.Max(0f, clip.Offset + start - clip.Start);
+		clip.Start = start;
+		clip.Length = end - start;
+	}
+
+	// Exactly one play of the animation (from the clip's offset), as far as there's room.
+	// false = it already was.
+	public static bool FitClip(SceneObject obj, SceneClip clip, float minLength)
+	{
+		float before = clip.Length;
+		SetClipEnd(obj, clip, clip.Start + MathF.Max(minLength, clip.Animation.Duration - clip.Offset), minLength);
+		return MathF.Abs(clip.Length - before) > 1e-6f;
+	}
+
+	// The end of the last clip in the scene (0 without clips): where an animation scene finishes
+	public static float LastClipEnd(Scene scene) =>
+		scene.Objects.SelectMany(o => o.LiveClips).Select(c => c.End).DefaultIfEmpty(0f).Max();
+
+	private static (SceneClip? Prev, SceneClip? Next) Neighbours(SceneObject obj, SceneClip clip)
+	{
+		SortClips(obj);
+		int i = obj.Clips.IndexOf(clip);
+		return (i > 0 ? obj.Clips[i - 1] : null, i >= 0 && i < obj.Clips.Count - 1 ? obj.Clips[i + 1] : null);
+	}
+
+	private static void SortClips(SceneObject obj) => obj.Clips.Sort((a, b) => a.Start.CompareTo(b.Start));
+
 	// ======================= attaching =======================
 
 	// Puts an object on another object's bone (holder null = free in the scene), keeping it
