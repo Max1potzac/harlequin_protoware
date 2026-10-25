@@ -81,6 +81,7 @@ public partial class MainWindow
 		SwapColorsButton.ToolTip = $"Swap colors ({KeyOf("paint.swap")})";
 		InvertSelectionButton.ToolTip = $"Select everything that isn't selected ({KeyOf("paint.invert")})";
 		DeselectButton.ToolTip = $"Drop the selection, so tools work everywhere again ({KeyOf("paint.deselect")})";
+		LayersViewChoice.ToolTip = $"Every part in the order it's drawn, the top one in front, whatever bone it's on. Drag one up or down to change the order (picked ones go together); right-click for more ({KeyOf("order.forward")} / {KeyOf("order.backward")} a step, {KeyOf("order.front")} / {KeyOf("order.back")} all the way). In Animate mode, that keys the order at the playhead.";
 		ClosePaintButton.Content = WithKey("Close", "edit.back");
 		SceneButton.ToolTip = $"Back to the scene, to place whole objects ({KeyOf("edit.back")}). At scene level: open the selected object ({KeyOf("scene.open")})";
 		RefreshScenePanel();   // its hints name keys and buttons too

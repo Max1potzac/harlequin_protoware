@@ -283,7 +283,7 @@ public partial class MainWindow
 			edit.Click += (_, _) => EnterObject(obj, clip);
 			menu.Items.Add(edit);
 
-			var delete = new MenuItem { Header = "Delete clip", InputGestureText = "Del" };
+			var delete = new MenuItem { Header = "Delete clip", InputGestureText = _keys.Gesture("edit.delete") };
 			delete.Click += (_, _) => DeleteSelectedClip();
 			menu.Items.Add(delete);
 			menu.Items.Add(new Separator());

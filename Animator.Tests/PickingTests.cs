@@ -326,6 +326,37 @@ public class PickingTests
 		AssertNear(new Vector2(0, -100), rig.CentreOf(rig.Body));
 	}
 
+	[Fact]
+	public void In_the_scene_the_select_button_picks_and_the_transform_button_moves()
+	{
+		var rig = new Rig();
+		var scene = new Scene { Fps = 30 };
+		var character = new SceneObject("Character", ObjectKind.Rigged, rig.Skeleton);
+		scene.Objects.Add(character);
+		var tool = new ObjectTool(() => scene, new SceneState(), rig.Camera, rig.Renderer, rig.State.Undo);
+
+		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Left, 1);   // its body
+		tool.MouseUp();
+		Assert.Same(character, tool.Selected);
+
+		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Left, 1);   // picking doesn't move it
+		tool.MouseMove(Rig.Screen(30, -100));
+		tool.MouseUp();
+		Assert.Equal(Vector2.Zero, character.Position);
+
+		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Right, 1);
+		tool.MouseMove(Rig.Screen(15, -100));
+		tool.MouseMove(Rig.Screen(30, -100));
+		tool.MouseUp();
+		AssertNear(new Vector2(30, 0), character.Position);
+		rig.State.Undo.Undo();
+		AssertNear(Vector2.Zero, character.Position);
+
+		tool.MouseDown(Rig.Screen(150, 150), MouseButton.Left, 1);   // nothing there
+		tool.MouseUp();
+		Assert.Null(tool.Selected);
+	}
+
 	// ======================= hiding =======================
 
 	[Fact]
