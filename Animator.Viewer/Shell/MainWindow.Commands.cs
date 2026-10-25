@@ -108,6 +108,8 @@ public partial class MainWindow
 		// Typing in a text box (like the color code) must not trigger shortcuts.
 		// Without this, typing "B" in "#FFB000" would flip the elbow instead.
 		if (Keyboard.FocusedElement is TextBox) return;
+		// In an open menu, letters are its items' access keys (O: Open…), not shortcuts
+		if (Keyboard.FocusedElement is MenuItem) return;
 		if (KeyChord.From(e) is not { } chord) return;   // Ctrl, Shift or Alt on its own
 
 		// Paint keys go first while the mouse is over the paint canvas

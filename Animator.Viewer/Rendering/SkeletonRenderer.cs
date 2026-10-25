@@ -60,10 +60,7 @@ public class SkeletonRenderer
 	private void DrawSelectionBox(SKCanvas canvas)
 	{
 		if (SelectionBox is not { Count: 4 } box) return;
-		using var path = new SKPath();
-		path.MoveTo(box[0].X, box[0].Y);
-		for (int i = 1; i < 4; i++) path.LineTo(box[i].X, box[i].Y);
-		path.Close();
+		using var path = PaintHelpers.Polyline(box, closed: true);
 		using var fill = new SKPaint { Color = new SKColor(80, 220, 255, 32), Style = SKPaintStyle.Fill, IsAntialias = true };
 		using var dash = SKPathEffect.CreateDash(new[] { 5f / Zoom, 4f / Zoom }, 0);
 		using var edge = new SKPaint

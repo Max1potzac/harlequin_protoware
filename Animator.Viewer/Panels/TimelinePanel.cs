@@ -18,6 +18,7 @@ public class TimelinePanel
 
     private float _frameWidth = 10f;
     private float _scroll;          // how far the rows are scrolled up, in pixels
+    private object? _scrolledTo;    // the bone or part whose rows were last brought into view
     private float _viewHeight;
 
     private enum Drag { None, Scrub, Keys }
@@ -64,6 +65,11 @@ public class TimelinePanel
     {
         _viewHeight = size.Y;
         ClampScroll();
+        if (!ReferenceEquals(_state.Primary, _scrolledTo))
+        {
+            _scrolledTo = _state.Primary;
+            ShowRowsOf(_scrolledTo);   // something else picked: its rows, if they're out of sight
+        }
 
         int frames = Math.Max(1, _state.FrameCount);
         _frameWidth = Math.Max(4f, (size.X - LabelWidth - LeftPad * 2) / frames);
@@ -311,6 +317,20 @@ public class TimelinePanel
     public void Wheel(int delta)
     {
         _scroll -= delta / 120f * RowHeight * 2;   // one wheel notch = two rows
+        ClampScroll();
+    }
+
+    // Scrolls the first row of this bone or part into view, when none of its rows can be seen
+    private void ShowRowsOf(object? item)
+    {
+        if (item == null) return;
+        var timelines = _state.Animation.Timelines;
+        var rows = Enumerable.Range(0, timelines.Count).Where(i => Animated(timelines[i]) == item).ToList();
+        if (rows.Count == 0) return;
+        float visible = MathF.Max(0, _viewHeight - RulerHeight);
+        bool seen = rows.Any(i => RowTop(i) >= RulerHeight && RowTop(i) + RowHeight <= RulerHeight + visible);
+        if (seen) return;
+        _scroll = rows[0] * RowHeight - MathF.Max(0, (visible - RowHeight * Math.Min(rows.Count, 4)) / 2);
         ClampScroll();
     }
 
