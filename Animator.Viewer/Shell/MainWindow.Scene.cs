@@ -297,30 +297,6 @@ public partial class MainWindow
 		return true;
 	}
 
-	// ======================= keys at scene level =======================
-
-	// Only the keys for whole objects, playback and the view (true = handled)
-	private bool HandleSceneKey(Key key)
-	{
-		switch (key)
-		{
-			case Key.Space: _state.Playing = !_state.Playing; break;
-			case Key.R: _sceneState.Time = 0; break;
-			case Key.Left: StepScene(-1); break;
-			case Key.Right: StepScene(+1); break;
-			case Key.Enter when _objectTool.Selected is { } obj: EnterObject(obj); break;
-			case Key.Delete when _sceneState.SelectedClip != null: DeleteSelectedClip(); break;
-			case Key.Delete: DeleteCurrentObject(); break;
-			case Key.Escape: _objectTool.Selected = null; break;
-			case Key.F: ResetView(); break;
-			case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
-			case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
-			case Key.O: ToggleOnion(); break;
-			default: return false;
-		}
-		return true;
-	}
-
 	private void StepScene(int frames)
 	{
 		_state.Playing = false;

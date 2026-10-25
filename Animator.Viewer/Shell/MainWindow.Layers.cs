@@ -60,7 +60,7 @@ public partial class MainWindow
 			header.Inlines.Add(new Run($"   on {slot.Bone.Name}") { Foreground = new SolidColorBrush(Color.FromRgb(140, 150, 165)), FontStyle = FontStyles.Normal });
 		var item = new TreeViewItem
 		{
-			Header = header,
+			Header = RowHeader(slot, header),
 			Tag = slot,
 			Foreground = new SolidColorBrush(Color.FromRgb(255, 190, 110)),
 			FontStyle = FontStyles.Italic,
@@ -133,28 +133,38 @@ public partial class MainWindow
 	{
 		var menu = new ContextMenu();
 		var items = new List<(MenuItem Item, int Direction)>();
-		void Add(string header, string keys, int direction, bool toEnd)
+		void Add(string header, string command, int direction, bool toEnd)
 		{
-			var item = new MenuItem { Header = header, InputGestureText = keys };
+			var item = new MenuItem { Header = header, Tag = command };
 			item.Click += (_, _) =>
 			{
-				_state.SelectedSlot = slot;
-				_state.Selected = slot.Bone;
-				Reorder(new[] { slot }, direction, toEnd);
+				// A picked part takes the other picked parts along
+				var parts = DraggedAlong(slot);
+				if (parts.Count == 1)
+				{
+					_state.SelectedSlot = slot;
+					_state.Selected = slot.Bone;
+				}
+				Reorder(parts, direction, toEnd);
 			};
 			menu.Items.Add(item);
 			items.Add((item, direction));
 		}
-		Add("Bring to front", "Ctrl+Shift+]", +1, true);
-		Add("Bring forward", "Ctrl+]", +1, false);
-		Add("Send backward", "Ctrl+[", -1, false);
-		Add("Send to back", "Ctrl+Shift+[", -1, true);
+		Add("Bring to front", "order.front", +1, true);
+		Add("Bring forward", "order.forward", +1, false);
+		Add("Send backward", "order.backward", -1, false);
+		Add("Send to back", "order.back", -1, true);
 		menu.Opened += (_, _) =>
 		{
 			var order = CurrentOrder();
-			int at = IndexIn(order, slot);
+			var parts = DraggedAlong(slot);
+			var at = parts.Select(part => IndexIn(order, part)).ToList();
 			foreach (var (item, direction) in items)
-				item.IsEnabled = direction > 0 ? at < order.Count - 1 : at > 0;
+			{
+				item.InputGestureText = _keys.Gesture((string)item.Tag);
+				item.IsEnabled = direction > 0 ? at.Min() < order.Count - parts.Count : at.Max() >= parts.Count;
+				item.Header = parts.Count > 1 ? $"{BaseHeader((string)item.Tag)} ({parts.Count} parts)" : BaseHeader((string)item.Tag);
+			}
 		};
 		return menu;
 	}
@@ -166,7 +176,7 @@ public partial class MainWindow
 	{
 		if (!ShowingLayers || e.Data.GetData("HarlequinRig") is not Slot dragged) return null;
 		var item = ItemUnder(e.OriginalSource as DependencyObject);
-		if (item?.Tag is not Slot target || target == dragged) return null;
+		if (item?.Tag is not Slot target || DraggedAlong(dragged).Contains(target)) return null;
 		return (target, e.GetPosition(item).Y < item.ActualHeight / 2, item);
 	}
 
@@ -186,14 +196,29 @@ public partial class MainWindow
 
 	private void BoneTree_DragLeave(object sender, DragEventArgs e) => MarkDrop(null, false);
 
+	// The dragged part (and the other picked parts, when it's one of them) in front of or behind
+	// the target, keeping their own order
 	private void DropLayer(Slot dragged, Slot target, bool inFront)
 	{
+		var moving = DraggedAlong(dragged);
 		var order = CurrentOrder().ToList();
-		var others = order.Where(s => s != dragged).ToList();
+		var others = order.Where(s => !moving.Contains(s)).ToList();
 		int index = others.IndexOf(target) + (inFront ? 1 : 0);
-		ApplyOrder(DrawOrderOps.Moved(order, new[] { dragged }, index), $"{dragged.Name} {(inFront ? "in front of" : "behind")} {target.Name}");
-		_state.SelectedSlot = dragged;
-		_state.Selected = dragged.Bone;
+		string what = moving.Count == 1 ? dragged.Name : $"{moving.Count} parts";
+		ApplyOrder(DrawOrderOps.Moved(order, moving, index), $"{what} {(inFront ? "in front of" : "behind")} {target.Name}");
+		if (moving.Count == 1)
+		{
+			_state.SelectedSlot = dragged;
+			_state.Selected = dragged.Bone;
+		}
 		RefreshRigPanel();
 	}
+
+	private static string BaseHeader(string command) => command switch
+	{
+		"order.front" => "Bring to front",
+		"order.forward" => "Bring forward",
+		"order.backward" => "Send backward",
+		_ => "Send to back"
+	};
 }

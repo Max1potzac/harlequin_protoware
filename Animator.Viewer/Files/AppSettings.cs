@@ -1,5 +1,7 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Windows.Input;
 
 namespace Animator.Viewer.Files;
 
@@ -11,6 +13,17 @@ public sealed class AppSettings
 	public string? ExportFolder { get; set; }    // where the last export went
 	public string? ImportFolder { get; set; }    // where the last imported file came from
 	public bool KeepPartsInPlace { get; set; } = true;   // "Parts stay put when bones move" (rig panel)
+
+	// Settings: the shortcuts changed from the defaults (command → its keys, see KeyMap), and which
+	// mouse button picks, which moves things and which moves the view
+	public Dictionary<string, string[]>? Shortcuts { get; set; }
+	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton SelectButton { get; set; } = MouseButton.Left;
+	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton TransformButton { get; set; } = MouseButton.Right;
+	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton PanButton { get; set; } = MouseButton.Middle;
+
+	// The three must be different buttons (a hand-edited file might not have them so)
+	[JsonIgnore] public bool MouseButtonsValid =>
+		SelectButton != TransformButton && SelectButton != PanButton && TransformButton != PanButton;
 
 	private static string FilePath => Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Harlequin", "settings.json");

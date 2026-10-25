@@ -9,6 +9,11 @@ public class Slot
 	public string? ActiveAttachment { get; set; }   // this is what the attachment timeline will change
 
     public string? SetupAttachment { get; set; }
+
+	// Hidden while editing (the eye in the rig panel), or on a hidden bone: not drawn in the
+	// viewport or picked there. Never in exports; saved with the project.
+	public bool Hidden { get; set; }
+	public bool IsHidden => Hidden || Bone.IsHidden;
     public Slot(string name, Bone bone) { Name = name; Bone = bone; }
 
 	// Placement keys (milestone 9.3): the part moved, turned and scaled on its bone, on top of

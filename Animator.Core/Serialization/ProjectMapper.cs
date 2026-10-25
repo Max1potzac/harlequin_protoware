@@ -169,6 +169,7 @@ public static class ProjectMapper
 				Turn = b.SetupTurn,
 				Tilt = b.SetupTilt,
 				Connected = b.Connected && b.Parent != null ? true : null,
+				Hidden = b.Hidden ? true : null,
 			});
 		}
 
@@ -181,7 +182,8 @@ public static class ProjectMapper
 				Attachment = s.SetupAttachment,
 				Blend = s.Blend == BlendMode.Normal ? null : s.Blend,
 				Color = s.SetupColor == Vector3.One ? null : Rgb.From(s.SetupColor),
-				Opacity = s.SetupOpacity >= 1f ? null : s.SetupOpacity
+				Opacity = s.SetupOpacity >= 1f ? null : s.SetupOpacity,
+				Hidden = s.Hidden ? true : null
 			});
 		}
 
@@ -375,6 +377,7 @@ public static class ProjectMapper
 				SetupTurn = b.Turn,
 				SetupTilt = b.Tilt,
 				Connected = b.Connected ?? false,
+				Hidden = b.Hidden ?? false,
 			};
 			if (!bones.TryAdd(b.Name, bone))
 				throw new InvalidDataException($"Two bones are named '{b.Name}'.");
@@ -394,7 +397,8 @@ public static class ProjectMapper
 				SetupAttachment = s.Attachment,
 				Blend = s.Blend ?? BlendMode.Normal,
 				SetupColor = s.Color?.ToVector3() ?? Vector3.One,
-				SetupOpacity = s.Opacity ?? 1f
+				SetupOpacity = s.Opacity ?? 1f,
+				Hidden = s.Hidden ?? false
 			});
 		}
 

@@ -30,20 +30,35 @@ public sealed class FrozenRest
 	public Vector2 HeadOf(Bone bone) => _bones.TryGetValue(bone, out var b) ? b.Head : bone.World.Translation;
 	public Vector2 TipOf(Bone bone) => _bones.TryGetValue(bone, out var b) ? b.Tip : bone.TipWorld;
 	public bool WasConnected(Bone bone) => _bones.TryGetValue(bone, out var b) ? b.Connected : bone.Connected;
+	public float AngleOf(Bone bone) => _bones.TryGetValue(bone, out var b) ? b.Angle : bone.WorldRotation;
 
-	// Everything back where it was, except the `moved` bones (whose rest values were just set).
+	// The drawings of these parts placed where they were when this was captured, then changed by
+	// `change` (their frame in the world → its new frame)
+	public void PlaceParts(IEnumerable<Slot> slots, Func<Matrix3x2, Matrix3x2> change)
+	{
+		var picked = slots.ToHashSet();
+		foreach (var (drawing, slot, frame) in _drawings)
+			if (picked.Contains(slot)) PartOps.PlaceFrame(drawing, change(frame), slot.Bone.World);
+	}
+
+	// Everything back where it was, except the `moved` bones (whose rest values were just set, or
+	// are set by `place` on the way: parents first, so a moved bone's parent is where it ends up).
 	// A bone glued to its parent's end follows that end and turns and stretches to keep its own
 	// end where it was; any other bone keeps its joint and angle. Every drawing keeps its place.
-	public void Restore(IReadOnlyCollection<Bone> moved)
+	public void Restore(IReadOnlyCollection<Bone> moved, Action<Bone>? place = null)
 	{
-		foreach (var root in _skeleton.Roots) Restore(root, moved);
+		foreach (var root in _skeleton.Roots) Restore(root, moved, place);
 		foreach (var (drawing, slot, frame) in _drawings)
 			PartOps.PlaceFrame(drawing, frame, slot.Bone.World);
 	}
 
-	private void Restore(Bone bone, IReadOnlyCollection<Bone> moved)
+	private void Restore(Bone bone, IReadOnlyCollection<Bone> moved, Action<Bone>? place)
 	{
-		if (!moved.Contains(bone) && _bones.TryGetValue(bone, out var was))
+		if (moved.Contains(bone))
+		{
+			place?.Invoke(bone);
+		}
+		else if (_bones.TryGetValue(bone, out var was))
 		{
 			if (bone.Connected && bone.Parent is { } parent)
 			{
@@ -59,7 +74,7 @@ public sealed class FrozenRest
 		}
 		bone.ResetToSetup();
 		bone.UpdateWorld();
-		foreach (var child in bone.Children) Restore(child, moved);
+		foreach (var child in bone.Children) Restore(child, moved, place);
 	}
 
 	// Turns and stretches a bone whose joint is at `head` so it ends at `tip` (its parent's world
@@ -76,7 +91,7 @@ public sealed class FrozenRest
 		bone.Length = unit > 1e-6f ? distance / unit : distance;
 	}
 
-	private static float ParentAngle(Bone bone) =>
+	internal static float ParentAngle(Bone bone) =>
 		bone.Parent != null && bone.InheritRotation ? bone.Parent.WorldRotation : 0f;
 }
 
@@ -155,6 +170,48 @@ public static class RestEdits
 		frozen.Restore(moved);
 		return glued;
 	}
+
+	// Several picked bones and parts moved as they are by `delta` (world): the picked bones under
+	// a picked bone ride along on it, and nothing that isn't picked moves (the parts on a moved
+	// bone included). A moved bone that sat on its parent's end leaves it.
+	public static void MovePicked(FrozenRest frozen, IReadOnlyCollection<Bone> bones, IReadOnlyCollection<Slot> parts, Vector2 delta)
+	{
+		frozen.Restore(bones, bone =>
+		{
+			if (bone.Parent is { } parent && bones.Contains(parent)) return;   // it rides on its picked parent
+			bone.Connected = false;
+			var head = frozen.HeadOf(bone) + delta;
+			bone.SetupPosition = bone.Parent is { } p && Matrix3x2.Invert(p.World, out var toParent)
+				? Vector2.Transform(head, toParent)
+				: head;
+		});
+		frozen.PlaceParts(parts, frame => frame * Matrix3x2.CreateTranslation(delta));
+	}
+
+	// Several picked bones and parts each turned by `angle` (world) round its own joint or pivot;
+	// the picked bones under a picked bone turn with it, and nothing that isn't picked moves
+	public static void TurnPicked(FrozenRest frozen, IReadOnlyCollection<Bone> bones, IReadOnlyCollection<Slot> parts, float angle)
+	{
+		frozen.Restore(bones, bone =>
+		{
+			if (bone.Parent is { } parent && bones.Contains(parent)) return;   // it turns with its picked parent
+			bone.SetupRotation = frozen.AngleOf(bone) + angle - FrozenRest.ParentAngle(bone);
+		});
+		frozen.PlaceParts(parts, frame => frame * Around(frame.Translation, angle));
+	}
+
+	// The picked bones no other picked bone is above
+	public static IEnumerable<Bone> TopOf(IReadOnlyCollection<Bone> bones) =>
+		bones.Where(b => !Ancestors(b).Any(bones.Contains));
+
+	private static IEnumerable<Bone> Ancestors(Bone bone)
+	{
+		for (var p = bone.Parent; p != null; p = p.Parent) yield return p;
+	}
+
+	// A turn round a point (world)
+	public static Matrix3x2 Around(Vector2 point, float angle) =>
+		Matrix3x2.CreateTranslation(-point) * Matrix3x2.CreateRotation(angle) * Matrix3x2.CreateTranslation(point);
 
 	// Whether a bone's end is its own to move: no child sits on it
 	public static bool HasFreeEnd(Bone bone) => bone.Children.All(c => !c.Connected);

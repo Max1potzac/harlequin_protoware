@@ -119,15 +119,9 @@ public partial class MainWindow
 	// ======================= dragging in the list =======================
 
 	// Drag a part onto a bone to put it there, or a bone onto another to hang it there (both stay
-	// where they are)
+	// where they are). A picked one takes the others picked along. (Clicks: MainWindow.Picking.cs)
 	private Point? _treePress;
 	private object? _treeDragged;   // the Slot or Bone being dragged
-
-	private void BoneTree_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-	{
-		_treePress = e.GetPosition(BoneTree);
-		_treeDragged = ItemUnder(e.OriginalSource as DependencyObject)?.Tag;
-	}
 
 	private void BoneTree_PreviewMouseMove(object sender, MouseEventArgs e)
 	{
@@ -138,6 +132,7 @@ public partial class MainWindow
 			Math.Abs(now.Y - press.Y) < SystemParameters.MinimumVerticalDragDistance)
 			return;
 		_treePress = null;
+		_treeClicked = null;   // a drag, not a click: what's picked stays picked
 		DragDrop.DoDragDrop(BoneTree, new DataObject("HarlequinRig", _treeDragged), DragDropEffects.Move);
 		_treeDragged = null;
 	}
@@ -172,17 +167,35 @@ public partial class MainWindow
 		e.Handled = true;
 		if (dragged is Slot slot)
 		{
+			var parts = DraggedAlong(slot).Where(s => s.Bone != target).ToList();
 			_state.EditStructure(() =>
-				PartOps.MoveToBone(_skeleton, slot, target) ? $"Put part {slot.Name} on {target.Name}" : null);
-			_state.SelectedSlot = slot;
-			_state.Selected = target;
+			{
+				int moved = parts.Count(part => PartOps.MoveToBone(_skeleton, part, target));
+				return moved == 0 ? null : moved == 1 && parts.Count == 1 ? $"Put part {slot.Name} on {target.Name}" : $"Put {moved} parts on {target.Name}";
+			});
+			if (parts.Count == 1)
+			{
+				_state.SelectedSlot = slot;
+				_state.Selected = target;
+			}
 		}
 		else if (dragged is Bone bone)
 		{
+			// The picked bones no other dragged bone is above (those come along anyway), and not
+			// the one they'd hang from or anything above it
+			var along = DraggedAlong(bone);
+			var bones = RestEdits.TopOf(along).Where(b => b != target && !target.IsDescendantOf(b) && b.Parent != target).ToList();
+			if (bones.Count == 0) bones.Add(bone);   // (the drop target checked this one can go there)
 			_state.EditStructure(() =>
-				HangBone(bone, target) ? $"Hang {bone.Name} from {target.Name}" : null);
-			_state.Selected = bone;
-			_state.SelectedSlot = null;
+			{
+				int hung = bones.Count(b => HangBone(b, target));
+				return hung == 0 ? null : bones.Count == 1 ? $"Hang {bones[0].Name} from {target.Name}" : $"Hang {hung} bones from {target.Name}";
+			});
+			if (bones.Count == 1)
+			{
+				_state.Selected = bone;
+				_state.SelectedSlot = null;
+			}
 		}
 		RefreshRigPanel();
 	}
