@@ -27,7 +27,7 @@ public partial class MainWindow
 		if (!IsDrawn) return;
 		var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = PlacementMode.Bottom };
 
-		var root = new MenuItem { Header = "Just a root bone: I'll draw the rest (Ctrl+drag)" };
+		var root = new MenuItem { Header = $"Just a root bone: I'll draw the rest (Ctrl+{MoveDrag})" };
 		root.Click += (_, _) => GiveBones(suggest: false);
 		menu.Items.Add(root);
 
@@ -61,8 +61,8 @@ public partial class MainWindow
 		_state.AnimateMode = false;
 		RefreshEverything();
 		ShowRigHint(suggest
-			? $"{suggested} bone(s) suggested. Drag a joint to fit it (the parts stay put), drag parts onto bones in the list above, or Bind ▾."
-			: "Ctrl+drag from the root bone to draw bones, then Bind ▾ puts every part on its nearest bone.");
+			? $"{suggested} bone(s) suggested. {Capitalized(MoveDrag)} a joint to fit it (the parts stay put), drag parts onto bones in the list above, or Bind ▾."
+			: $"Ctrl+{MoveDrag} from the root bone to draw bones, then Bind ▾ puts every part on its nearest bone.");
 	}
 
 	// ======================= parts onto bones =======================
@@ -90,7 +90,7 @@ public partial class MainWindow
 
 		menu.Items.Add(new Separator());
 		string bone = _state.Selected is { } b && _state.SelectedSlot == null ? $"\"{b.Name}\"" : "the selected bone";
-		Item($"By hand: Alt+click parts to put them on {bone}", false, () => { });
+		Item($"By hand: Alt+{ButtonName(_tool.TransformButton).ToLowerInvariant()}-click parts to put them on {bone}", false, () => { });
 		Item("By hand: drag parts onto bones in the list", false, () => { });
 		Item("By hand: a part's Bone in its properties", false, () => { });
 		menu.IsOpen = true;

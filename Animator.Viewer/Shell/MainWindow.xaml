@@ -539,7 +539,7 @@
         <DockPanel x:Name="PaintPanel" Grid.Row="0" Grid.Column="2" Background="#24272E" Visibility="Collapsed">
 
             <DockPanel DockPanel.Dock="Top" Margin="6">
-                <Button Content="Close (Esc)" DockPanel.Dock="Right" Padding="8,2" Click="ClosePaint_Click" />
+                <Button x:Name="ClosePaintButton" Content="Close (Esc)" DockPanel.Dock="Right" Padding="8,2" Click="ClosePaint_Click" />
                 <Button Content="Canvas size…" DockPanel.Dock="Right" Padding="8,2" Margin="0,0,6,0" Click="CanvasSize_Click" />
                 <TextBlock x:Name="PaintTitle" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" />
             </DockPanel>

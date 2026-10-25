@@ -47,7 +47,17 @@ public partial class MainWindow
 		_tool.SelectButton = _objectTool.SelectButton = select;
 		_tool.TransformButton = _objectTool.TransformButton = transform;
 		_tool.PanButton = _objectTool.PanButton = pan;
+
+		// The hints that name the button
+		SnapJointsBox.ToolTip = $"Setup mode: a new bone started near the selected bone's end (Ctrl+{MoveDrag}), or a joint dragged near its parent's end, snaps exactly onto it and stays there (\"On parent's end\" in the bone panel). Pull it further away to free it.";
+		GiveBonesButton.ToolTip = $"Makes this drawn object a rigged one: a root bone you draw the rest from (Ctrl+{MoveDrag}), or bones suggested from its parts' shapes. The parts stay where they are.";
+		AddBoneButton.ToolTip = $"Adds a child of the selected bone (or a root bone). Tip: Ctrl+{MoveDrag} in the viewport draws one.";
 	}
+
+	// "right-drag": a drag with the button that moves things
+	private string MoveDrag => $"{ButtonName(_tool?.TransformButton ?? MouseButton.Right).ToLowerInvariant()}-drag";
+
+	private static string Capitalized(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
 	// Everything that names a key says the one it has now
 	private void ApplyKeyMap()
@@ -71,6 +81,9 @@ public partial class MainWindow
 		SwapColorsButton.ToolTip = $"Swap colors ({KeyOf("paint.swap")})";
 		InvertSelectionButton.ToolTip = $"Select everything that isn't selected ({KeyOf("paint.invert")})";
 		DeselectButton.ToolTip = $"Drop the selection, so tools work everywhere again ({KeyOf("paint.deselect")})";
+		ClosePaintButton.Content = WithKey("Close", "edit.back");
+		SceneButton.ToolTip = $"Back to the scene, to place whole objects ({KeyOf("edit.back")}). At scene level: open the selected object ({KeyOf("scene.open")})";
+		RefreshScenePanel();   // its hints name keys and buttons too
 		UpdateStatus();
 	}
 

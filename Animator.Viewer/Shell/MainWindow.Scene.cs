@@ -337,11 +337,11 @@ public partial class MainWindow
 		SceneControls.Visibility = _sceneLevel ? Visibility.Visible : Visibility.Collapsed;
 		ShowSceneSettings();
 
-		SceneButton.Content = _sceneLevel ? "Edit ▸" : "◂ Scene (Esc)";
+		SceneButton.Content = _sceneLevel ? "Edit ▸" : $"◂ Scene ({KeyOf("edit.back")})";
 		SceneButton.IsEnabled = !_sceneLevel || _objectTool.Selected != null;
 		ModeText.Text = _sceneLevel
-			? "Scene: drag objects to place them. Double-click one (or Enter) to edit it."
-			: $"Editing \"{_active?.Name}\". Other objects are faded. Esc = back to the scene.";
+			? $"Scene: {MoveDrag} objects to place them. Double-click one (or {KeyOf("scene.open")}) to edit it."
+			: $"Editing \"{_active?.Name}\". Other objects are faded. {KeyOf("edit.back")} = back to the scene.";
 
 		var current = CurrentObject;
 		DeleteObjectButton.IsEnabled = current != null && _scene.Objects.Count > 1;
