@@ -51,6 +51,7 @@ public partial class MainWindow : Window
 		InitAnimationsPanel();
 		InitOnion();
 		InitEffects();
+		InitKeys();   // the shortcuts and mouse buttons from Settings
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;
@@ -106,13 +107,20 @@ public partial class MainWindow : Window
 		_renderer.Zoom = _camera.Zoom;
 		_renderer.Selected = _state.Selected;
 		_renderer.SelectedSlot = _state.SelectedSlot;
-		_renderer.ShowPivotHandle = !_state.AnimateMode;   // in Animate mode, part drags set placement keys
+		_renderer.HideHidden = !_sceneLevel;   // bones and parts hidden with their eyes: while editing
+		_renderer.PickedBones = _sceneLevel ? NoBones : _state.PickedBones.ToHashSet();
+		_renderer.PickedSlots = _sceneLevel ? NoSlots : _state.PickedSlots.ToHashSet();
+		_renderer.SelectionBox = _sceneLevel ? null : _tool.SelectionBox;
+		_renderer.ShowPivotHandle = !_state.AnimateMode && _state.Picked.Count <= 1;   // in Animate mode, part drags set placement keys
 		_renderer.ShowBones = !IsDrawn;                    // a drawn object's one bone stays hidden
 		_renderer.PartsOf = !_sceneLevel && !IsDrawn && _state.SelectedSlot == null ? _state.Selected : null;   // what's on the selected bone
 		_renderer.GhostBone = _tool.CreatePreview;
 		_renderer.TipHandleOf = !_sceneLevel && !IsDrawn ? _tool.TipHandle : null;   // Setup mode: where the selected bone ends
 		DrawScene(canvas);   // onion ghosts, every object, then the open object's bones and handles
 	}
+
+	private static readonly HashSet<Bone> NoBones = new();
+	private static readonly HashSet<Slot> NoSlots = new();
 
 	private void OnTimelinePaint(object? sender, SKPaintSurfaceEventArgs e)
 	{
@@ -148,7 +156,7 @@ public partial class MainWindow : Window
 		}
 
 		// Inside an object: double-click a part to paint it, or another object to open that one
-		if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2 && (TryOpenPaintAt(pos) || TryEnterOtherObjectAt(pos))) return;
+		if (e.ChangedButton == _tool.SelectButton && e.ClickCount == 2 && (TryOpenPaintAt(pos) || TryEnterOtherObjectAt(pos))) return;
 
 		_tool.MouseDown(pos, e.ChangedButton);
 		Viewport.CaptureMouse();
@@ -209,7 +217,7 @@ public partial class MainWindow : Window
 			return;
 		}
 
-		_timeline.MouseDown(p, Keyboard.Modifiers.HasFlag(ModifierKeys.Shift));
+		_timeline.MouseDown(p, Keyboard.Modifiers);
 		TimelineView.CaptureMouse();
 		UpdateStatus();
 	}
@@ -235,113 +243,28 @@ public partial class MainWindow : Window
 		else _timeline.Wheel(e.Delta);
 	}
 
-	// ---------- keyboard ----------
-
-	private void Window_KeyDown(object sender, KeyEventArgs e)
-	{
-		bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
-		bool shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
-		// Typing in a text box (like the color code) must not trigger shortcuts.
-		// Without this, typing "B" in "#FFB000" would flip the elbow instead.
-		if (Keyboard.FocusedElement is TextBox) return;
-
-		// Paint shortcuts take priority while the mouse is over the paint canvas
-		if (HandlePaintKey(e.Key)) { e.Handled = true; return; }
-		// No undo/redo/copy/paste in the middle of a stroke
-		if (ctrl && _paintCanvas.IsBusy) { e.Handled = true; return; }
-		if (ctrl && e.Key == Key.S) { if (shift) SaveProjectAs(); else SaveProject(); e.Handled = true; return; }
-		if (ctrl && e.Key == Key.O) { OpenProject(); e.Handled = true; return; }
-		if (ctrl && e.Key == Key.N) { NewProject(); e.Handled = true; return; }
-		if (ctrl && e.Key == Key.E) { ExportProject(); e.Handled = true; return; }
-		if (ctrl && e.Key == Key.I && !shift) { ImportFile(); e.Handled = true; return; }
-		// Not in the middle of a drag: the drag's undo step would come out wrong
-		if ((Viewport.IsMouseCaptured || TimelineView.IsMouseCaptured) && (ctrl || e.Key is Key.Escape or Key.Delete or Key.Enter))
-		{
-			e.Handled = true;
-			return;
-		}
-
-		if (ctrl && e.Key == Key.Z && !shift)
-		{
-			_state.SelectedKeys.Clear();   // selection may point at keys that won't exist after undo
-			_state.Undo.Undo();
-		}
-		else if (ctrl && (e.Key == Key.Y || (e.Key == Key.Z && shift)))
-		{
-			_state.SelectedKeys.Clear();
-			_state.Undo.Redo();
-		}
-		else if (_sceneLevel)
-		{
-			if (!HandleSceneKey(e.Key)) return;
-		}
-		else if (ctrl && e.Key is Key.OemCloseBrackets or Key.OemOpenBrackets)
-		{
-			// The selected part a step forward / back in the draw order (with Shift, all the way)
-			if (_state.SelectedSlot is { } part) Reorder(new[] { part }, e.Key == Key.OemCloseBrackets ? +1 : -1, toEnd: shift);
-		}
-		else if (ctrl && e.Key == Key.C) _timeline.Copy();
-		else if (ctrl && e.Key == Key.V) _timeline.Paste();
-		else
-		{
-			switch (e.Key)
-			{
-				case Key.Space: _state.Playing = !_state.Playing; break;
-				case Key.R: _state.Time = 0; break;
-				case Key.K: _state.AnimateMode = !_state.AnimateMode; break;
-				case Key.Left: _state.Playing = false; _state.SetFrame(_state.Frame - 1); break;
-				case Key.Right: _state.Playing = false; _state.SetFrame(_state.Frame + 1); break;
-				case Key.Delete:
-					// Selected keys first; otherwise the selected bone's keys at this frame
-					if (!_timeline.DeleteSelected()) DeleteKeysAtFrame();
-					break;
-				case Key.I when shift: SwitchIkHere(); break;
-				case Key.I: ToggleIkMode(); break;
-				case Key.T: MatchIk(bake: shift); break;
-				case Key.B: FlipElbow(); break;
-				case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
-				case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
-				case Key.F: ResetView(); break;
-				case Key.E: AddEventAt(_state.Frame); break;
-				case Key.F5 when shift: ChangeHold(-1); break;
-				case Key.F5: ChangeHold(+1); break;
-				case Key.F6: NewDrawing(copy: true); break;
-				case Key.F7: NewDrawing(copy: false); break;
-				case Key.O: ToggleOnion(); break;
-				case Key.Escape:
-					// Esc closes the paint editor first, then lets go of picked frames, then goes back to the scene
-					if (PaintPanel.Visibility == Visibility.Visible) ClosePaintEditor();
-					else if (_timeline.Range != null) _timeline.ClearRange();
-					else LeaveObject();
-					break;
-				default: return;
-			}
-		}
-
-		e.Handled = true;
-		UpdateStatus();
-	}
-
-	// Deletes the selected part's keys at the current frame, or else the selected bone's (undoable)
+	// Deletes the keys at the current frame of the picked parts and bones (a picked part: its own
+	// keys, not its bone's). Undoable.
 	private void DeleteKeysAtFrame()
 	{
-		var slot = _state.SelectedSlot;
-		string? target = slot?.Name ?? _state.Selected?.Name;
-		if (target == null) return;
+		var picked = _state.Picked;
+		if (picked.Count == 0) return;
 
 		// A part and a bone can share a name, so the kind of row matters too
-		Func<Timeline, bool> mine = slot != null ? PartOps.TargetsPart : RigOps.TargetsBone;
+		var bones = picked.OfType<Bone>().Select(b => b.Name).ToHashSet();
+		var parts = picked.OfType<Slot>().Select(s => s.Name).ToHashSet();
 
 		var before = AnimationSnapshot.Capture(_state.Animation);
 		bool removed = false;
 		foreach (var tl in _state.Animation.Timelines)
-			if (tl.Target == target && mine(tl))
+			if ((RigOps.TargetsBone(tl) && bones.Contains(tl.Target)) || (PartOps.TargetsPart(tl) && parts.Contains(tl.Target)))
 				removed |= tl.RemoveKey(_state.Time);
 		if (!removed) return;
 
+		string what = picked.Count > 1 ? $"{picked.Count} picked" : picked[0] is Slot slot ? slot.Name : ((Bone)picked[0]).Name;
 		var after = AnimationSnapshot.Capture(_state.Animation);
 		_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
-			$"Delete key on {target} @ frame {_state.Frame}", before, after, s => s.Restore()));
+			$"Delete keys of {what} @ frame {_state.Frame}", before, after, s => s.Restore()));
 	}
 	// The constraint the selected bone belongs to (as target or chain), else the first one
 	private IkConstraint? ActiveIk()
@@ -413,37 +336,64 @@ public partial class MainWindow : Window
 			before, -before, v => ik.BendDirection = v));
 	}
 
+	// The mouse buttons, as the status line names them
+	private static string ButtonName(MouseButton button) => button switch
+	{
+		MouseButton.Left => "Left",
+		MouseButton.Right => "Right",
+		MouseButton.Middle => "Middle",
+		MouseButton.XButton1 => "Back-button",
+		_ => "Forward-button"
+	};
+
+	// The paint keys, for the status line: "M select, W wand, …"
+	private string PaintKeys() => string.Join(", ", KeyMap.Commands
+		.Where(c => c.Scope == KeyScope.Paint && _keys.Gesture(c.Id).Length > 0)
+		.Select(c => $"{_keys.Gesture(c.Id)} {c.Name.ToLowerInvariant()}"));
+
 	private void UpdateStatus()
 	{
+		string pick = ButtonName(_tool?.SelectButton ?? MouseButton.Left);
+		string move = ButtonName(_tool?.TransformButton ?? MouseButton.Right);
+		string pan = ButtonName(_tool?.PanButton ?? MouseButton.Middle);
+		string K(string id) => KeyOf(id);
+		string pixels = _renderer.PixelArt ? "on" : "off";
+
 		if (_sceneLevel)
 		{
 			Status.Text =
 				$"SCENE    Object: {_objectTool?.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
-				"Viewport: click an object = select, drag = move, drag a corner = scale (Shift: keep proportions), round handle = turn (Shift: 15° steps)\n" +
-				"Double-click an object (or Enter) = edit it.   Drag empty / middle = pan, wheel = zoom, F = reset view\n" +
+				$"Viewport: {pick}-click an object = select, double-click (or {K("scene.open")}) = edit it.   {move}-drag an object = move, a corner = scale (Shift: keep proportions), the round handle = turn (Shift: 15° steps)\n" +
+				$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
 				"Scene timeline: right-click a row = add a clip, drag a clip = move, drag its edges = length / trim, double-click = edit it in place\n" +
 				"Objects without clips loop their preview animation.   Wheel / Shift+wheel / Ctrl+wheel = scroll / scroll in time / zoom\n" +
-				"Space: play/pause   R: restart   ←/→: step   Del: delete clip (or object)   Ctrl+Z / Ctrl+Y: undo/redo   G: images   O: onion skin   " +
-				$"P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
-				"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as   Ctrl+I import (Photoshop file, sprite sheet)   Ctrl+E export";
+				$"{K("play.toggle")}: play/pause   {K("play.restart")}: restart   {K("play.back")} / {K("play.on")}: step   {K("edit.delete")}: delete clip (or object)   {K("edit.undo")} / {K("edit.redo")}: undo/redo   " +
+				$"{K("view.images")}: images   {K("view.onion")}: onion skin   {K("view.pixels")}: pixel filtering ({pixels})\n" +
+				$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys and mouse)";
 			UpdateTitle();
 			return;
 		}
 
 		bool ikOn = (ActiveIk()?.SetupMix ?? 0f) > 0.5f;
+		int count = _state.Picked.Count;
+		string shown = _state.SelectedSlot?.Name ?? _state.Selected?.Name ?? "none";
+		string picked = count > 1 ? $"{shown} + {count - 1} more" : shown;
 
 		Status.Text =
-			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys" : "SETUP: drags edit the rest pose")}  (K to switch)    " +
-			$"Object: {_active?.Name ?? "-"}    Selected: {_state.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
-			"Viewport: drag joint = move, drag bone = rotate, click a part = select (drag box / corners / round handle / pivot; in Animate mode, part drags set placement keys), Ctrl+drag = new bone (started near the selected bone's end, it snaps onto it), Alt+click a part = put it on the selected bone, drag the ring at a bone's end = where it ends (Setup mode), drag empty / middle = pan, wheel = zoom, F = reset view (centred on this object)\n" +
-			"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, Ctrl+C / Ctrl+V = copy / paste at playhead, drag across empty frames = pick them (right-click: split into an animation sequence)\n" +
-			"IK: T = snap target to hand, Shift+T = bake IK into FK, Shift+I = switch IK/FK at this frame (Animate mode)\n" +
-			"Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   Events: E = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
-			"Frame by frame (select a part): F7 = new drawing, F6 = copy drawing, F5 / Shift+F5 = hold longer / shorter, Del = its key here.   O = onion skin\n" +
-			"Paint: double-click a part (on another object: edit that object). Over the canvas: M select, W wand, V move, N pencil, B brush, X mixer, E eraser, I picker, G fill, D gradient, U figure, S swap colors, [ ] size, Shift+click / Shift+drag line, Alt+click pick, Ctrl+D deselect, Ctrl+Shift+I invert\n" +
-			"Space: play/pause   R: restart   ←/→: step   Del: delete   Ctrl+Z / Ctrl+Y: undo/redo   Esc: back to the scene   " +
-			$"I: IK/FK ({(ikOn ? "IK" : "FK")})   B: elbow   G: images   P: pixel filtering ({(_renderer.PixelArt ? "on" : "off")})\n" +
-			"File: Ctrl+N new   Ctrl+O open   Ctrl+S save   Ctrl+Shift+S save as   Ctrl+I import (Photoshop file, sprite sheet)   Ctrl+E export";
+			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : "SETUP: drags edit the rest pose")}  ({K("anim.mode")} to switch)    " +
+			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
+			$"Viewport: {pick}-click = pick (Ctrl: toggle, Shift: add), {pick}-drag = pick in a box (Shift: add, Ctrl: let go), double-click a part = paint it.   " +
+			$"{move}-drag: a joint = move, a bone = turn, a part = move (its corners / round handle / pivot), anything picked = all that's picked; Ctrl+{move}-drag = new bone, Alt+{move}-click a part = put it on the selected bone, the ring at a bone's end = where it ends (Setup mode).   " +
+			$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
+			$"Rig panel: Ctrl+click = pick several, Shift+click = every row from the selected one, {K("pick.all")} = everything shown, ● = hide / show ({K("pick.hide")}: hide the picked, {K("pick.hideOthers")}: hide the others, {K("pick.showAll")}: show all)\n" +
+			$"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, {K("edit.copy")} / {K("edit.paste")} = copy / paste at playhead, {K("pick.keys")} = every key of the picked, drag across empty frames = pick them (right-click: split into an animation sequence)\n" +
+			$"IK: {K("ik.snap")} = snap target to hand, {K("ik.bake")} = bake IK into FK, {K("ik.switch")} = switch IK/FK at this frame (Animate mode).   Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   " +
+			$"Events: {K("anim.event")} = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
+			$"Frame by frame (select a part): {K("frames.new")} = new drawing, {K("frames.copy")} = copy drawing, {K("frames.longer")} / {K("frames.shorter")} = hold longer / shorter, {K("edit.delete")} = its key here.   {K("view.onion")} = onion skin\n" +
+			$"Paint: double-click a part (on another object: edit that object). Over the canvas: {PaintKeys()}; Shift+click / Shift+drag = line, Alt+click = pick a colour\n" +
+			$"{K("play.toggle")}: play/pause   {K("play.restart")}: restart   {K("play.back")} / {K("play.on")}: step   {K("edit.delete")}: delete   {K("edit.undo")} / {K("edit.redo")}: undo/redo   {K("edit.back")}: back to the scene   " +
+			$"{K("ik.toggle")}: IK/FK ({(ikOn ? "IK" : "FK")})   {K("ik.flip")}: elbow   {K("view.images")}: images   {K("view.pixels")}: pixel filtering ({pixels})\n" +
+			$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys and mouse)";
 
 		UpdateTitle();
 	}

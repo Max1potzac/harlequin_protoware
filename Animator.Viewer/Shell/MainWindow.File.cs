@@ -226,6 +226,8 @@ public partial class MainWindow
 		canvas.Translate(size / 2f, size / 2f);
 		canvas.Scale(scale, -scale);   // y-up, like the viewport
 		canvas.Translate(-center.X, -center.Y);
+		bool hiding = _renderer.HideHidden;
+		_renderer.HideHidden = false;   // parts hidden while editing are still in the picture
 		foreach (var obj in shown)
 		{
 			var m = SkeletonRenderer.ToSk(_scene.WorldTransform(obj));
@@ -234,6 +236,7 @@ public partial class MainWindow
 			_renderer.DrawImages(canvas, obj.Skeleton);
 			canvas.Restore();
 		}
+		_renderer.HideHidden = hiding;
 		return bmp;
 	}
 }

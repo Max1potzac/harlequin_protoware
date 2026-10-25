@@ -3,9 +3,10 @@ using System.Windows.Input;
 
 namespace Animator.Viewer.Tools;
 
-// The viewport at scene level: click an object to select it, drag to move it, drag a corner
-// of its box to scale it, the round handle to turn it (Shift: keep proportions / 15° steps).
-// Double-click an object to open it for editing. Locked and hidden objects can't be picked.
+// The viewport at scene level. The select button picks an object (double-click: opens it for
+// editing). The transform button drags it: the object moves, a corner of its box scales it, the
+// round handle turns it (Shift: keep proportions / 15° steps); on empty space it pans, like the
+// pan button. Locked and hidden objects can't be picked.
 public class ObjectTool
 {
 	private enum Drag { None, Pan, Move, Rotate, Scale }
@@ -40,6 +41,14 @@ public class ObjectTool
 	// Double-click on an object: the main window opens it
 	public event Action<SceneObject>? EnterRequested;
 
+	// Which mouse button does what (the settings can change them)
+	public MouseButton SelectButton { get; set; } = MouseButton.Left;
+	public MouseButton TransformButton { get; set; } = MouseButton.Right;
+	public MouseButton PanButton { get; set; } = MouseButton.Middle;
+
+	// The keys held down (Shift): the keyboard's, or a test's
+	public Func<ModifierKeys> Modifiers { get; set; } = () => Keyboard.Modifiers;
+
 	public ObjectTool(Func<Scene> scene, SceneState sceneState, Camera camera, SkeletonRenderer renderer, UndoStack undo)
 	{
 		_scene = scene;
@@ -53,11 +62,21 @@ public class ObjectTool
 	{
 		_lastScreen = _pressScreen = screen;
 		_moving = false;
-		if (button == MouseButton.Middle) { _drag = Drag.Pan; return; }
-		if (button != MouseButton.Left) return;
+		_drag = Drag.None;
+		if (button == PanButton) { _drag = Drag.Pan; return; }
 
 		var scene = _scene();
 		var p = _camera.ScreenToScene(screen);
+
+		// The select button: the object under the mouse (double-click: open it), or none
+		if (button == SelectButton)
+		{
+			var picked = Pick(p);
+			Selected = picked;
+			if (picked != null && clickCount >= 2) EnterRequested?.Invoke(picked);
+			return;
+		}
+		if (button != TransformButton) return;
 
 		// 1. Handles of the selected object
 		if (Selected is { Visible: true, Locked: false } selected && scene.Objects.Contains(selected))
@@ -68,17 +87,14 @@ public class ObjectTool
 			if (h.Corners.Any(c => Vector2.Distance(p, c) <= r)) { Begin(selected, Drag.Scale, p); return; }
 		}
 
-		// 2. An object under the mouse, front first
+		// 2. An object under the mouse, front first: it's selected, and moves if you drag
 		if (Pick(p) is { } hit)
 		{
-			Selected = hit;
-			if (clickCount >= 2) { _drag = Drag.None; EnterRequested?.Invoke(hit); return; }
 			Begin(hit, Drag.Move, p);
 			return;
 		}
 
-		// 3. Empty space: deselect and pan
-		Selected = null;
+		// 3. Empty space: pan
 		_drag = Drag.Pan;
 	}
 
@@ -162,7 +178,7 @@ public class ObjectTool
 
 	private void DragObject(SceneObject obj, Vector2 local)
 	{
-		bool shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+		bool shift = Modifiers().HasFlag(ModifierKeys.Shift);
 		switch (_drag)
 		{
 			case Drag.Move:

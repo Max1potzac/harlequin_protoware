@@ -17,6 +17,20 @@ public class SkeletonRenderer
 	public Slot? SelectedSlot { get; set; }
 	public bool ShowPartHandles { get; set; } = true;
 	public bool ShowPivotHandle { get; set; } = true;   // Setup mode only: the pivot is part of the rest setup
+
+	// Everything picked (the selected bone or part among them): drawn as picked too
+	public IReadOnlySet<Bone> PickedBones { get; set; } = new HashSet<Bone>();
+	public IReadOnlySet<Slot> PickedSlots { get; set; } = new HashSet<Slot>();
+
+	// A box being dragged over things to pick them (its corners in the world)
+	public IReadOnlyList<Vector2>? SelectionBox { get; set; }
+
+	// Inside an object in the editor: hidden bones and parts (the eye in the rig panel) aren't
+	// drawn or picked. Exports and thumbnails draw everything.
+	public bool HideHidden { get; set; }
+	private bool Shown(Slot slot) => !HideHidden || !slot.IsHidden;
+	private bool Shown(Bone bone) => !HideHidden || !bone.IsHidden;
+
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
 	{
 		DrawAxes(canvas);
@@ -39,6 +53,26 @@ public class SkeletonRenderer
 			DrawBones(canvas, skeleton);
 		}
 		DrawPartGizmo(canvas, skeleton);
+		DrawSelectionBox(canvas);
+	}
+
+	// The box being dragged to pick things: see-through, with a dashed edge
+	private void DrawSelectionBox(SKCanvas canvas)
+	{
+		if (SelectionBox is not { Count: 4 } box) return;
+		using var path = ShapePaths.Polyline(box, closed: true);
+		using var fill = new SKPaint { Color = new SKColor(80, 220, 255, 32), Style = SKPaintStyle.Fill, IsAntialias = true };
+		using var dash = SKPathEffect.CreateDash(new[] { 5f / Zoom, 4f / Zoom }, 0);
+		using var edge = new SKPaint
+		{
+			Color = new SKColor(80, 220, 255, 220),
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1f / Zoom,
+			IsAntialias = true,
+			PathEffect = dash
+		};
+		canvas.DrawPath(path, fill);
+		canvas.DrawPath(path, edge);
 	}
 
 	// At scene level: faint lines for the bones of an object with no pictures yet, so it can
@@ -55,6 +89,7 @@ public class SkeletonRenderer
 		};
 		foreach (var bone in skeleton.AllBones())
 		{
+			if (!Shown(bone)) continue;
 			var a = bone.World.Translation;
 			var b = bone.TipWorld;
 			canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
@@ -136,7 +171,9 @@ public class SkeletonRenderer
 
         foreach (var bone in skeleton.AllBones())
         {
-            bool sel = bone == Selected;
+            if (!Shown(bone)) continue;
+            bool primary = bone == Selected;
+            bool sel = primary || PickedBones.Contains(bone);
             // An IK target whose constraint is switched off (FK mode) is drawn faded
             bool idle = !sel && skeleton.IkConstraints.Exists(c => c.Target == bone && c.Mix <= 0f);
 
@@ -151,7 +188,7 @@ public class SkeletonRenderer
 
             var paint = sel ? selLine : bone.SpaceOverridden ? spaceLine : idle ? idleLine : line;
             canvas.DrawLine(a.X, a.Y, b.X, b.Y, paint);
-            canvas.DrawCircle(a.X, a.Y, (sel ? 6 : 5) * px, sel ? selJoint : idle ? idleJoint : joint);
+            canvas.DrawCircle(a.X, a.Y, (primary ? 6 : 5) * px, sel ? selJoint : idle ? idleJoint : joint);
         }
 		if (TipHandleOf is { } ended)
 		{
@@ -201,6 +238,7 @@ public class SkeletonRenderer
 
 		foreach (var slot in skeleton.DrawOrder)   // as it stands now (an animation can key it)
 		{
+			if (!Shown(slot)) continue;
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			var bmp = _assets.Get(asset);
@@ -268,6 +306,7 @@ public class SkeletonRenderer
 		for (int i = order.Count - 1; i >= 0; i--)   // last drawn = on top
 		{
 			var slot = order[i];
+			if (!Shown(slot)) continue;
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			var img = _assets.Get(asset);
@@ -287,6 +326,7 @@ public class SkeletonRenderer
 	{
 		foreach (var slot in skeleton.Slots)
 		{
+			if (!Shown(slot)) continue;
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			if (!Matrix3x2.Invert(ImageToWorld(slot, att, asset.Width, asset.Height), out var toImage)) continue;
@@ -403,10 +443,34 @@ public class SkeletonRenderer
 			}
 		}
 	}
+	// The other picked parts: their boxes, without handles
+	private void DrawPickedParts(SKCanvas canvas, Skeleton skeleton)
+	{
+		if (PickedSlots.Count == 0) return;
+		using var line = new SKPaint
+		{
+			Color = new SKColor(255, 170, 60, 200),
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1.5f / Zoom,
+			IsAntialias = true
+		};
+		foreach (var slot in PickedSlots)
+		{
+			if (slot == SelectedSlot || !Shown(slot) || PartGizmo.For(skeleton, slot, Zoom) is not { } h) continue;
+			for (int i = 0; i < 4; i++)
+			{
+				var a = h.Corners[i];
+				var b = h.Corners[(i + 1) % 4];
+				canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
+			}
+		}
+	}
+
 	// Orange box around the selected part, with corner and rotate handles (and the pivot in Setup mode)
 	private void DrawPartGizmo(SKCanvas canvas, Skeleton skeleton)
 	{
-		if (SelectedSlot is not { } slot || PartGizmo.For(skeleton, slot, Zoom) is not { } h) return;
+		DrawPickedParts(canvas, skeleton);
+		if (SelectedSlot is not { } slot || !Shown(slot) || PartGizmo.For(skeleton, slot, Zoom) is not { } h) return;
 		float px = 1f / Zoom;
 
 		using var line = new SKPaint

@@ -90,6 +90,11 @@ public class Bone
     // animation keys can still move it away. (Free it with RigOps.SetConnected, which keeps its place.)
     public bool Connected { get; set; }
 
+	// Hidden while editing (the eye in the rig panel): it, and everything on it and under it, isn't
+	// drawn in the viewport or picked there. Never in exports; saved with the project.
+	public bool Hidden { get; set; }
+	public bool IsHidden => Hidden || (Parent?.IsHidden ?? false);
+
     public float SetupRotation { get; set; }
     public Vector2 SetupScale { get; set; } = Vector2.One;
 

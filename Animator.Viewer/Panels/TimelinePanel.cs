@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Windows.Input;
 using Animator.Core.Editing;
 using Animator.Core.Keyframing;
 using SkiaSharp;
@@ -17,6 +18,7 @@ public class TimelinePanel
 
     private float _frameWidth = 10f;
     private float _scroll;          // how far the rows are scrolled up, in pixels
+    private object? _scrolledTo;    // the bone or part whose rows were last brought into view
     private float _viewHeight;
 
     private enum Drag { None, Scrub, Keys }
@@ -63,6 +65,11 @@ public class TimelinePanel
     {
         _viewHeight = size.Y;
         ClampScroll();
+        if (!ReferenceEquals(_state.Primary, _scrolledTo))
+        {
+            _scrolledTo = _state.Primary;
+            ShowRowsOf(_scrolledTo);   // something else picked: its rows, if they're out of sight
+        }
 
         int frames = Math.Max(1, _state.FrameCount);
         _frameWidth = Math.Max(4f, (size.X - LabelWidth - LeftPad * 2) / frames);
@@ -105,6 +112,10 @@ public class TimelinePanel
         canvas.Save();
         canvas.ClipRect(new SKRect(0, RulerHeight, size.X, size.Y));
 
+        // The rows of everything picked stand out, keys and all (a picked part: its own rows, not its bone's)
+        var pickedBones = _state.PickedBones.Select(b => b.Name).ToHashSet();
+        var pickedParts = _state.PickedSlots.Select(s => s.Name).ToHashSet();
+
         var timelines = _state.Animation.Timelines;
         for (int i = 0; i < timelines.Count; i++)
         {
@@ -113,11 +124,8 @@ public class TimelinePanel
 
             var tl = timelines[i];
             float cy = y + RowHeight / 2;
-            // The selected part's rows, or else the selected bone's (a part also selects its bone)
-            var part = _state.SelectedSlot;
-            bool boneRow = part == null && _state.Selected != null && RigOps.TargetsBone(tl) && tl.Target == _state.Selected.Name;
-            bool partRow = part != null && PartOps.TargetsPart(tl) && tl.Target == part.Name;
-            bool mine = boneRow || partRow;
+            bool mine = (RigOps.TargetsBone(tl) && pickedBones.Contains(tl.Target)) ||
+                        (PartOps.TargetsPart(tl) && pickedParts.Contains(tl.Target));
 
             if (mine) canvas.DrawRect(0, y, size.X, RowHeight, rowSel);
             canvas.DrawLine(0, y + RowHeight, size.X, y + RowHeight, divider);
@@ -312,6 +320,20 @@ public class TimelinePanel
         ClampScroll();
     }
 
+    // Scrolls the first row of this bone or part into view, when none of its rows can be seen
+    private void ShowRowsOf(object? item)
+    {
+        if (item == null) return;
+        var timelines = _state.Animation.Timelines;
+        var rows = Enumerable.Range(0, timelines.Count).Where(i => Animated(timelines[i]) == item).ToList();
+        if (rows.Count == 0) return;
+        float visible = MathF.Max(0, _viewHeight - RulerHeight);
+        bool seen = rows.Any(i => RowTop(i) >= RulerHeight && RowTop(i) + RowHeight <= RulerHeight + visible);
+        if (seen) return;
+        _scroll = rows[0] * RowHeight - MathF.Max(0, (visible - RowHeight * Math.Min(rows.Count, 4)) / 2);
+        ClampScroll();
+    }
+
     private void ClampScroll()
     {
         float content = _state.Animation.Timelines.Count * RowHeight;
@@ -321,26 +343,21 @@ public class TimelinePanel
 
     // ======================= mouse =======================
 
-    public void MouseDown(Vector2 p, bool shift)
+    public void MouseDown(Vector2 p, ModifierKeys modifiers)
     {
-        // Clicking a row's name selects what that row animates (a bone, or a part)
+        bool shift = modifiers.HasFlag(ModifierKeys.Shift);
+
+        // Clicking a row's name picks what that row animates, a bone or a part (Ctrl: picked or
+        // not, the other way round; Shift: picked too)
         if (p.X < LabelWidth && p.Y > RulerHeight)
         {
             int row = RowAt(p.Y);
             var timelines = _state.Animation.Timelines;
-            if (row >= 0 && row < timelines.Count)
+            if (row >= 0 && row < timelines.Count && Animated(timelines[row]) is { } item)
             {
-                switch (timelines[row])
-                {
-                    case var t when PartOps.TargetsPart(t) && _state.Skeleton.FindSlot(t.Target) is { } slot:
-                        _state.SelectedSlot = slot;
-                        _state.Selected = slot.Bone;
-                        break;
-                    case var t when RigOps.TargetsBone(t):
-                        _state.SelectedSlot = null;
-                        _state.Selected = _state.Skeleton.FindBone(t.Target);
-                        break;
-                }
+                if (modifiers.HasFlag(ModifierKeys.Control)) _state.TogglePick(item);
+                else if (shift) _state.PickMore(new[] { item });
+                else _state.Pick(new[] { item });
             }
             return;
         }
@@ -380,6 +397,30 @@ public class TimelinePanel
             _rangeAnchor = LastFrameAt(p.X);
             Range = null;
         }
+    }
+
+    // The bone or part a row animates (null: another kind of row, or it's gone)
+    private object? Animated(Timeline row) => row switch
+    {
+        _ when PartOps.TargetsPart(row) => _state.Skeleton.FindSlot(row.Target),
+        _ when RigOps.TargetsBone(row) => _state.Skeleton.FindBone(row.Target),
+        _ => null
+    };
+
+    // Every key of these bones and parts (a part: its own rows) becomes the selection; how many
+    public int SelectKeysOf(IEnumerable<Bone> bones, IEnumerable<Slot> parts)
+    {
+        var boneNames = bones.Select(b => b.Name).ToHashSet();
+        var partNames = parts.Select(s => s.Name).ToHashSet();
+        Sel.Clear();
+        foreach (var tl in _state.Animation.Timelines)
+        {
+            bool mine = (RigOps.TargetsBone(tl) && boneNames.Contains(tl.Target)) ||
+                        (PartOps.TargetsPart(tl) && partNames.Contains(tl.Target));
+            if (!mine) continue;
+            foreach (var time in tl.KeyTimes) Sel.Add((tl, TimeToFrame(time)));
+        }
+        return Sel.Count;
     }
 
     // A frame of the animation under an x position (not the end, where it loops)

@@ -1,0 +1,102 @@
+<Window x:Class="Animator.Viewer.Dialogs.SettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings" Width="800" Height="660" MinWidth="560" MinHeight="440"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <DockPanel Margin="10">
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Button DockPanel.Dock="Left" Content="Everything back to the defaults" Padding="8,1" Click="ResetAll_Click"
+                    ToolTip="Every key and mouse button as it first was (nothing changes until OK)" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="OK" IsDefault="True" Width="80" Margin="0,0,6,0" Click="Ok_Click" />
+                <Button Content="Cancel" IsCancel="True" Width="75" />
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl>
+            <!-- ===== Keys ===== -->
+            <TabItem Header="Keyboard">
+                <DockPanel Margin="8">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <TextBlock Text="Find" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBox x:Name="FilterBox" TextChanged="Filter_Changed"
+                                 ToolTip="Part of a command's name, its group or its keys (Ctrl+S, F5…)" />
+                    </DockPanel>
+
+                    <Border DockPanel.Dock="Bottom" BorderBrush="#A0A0A0" BorderThickness="1" Padding="8" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="CommandTitle" FontWeight="Bold" TextWrapping="Wrap" Text="Pick a command above" />
+                            <TextBlock x:Name="CommandKeys" Foreground="Gray" TextWrapping="Wrap" Margin="0,2,0,8" />
+                            <DockPanel>
+                                <TextBlock Text="New key" VerticalAlignment="Center" Width="62" />
+                                <Button x:Name="AddButton" DockPanel.Dock="Right" Content="Add" Width="64" Margin="4,0,0,0" Click="Add_Click"
+                                        ToolTip="Another key for this command (it keeps the ones it has)" />
+                                <Button x:Name="SetButton" DockPanel.Dock="Right" Content="Set" Width="64" Margin="4,0,0,0" Click="Set_Click"
+                                        ToolTip="This key instead of the ones it has" />
+                                <TextBox x:Name="CaptureBox" IsReadOnly="True" PreviewKeyDown="Capture_KeyDown" VerticalContentAlignment="Center"
+                                         ToolTip="Click here, then press the key with any Ctrl, Shift or Alt you want with it" />
+                            </DockPanel>
+                            <TextBlock x:Name="ConflictText" Foreground="#B05000" TextWrapping="Wrap" Margin="0,4,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button x:Name="ClearButton" Content="No key" Padding="8,1" Margin="0,0,6,0" Click="Clear_Click"
+                                        ToolTip="Takes every key off this command" />
+                                <Button x:Name="DefaultButton" Content="Its default" Padding="8,1" Click="Default_Click"
+                                        ToolTip="The key it first had (taken from any command that has it now)" />
+                            </StackPanel>
+                            <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,8,0,0"
+                                       Text="Paint keys work while the mouse is over the paint canvas, and go first there; the others work everywhere else. A key can only do one thing in each: giving it to another command takes it from the one that had it." />
+                        </StackPanel>
+                    </Border>
+
+                    <ListView x:Name="CommandList" SelectionChanged="Command_Changed">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Group" Width="110" DisplayMemberBinding="{Binding Group}" />
+                                <GridViewColumn Header="Command" Width="420" DisplayMemberBinding="{Binding Name}" />
+                                <GridViewColumn Header="Keys" Width="170" DisplayMemberBinding="{Binding Keys}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </DockPanel>
+            </TabItem>
+
+            <!-- ===== Mouse ===== -->
+            <TabItem x:Name="MouseTab" Header="Mouse">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Text="Which mouse button does what in the viewport (inside an object, and in the scene). Each needs a button of its own." />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Pick" VerticalAlignment="Top" Margin="0,3,8,12" FontWeight="Bold" />
+                            <ComboBox x:Name="SelectButtonBox" Grid.Row="0" Grid.Column="1" VerticalAlignment="Top" Margin="0,0,12,12" />
+                            <TextBlock Grid.Row="0" Grid.Column="2" TextWrapping="Wrap" Margin="0,3,0,12"
+                                       Text="Click a bone or part to pick it (Ctrl: picked or not, the other way round; Shift: pick it too). Drag a box over several to pick them (Shift: them too; Ctrl: let them go). Click empty space to pick nothing. Double-click a part to paint it. In the scene: click an object to select it, double-click to open it." />
+
+                            <TextBlock Grid.Row="1" Text="Move" VerticalAlignment="Top" Margin="0,3,8,12" FontWeight="Bold" />
+                            <ComboBox x:Name="TransformButtonBox" Grid.Row="1" Grid.Column="1" VerticalAlignment="Top" Margin="0,0,12,12" />
+                            <TextBlock Grid.Row="1" Grid.Column="2" TextWrapping="Wrap" Margin="0,3,0,12"
+                                       Text="Drag a joint to move its bone, the bone itself to turn it, a part to move it (its corners scale it, its round handle turns it, its pivot in Setup mode). Dragging something picked takes everything picked along. Ctrl+drag draws a new bone; Alt+click a part to put it on the selected bone. On empty space it moves the view. In the scene: drag an object, its corners or its round handle." />
+
+                            <TextBlock Grid.Row="2" Text="View" VerticalAlignment="Top" Margin="0,3,8,0" FontWeight="Bold" />
+                            <ComboBox x:Name="PanButtonBox" Grid.Row="2" Grid.Column="1" VerticalAlignment="Top" Margin="0,0,12,0" />
+                            <TextBlock Grid.Row="2" Grid.Column="2" TextWrapping="Wrap" Margin="0,3,0,0"
+                                       Text="Drag to move the view around. The wheel zooms in and out wherever the mouse is." />
+                        </Grid>
+                        <TextBlock x:Name="MouseError" Foreground="#C03030" TextWrapping="Wrap" Margin="0,12,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

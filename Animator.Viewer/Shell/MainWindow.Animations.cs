@@ -71,7 +71,7 @@ public partial class MainWindow
 		var copy = new MenuItem { Header = "Copy into a new animation sequence…", ToolTip = "The same, but this animation keeps them" };
 		copy.Click += (_, _) => MakeSequence(range, split: false);
 		menu.Items.Add(copy);
-		var unpick = new MenuItem { Header = "Let go of the frames", InputGestureText = "Esc" };
+		var unpick = new MenuItem { Header = "Let go of the frames", InputGestureText = _keys.Gesture("edit.back") };
 		unpick.Click += (_, _) => { _timeline.ClearRange(); TimelineView.InvalidateVisual(); };
 		menu.Items.Add(unpick);
 		menu.Items.Add(new Separator());

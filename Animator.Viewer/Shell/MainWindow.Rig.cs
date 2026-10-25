@@ -69,6 +69,7 @@ public partial class MainWindow
 		SelectTreeItem();
 		SyncLayersView();
 		_syncingRig = false;
+		SyncTreePicks(force: true);
 
 		SyncRigMode();
 		ShowProperties();
@@ -91,7 +92,7 @@ public partial class MainWindow
 		string header = bone.Name;
 		if (LookOf(bone) is { } look) header += $"  👁 {look.Target.Name}";
 
-		var item = new TreeViewItem { Header = header, Tag = bone, IsExpanded = true, Foreground = Brushes.White };
+		var item = new TreeViewItem { Header = RowHeader(bone, new TextBlock { Text = header }), Tag = bone, IsExpanded = true, Foreground = Brushes.White };
 		_treeItems[bone] = item;
 
 		// Parts on this bone; the number is the draw order (higher = in front)
@@ -107,7 +108,7 @@ public partial class MainWindow
 	{
 		var item = new TreeViewItem
 		{
-			Header = $"▣ {slot.Name}   #{IndexIn(_listedOrder, slot) + 1}",   // its place in the draw order (1 = at the back)
+			Header = RowHeader(slot, new TextBlock { Text = $"▣ {slot.Name}   #{IndexIn(_listedOrder, slot) + 1}" }),   // its place in the draw order (1 = at the back)
 			Tag = slot,
 			Foreground = new SolidColorBrush(Color.FromRgb(255, 190, 110)),
 			FontStyle = FontStyles.Italic,
@@ -138,7 +139,15 @@ public partial class MainWindow
 	private void BoneTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
 	{
 		if (_syncingRig) return;
-		switch ((e.NewValue as TreeViewItem)?.Tag)
+		var tag = (e.NewValue as TreeViewItem)?.Tag;
+		if (tag is Bone or Slot && _state.IsPicked(tag))
+		{
+			_state.Pick(_state.Picked, tag);   // one of the picked: they all stay picked (a drag takes them along)
+			ShowProperties();
+			UpdateStatus();
+			return;
+		}
+		switch (tag)
 		{
 			case Slot slot:
 				_state.SelectedSlot = slot;
@@ -160,6 +169,7 @@ public partial class MainWindow
 	// Called every frame
 	private void SyncRigSelection()
 	{
+		if (!_sceneLevel) SyncTreePicks();   // picked in the viewport: the rows follow
 		if (Equals(CurrentSelection, _shownSelection))
 		{
 			if (_state.SelectedSlot != null) RefreshPartValues();

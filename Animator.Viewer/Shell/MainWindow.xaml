@@ -6,20 +6,37 @@
         Closing="Window_Closing"
         PreviewKeyDown="Window_KeyDown">
         <DockPanel>
-            <Menu DockPanel.Dock="Top">
+            <!-- A menu item's Tag is its command in the key map: its key is filled in from there -->
+            <Menu x:Name="MainMenu" DockPanel.Dock="Top">
                 <MenuItem Header="_File">
-                    <MenuItem Header="_New…" InputGestureText="Ctrl+N" Click="New_Click" />
-                    <MenuItem Header="_Open…" InputGestureText="Ctrl+O" Click="Open_Click" />
+                    <MenuItem Header="_New…" Tag="file.new" InputGestureText="Ctrl+N" Click="New_Click" />
+                    <MenuItem Header="_Open…" Tag="file.open" InputGestureText="Ctrl+O" Click="Open_Click" />
                     <Separator />
-                    <MenuItem Header="_Save" InputGestureText="Ctrl+S" Click="Save_Click" />
-                    <MenuItem Header="Save _As…" InputGestureText="Ctrl+Shift+S" Click="SaveAs_Click" />
+                    <MenuItem Header="_Save" Tag="file.save" InputGestureText="Ctrl+S" Click="Save_Click" />
+                    <MenuItem Header="Save _As…" Tag="file.saveAs" InputGestureText="Ctrl+Shift+S" Click="SaveAs_Click" />
                     <Separator />
-                    <MenuItem Header="_Import…" InputGestureText="Ctrl+I" Click="Import_Click"
+                    <MenuItem Header="_Import…" Tag="file.import" InputGestureText="Ctrl+I" Click="Import_Click"
                               ToolTip="A Photoshop file (its layers as parts, with a suggested rig if you like), an Animate project (.fla or .xfl: its parts and animations, with a rig worked out from them if you like), or a sprite sheet (its pieces as stills and animations)" />
-                    <MenuItem Header="_Export…" InputGestureText="Ctrl+E" Click="Export_Click"
+                    <MenuItem Header="_Export…" Tag="file.export" InputGestureText="Ctrl+E" Click="Export_Click"
                               ToolTip="PNG pictures, a GIF, a sprite sheet or a video: of the scene, or of one object's animations" />
                     <Separator />
                     <MenuItem Header="E_xit" Click="Exit_Click" />
+                </MenuItem>
+                <MenuItem x:Name="EditMenu" Header="_Edit" SubmenuOpened="EditMenu_Opened">
+                    <MenuItem Header="_Undo" Tag="edit.undo" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Redo" Tag="edit.redo" Click="MenuCommand_Click" />
+                    <Separator />
+                    <MenuItem Header="_Pick every bone and part shown" Tag="pick.all" Click="MenuCommand_Click" />
+                    <MenuItem Header="Select the _keys of the picked" Tag="pick.keys" Click="MenuCommand_Click"
+                              ToolTip="Every key of the picked bones and parts, in the timeline. Then dragging them in the viewport moves those keys alike: the animation plays as it did, moved." />
+                    <Separator />
+                    <MenuItem Header="_Hide the picked" Tag="pick.hide" Click="MenuCommand_Click"
+                              ToolTip="Out of the way while you work (a hidden bone hides what's on it and under it). Exports still show everything." />
+                    <MenuItem Header="Hide everything _else" Tag="pick.hideOthers" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Show everything" Tag="pick.showAll" Click="MenuCommand_Click" />
+                    <Separator />
+                    <MenuItem Header="Se_ttings…" Tag="file.settings" InputGestureText="Ctrl+," Click="MenuCommand_Click"
+                              ToolTip="Which key does what (every shortcut and paint tool), and which mouse button picks, moves things and moves the view" />
                 </MenuItem>
             </Menu>
         <Grid>
@@ -251,7 +268,8 @@
                                  Layers: drag a part up or down to change the order. -->
                             <TreeView x:Name="BoneTree" Grid.Row="4" Background="#1E2026" BorderThickness="0" Margin="6,0,6,0"
                       SelectedItemChanged="BoneTree_SelectedItemChanged" AllowDrop="True"
-                      PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseMove="BoneTree_PreviewMouseMove"
+                      PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="BoneTree_PreviewMouseLeftButtonUp"
+                      PreviewMouseMove="BoneTree_PreviewMouseMove"
                       DragOver="BoneTree_DragOver" DragLeave="BoneTree_DragLeave" Drop="BoneTree_Drop" />
                             <GridSplitter Grid.Row="5" Height="5" HorizontalAlignment="Stretch" Background="#1B1D22"
                           ResizeDirection="Rows" ToolTip="Drag to give the tree or the properties more room" />
@@ -456,9 +474,9 @@
                               ToolTip="Animate mode: the drawing shown from this frame on (picking one keys it here). Setup mode: the part's rest drawing. (hidden) shows nothing." />
 
                                         <UniformGrid Grid.Row="10" Grid.ColumnSpan="3" Columns="3" Margin="0,0,0,4">
-                                            <Button Content="New (F7)" Margin="0,0,3,0" Click="NewDrawing_Click"
+                                            <Button x:Name="NewDrawingButton" Content="New (F7)" Margin="0,0,3,0" Click="NewDrawing_Click"
                                 ToolTip="A new, empty drawing with the same size and layers. Animate mode: shown from this frame on. Setup mode: becomes the rest drawing." />
-                                            <Button Content="Copy (F6)" Margin="3,0,3,0" Click="DuplicateDrawing_Click"
+                                            <Button x:Name="CopyDrawingButton" Content="Copy (F6)" Margin="3,0,3,0" Click="DuplicateDrawing_Click"
                                 ToolTip="A copy of the current drawing, to change a little: the usual way to make the next frame" />
                                             <Button x:Name="DeleteDrawingButton" Content="Delete" Margin="3,0,0,0" Click="DeleteDrawing_Click"
                                 ToolTip="Removes this drawing from the part, and its keys in every animation (undoable)" />
@@ -521,7 +539,7 @@
         <DockPanel x:Name="PaintPanel" Grid.Row="0" Grid.Column="2" Background="#24272E" Visibility="Collapsed">
 
             <DockPanel DockPanel.Dock="Top" Margin="6">
-                <Button Content="Close (Esc)" DockPanel.Dock="Right" Padding="8,2" Click="ClosePaint_Click" />
+                <Button x:Name="ClosePaintButton" Content="Close (Esc)" DockPanel.Dock="Right" Padding="8,2" Click="ClosePaint_Click" />
                 <Button Content="Canvas size…" DockPanel.Dock="Right" Padding="8,2" Margin="0,0,6,0" Click="CanvasSize_Click" />
                 <TextBlock x:Name="PaintTitle" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" />
             </DockPanel>
@@ -568,12 +586,12 @@
                         <Rectangle x:Name="ColorSwatch" />
                     </Border>
                 </Grid>
-                <Button Content="⇄" ToolTip="Swap colors (S)" Padding="5,0" Margin="0,0,6,0" Click="SwapColors_Click" />
+                <Button x:Name="SwapColorsButton" Content="⇄" ToolTip="Swap colors (S)" Padding="5,0" Margin="0,0,6,0" Click="SwapColors_Click" />
                 <TextBox x:Name="ColorHex" Width="86" VerticalContentAlignment="Center"
              LostFocus="ColorHex_Commit" KeyDown="ColorHex_KeyDown" ToolTip="#RRGGBB or #AARRGGBB" />
-                <Button Content="Invert selection" Padding="6,0" Margin="12,0,0,0" Click="InvertSelection_Click"
+                <Button x:Name="InvertSelectionButton" Content="Invert selection" Padding="6,0" Margin="12,0,0,0" Click="InvertSelection_Click"
                         ToolTip="Select everything that isn't selected (Ctrl+Shift+I)" />
-                <Button Content="Deselect" Padding="6,0" Margin="4,0,0,0" Click="Deselect_Click"
+                <Button x:Name="DeselectButton" Content="Deselect" Padding="6,0" Margin="4,0,0,0" Click="Deselect_Click"
                         ToolTip="Drop the selection, so tools work everywhere again (Ctrl+D)" />
             </WrapPanel>
 

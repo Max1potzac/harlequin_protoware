@@ -83,6 +83,7 @@ public class BoneDto
 	public float Turn { get; set; }   // depth, radians
 	public float Tilt { get; set; }
 	public bool? Connected { get; set; }   // snapped to the parent's end (null = no)
+	public bool? Hidden { get; set; }      // hidden while editing (null = no)
 }
 
 public class SlotDto
@@ -93,6 +94,7 @@ public class SlotDto
 	public BlendMode? Blend { get; set; }    // null = Normal
 	public Rgb? Color { get; set; }          // null = white (drawn as is)
 	public float? Opacity { get; set; }      // null = 1
+	public bool? Hidden { get; set; }        // hidden while editing (null = no)
 }
 
 // A colour as red, green, blue, 0..1 each

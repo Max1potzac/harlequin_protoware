@@ -109,11 +109,11 @@ public partial class MainWindow
 			menu.Items.Add(new Separator());
 		}
 
-		var copy = new MenuItem { Header = "Copy", InputGestureText = "Ctrl+C" };
+		var copy = new MenuItem { Header = "Copy", InputGestureText = _keys.Gesture("edit.copy") };
 		copy.Click += (_, _) => _timeline.Copy();
 		menu.Items.Add(copy);
 
-		var delete = new MenuItem { Header = "Delete", InputGestureText = "Del" };
+		var delete = new MenuItem { Header = "Delete", InputGestureText = _keys.Gesture("edit.delete") };
 		delete.Click += (_, _) => _timeline.DeleteSelected();
 		menu.Items.Add(delete);
 
@@ -128,6 +128,17 @@ public partial class MainWindow
 		var add = new MenuItem { Header = $"Add event at frame {frame}…" };
 		add.Click += (_, _) => AddEventAt(frame);
 		menu.Items.Add(add);
+
+		// Every key of what's picked: then dragging it in the viewport moves them all alike
+		int picks = _state.Picked.Count;
+		var keys = new MenuItem
+		{
+			Header = picks > 1 ? $"Select every key of the {picks} picked" : "Select every key of the picked one",
+			InputGestureText = _keys.Gesture("pick.keys"),
+			IsEnabled = picks > 0
+		};
+		keys.Click += (_, _) => SelectKeysOfPicked();
+		menu.Items.Add(keys);
 		menu.IsOpen = true;
 	}
 }

@@ -236,53 +236,6 @@ public partial class MainWindow
 	private void Tool_Click(object sender, RoutedEventArgs e) =>
 		SelectTool((string)((FrameworkElement)sender).Tag);
 
-	private bool HandlePaintKey(Key key)
-	{
-		if (_paint.Asset == null || !PaintView.IsMouseOver) return false;
-
-		if (Keyboard.Modifiers == ModifierKeys.Control)
-		{
-			if (key == Key.A) { _paint.SelectAll(); return true; }
-			if (key == Key.D) { _paint.Deselect(); return true; }
-			return false;
-		}
-		if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
-		{
-			if (key == Key.I) { _paint.InvertSelection(); return true; }
-			return false;
-		}
-		if (Keyboard.Modifiers != ModifierKeys.None) return false;
-
-		switch (key)
-		{
-			// Figure or selection shape in progress: Enter finishes, Backspace removes a point, Esc cancels
-			case Key.Enter when _figure.InProgress: _figure.Finish(_paint); return true;
-			case Key.Back when _figure.InProgress: _figure.RemoveLastPoint(_paint); return true;
-			case Key.Escape when _figure.InProgress: _figure.Cancel(_paint); return true;
-			case Key.Enter when _select.PlacingPoints: _select.Finish(_paint); return true;
-			case Key.Back when _select.PlacingPoints: _select.RemoveLastPoint(_paint); return true;
-			case Key.Escape when _select.PlacingPoints: _select.Cancel(); return true;
-
-			case Key.M: SelectTool("Select"); return true;
-			case Key.W: SelectTool("Wand"); return true;
-			case Key.V: SelectTool("Move"); return true;
-			case Key.N: SelectTool("Pencil"); return true;
-			case Key.B: SelectTool("Brush"); return true;
-			case Key.X: SelectTool("Mixer"); return true;
-			case Key.E: SelectTool("Eraser"); return true;
-			case Key.I: SelectTool("Picker"); return true;
-			case Key.G: SelectTool("Fill"); return true;
-			case Key.D: SelectTool("Gradient"); return true;
-			case Key.U: SelectTool("Figure"); return true;
-			case Key.S: _paint.SwapColors(); return true;
-			case Key.OemOpenBrackets: SetBrushSize(_paint.Size - 1); return true;
-			case Key.OemCloseBrackets: SetBrushSize(_paint.Size + 1); return true;
-			case Key.Delete when _paint.Selection != null: _paint.DeleteSelectedPixels(); return true;
-			case Key.Escape when _paint.Selection != null: _paint.Deselect(); return true;
-			default: return false;
-		}
-	}
-
 	private void SetBrushSize(int size)
 	{
 		_paint.Size = Math.Clamp(size, 1, 64);

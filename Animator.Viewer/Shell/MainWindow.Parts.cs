@@ -205,11 +205,8 @@ public partial class MainWindow
 	private void PartFront_Click(object sender, RoutedEventArgs e) => MovePartInOrder(+1);
 	private void PartBack_Click(object sender, RoutedEventArgs e) => MovePartInOrder(-1);
 
-	// A step forward or back in the order (keyed at the playhead in Animate mode)
-	private void MovePartInOrder(int direction)
-	{
-		if (_state.SelectedSlot is { } slot) Reorder(new[] { slot }, direction, toEnd: false);
-	}
+	// The picked parts a step forward or back in the order (keyed at the playhead in Animate mode)
+	private void MovePartInOrder(int direction) => ReorderPicked(direction, toEnd: false);
 
 	private void EditPixels_Click(object sender, RoutedEventArgs e)
 	{

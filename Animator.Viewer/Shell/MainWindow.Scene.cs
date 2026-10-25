@@ -297,30 +297,6 @@ public partial class MainWindow
 		return true;
 	}
 
-	// ======================= keys at scene level =======================
-
-	// Only the keys for whole objects, playback and the view (true = handled)
-	private bool HandleSceneKey(Key key)
-	{
-		switch (key)
-		{
-			case Key.Space: _state.Playing = !_state.Playing; break;
-			case Key.R: _sceneState.Time = 0; break;
-			case Key.Left: StepScene(-1); break;
-			case Key.Right: StepScene(+1); break;
-			case Key.Enter when _objectTool.Selected is { } obj: EnterObject(obj); break;
-			case Key.Delete when _sceneState.SelectedClip != null: DeleteSelectedClip(); break;
-			case Key.Delete: DeleteCurrentObject(); break;
-			case Key.Escape: _objectTool.Selected = null; break;
-			case Key.F: ResetView(); break;
-			case Key.G: _renderer.ShowImages = !_renderer.ShowImages; break;
-			case Key.P: _renderer.PixelArt = !_renderer.PixelArt; break;
-			case Key.O: ToggleOnion(); break;
-			default: return false;
-		}
-		return true;
-	}
-
 	private void StepScene(int frames)
 	{
 		_state.Playing = false;
@@ -361,11 +337,11 @@ public partial class MainWindow
 		SceneControls.Visibility = _sceneLevel ? Visibility.Visible : Visibility.Collapsed;
 		ShowSceneSettings();
 
-		SceneButton.Content = _sceneLevel ? "Edit ▸" : "◂ Scene (Esc)";
+		SceneButton.Content = _sceneLevel ? "Edit ▸" : $"◂ Scene ({KeyOf("edit.back")})";
 		SceneButton.IsEnabled = !_sceneLevel || _objectTool.Selected != null;
 		ModeText.Text = _sceneLevel
-			? "Scene: drag objects to place them. Double-click one (or Enter) to edit it."
-			: $"Editing \"{_active?.Name}\". Other objects are faded. Esc = back to the scene.";
+			? $"Scene: {MoveDrag} objects to place them. Double-click one (or {KeyOf("scene.open")}) to edit it."
+			: $"Editing \"{_active?.Name}\". Other objects are faded. {KeyOf("edit.back")} = back to the scene.";
 
 		var current = CurrentObject;
 		DeleteObjectButton.IsEnabled = current != null && _scene.Objects.Count > 1;
