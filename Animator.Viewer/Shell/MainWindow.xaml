@@ -26,7 +26,8 @@
                     <MenuItem Header="_Undo" Tag="edit.undo" Click="MenuCommand_Click" />
                     <MenuItem Header="_Redo" Tag="edit.redo" Click="MenuCommand_Click" />
                     <Separator />
-                    <MenuItem Header="_Pick every bone and part shown" Tag="pick.all" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Pick every bone and part shown" Tag="pick.all" Click="MenuCommand_Click"
+                              ToolTip="Hidden and locked ones stay as they are" />
                     <MenuItem Header="Select the _keys of the picked" Tag="pick.keys" Click="MenuCommand_Click"
                               ToolTip="Every key of the picked bones and parts, in the timeline. Then dragging them in the viewport moves those keys alike: the animation plays as it did, moved." />
                     <Separator />
@@ -35,8 +36,34 @@
                     <MenuItem Header="Hide everything _else" Tag="pick.hideOthers" Click="MenuCommand_Click" />
                     <MenuItem Header="_Show everything" Tag="pick.showAll" Click="MenuCommand_Click" />
                     <Separator />
+                    <MenuItem Header="_Lock the picked" Tag="pick.lock" Click="MenuCommand_Click"
+                              ToolTip="Locked bones and parts can't be clicked, boxed or dragged in the viewport, so they stay put while you work around them. The rig panel can still pick them (to type in numbers)." />
+                    <MenuItem Header="Lock e_verything else" Tag="pick.lockOthers" Click="MenuCommand_Click" />
+                    <MenuItem Header="U_nlock everything" Tag="pick.unlockAll" Click="MenuCommand_Click" />
+                    <Separator />
                     <MenuItem Header="Se_ttings…" Tag="file.settings" InputGestureText="Ctrl+," Click="MenuCommand_Click"
-                              ToolTip="Which key does what (every shortcut and paint tool), and which mouse button picks, moves things and moves the view" />
+                              ToolTip="Which key does what (every shortcut and paint tool), which mouse button picks, moves things and moves the view, and how often unsaved work is kept" />
+                </MenuItem>
+                <MenuItem x:Name="ViewMenu" Header="_View" SubmenuOpened="ViewMenu_Opened">
+                    <MenuItem Header="_Rulers" Tag="view.rulers" Click="MenuCommand_Click"
+                              ToolTip="Along the top and left: drag a guide out of one" />
+                    <MenuItem Header="_Grid" Tag="view.grid" Click="MenuCommand_Click" />
+                    <MenuItem Header="G_uides" Tag="view.guides" Click="MenuCommand_Click"
+                              ToolTip="Drag one out of a ruler; drag it back onto the ruler to take it away" />
+                    <Separator />
+                    <MenuItem Header="_Snap to the grid" Tag="view.snapGrid" Click="MenuCommand_Click"
+                              ToolTip="Joints, bone ends, parts (their pivot or a corner of their box) and objects dragged near a grid line land on it" />
+                    <MenuItem Header="Snap to the gu_ides" Tag="view.snapGuides" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Lock the guides" Tag="view.lockGuides" Click="MenuCommand_Click"
+                              ToolTip="Guides can't be moved by accident (new ones can still be dragged out of the rulers)" />
+                    <Separator />
+                    <MenuItem x:Name="GridSizeMenu" Header="Grid si_ze" />
+                    <MenuItem x:Name="ClearGuidesItem" Header="_Clear the guides" Click="ClearGuides_Click" />
+                    <Separator />
+                    <MenuItem Header="_Pictures" Tag="view.images" Click="MenuCommand_Click" />
+                    <MenuItem Header="Pi_xel filtering" Tag="view.pixels" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Onion skin" Tag="view.onion" Click="MenuCommand_Click" />
+                    <MenuItem Header="R_eset the view" Tag="view.reset" Click="MenuCommand_Click" />
                 </MenuItem>
             </Menu>
         <Grid>
@@ -262,6 +289,11 @@
                                                  ToolTip="Every part in the order it's drawn, the top one in front, whatever bone it's on. Drag one up or down to change the order; right-click for more (Ctrl+] / Ctrl+[ a step, with Shift all the way). In Animate mode, that keys the order at the playhead." />
                                 </UniformGrid>
                                 <TextBlock x:Name="LayersHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="2,4,2,0" Visibility="Collapsed" />
+                                <!-- Selection sets: a click picks a set's bones and parts again -->
+                                <DockPanel x:Name="SetsRow" Margin="0,5,0,0">
+                                    <TextBlock DockPanel.Dock="Left" Text="Sets" Foreground="#9AA4B2" FontSize="11" Margin="2,1,6,0" VerticalAlignment="Top" />
+                                    <WrapPanel x:Name="SetChips" />
+                                </DockPanel>
                             </StackPanel>
 
                             <!-- Bones: drag a part onto a bone to put it there, or a bone onto another to hang it there.
@@ -305,7 +337,13 @@
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock x:Name="PropsTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2" Margin="0,0,0,6" />
+                                        <DockPanel Grid.Row="0" Grid.ColumnSpan="3" Margin="0,0,0,6">
+                                            <Button x:Name="BoneColorButton" DockPanel.Dock="Right" Width="24" Height="18" Padding="0" Click="BoneColor_Click"
+                                                    ToolTip="The bone's colour in the viewport (all the picked bones at once)">
+                                                <Border x:Name="BoneColorSwatch" Width="14" Height="10" BorderBrush="#202020" BorderThickness="1" />
+                                            </Button>
+                                            <TextBlock x:Name="PropsTitle" Foreground="#9AA4B2" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
 
                                         <TextBlock Grid.Row="1" Text="Name" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
                                         <TextBox x:Name="BoneName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,0,0,4"
@@ -523,7 +561,7 @@
                 <!-- ===== Viewport ===== -->
                 <Grid>
                     <skia:SKElement x:Name="Viewport" Focusable="True" FocusVisualStyle="{x:Null}" PaintSurface="OnPaintSurface"
-                        MouseDown="Viewport_MouseDown" MouseMove="Viewport_MouseMove"
+                        MouseDown="Viewport_MouseDown" MouseMove="Viewport_MouseMove" MouseLeave="Viewport_MouseLeave"
                         MouseUp="Viewport_MouseUp" MouseWheel="Viewport_MouseWheel" />
                     <TextBlock x:Name="Status" Foreground="White" Margin="10"
                    VerticalAlignment="Bottom" IsHitTestVisible="False" TextWrapping="Wrap" />

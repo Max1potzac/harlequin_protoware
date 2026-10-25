@@ -95,6 +95,14 @@ public class Bone
 	public bool Hidden { get; set; }
 	public bool IsHidden => Hidden || (Parent?.IsHidden ?? false);
 
+	// Locked while editing (the lock in the rig panel): it can't be picked or dragged in the
+	// viewport. It's still drawn, still moves with what it hangs from, and the rig panel can still
+	// pick it and change its numbers. Only this bone: what's on it and under it isn't locked.
+	public bool Locked { get; set; }
+
+	// The colour its line is drawn in while editing (null: the usual yellow). Exports have no bones.
+	public Vector3? EditorColor { get; set; }
+
     public float SetupRotation { get; set; }
     public Vector2 SetupScale { get; set; } = Vector2.One;
 

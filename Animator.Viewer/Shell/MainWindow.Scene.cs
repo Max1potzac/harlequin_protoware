@@ -191,6 +191,7 @@ public partial class MainWindow
 	{
 		// The axes the panel's numbers are measured from: the open object's origin, or the scene's
 		DrawInSpace(canvas, Editing ? _camera.Space : Matrix3x2.Identity, () => _renderer.DrawAxes(canvas));
+		DrawGrid(canvas);   // in the same units, behind everything
 		if (Editing) DrawStage(canvas);   // inside an object: just the frame's outline, behind
 		DrawOnionGhosts(canvas);
 

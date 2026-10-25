@@ -68,23 +68,102 @@ public static class VisibilityOps
 	}
 }
 
-// What's hidden, for undo
-public sealed class VisibilitySnapshot
+// What's hidden, locked and coloured, for undo
+public sealed class EditAidsSnapshot
 {
-	private readonly List<(Bone Bone, bool Hidden)> _bones;
-	private readonly List<(Slot Slot, bool Hidden)> _slots;
+	private readonly List<(Bone Bone, bool Hidden, bool Locked, System.Numerics.Vector3? Color)> _bones;
+	private readonly List<(Slot Slot, bool Hidden, bool Locked)> _slots;
 
-	private VisibilitySnapshot(Skeleton skeleton)
+	private EditAidsSnapshot(Skeleton skeleton)
 	{
-		_bones = skeleton.AllBones().Select(b => (b, b.Hidden)).ToList();
-		_slots = skeleton.Slots.Select(s => (s, s.Hidden)).ToList();
+		_bones = skeleton.AllBones().Select(b => (b, b.Hidden, b.Locked, b.EditorColor)).ToList();
+		_slots = skeleton.Slots.Select(s => (s, s.Hidden, s.Locked)).ToList();
 	}
 
-	public static VisibilitySnapshot Capture(Skeleton skeleton) => new(skeleton);
+	public static EditAidsSnapshot Capture(Skeleton skeleton) => new(skeleton);
 
 	public void Restore()
 	{
-		foreach (var (bone, hidden) in _bones) bone.Hidden = hidden;
-		foreach (var (slot, hidden) in _slots) slot.Hidden = hidden;
+		foreach (var (bone, hidden, locked, color) in _bones)
+		{
+			bone.Hidden = hidden;
+			bone.Locked = locked;
+			bone.EditorColor = color;
+		}
+		foreach (var (slot, hidden, locked) in _slots)
+		{
+			slot.Hidden = hidden;
+			slot.Locked = locked;
+		}
+	}
+}
+
+// Locking bones and parts while editing (the locks in the rig panel; L, Shift+L, Alt+L): a locked
+// one can't be picked or dragged in the viewport. Unlike hiding, only that one: what's on a locked
+// bone and under it isn't locked.
+public static class LockOps
+{
+	public static bool IsLocked(object item) => item switch { Bone b => b.Locked, Slot s => s.Locked, _ => false };
+
+	// Locks (or unlocks) these. false: they all already were.
+	public static bool SetLocked(IEnumerable<object> items, bool locked)
+	{
+		bool changed = false;
+		foreach (var item in items)
+		{
+			switch (item)
+			{
+				case Bone bone when bone.Locked != locked:
+					bone.Locked = locked;
+					changed = true;
+					break;
+				case Slot slot when slot.Locked != locked:
+					slot.Locked = locked;
+					changed = true;
+					break;
+			}
+		}
+		return changed;
+	}
+
+	// Every bone and part but these, locked
+	public static bool LockOthers(Skeleton skeleton, IEnumerable<object> keep)
+	{
+		var kept = keep.ToHashSet();
+		bool changed = SetLocked(kept, false);
+		changed |= SetLocked(skeleton.AllBones().Cast<object>().Concat(skeleton.Slots).Where(i => !kept.Contains(i)), true);
+		return changed;
+	}
+
+	public static bool UnlockAll(Skeleton skeleton) =>
+		SetLocked(skeleton.AllBones().Cast<object>().Concat(skeleton.Slots), false);
+}
+
+// Selection sets, for undo: which sets there are, their names and members
+public sealed class SetsSnapshot
+{
+	private readonly Skeleton _skeleton;
+	private readonly List<(SelectionSet Set, string Name, List<Bone> Bones, List<Slot> Slots)> _sets;
+
+	private SetsSnapshot(Skeleton skeleton)
+	{
+		_skeleton = skeleton;
+		_sets = skeleton.Sets.Select(s => (s, s.Name, s.Bones.ToList(), s.Slots.ToList())).ToList();
+	}
+
+	public static SetsSnapshot Capture(Skeleton skeleton) => new(skeleton);
+
+	public void Restore()
+	{
+		_skeleton.Sets.Clear();
+		foreach (var (set, name, bones, slots) in _sets)
+		{
+			set.Name = name;
+			set.Bones.Clear();
+			set.Bones.AddRange(bones);
+			set.Slots.Clear();
+			set.Slots.AddRange(slots);
+			_skeleton.Sets.Add(set);
+		}
 	}
 }

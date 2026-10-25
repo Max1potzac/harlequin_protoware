@@ -14,6 +14,10 @@ public class Slot
 	// viewport or picked there. Never in exports; saved with the project.
 	public bool Hidden { get; set; }
 	public bool IsHidden => Hidden || Bone.IsHidden;
+
+	// Locked while editing: can't be picked or dragged in the viewport (clicks go through to
+	// what's behind it); the rig panel can still pick it. Saved with the project.
+	public bool Locked { get; set; }
     public Slot(string name, Bone bone) { Name = name; Bone = bone; }
 
 	// Placement keys (milestone 9.3): the part moved, turned and scaled on its bone, on top of

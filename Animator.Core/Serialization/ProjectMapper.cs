@@ -35,7 +35,9 @@ public static class ProjectMapper
 		SceneDuration = scene.Duration,
 		SceneLoop = scene.Loop,
 		StageWidth = scene.HasStage ? scene.StageWidth : null,
-		StageHeight = scene.HasStage ? scene.StageHeight : null
+		StageHeight = scene.HasStage ? scene.StageHeight : null,
+		GridSize = MathF.Abs(scene.GridSize - 10f) < 1e-6f ? null : scene.GridSize,
+		Guides = scene.Guides.Count > 0 ? scene.Guides.Select(g => new GuideDto { Vertical = g.Vertical, At = g.At }).ToList() : null
 	};
 
 	public static ObjectDto ObjectToDto(SceneObject o)
@@ -75,8 +77,11 @@ public static class ProjectMapper
 			Duration = dto.SceneDuration is float d && d > 0 ? d : 5f,
 			Loop = dto.SceneLoop ?? true,
 			StageWidth = Math.Max(0, dto.StageWidth ?? 0),
-			StageHeight = Math.Max(0, dto.StageHeight ?? 0)
+			StageHeight = Math.Max(0, dto.StageHeight ?? 0),
+			GridSize = dto.GridSize is float grid && grid > 0 ? grid : 10f
 		};
+		foreach (var g in dto.Guides ?? new List<GuideDto>())
+			scene.Guides.Add(new Guide(g.Vertical, g.At));
 		if (dto.Objects is not { Count: > 0 } objects)
 		{
 			var (skeleton, animations) = FromDto(dto);
@@ -170,6 +175,8 @@ public static class ProjectMapper
 				Tilt = b.SetupTilt,
 				Connected = b.Connected && b.Parent != null ? true : null,
 				Hidden = b.Hidden ? true : null,
+				Locked = b.Locked ? true : null,
+				EditorColor = b.EditorColor is { } color ? Rgb.From(color) : null,
 			});
 		}
 
@@ -183,7 +190,8 @@ public static class ProjectMapper
 				Blend = s.Blend == BlendMode.Normal ? null : s.Blend,
 				Color = s.SetupColor == Vector3.One ? null : Rgb.From(s.SetupColor),
 				Opacity = s.SetupOpacity >= 1f ? null : s.SetupOpacity,
-				Hidden = s.Hidden ? true : null
+				Hidden = s.Hidden ? true : null,
+				Locked = s.Locked ? true : null
 			});
 		}
 
@@ -235,6 +243,18 @@ public static class ProjectMapper
 				Follow = c.Follow,
 				Mix = c.SetupMix
 			});
+		}
+
+		if (skeleton.Sets.Count > 0)
+		{
+			var bones = skeleton.AllBones().ToHashSet();
+			var slots = skeleton.Slots.ToHashSet();
+			dto.Sets = skeleton.Sets.Select(set => new SetDto
+			{
+				Name = set.Name,
+				Bones = set.Bones.Where(bones.Contains).Select(b => b.Name).ToList(),
+				Parts = set.Slots.Where(slots.Contains).Select(s => s.Name).ToList()
+			}).ToList();
 		}
 
 		foreach (var anim in animations)
@@ -378,6 +398,8 @@ public static class ProjectMapper
 				SetupTilt = b.Tilt,
 				Connected = b.Connected ?? false,
 				Hidden = b.Hidden ?? false,
+				Locked = b.Locked ?? false,
+				EditorColor = b.EditorColor?.ToVector3(),
 			};
 			if (!bones.TryAdd(b.Name, bone))
 				throw new InvalidDataException($"Two bones are named '{b.Name}'.");
@@ -398,7 +420,8 @@ public static class ProjectMapper
 				Blend = s.Blend ?? BlendMode.Normal,
 				SetupColor = s.Color?.ToVector3() ?? Vector3.One,
 				SetupOpacity = s.Opacity ?? 1f,
-				Hidden = s.Hidden ?? false
+				Hidden = s.Hidden ?? false,
+				Locked = s.Locked ?? false
 			});
 		}
 
@@ -455,6 +478,17 @@ public static class ProjectMapper
 				SetupMix = l.Mix,
 				Mix = l.Mix
 			});
+		}
+
+		// Selection sets: members that aren't there (any more) are left out
+		foreach (var s in dto.Sets ?? new List<SetDto>())
+		{
+			var set = new SelectionSet { Name = s.Name };
+			foreach (var name in s.Bones ?? new List<string>())
+				if (bones.TryGetValue(name, out var bone)) set.Bones.Add(bone);
+			foreach (var name in s.Parts ?? new List<string>())
+				if (skeleton.FindSlot(name) is { } slot) set.Slots.Add(slot);
+			skeleton.Sets.Add(set);
 		}
 
 		var animations = new List<Animation>();

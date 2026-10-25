@@ -49,6 +49,12 @@ public class ObjectTool
 	// The keys held down (Shift): the keyboard's, or a test's
 	public Func<ModifierKeys> Modifiers { get; set; } = () => Keyboard.Modifiers;
 
+	// Snapping to the grid and guides (in the scene's units): a moved object's origin, or a
+	// corner of its box, lands on a line it's brought near
+	public Snapping Snap { get; set; } = new();
+	private Vector2[] _snapPoints = Array.Empty<Vector2>();
+	private Vector2 _pressScene;
+
 	public ObjectTool(Func<Scene> scene, SceneState sceneState, Camera camera, SkeletonRenderer renderer, UndoStack undo)
 	{
 		_scene = scene;
@@ -111,6 +117,8 @@ public class ObjectTool
 			case Drag.Move or Drag.Rotate or Drag.Scale when Selected is { } obj:
 				if (!_moving && Vector2.Distance(screen, _pressScreen) < DragStartPx) break;   // a click only selects
 				_moving = true;
+				if (_drag == Drag.Move)
+					p += Snap.Offset(_snapPoints.Select(q => q + (p - _pressScene)).ToList(), _camera.Zoom);
 				DragObject(obj, Vector2.Transform(p, _toParent));
 				break;
 		}
@@ -174,6 +182,9 @@ public class ObjectTool
 		_startScale = obj.Scale;
 		_lastAngle = Angle(_startLocal - _startPosition);
 		_rotAccum = 0;
+		_pressScene = scenePoint;
+		var handles = ObjectGizmo.For(scene, obj, _renderer, _camera.Zoom);
+		_snapPoints = handles.Corners.Append(handles.Origin).ToArray();
 	}
 
 	private void DragObject(SceneObject obj, Vector2 local)

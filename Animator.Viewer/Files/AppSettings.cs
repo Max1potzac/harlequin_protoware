@@ -21,11 +21,26 @@ public sealed class AppSettings
 	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton TransformButton { get; set; } = MouseButton.Right;
 	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton PanButton { get; set; } = MouseButton.Middle;
 
+	// The viewport's editing aids (View menu): rulers, grid and guides, and what drags snap to.
+	// The grid's size and the guides themselves belong to each project.
+	public bool ShowRulers { get; set; } = true;
+	public bool ShowGrid { get; set; }
+	public bool ShowGuides { get; set; } = true;
+	public bool SnapToGrid { get; set; }
+	public bool SnapToGuides { get; set; } = true;
+	public bool LockGuides { get; set; }
+
+	// Saving (Settings): a recovery copy of unsaved work every so many minutes (0 = never), and how
+	// many earlier versions of a project to keep in a Backups folder next to it when saving over it
+	public int AutosaveMinutes { get; set; } = 5;
+	public int BackupCount { get; set; } = 3;
+
 	// The three must be different buttons (a hand-edited file might not have them so)
 	[JsonIgnore] public bool MouseButtonsValid =>
 		SelectButton != TransformButton && SelectButton != PanButton && TransformButton != PanButton;
 
-	private static string FilePath => Path.Combine(
+	// (Tests point it somewhere of their own, so they never change anyone's real settings)
+	public static string FilePath { get; set; } = Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Harlequin", "settings.json");
 
 	public static AppSettings Load()

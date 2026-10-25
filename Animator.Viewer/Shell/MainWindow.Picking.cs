@@ -7,9 +7,10 @@ using System.Windows.Media;
 namespace Animator.Viewer;
 
 // Picking several bones and parts in the rig panel (Ctrl+click: picked or not, the other way
-// round; Shift+click: every row from the selected one to this one; Ctrl+A: everything shown), and
+// round; Shift+click: every row from the selected one to this one; Ctrl+A: everything shown),
 // hiding them while editing (the eye on each row; H hides the picked, Shift+H all the others,
-// Alt+H shows everything again). The viewport picks the same way (see BoneTool).
+// Alt+H shows everything again), and locking them (the lock; L, Shift+L, Alt+L): a locked one
+// can't be picked or dragged in the viewport. The viewport picks the same way (see BoneTool).
 public partial class MainWindow
 {
 	private static readonly Brush PickedRowBrush = Frozen(Color.FromRgb(46, 72, 106));
@@ -17,6 +18,16 @@ public partial class MainWindow
 	private static readonly Brush EyeOffBrush = Frozen(Color.FromRgb(240, 240, 240));
 	private static readonly Brush EyeUnderBrush = Frozen(Color.FromRgb(96, 102, 112));
 	private static readonly object EyeMark = new();   // the Tag of a row's eye
+	private static readonly Brush LockOnBrush = Frozen(Color.FromRgb(240, 200, 120));
+	private static readonly Brush LockOffBrush = Frozen(Color.FromArgb(70, 150, 160, 176));
+	private static readonly object LockMark = new();  // ...and of its lock
+	private static readonly Geometry ShackleShape = Freeze(Geometry.Parse("M4,5.5 V3.5 A2,2 0 0 1 8,3.5 V5.5"));
+
+	private static Geometry Freeze(Geometry geometry)
+	{
+		geometry.Freeze();
+		return geometry;
+	}
 
 	private static Brush Frozen(Color color)
 	{
@@ -30,7 +41,8 @@ public partial class MainWindow
 
 	// ======================= rows =======================
 
-	// A row's header: its eye, then what the row is (faded while hidden)
+	// A row's header: its eye, its lock, a bone's colour (when it has one of its own), then what
+	// the row is (faded while hidden)
 	private StackPanel RowHeader(object item, TextBlock text)
 	{
 		var (own, hidden) = item switch
@@ -55,17 +67,62 @@ public partial class MainWindow
 		if (hidden) text.Opacity = 0.45;
 		var row = new StackPanel { Orientation = Orientation.Horizontal };
 		row.Children.Add(eye);
+		row.Children.Add(LockToggle(item));
+		if (item is Bone { EditorColor: { } } coloured)
+		{
+			var c = SkeletonRenderer.BoneColor(coloured);
+			row.Children.Add(new TextBlock
+			{
+				Text = "■ ",
+				FontStyle = FontStyles.Normal,
+				Foreground = Frozen(Color.FromRgb(c.Red, c.Green, c.Blue)),
+				ToolTip = "This bone's colour in the viewport (the bone panel's colour button changes it)"
+			});
+		}
 		row.Children.Add(text);
 		return row;
+	}
+
+	// A padlock: bright and shut while locked, faint while not
+	private FrameworkElement LockToggle(object item)
+	{
+		bool locked = LockOps.IsLocked(item);
+		var brush = locked ? LockOnBrush : LockOffBrush;
+		var icon = new Grid { Width = 12, Height = 12 };
+		icon.Children.Add(new System.Windows.Shapes.Path { Data = ShackleShape, Stroke = brush, StrokeThickness = 1.4 });
+		icon.Children.Add(new System.Windows.Shapes.Rectangle
+		{
+			Width = 8,
+			Height = 6,
+			Margin = new Thickness(2, 5, 0, 0),
+			HorizontalAlignment = HorizontalAlignment.Left,
+			VerticalAlignment = VerticalAlignment.Top,
+			Stroke = brush,
+			StrokeThickness = 1,
+			Fill = locked ? brush : Brushes.Transparent
+		});
+		return new Border
+		{
+			Child = icon,
+			Width = 16,
+			VerticalAlignment = VerticalAlignment.Center,
+			Background = Brushes.Transparent,   // the whole width can be clicked
+			Tag = LockMark,
+			Cursor = Cursors.Hand,
+			ToolTip = locked
+				? "Locked: it can't be picked or dragged in the viewport (clicks go through it). Click to unlock it."
+				: $"Click to lock it: it can't be picked or dragged in the viewport, so you can work on what's around it ({KeyOf("pick.lock")}: lock the picked, {KeyOf("pick.lockOthers")}: all the others, {KeyOf("pick.unlockAll")}: unlock everything)"
+		};
 	}
 
 	private static DependencyObject? ParentOf(DependencyObject at) =>
 		at is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(at) : LogicalTreeHelper.GetParent(at);
 
-	private static bool IsEye(DependencyObject? source)
+	// On a row's eye (EyeMark) or lock (LockMark)
+	private static bool OnToggle(DependencyObject? source, object mark)
 	{
 		for (var at = source; at != null && at is not TreeViewItem; at = ParentOf(at))
-			if (at is FrameworkElement { Tag: { } tag } && ReferenceEquals(tag, EyeMark)) return true;
+			if (at is FrameworkElement { Tag: { } tag } && ReferenceEquals(tag, mark)) return true;
 		return false;
 	}
 
@@ -104,12 +161,13 @@ public partial class MainWindow
 		_treeClicked = null;
 		if (row?.Tag is not { } item || item is not (Bone or Slot) || OnExpander(source)) return;
 
-		// The eye: hidden or shown (that doesn't pick the row)
-		if (IsEye(source))
+		// The eye: hidden or shown; the lock: locked or not (neither picks the row)
+		if (OnToggle(source, EyeMark) || OnToggle(source, LockMark))
 		{
 			e.Handled = true;
 			_treeDragged = null;
-			ToggleHidden(item);
+			if (OnToggle(source, EyeMark)) ToggleHidden(item);
+			else ToggleLocked(item);
 			return;
 		}
 
@@ -187,12 +245,13 @@ public partial class MainWindow
 
 	// ======================= picking everything, and their keys =======================
 
-	// Every bone and part shown (a drawn object's own bone isn't one to pick)
+	// Every bone and part shown, and not locked (a drawn object's own bone isn't one to pick).
+	// Parts that show nothing at this frame are picked too: they move with the others.
 	private void PickEverythingShown()
 	{
 		var shown = new List<object>();
-		if (!IsDrawn) shown.AddRange(_skeleton.AllBones().Where(b => !b.IsHidden));
-		shown.AddRange(_skeleton.Slots.Where(s => !s.IsHidden));
+		if (!IsDrawn) shown.AddRange(_skeleton.AllBones().Where(b => !b.IsHidden && !b.Locked));
+		shown.AddRange(_skeleton.Slots.Where(s => !s.IsHidden && !s.Locked));
 		if (shown.Count == 0) return;
 		var primary = _state.Primary is { } current && shown.Contains(current) ? current : shown[0];
 		_state.Pick(shown, primary);
@@ -218,14 +277,14 @@ public partial class MainWindow
 	private void ToggleHidden(object item)
 	{
 		bool hide = item switch { Bone b => !b.Hidden, Slot s => !s.Hidden, _ => false };
-		EditVisibility($"{(hide ? "Hide" : "Show")} {NameOf(item)}", () => VisibilityOps.SetHidden(new[] { item }, hide));
+		EditAids($"{(hide ? "Hide" : "Show")} {NameOf(item)}", () => VisibilityOps.SetHidden(new[] { item }, hide));
 	}
 
 	private void HidePicked()
 	{
 		var picked = _state.Picked.ToList();
 		if (picked.Count == 0) return;
-		EditVisibility(picked.Count == 1 ? $"Hide {NameOf(picked[0])}" : $"Hide {picked.Count} picked",
+		EditAids(picked.Count == 1 ? $"Hide {NameOf(picked[0])}" : $"Hide {picked.Count} picked",
 			() => VisibilityOps.SetHidden(picked, true));
 	}
 
@@ -233,20 +292,48 @@ public partial class MainWindow
 	{
 		var picked = _state.Picked.ToList();
 		if (picked.Count == 0) return;
-		EditVisibility("Hide everything but the picked", () => VisibilityOps.HideOthers(_skeleton, picked));
+		EditAids("Hide everything but the picked", () => VisibilityOps.HideOthers(_skeleton, picked));
 	}
 
-	private void ShowEverything() => EditVisibility("Show everything", () => VisibilityOps.ShowAll(_skeleton));
+	private void ShowEverything() => EditAids("Show everything", () => VisibilityOps.ShowAll(_skeleton));
+
+	// ======================= locking =======================
+
+	// (a locked one picked here in the list stays picked: its numbers can still be changed)
+	private void ToggleLocked(object item)
+	{
+		bool locking = !LockOps.IsLocked(item);
+		EditAids($"{(locking ? "Lock" : "Unlock")} {NameOf(item)}", () => LockOps.SetLocked(new[] { item }, locking));
+	}
+
+	// The picked locked, and let go: they can't be dragged any more
+	private void LockPicked()
+	{
+		var picked = _state.Picked.ToList();
+		if (picked.Count == 0) return;
+		EditAids(picked.Count == 1 ? $"Lock {NameOf(picked[0])}" : $"Lock {picked.Count} picked",
+			() => LockOps.SetLocked(picked, true), letLockedGo: true);
+	}
+
+	// Everything but the picked locked: clicks only reach the picked ones
+	private void LockAllButPicked()
+	{
+		var picked = _state.Picked.ToList();
+		if (picked.Count == 0) return;
+		EditAids("Lock everything but the picked", () => LockOps.LockOthers(_skeleton, picked));
+	}
+
+	private void UnlockEverything() => EditAids("Unlock everything", () => LockOps.UnlockAll(_skeleton));
 
 	// One undo step (none when nothing changed). What's hidden can't stay picked: it couldn't be
-	// seen being moved.
-	private void EditVisibility(string name, Func<bool> change)
+	// seen being moved; nor can what's just been locked with L.
+	private void EditAids(string name, Func<bool> change, bool letLockedGo = false)
 	{
-		var before = VisibilitySnapshot.Capture(_skeleton);
+		var before = EditAidsSnapshot.Capture(_skeleton);
 		if (!change()) return;
-		var hiddenPicks = _state.Picked.Where(IsHiddenItem).ToList();
-		if (hiddenPicks.Count > 0) _state.Unpick(hiddenPicks);
-		_state.Undo.Push(new SnapshotCommand<VisibilitySnapshot>(name, before, VisibilitySnapshot.Capture(_skeleton), s => s.Restore()));
+		var gone = _state.Picked.Where(i => IsHiddenItem(i) || (letLockedGo && LockOps.IsLocked(i))).ToList();
+		if (gone.Count > 0) _state.Unpick(gone);
+		_state.Undo.Push(new SnapshotCommand<EditAidsSnapshot>(name, before, EditAidsSnapshot.Capture(_skeleton), s => s.Restore()));
 		UpdateStatus();
 	}
 }

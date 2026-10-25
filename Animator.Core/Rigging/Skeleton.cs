@@ -10,6 +10,9 @@ public class Skeleton
 
     public Skin DefaultSkin { get; } = new() { Name = "default" };
     public Skin? ActiveSkin { get; set; }
+
+	// Named groups of bones and parts, to pick in one click (the sets in the rig panel)
+	public List<SelectionSet> Sets { get; } = new();
     public Bone? FindBone(string name)
     {
         foreach (var root in Roots)

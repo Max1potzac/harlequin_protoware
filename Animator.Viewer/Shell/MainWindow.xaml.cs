@@ -53,6 +53,8 @@ public partial class MainWindow : Window
 		InitEffects();
 		InitKeys();   // the shortcuts and mouse buttons from Settings
 		InitPlaces();   // undo first goes back to where an edit was made
+		InitViewAids();   // rulers, grid, guides and snapping
+		InitAutosave();
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;
@@ -101,14 +103,18 @@ public partial class MainWindow : Window
 		canvas.Clear(new SKColor(40, 44, 52));
 		if (Viewport.ActualWidth <= 0) return;
 
-		canvas.Scale((float)(e.Info.Width / Viewport.ActualWidth));   // DPI fix
+		float dpi = (float)(e.Info.Width / Viewport.ActualWidth);
+		canvas.Scale(dpi);   // DPI fix
 		_camera.ViewSize = new((float)Viewport.ActualWidth, (float)Viewport.ActualHeight);
 		_camera.Apply(canvas);   // scene space from here on
+		_snap.GridSize = _scene.GridSize;   // (the project's: it changes with undo, or another file)
+		_snap.Guides = _scene.Guides;
 
 		_renderer.Zoom = _camera.Zoom;
 		_renderer.Selected = _state.Selected;
 		_renderer.SelectedSlot = _state.SelectedSlot;
 		_renderer.HideHidden = !_sceneLevel;   // bones and parts hidden with their eyes: while editing
+		_renderer.SkipLocked = !_sceneLevel;   // ...and locked ones can't be picked
 		_renderer.PickedBones = _sceneLevel ? NoBones : _state.PickedBones.ToHashSet();
 		_renderer.PickedSlots = _sceneLevel ? NoSlots : _state.PickedSlots.ToHashSet();
 		_renderer.SelectionBox = _sceneLevel ? null : _tool.SelectionBox;
@@ -118,6 +124,11 @@ public partial class MainWindow : Window
 		_renderer.GhostBone = _tool.CreatePreview;
 		_renderer.TipHandleOf = !_sceneLevel && !IsDrawn ? _tool.TipHandle : null;   // Setup mode: where the selected bone ends
 		DrawScene(canvas);   // onion ghosts, every object, then the open object's bones and handles
+		DrawGuides(canvas);
+
+		canvas.ResetMatrix();
+		canvas.Scale(dpi);   // screen units from here on
+		DrawRulers(canvas);
 	}
 
 	private static readonly HashSet<Bone> NoBones = new();
@@ -146,6 +157,13 @@ public partial class MainWindow : Window
 		Viewport.Focus();
 		var pos = PosIn(Viewport, e);
 
+		// The rulers and guides come first: out of a ruler comes a guide, a guide moves
+		if (_guideDrag == null && GuideMouseDown(pos, e.ChangedButton))
+		{
+			Viewport.CaptureMouse();
+			return;
+		}
+
 		// Scene level: whole objects
 		_objectDrag = _sceneLevel;
 		if (_sceneLevel)
@@ -167,12 +185,27 @@ public partial class MainWindow : Window
 	private void Viewport_MouseMove(object sender, MouseEventArgs e)
 	{
 		var pos = PosIn(Viewport, e);
+		_mouseOnView = pos;
+		if (_guideDrag != null)
+		{
+			GuideMouseMove(pos);
+			return;
+		}
+		if (!Viewport.IsMouseCaptured) ShowViewPointer(pos);
 		if (_objectDrag || _sceneLevel) _objectTool.MouseMove(pos);
 		else _tool.MouseMove(pos);
 	}
 
+	private void Viewport_MouseLeave(object sender, MouseEventArgs e) => _mouseOnView = null;
+
 	private void Viewport_MouseUp(object sender, MouseButtonEventArgs e)
 	{
+		if (_guideDrag != null)
+		{
+			GuideMouseUp(PosIn(Viewport, e));
+			Viewport.ReleaseMouseCapture();
+			return;
+		}
 		if (_objectDrag) _objectTool.MouseUp();
 		else _tool.MouseUp();
 		_objectDrag = false;
@@ -366,11 +399,12 @@ public partial class MainWindow : Window
 				$"SCENE    Object: {_objectTool?.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 				$"Viewport: {pick}-click an object = select, double-click (or {K("scene.open")}) = edit it.   {move}-drag an object = move, a corner = scale (Shift: keep proportions), the round handle = turn (Shift: 15° steps)\n" +
 				$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
+				$"{ViewAidsHelp()}\n" +
 				"Scene timeline: right-click a row = add a clip, drag a clip = move, drag its edges = length / trim, double-click = edit it in place\n" +
 				"Objects without clips loop their preview animation.   Wheel / Shift+wheel / Ctrl+wheel = scroll / scroll in time / zoom\n" +
 				$"{K("play.toggle")}: play/pause   {K("play.restart")}: restart   {K("play.back")} / {K("play.on")}: step   {K("edit.delete")}: delete clip (or object)   {K("edit.undo")} / {K("edit.redo")}: undo/redo   " +
 				$"{K("view.images")}: images   {K("view.onion")}: onion skin   {K("view.pixels")}: pixel filtering ({pixels})\n" +
-				$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys and mouse)";
+				$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys, mouse, autosave)";
 			UpdateTitle();
 			return;
 		}
@@ -384,9 +418,12 @@ public partial class MainWindow : Window
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : "SETUP: drags edit the rest pose")}  ({K("anim.mode")} to switch)    " +
 			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 			$"Viewport: {pick}-click = pick (Ctrl: toggle, Shift: add), {pick}-drag = pick in a box (Shift: add, Ctrl: let go), double-click a part = paint it.   " +
-			$"{move}-drag: a joint = move, a bone = turn, a part = move (its corners / round handle / pivot), anything picked = all that's picked; Ctrl+{move}-drag = new bone, Alt+{move}-click a part = put it on the selected bone, the ring at a bone's end = where it ends (Setup mode).   " +
+			$"{move}-drag: a joint = move, a bone = turn (Shift: 15° steps), a part = move (its corners / round handle / pivot), anything picked = all that's picked; Ctrl+{move}-drag = new bone, Alt+{move}-click a part = put it on the selected bone, the ring at a bone's end = where it ends (Setup mode).   " +
 			$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
-			$"Rig panel: Ctrl+click = pick several, Shift+click = every row from the selected one, {K("pick.all")} = everything shown, ● = hide / show ({K("pick.hide")}: hide the picked, {K("pick.hideOthers")}: hide the others, {K("pick.showAll")}: show all)\n" +
+			$"{ViewAidsHelp()}\n" +
+			$"Rig panel: Ctrl+click = pick several, Shift+click = every row from the selected one, {K("pick.all")} = everything shown, ● = hide / show ({K("pick.hide")}: hide the picked, {K("pick.hideOthers")}: hide the others, {K("pick.showAll")}: show all), " +
+			$"padlock = lock / unlock: no clicking or dragging it in the viewport ({K("pick.lock")}: lock the picked, {K("pick.lockOthers")}: lock the others, {K("pick.unlockAll")}: unlock all)\n" +
+			"Sets (under the list): + Set = a set of the picked; click a set = pick it again (Ctrl: picked or not, Shift: add), right-click = change it.   The square in the bone panel = the colour of the picked bones\n" +
 			$"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, {K("edit.copy")} / {K("edit.paste")} = copy / paste at playhead, {K("pick.keys")} = every key of the picked, drag across empty frames = pick them (right-click: split into an animation sequence)\n" +
 			$"IK: {K("ik.snap")} = snap target to hand, {K("ik.bake")} = bake IK into FK, {K("ik.switch")} = switch IK/FK at this frame (Animate mode).   Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   " +
 			$"Events: {K("anim.event")} = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
@@ -394,7 +431,7 @@ public partial class MainWindow : Window
 			$"Paint: double-click a part (on another object: edit that object). Over the canvas: {PaintKeys()}; Shift+click / Shift+drag = line, Alt+click = pick a colour\n" +
 			$"{K("play.toggle")}: play/pause   {K("play.restart")}: restart   {K("play.back")} / {K("play.on")}: step   {K("edit.delete")}: delete   {K("edit.undo")} / {K("edit.redo")}: undo/redo   {K("edit.back")}: back to the scene   " +
 			$"{K("ik.toggle")}: IK/FK ({(ikOn ? "IK" : "FK")})   {K("ik.flip")}: elbow   {K("view.images")}: images   {K("view.pixels")}: pixel filtering ({pixels})\n" +
-			$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys and mouse)";
+			$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys, mouse, autosave)";
 
 		UpdateTitle();
 	}

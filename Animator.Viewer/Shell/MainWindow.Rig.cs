@@ -68,6 +68,7 @@ public partial class MainWindow
 		}
 		SelectTreeItem();
 		SyncLayersView();
+		BuildSetChips();
 		_syncingRig = false;
 		SyncTreePicks(force: true);
 
@@ -222,6 +223,8 @@ public partial class MainWindow
 		BoneProps.IsEnabled = bone != null;
 
 		SetField(BoneName, bone?.Name ?? "");
+		var shade = bone != null ? SkeletonRenderer.BoneColor(bone) : SkeletonRenderer.DefaultBoneColor;
+		BoneColorSwatch.Background = new SolidColorBrush(Color.FromRgb(shade.Red, shade.Green, shade.Blue));
 		BoneInheritRotation.IsChecked = bone?.InheritRotation ?? true;
 		BoneInheritScale.IsChecked = bone?.InheritScale ?? true;
 		BoneConnected.IsChecked = bone is { Connected: true, Parent: not null };
