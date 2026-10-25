@@ -44,13 +44,15 @@ public class WindowSmokeTests
 				var row = tree.Items.OfType<TreeViewItem>().First();
 				var bone = (Bone)row.Tag;
 				var header = (StackPanel)row.Header;
+				window.UpdateLayout();
 				Click(header.Children[0]);   // the eye
 				Pump(40);
-				Assert.True(bone.Hidden);
+				Assert.True(bone.Hidden, $"The eye didn't hide {bone.Name} (the list shown: {tree.IsVisible}, the row laid out: {System.Windows.Media.VisualTreeHelper.GetParent(header) != null})");
 				Run(window, "edit.undo");
 				Assert.False(bone.Hidden);
 				Pump(40);
 				row = tree.Items.OfType<TreeViewItem>().First();   // (the list was made again)
+				window.UpdateLayout();
 				Click(((StackPanel)row.Header).Children[1]);       // the name
 				Assert.Equal(new object[] { bone }, state.Picked);
 
@@ -94,16 +96,17 @@ public class WindowSmokeTests
 		run.Invoke(window, new object[] { command });
 	}
 
-	// A left-button click, as the element itself would get it
+	// A left-button click on an element, the way the mouse sends it: the press and the release
+	// tunnel down to it, and each element on the way turns them into its left-button events
 	private static void Click(UIElement element)
 	{
 		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
 		{
-			RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent
+			RoutedEvent = Mouse.PreviewMouseDownEvent
 		});
 		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
 		{
-			RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent
+			RoutedEvent = Mouse.PreviewMouseUpEvent
 		});
 	}
 
