@@ -70,8 +70,9 @@ public sealed class CompositeCommand : IEditCommand
 
 public class UndoStack
 {
-	private readonly LinkedList<IEditCommand> _undo = new();
-	private readonly Stack<IEditCommand> _redo = new();
+	// Each step, with where it was made (see Place)
+	private readonly LinkedList<(IEditCommand Command, object? Place)> _undo = new();
+	private readonly Stack<(IEditCommand Command, object? Place)> _redo = new();
 
 	private IEditCommand? _savedAt;   // the command on top when the file was last saved
 	private bool _blockMerge;         // don't let the saved command absorb new edits
@@ -79,24 +80,36 @@ public class UndoStack
 	public int Limit { get; set; } = 300;
 
 	public event Action? Changed;
-	public string? NextUndoName => _undo.Last?.Value.Name;
+	public string? NextUndoName => _undo.Last?.Value.Command.Name;
+
+	// Where you are in the program (which object, animation, mode… the program says what that
+	// is), and how to go back to such a place. Every step remembers where it was made; undo and
+	// redo first take you back there, as a step of their own, when you've moved on since. So an
+	// edit to one animation can't be undone, unseen, while you work on another.
+	public Func<object?>? Place { get; set; }
+	public Action<object>? GoTo { get; set; }
+
+	// Where the next undo was made (null: nowhere in particular), and whether undo would only
+	// take you back there this time
+	public object? NextUndoPlace => _undo.Last?.Value.Place;
+	public bool UndoGoesBackFirst => _undo.Last is { } node && Elsewhere(node.Value.Place);
 
 	// "Unsaved changes" = the top of the history is not where it was at save time
-	public bool IsDirty => _undo.Last?.Value != _savedAt;
+	public bool IsDirty => _undo.Last?.Value.Command != _savedAt;
 
 	public void Push(IEditCommand cmd)
 	{
 		bool hadRedo = _redo.Count > 0;
 		_redo.Clear();
 
-		if (!hadRedo && !_blockMerge && _undo.Last?.Value is IMergeableCommand top && top.TryMerge(cmd))
+		if (!hadRedo && !_blockMerge && _undo.Last?.Value.Command is IMergeableCommand top && top.TryMerge(cmd))
 		{
 			Changed?.Invoke();
 			return;
 		}
 
 		_blockMerge = false;
-		_undo.AddLast(cmd);
+		_undo.AddLast((cmd, Place?.Invoke()));
 		while (_undo.Count > Limit) _undo.RemoveFirst();
 		Changed?.Invoke();
 	}
@@ -104,8 +117,13 @@ public class UndoStack
 	public void Undo()
 	{
 		if (_undo.Last is not { } node) return;
+		if (WentBack(node.Value.Place))
+		{
+			Changed?.Invoke();
+			return;
+		}
 		_undo.RemoveLast();
-		node.Value.Undo();
+		node.Value.Command.Undo();
 		_redo.Push(node.Value);
 		_blockMerge = true;
 		Changed?.Invoke();
@@ -114,16 +132,32 @@ public class UndoStack
 	public void Redo()
 	{
 		if (_redo.Count == 0) return;
-		var cmd = _redo.Pop();
-		cmd.Redo();
-		_undo.AddLast(cmd);
+		if (WentBack(_redo.Peek().Place))
+		{
+			Changed?.Invoke();
+			return;
+		}
+		var step = _redo.Pop();
+		step.Command.Redo();
+		_undo.AddLast(step);
 		_blockMerge = true;
 		Changed?.Invoke();
 	}
 
+	private bool Elsewhere(object? place) => place != null && Place != null && GoTo != null && !Equals(Place(), place);
+
+	// Takes you back to where a step was made, if you're elsewhere. false: you were there
+	// already, or it can't be got back to (gone, say): then the step itself goes right away.
+	private bool WentBack(object? place)
+	{
+		if (!Elsewhere(place)) return false;
+		GoTo!(place!);
+		return Equals(Place!(), place);
+	}
+
 	public void MarkSaved()
 	{
-		_savedAt = _undo.Last?.Value;
+		_savedAt = _undo.Last?.Value.Command;
 		_blockMerge = true;
 		Changed?.Invoke();
 	}

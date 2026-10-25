@@ -52,6 +52,7 @@ public partial class MainWindow : Window
 		InitOnion();
 		InitEffects();
 		InitKeys();   // the shortcuts and mouse buttons from Settings
+		InitPlaces();   // undo first goes back to where an edit was made
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;
@@ -362,7 +363,7 @@ public partial class MainWindow : Window
 		if (_sceneLevel)
 		{
 			Status.Text =
-				$"SCENE    Object: {_objectTool?.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
+				$"SCENE    Object: {_objectTool?.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 				$"Viewport: {pick}-click an object = select, double-click (or {K("scene.open")}) = edit it.   {move}-drag an object = move, a corner = scale (Shift: keep proportions), the round handle = turn (Shift: 15° steps)\n" +
 				$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
 				"Scene timeline: right-click a row = add a clip, drag a clip = move, drag its edges = length / trim, double-click = edit it in place\n" +
@@ -381,7 +382,7 @@ public partial class MainWindow : Window
 
 		Status.Text =
 			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : "SETUP: drags edit the rest pose")}  ({K("anim.mode")} to switch)    " +
-			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}\n" +
+			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 			$"Viewport: {pick}-click = pick (Ctrl: toggle, Shift: add), {pick}-drag = pick in a box (Shift: add, Ctrl: let go), double-click a part = paint it.   " +
 			$"{move}-drag: a joint = move, a bone = turn, a part = move (its corners / round handle / pivot), anything picked = all that's picked; Ctrl+{move}-drag = new bone, Alt+{move}-click a part = put it on the selected bone, the ring at a bone's end = where it ends (Setup mode).   " +
 			$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
