@@ -49,7 +49,7 @@ public class PickingTests
 			Pose();
 		}
 
-		private Slot AddPart(string name, Bone bone, Vector2 offset)
+		public Slot AddPart(string name, Bone bone, Vector2 offset)
 		{
 			var asset = new Asset { Name = name, Width = 20, Height = 20 };
 			using (var pixels = new SKBitmap(AssetStore.InfoFor(20, 20)))
@@ -355,6 +355,32 @@ public class PickingTests
 		tool.MouseDown(Rig.Screen(150, 150), MouseButton.Left, 1);   // nothing there
 		tool.MouseUp();
 		Assert.Null(tool.Selected);
+	}
+
+	[Fact]
+	public void Picked_parts_that_show_nothing_at_this_frame_move_too()
+	{
+		// An effect between its bursts: picked (Ctrl+A picks it), but nothing of it to see here
+		var rig = new Rig();
+		var spark = rig.AddPart("spark", rig.Root, new Vector2(100, -100));
+		spark.SetupAttachment = null;
+		rig.Pose();
+		Assert.Null(rig.Skeleton.ResolveAttachment(spark));
+
+		// Animate mode: it gets a placement key like the others
+		rig.State.AnimateMode = true;
+		rig.State.Pick(new object[] { rig.Body, spark });
+		rig.Drag(0, -100, 20, -100, MouseButton.Right);   // by the body
+		AssertNear(new Vector2(20, 0), Assert.Single(rig.Animation.Find<PartTranslateTimeline>("spark")!.Track.Keys).Value);
+
+		// Setup mode: its drawing moves, though it isn't shown at rest
+		rig.State.AnimateMode = false;
+		rig.Animation.Timelines.Clear();
+		rig.Pose();
+		rig.Drag(0, -100, 0, -130, MouseButton.Right);
+		var drawing = rig.Skeleton.DefaultSkin.Get("spark", "spark")!;
+		AssertNear(new Vector2(100, -130), drawing.Offset);
+		AssertNear(new Vector2(0, -130), rig.Skeleton.DefaultSkin.Get("body", "body")!.Offset);
 	}
 
 	// ======================= hiding =======================

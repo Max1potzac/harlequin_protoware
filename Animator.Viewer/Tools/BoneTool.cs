@@ -101,8 +101,10 @@ public class BoneTool
 	{
 		public Bone? Bone;
 		public Slot? Slot;
-		public Attachment? Drawing;        // a part's drawing (Setup mode moves that)
-		public Vector2 Position, Scale;    // at the start: rest values (Setup) or this frame's (Animate)
+		// A part's drawings, all of them, with their placement at the start (Setup mode moves
+		// those: the one shown now, and the ones shown at other frames, or nowhere just now)
+		public List<(Attachment Drawing, Vector2 Offset, float Rotation, Vector2 Scale)> Drawings = new();
+		public Vector2 Position, Scale;    // at the start: the bone's rest values (Setup) or this frame's (Animate)
 		public float Rotation;
 		public Matrix3x2 ToLocal;          // world → the space its position is in (turns and scales only)
 		public float Mirror = 1;           // -1 where that space is mirrored: turns go the other way
@@ -867,20 +869,22 @@ public class BoneTool
 		return mover;
 	}
 
+	// A part moves even when it shows nothing at this frame (an effect between its bursts, say)
 	private Mover? PartMover(Slot slot, bool animate)
 	{
-		if (_state.Skeleton.ResolveAttachment(slot) is not { } att) return null;
 		var (toLocal, mirror) = Space(slot.Bone.World);
 		var mover = new Mover
 		{
 			Slot = slot,
-			Drawing = att,
 			ToLocal = toLocal,
 			Mirror = mirror,
-			Position = animate ? slot.Offset : att.Offset,
-			Rotation = animate ? slot.Rotation : att.Rotation,
-			Scale = animate ? slot.Scale : att.Scale
+			Position = slot.Offset,
+			Rotation = slot.Rotation,
+			Scale = slot.Scale
 		};
+		foreach (var drawing in _state.Skeleton.AllSkins().SelectMany(s => s.AttachmentsFor(slot.Name)).Distinct())
+			mover.Drawings.Add((drawing, drawing.Offset, drawing.Rotation, drawing.Scale));
+		if (!animate && mover.Drawings.Count == 0) return null;
 		if (animate)
 		{
 			var animation = _state.Animation;
@@ -947,11 +951,11 @@ public class BoneTool
 			if (mover.MoveKeys != null) mover.MoveKeys.Apply(v => v + local);
 			else KeyTranslate(bone);
 		}
-		else if (mover.Slot is { } slot && mover.Drawing is { } drawing)
+		else if (mover.Slot is { } slot)
 		{
 			if (!animate)
 			{
-				drawing.Offset = mover.Position + local;
+				foreach (var (drawing, offset, _, _) in mover.Drawings) drawing.Offset = offset + local;
 				return;
 			}
 			slot.Offset = mover.Position + local;
@@ -974,11 +978,11 @@ public class BoneTool
 			if (mover.TurnKeys != null) mover.TurnKeys.Apply(v => v + turn);
 			else _state.Animation.GetOrCreate(bone.Name, n => new RotateTimeline(n)).Track.Add(_state.Time, bone.Rotation - bone.SetupRotation);
 		}
-		else if (mover.Slot is { } slot && mover.Drawing is { } drawing)
+		else if (mover.Slot is { } slot)
 		{
 			if (!animate)
 			{
-				drawing.Rotation = mover.Rotation + turn;
+				foreach (var (drawing, _, rotation, _) in mover.Drawings) drawing.Rotation = rotation + turn;
 				return;
 			}
 			slot.Rotation = mover.Rotation + turn;
@@ -989,10 +993,10 @@ public class BoneTool
 
 	private void Scale(Mover mover, Vector2 factor, bool animate)
 	{
-		if (mover.Slot is not { } slot || mover.Drawing is not { } drawing) return;
+		if (mover.Slot is not { } slot) return;
 		if (!animate)
 		{
-			drawing.Scale = mover.Scale * factor;
+			foreach (var (drawing, _, _, scale) in mover.Drawings) drawing.Scale = scale * factor;
 			return;
 		}
 		slot.Scale = mover.Scale * factor;
