@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Animator.Viewer;
@@ -37,13 +38,37 @@ public class WindowSmokeTests
 					Pump(40);
 				}
 
+				// The rig panel: a click on a row's eye hides that bone, a click on the row picks just it
+				var state = (EditorState)typeof(MainWindow).GetField("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+				var tree = (TreeView)window.FindName("BoneTree");
+				var row = tree.Items.OfType<TreeViewItem>().First();
+				var bone = (Bone)row.Tag;
+				var header = (StackPanel)row.Header;
+				Click(header.Children[0]);   // the eye
+				Pump(40);
+				Assert.True(bone.Hidden);
+				Run(window, "edit.undo");
+				Assert.False(bone.Hidden);
+				Pump(40);
+				row = tree.Items.OfType<TreeViewItem>().First();   // (the list was made again)
+				Click(((StackPanel)row.Header).Children[1]);       // the name
+				Assert.Equal(new object[] { bone }, state.Picked);
+
+				// The layers view, with everything picked
+				((RadioButton)window.FindName("LayersViewChoice")).IsChecked = true;
+				Pump(40);
+				Run(window, "pick.all");
+				Run(window, "order.backward");
+				Pump(40);
+				((RadioButton)window.FindName("BonesViewChoice")).IsChecked = true;
+				Pump(40);
+
 				var settings = new SettingsDialog(new KeyMap(), MouseButton.Left, MouseButton.Right, MouseButton.Middle) { Owner = window };
 				settings.Show();
 				Pump();
 				settings.Close();
 
 				// As if just saved, so closing doesn't stop to ask
-				var state = (EditorState)typeof(MainWindow).GetField("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
 				state.Undo.MarkSaved();
 				window.Close();
 				Pump(40);
@@ -67,6 +92,19 @@ public class WindowSmokeTests
 		var run = typeof(MainWindow).GetMethod("RunCommand", BindingFlags.Instance | BindingFlags.NonPublic)
 			?? throw new InvalidOperationException("MainWindow.RunCommand is gone");
 		run.Invoke(window, new object[] { command });
+	}
+
+	// A left-button click, as the element itself would get it
+	private static void Click(UIElement element)
+	{
+		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+		{
+			RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent
+		});
+		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+		{
+			RoutedEvent = UIElement.PreviewMouseLeftButtonUpEvent
+		});
 	}
 
 	// Lets the window get on with things for a while: layout, rendering, a few frames

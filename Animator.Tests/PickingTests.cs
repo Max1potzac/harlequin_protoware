@@ -333,7 +333,7 @@ public class PickingTests
 		var scene = new Scene { Fps = 30 };
 		var character = new SceneObject("Character", ObjectKind.Rigged, rig.Skeleton);
 		scene.Objects.Add(character);
-		var tool = new ObjectTool(() => scene, new SceneState(), rig.Camera, rig.Renderer, rig.State.Undo);
+		var tool = new ObjectTool(() => scene, new SceneState(), rig.Camera, rig.Renderer, rig.State.Undo) { Modifiers = () => ModifierKeys.None };
 
 		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Left, 1);   // its body
 		tool.MouseUp();
