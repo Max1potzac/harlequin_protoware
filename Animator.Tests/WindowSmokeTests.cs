@@ -1,10 +1,13 @@
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Animator.Viewer;
 using Animator.Viewer.Dialogs;
+using Animator.Viewer.Files;
 
 namespace Animator.Tests;
 
@@ -16,6 +19,9 @@ public class WindowSmokeTests
 	public void The_main_window_and_the_settings_open_work_and_close()
 	{
 		Exception? failure = null;
+		// Settings of its own: what the test turns on and off mustn't reach anyone's real ones
+		string settingsFolder = Path.Combine(Path.GetTempPath(), $"harlequin-smoke-{Guid.NewGuid():N}");
+		AppSettings.FilePath = Path.Combine(settingsFolder, "settings.json");
 		var thread = new Thread(() =>
 		{
 			try
@@ -53,8 +59,72 @@ public class WindowSmokeTests
 				Pump(40);
 				row = tree.Items.OfType<TreeViewItem>().First();   // (the list was made again)
 				window.UpdateLayout();
-				Click(((StackPanel)row.Header).Children[1]);       // the name
+				var children = ((StackPanel)row.Header).Children;
+				Click(children[children.Count - 1]);               // the name
 				Assert.Equal(new object[] { bone }, state.Picked);
+
+				// The padlock beside the eye locks it; L locks the picked and lets them go; Alt+L unlocks all
+				Pump(40);
+				row = tree.Items.OfType<TreeViewItem>().First();
+				window.UpdateLayout();
+				Click(((StackPanel)row.Header).Children[1]);       // the lock
+				Pump(40);
+				Assert.True(bone.Locked, $"The padlock didn't lock {bone.Name}");
+				Run(window, "edit.undo");
+				Assert.False(bone.Locked);
+				Run(window, "pick.all");
+				Run(window, "pick.lock");
+				Assert.True(bone.Locked);
+				Assert.Empty(state.Picked);
+				Run(window, "pick.all");                           // (nothing: everything's locked)
+				Assert.Empty(state.Picked);
+				Run(window, "pick.unlockAll");
+				Assert.False(bone.Locked);
+				Pump(40);
+
+				// A selection set: its chip under the list picks what's in it
+				var skeleton = (Skeleton)Field(window, "_skeleton");
+				var set = new SelectionSet { Name = "test set" };
+				set.Bones.Add(bone);
+				skeleton.Sets.Add(set);
+				Call(window, "RefreshRigPanel");
+				Pump(40);
+				var chip = ((Panel)window.FindName("SetChips")).Children.OfType<Button>().First(b => ReferenceEquals(b.Tag, set));
+				state.ClearPicks();
+				chip.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+				Assert.Equal(new object[] { bone }, state.Picked);
+				skeleton.Sets.Remove(set);
+				Call(window, "RefreshRigPanel");
+
+				// Rulers, the grid and guides: a guide dragged out of the top ruler, then back onto the left one
+				var scene = (Scene)Field(window, "_scene");
+				var viewport = (FrameworkElement)window.FindName("Viewport");
+				float w = (float)viewport.ActualWidth, h = (float)viewport.ActualHeight;
+				Call(window, "GuideMouseDown", new Vector2(w / 2, 5), MouseButton.Left);
+				Call(window, "GuideMouseMove", new Vector2(w / 2, h / 2));
+				Call(window, "GuideMouseUp", new Vector2(w / 2, h / 2));
+				Assert.Single(scene.Guides);
+				Assert.False(scene.Guides[0].Vertical);   // across
+				Assert.Equal("Add a guide", state.Undo.NextUndoName);
+				Pump(40);
+				Call(window, "GuideMouseDown", new Vector2(5, h / 2), MouseButton.Left);   // its mark on the left ruler
+				Call(window, "GuideMouseUp", new Vector2(5, h / 2));
+				Assert.Empty(scene.Guides);
+				Run(window, "edit.undo");
+				Assert.Single(scene.Guides);
+				foreach (var command in new[] { "view.grid", "view.snapGrid", "view.rulers", "view.guides" })
+				{
+					Run(window, command);
+					Pump(40);
+					Run(window, command);
+				}
+				Call(window, "SetGridSize", 16f);
+				Assert.Equal(16f, scene.GridSize);
+				Pump(40);
+				Run(window, "edit.undo");
+				Assert.Equal(10f, scene.GridSize);
+				Run(window, "edit.undo");
+				Assert.Empty(scene.Guides);
 
 				// The layers view, with everything picked
 				((RadioButton)window.FindName("LayersViewChoice")).IsChecked = true;
@@ -65,9 +135,11 @@ public class WindowSmokeTests
 				((RadioButton)window.FindName("BonesViewChoice")).IsChecked = true;
 				Pump(40);
 
-				var settings = new SettingsDialog(new KeyMap(), MouseButton.Left, MouseButton.Right, MouseButton.Middle) { Owner = window };
+				var settings = new SettingsDialog(new KeyMap(), MouseButton.Left, MouseButton.Right, MouseButton.Middle, 5, 3) { Owner = window };
 				settings.Show();
 				Pump();
+				((TabItem)settings.FindName("SavingTab")).IsSelected = true;
+				Pump(100);
 				settings.Close();
 
 				// As if just saved, so closing doesn't stop to ask
@@ -85,7 +157,20 @@ public class WindowSmokeTests
 		thread.Start();
 
 		Assert.True(thread.Join(TimeSpan.FromMinutes(2)), "The windows stopped responding");
+		try { Directory.Delete(settingsFolder, recursive: true); }
+		catch (Exception) { }   // (nothing was saved, or it's still in use: it's in the temp folder anyway)
 		if (failure != null) Assert.Fail(failure.ToString());
+	}
+
+	private static object Field(MainWindow window, string name) =>
+		(typeof(MainWindow).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
+			?? throw new InvalidOperationException($"MainWindow.{name} is gone")).GetValue(window)!;
+
+	private static void Call(MainWindow window, string method, params object[] args)
+	{
+		var info = typeof(MainWindow).GetMethod(method, BindingFlags.Instance | BindingFlags.NonPublic)
+			?? throw new InvalidOperationException($"MainWindow.{method} is gone");
+		info.Invoke(window, args);
 	}
 
 	// What a key or a menu item would do (see MainWindow.Commands.cs)

@@ -183,11 +183,14 @@ public sealed class KeyMap
 		C("edit.delete", "Edit", "Delete: the selected keys (or the picked one's keys here); a clip or an object (scene)", K(Key.Delete)),
 		C("edit.back", "Edit", "Back: close the paint editor, let go of picked frames, leave the object", K(Key.Escape)),
 
-		C("pick.all", "Pick", "Pick every bone and part shown", K(Key.A, Ctrl)),
+		C("pick.all", "Pick", "Pick every bone and part shown (and not locked)", K(Key.A, Ctrl)),
 		C("pick.keys", "Pick", "Select every key of the picked bones and parts", K(Key.A, CtrlShift)),
 		C("pick.hide", "Pick", "Hide the picked bones and parts", K(Key.H)),
 		C("pick.hideOthers", "Pick", "Hide everything but the picked", K(Key.H, Shift)),
 		C("pick.showAll", "Pick", "Show everything", K(Key.H, Alt)),
+		C("pick.lock", "Pick", "Lock the picked (they can't be picked or dragged in the viewport)", K(Key.L)),
+		C("pick.lockOthers", "Pick", "Lock everything but the picked", K(Key.L, Shift)),
+		C("pick.unlockAll", "Pick", "Unlock everything", K(Key.L, Alt)),
 
 		C("play.toggle", "Playback", "Play / pause", K(Key.Space)),
 		C("play.restart", "Playback", "Back to the first frame", K(Key.R)),
@@ -216,6 +219,12 @@ public sealed class KeyMap
 		C("view.pixels", "View", "Pixel filtering on / off", K(Key.P)),
 		C("view.reset", "View", "Reset the view", K(Key.F)),
 		C("view.onion", "View", "Onion skin on / off", K(Key.O)),
+		C("view.rulers", "View", "Rulers on / off", K(Key.R, Ctrl)),
+		C("view.grid", "View", "Grid on / off", K(Key.OemQuotes, Ctrl)),
+		C("view.guides", "View", "Guides on / off", K(Key.OemSemicolon, Ctrl)),
+		C("view.snapGrid", "View", "Snap to the grid", K(Key.OemQuotes, CtrlShift)),
+		C("view.snapGuides", "View", "Snap to the guides", K(Key.OemSemicolon, CtrlShift)),
+		C("view.lockGuides", "View", "Lock the guides", K(Key.OemSemicolon, Ctrl | Alt)),
 
 		C("scene.open", "Scene", "Open the selected object", K(Key.Enter)),
 

@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -34,8 +36,9 @@ public sealed class KeyRow : INotifyPropertyChanged
 	public event PropertyChangedEventHandler? PropertyChanged;
 }
 
-// Settings: which key does what (any command, paint tools included), and which mouse button
-// picks, which moves things and which moves the view. Nothing changes until OK.
+// Settings: which key does what (any command, paint tools included), which mouse button picks,
+// which moves things and which moves the view, and how work is kept safe (autosave, backups).
+// Nothing changes until OK.
 public partial class SettingsDialog : Window
 {
 	private sealed record ButtonChoice(MouseButton Button, string Label)
@@ -52,16 +55,28 @@ public partial class SettingsDialog : Window
 		new(MouseButton.XButton2, "Side button (forward)")
 	};
 
+	// A number to pick, as the list shows it
+	private sealed record Choice(int Value, string Label)
+	{
+		public override string ToString() => Label;
+	}
+
+	private static readonly int[] AutosaveMinuteChoices = { 0, 1, 2, 5, 10, 15, 30 };
+	private static readonly int[] BackupChoices = { 0, 1, 2, 3, 5, 10, 20 };
+
 	private readonly List<KeyRow> _rows;
 	private KeyChord? _captured;
 
-	// What OK leaves: the keys, and the buttons
+	// What OK leaves: the keys, the buttons, and saving
 	public KeyMap Keys { get; }
 	public MouseButton SelectButton { get; private set; }
 	public MouseButton TransformButton { get; private set; }
 	public MouseButton PanButton { get; private set; }
+	public int AutosaveMinutes { get; private set; }   // 0: never
+	public int BackupCount { get; private set; }       // 0: none
 
-	public SettingsDialog(KeyMap keys, MouseButton select, MouseButton transform, MouseButton pan)
+	public SettingsDialog(KeyMap keys, MouseButton select, MouseButton transform, MouseButton pan,
+						  int autosaveMinutes, int backupCount)
 	{
 		InitializeComponent();
 		Keys = keys.Copy();
@@ -72,6 +87,7 @@ public partial class SettingsDialog : Window
 		foreach (var box in new[] { SelectButtonBox, TransformButtonBox, PanButtonBox })
 			box.ItemsSource = Buttons;
 		ShowButtons(select, transform, pan);
+		ShowSaving(autosaveMinutes, backupCount);
 		ShowCommand();
 		DialogLayout.FitToScreen(this);
 	}
@@ -178,7 +194,9 @@ public partial class SettingsDialog : Window
 	private void ResetAll_Click(object sender, RoutedEventArgs e)
 	{
 		Keys.ResetAll();
-		ShowButtons(MouseButton.Left, MouseButton.Right, MouseButton.Middle);
+		var defaults = new AppSettings();
+		ShowButtons(defaults.SelectButton, defaults.TransformButton, defaults.PanButton);
+		ShowSaving(defaults.AutosaveMinutes, defaults.BackupCount);
 		RefreshRows();
 	}
 
@@ -208,6 +226,56 @@ public partial class SettingsDialog : Window
 		SelectButton = select;
 		TransformButton = transform;
 		PanButton = pan;
+		AutosaveMinutes = ValueIn(AutosaveBox);
+		BackupCount = ValueIn(BackupBox);
 		DialogResult = true;
+	}
+
+	// ======================= saving =======================
+
+	private void ShowSaving(int autosaveMinutes, int backupCount)
+	{
+		Fill(AutosaveBox, AutosaveMinuteChoices, autosaveMinutes, AutosaveLabel);
+		Fill(BackupBox, BackupChoices, backupCount, BackupLabel);
+	}
+
+	public static string AutosaveLabel(int minutes) => minutes switch
+	{
+		<= 0 => "Never",
+		1 => "Every minute",
+		_ => $"Every {minutes} minutes"
+	};
+
+	public static string BackupLabel(int count) => count switch
+	{
+		<= 0 => "None",
+		1 => "The last version",
+		_ => $"The last {count} versions"
+	};
+
+	// The usual choices, and the one there is now if it isn't one of them (a hand-edited settings file)
+	private static void Fill(ComboBox box, int[] usual, int now, Func<int, string> label)
+	{
+		now = Math.Max(0, now);
+		var values = usual.Contains(now) ? usual : usual.Append(now).Order().ToArray();
+		var choices = values.Select(v => new Choice(v, label(v))).ToList();
+		box.ItemsSource = choices;
+		box.SelectedItem = choices.First(c => c.Value == now);
+	}
+
+	private static int ValueIn(ComboBox box) => (box.SelectedItem as Choice)?.Value ?? 0;
+
+	private void OpenRecoveryFolder_Click(object sender, RoutedEventArgs e)
+	{
+		try
+		{
+			Directory.CreateDirectory(Recovery.Folder);
+			Process.Start(new ProcessStartInfo(Recovery.Folder) { UseShellExecute = true });
+		}
+		catch (Exception ex)
+		{
+			MessageBox.Show(this, $"Couldn't open the folder:\n\n{ex.Message}", "Harlequin",
+							MessageBoxButton.OK, MessageBoxImage.Warning);
+		}
 	}
 }

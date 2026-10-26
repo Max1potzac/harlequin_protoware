@@ -25,7 +25,8 @@ public partial class MainWindow
 
 	private void OpenSettings()
 	{
-		var dialog = new SettingsDialog(_keys, _tool.SelectButton, _tool.TransformButton, _tool.PanButton) { Owner = this };
+		var dialog = new SettingsDialog(_keys, _tool.SelectButton, _tool.TransformButton, _tool.PanButton,
+										_appSettings.AutosaveMinutes, _appSettings.BackupCount) { Owner = this };
 		if (dialog.ShowDialog() != true) return;
 		_keys = dialog.Keys;
 		_appSettings.Shortcuts = _keys.Changes();
@@ -33,6 +34,8 @@ public partial class MainWindow
 		_appSettings.SelectButton = dialog.SelectButton;
 		_appSettings.TransformButton = dialog.TransformButton;
 		_appSettings.PanButton = dialog.PanButton;
+		_appSettings.AutosaveMinutes = dialog.AutosaveMinutes;   // the next autosave tick goes by it
+		_appSettings.BackupCount = dialog.BackupCount;
 		_appSettings.Save();
 		ApplyMouseButtons();
 		ApplyKeyMap();
@@ -140,8 +143,9 @@ public partial class MainWindow
 		UpdateStatus();
 	}
 
-	private static bool SafeWhilePainting(string id) => id is "view.images" or "view.pixels" or "view.onion";
-	private static bool SafeWhileDragging(string id) => id is "view.images" or "view.pixels" or "view.onion" or "file.save" or "file.saveAs";
+	private static bool SafeWhilePainting(string id) => id is "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides" or "view.rulers";
+	private static bool SafeWhileDragging(string id) => id is "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides"
+		or "view.snapGrid" or "view.snapGuides" or "file.save" or "file.saveAs";
 
 	// Does what a command does here. false: nothing to do here (the key goes on to whatever else
 	// wants it).
@@ -169,6 +173,12 @@ public partial class MainWindow
 			case "view.pixels": _renderer.PixelArt = !_renderer.PixelArt; return true;
 			case "view.reset": ResetView(); return true;
 			case "view.onion": ToggleOnion(); return true;
+			case "view.rulers": ToggleViewAid("rulers"); return true;
+			case "view.grid": ToggleViewAid("grid"); return true;
+			case "view.guides": ToggleViewAid("guides"); return true;
+			case "view.snapGrid": ToggleViewAid("snapGrid"); return true;
+			case "view.snapGuides": ToggleViewAid("snapGuides"); return true;
+			case "view.lockGuides": ToggleViewAid("lockGuides"); return true;
 		}
 		return _sceneLevel ? RunSceneCommand(id) : RunObjectCommand(id);
 	}
@@ -212,6 +222,9 @@ public partial class MainWindow
 			case "pick.hide": HidePicked(); return true;
 			case "pick.hideOthers": HideAllButPicked(); return true;
 			case "pick.showAll": ShowEverything(); return true;
+			case "pick.lock": LockPicked(); return true;
+			case "pick.lockOthers": LockAllButPicked(); return true;
+			case "pick.unlockAll": UnlockEverything(); return true;
 
 			case "play.restart": _state.Time = 0; return true;
 			case "play.back": _state.Playing = false; _state.SetFrame(_state.Frame - 1); return true;

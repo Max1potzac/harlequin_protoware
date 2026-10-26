@@ -36,6 +36,13 @@ public class Camera
     // A screen point in the edited object's space
     public Vector2 ScreenToWorld(Vector2 s) => Vector2.Transform(ScreenToScene(s), _toSpace);
 
+    // And back: where a scene point, or a point of the edited object, is on screen
+    public Vector2 SceneToScreen(Vector2 p) => new(
+        (p.X - Pan.X) * Zoom + ViewSize.X / 2,
+       -(p.Y - Pan.Y) * Zoom + ViewSize.Y / 2);
+
+    public Vector2 WorldToScreen(Vector2 world) => SceneToScreen(Vector2.Transform(world, _space));
+
     // Must be the exact mirror of ScreenToScene, or clicks won't line up with drawings
     public void Apply(SKCanvas canvas)
     {

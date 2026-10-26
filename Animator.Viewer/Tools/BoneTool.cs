@@ -36,12 +36,17 @@ public class BoneTool
 	// A box being dragged with the select button: its corners in the world, for drawing
 	public Vector2[]? SelectionBox { get; private set; }
 
+	// Snapping to the grid and guides (joints, bone ends, new bones, parts, several at once)
+	public Snapping Snap { get; set; } = new();
+	private Vector2 Snapped(Vector2 world) => Snap.Snap(world, _camera.EditZoom);
+
 	// Bone drags
 	private Vector2 _grabOffset;
 	private float _lastAngle;
 	private PoseSnapshot? _before;
 	private Vector2 _poseAtStart;           // Animate mode: where the bone was at this frame
-	private float _turnAtStart, _turned;    // ...and how far it's been turned since
+	private float _turnAtStart, _turned;    // ...and how far it's been turned since (in 15° steps, with Shift)
+	private float _rotationAtStart, _turnedFreely;   // its rotation at the start, and the mouse's turn without steps
 	private KeyShift<Vector2>? _moveKeys;   // ...and its selected keys, if any
 	private KeyShift<float>? _turnKeys;
 
@@ -60,6 +65,8 @@ public class BoneTool
 	private Vector2 _pressScreen;         // a part only starts moving once the mouse really moves
 	private bool _partMoving;
 	private Vector2 _slotOffset0, _slotScale0;   // Animate mode: the part's placement keys at this frame
+	private Vector2[] _partSnapPoints = Array.Empty<Vector2>();   // its pivot and corners at the start (world), for snapping
+	private Vector2 _partPressWorld;
 	private float _slotRotation0;
 	private KeyShift<Vector2>? _partMoveKeys, _partScaleKeys;
 	private KeyShift<float>? _partTurnKeys;
@@ -90,7 +97,7 @@ public class BoneTool
 	// The ring at the selected bone's end (Setup mode, when no child sits on that end, and it's the
 	// only thing picked): dragging it says where the bone ends
 	public Bone? TipHandle =>
-		!_state.AnimateMode && BonesEnabled && _state.SelectedSlot == null && _state.Selected is { } bone &&
+		!_state.AnimateMode && BonesEnabled && _state.SelectedSlot == null && _state.Selected is { Locked: false } bone &&
 		RestEdits.HasFreeEnd(bone) && _state.Picked.Count <= 1 ? bone : null;
 
 	private bool _createJoined;                              // the bone being drawn starts on the parent's end
@@ -115,6 +122,7 @@ public class BoneTool
 	private readonly List<Mover> _movers = new();
 	private Gesture _gesture;
 	private Vector2 _manyPress, _manyCentre;      // world: where the drag started, and what it turns round
+	private IReadOnlyList<Vector2> _manySnapPoints = Array.Empty<Vector2>();   // what's grabbed, for snapping
 	private float _manyLastAngle, _manyTurned;
 	private Matrix3x2 _scaleToBone;               // scaling: the grabbed part's bone space, at the start
 	private Vector2 _scaleOffset;
@@ -154,7 +162,7 @@ public class BoneTool
 			_drag = Drag.Create;
 			var parent = _state.Selected;
 			_createJoined = SnapJoints && parent != null && NearEnd(parent, world);
-			CreatePreview = (_createJoined ? parent!.TipWorld : world, world);
+			CreatePreview = (_createJoined ? parent!.TipWorld : Snapped(world), Snapped(world));
 			return;
 		}
 
@@ -190,16 +198,17 @@ public class BoneTool
 			if (hit == null) { hit = HitBone(world); mode = Drag.Rotate; }
 			if (hit != null)
 			{
-				if (many && _state.IsPicked(hit)) BeginMany(mode == Drag.Move ? Gesture.Move : Gesture.Turn, world, hit.World.Translation);
+				if (many && _state.IsPicked(hit))
+					BeginMany(mode == Drag.Move ? Gesture.Move : Gesture.Turn, world, hit.World.Translation, snapPoints: new[] { hit.World.Translation });
 				else BeginBoneDrag(hit, mode, world);
 				return;
 			}
 		}
 
 		// 4. Anywhere inside the selected part's box (even transparent pixels): move it
-		if (_state.SelectedSlot is { } current && InsidePart(current, world))
+		if (_state.SelectedSlot is { Locked: false } current && InsidePart(current, world))
 		{
-			if (many) BeginMany(Gesture.Move, world, world);
+			if (many) BeginMany(Gesture.Move, world, world, snapPoints: SnapPointsOf(current));
 			else BeginPartDrag(current, Drag.PartMove, world);
 			return;
 		}
@@ -209,7 +218,7 @@ public class BoneTool
 		{
 			if (many && _state.IsPicked(part.Slot))
 			{
-				BeginMany(Gesture.Move, world, world);
+				BeginMany(Gesture.Move, world, world, snapPoints: SnapPointsOf(part.Slot));
 				return;
 			}
 			_state.Pick(new object[] { part.Slot });
@@ -243,19 +252,19 @@ public class BoneTool
 				break;
 
 			case Drag.Create when CreatePreview is { } preview:
-				CreatePreview = (preview.A, world);
+				CreatePreview = (preview.A, Snapped(world));
 				break;
 
 			case Drag.Move when bone != null && _frozen != null:
 				// Parts stay put: the joint goes where the mouse took it, nothing else moves
-				RestEdits.MoveJoint(_frozen, bone, _frozen.HeadOf(bone) + (world - _pressWorld),
+				RestEdits.MoveJoint(_frozen, bone, Snapped(_frozen.HeadOf(bone) + (world - _pressWorld)),
 					SnapJoints ? SnapPx / _camera.EditZoom : 0f);
 				_changed = true;
 				break;
 
 			case Drag.Move when bone != null:
 				{
-					var target = world + _grabOffset;
+					var target = Snapped(world + _grabOffset);
 					if (_state.AnimateMode) KeyJoint(bone, target);
 					else MoveRestJoint(bone, target);
 					_changed = true;
@@ -265,7 +274,7 @@ public class BoneTool
 			case Drag.Tip when bone != null:
 				{
 					// Where the bone ends: with parts staying put, snapping onto a child's joint
-					var target = world + _grabOffset;
+					var target = Snapped(world + _grabOffset);
 					if (_frozen != null) RestEdits.MoveTip(_frozen, bone, target, SnapJoints ? SnapPx / _camera.EditZoom : 0f);
 					else FrozenRest.Aim(bone, bone.World.Translation, target);   // what's on it turns with it
 					_changed = true;
@@ -275,15 +284,20 @@ public class BoneTool
 			case Drag.Rotate when bone != null:
 				{
 					float angle = AngleFrom(bone, world);
-					float step = MathUtil.ShortestAngle(angle - _lastAngle);
+					_turnedFreely += MathUtil.ShortestAngle(angle - _lastAngle);
 					_lastAngle = angle;
+					// Shift: the bone's angle in 15° steps
+					float turn = Held(ModifierKeys.Shift)
+						? Snapping.StepAngle(_rotationAtStart + _turnedFreely) - _rotationAtStart
+						: _turnedFreely;
+					float step = turn - _turned;
+					_turned = turn;
 					if (_frozen != null)
 					{
-						RestEdits.Turn(_frozen, bone, bone.SetupRotation + step);   // what's on it stays put
+						RestEdits.Turn(_frozen, bone, _rotationAtStart + turn);   // what's on it stays put
 					}
 					else
 					{
-						_turned += step;
 						if (!_state.AnimateMode) bone.SetupRotation += step;
 						bone.Rotation += step;
 						if (_state.AnimateMode) KeyRotate(bone);
@@ -369,10 +383,10 @@ public class BoneTool
 		var skeleton = _state.Skeleton;
 		if (BonesEnabled)
 			foreach (var bone in skeleton.AllBones())
-				if (!bone.IsHidden && (Inside(box, bone.World.Translation) || Inside(box, bone.TipWorld))) found.Add(bone);
+				if (!bone.IsHidden && !bone.Locked && (Inside(box, bone.World.Translation) || Inside(box, bone.TipWorld))) found.Add(bone);
 		foreach (var slot in skeleton.DrawOrder)
 		{
-			if (slot.IsHidden || skeleton.ResolveAttachment(slot) is not { } att || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
+			if (slot.IsHidden || slot.Locked || skeleton.ResolveAttachment(slot) is not { } att || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			var middle = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), SkeletonRenderer.ImageToWorld(slot, att, asset.Width, asset.Height));
 			if (Inside(box, middle)) found.Add(slot);
 		}
@@ -417,7 +431,8 @@ public class BoneTool
 		_poseOffset = bone.Position - bone.SetupPosition;   // what the animation adds at this frame
 		_moveKeys = null;
 		_turnKeys = null;
-		_turned = 0;
+		_turned = _turnedFreely = 0;
+		_rotationAtStart = _state.AnimateMode ? bone.Rotation : bone.SetupRotation;
 
 		if (_state.AnimateMode)
 		{
@@ -569,7 +584,7 @@ public class BoneTool
 
 	private bool TryPartHandle(Slot slot, Vector2 world, bool many)
 	{
-		if (PartGizmo.For(_state.Skeleton, slot, _camera.EditZoom) is not { } h) return false;
+		if (slot.Locked || PartGizmo.For(_state.Skeleton, slot, _camera.EditZoom) is not { } h) return false;
 		float r = HandlePickPx / _camera.EditZoom;
 
 		// The pivot belongs to the rest setup, so it can only be moved in Setup mode (one part's)
@@ -589,6 +604,10 @@ public class BoneTool
 			}
 		return false;
 	}
+
+	// A part's pivot and the corners of its box (world), for snapping; none when it shows nothing
+	private Vector2[] SnapPointsOf(Slot slot) =>
+		PartGizmo.For(_state.Skeleton, slot, _camera.EditZoom) is { } h ? h.Corners.Append(h.Pivot).ToArray() : Array.Empty<Vector2>();
 
 	// Inside the part's rectangle (see-through pixels too), at the drawing it shows now
 	public bool InsidePart(Slot slot, Vector2 world)
@@ -624,6 +643,8 @@ public class BoneTool
 		_rotAccum = 0;
 		_partMoveKeys = _partScaleKeys = null;
 		_partTurnKeys = null;
+		_partSnapPoints = SnapPointsOf(slot);
+		_partPressWorld = world;
 
 		if (_keyPart)
 		{
@@ -663,8 +684,12 @@ public class BoneTool
 		switch (_drag)
 		{
 			case Drag.PartMove:
-				PlacePart(offset: _attOffset + (local - _startLocal));
-				break;
+				{
+					// Its pivot or a corner of its box near a grid line or guide lands on it
+					var moved = world + Snap.Offset(_partSnapPoints.Select(p => p + (world - _partPressWorld)).ToList(), _camera.EditZoom);
+					PlacePart(offset: _attOffset + (Vector2.Transform(moved, toBone) - _startLocal));
+					break;
+				}
 
 			case Drag.PartRotate:
 				{
@@ -684,7 +709,7 @@ public class BoneTool
 
 			case Drag.PartPivot when !_keyPart:
 				{
-					var pixel = Vector2.Transform(world, _toImageAtStart);
+					var pixel = Vector2.Transform(Snapped(world), _toImageAtStart);
 					if (shift) pixel = new Vector2(MathF.Round(pixel.X), MathF.Round(pixel.Y));
 					_att.Offset = _attOffset - slot.Offset;   // start from the original placement every time
 					_att.Pivot = _attPivot;
@@ -784,16 +809,17 @@ public class BoneTool
 
 	// A drag on something picked, with more picked: each picked thing moves, turns (round its own
 	// joint or pivot) or scales (parts) alike; a picked bone takes the picked things under it along
-	private void BeginMany(Gesture gesture, Vector2 world, Vector2 centre, Slot? scaled = null)
+	private void BeginMany(Gesture gesture, Vector2 world, Vector2 centre, Slot? scaled = null, IReadOnlyList<Vector2>? snapPoints = null)
 	{
 		_drag = Drag.Many;
 		_gesture = gesture;
 		_changed = false;
 		_manyPress = world;
 		_manyCentre = centre;
+		_manySnapPoints = snapPoints ?? Array.Empty<Vector2>();
 		_manyLastAngle = Angle(world - centre);
 		_manyTurned = 0;
-		var picked = _state.Picked.ToList();
+		var picked = _state.Picked.Where(item => !LockOps.IsLocked(item)).ToList();   // locked ones stay where they are
 		_pickedBones = picked.OfType<Bone>().ToList();
 		_pickedParts = picked.OfType<Slot>().ToList();
 		bool animate = _state.AnimateMode;
@@ -903,6 +929,7 @@ public class BoneTool
 			case Gesture.Move:
 				{
 					var delta = world - _manyPress;
+					delta += Snap.Offset(_manySnapPoints.Select(p => p + delta).ToList(), _camera.EditZoom);   // what's grabbed snaps
 					if (_manyFrozen != null)
 					{
 						RestEdits.MovePicked(_manyFrozen, _pickedBones, _pickedParts, delta);
@@ -1037,7 +1064,7 @@ public class BoneTool
 		Bone? best = null;
 		foreach (var b in _state.Skeleton.AllBones())
 		{
-			if (b.IsHidden) continue;
+			if (b.IsHidden || b.Locked) continue;
 			float d = Vector2.Distance(world, b.World.Translation);
 			if (d <= bestDist) { best = b; bestDist = d; }
 		}
@@ -1050,7 +1077,7 @@ public class BoneTool
 		Bone? best = null;
 		foreach (var b in _state.Skeleton.AllBones())
 		{
-			if (b.IsHidden) continue;
+			if (b.IsHidden || b.Locked) continue;
 			float d = DistanceToSegment(world, b.World.Translation, b.TipWorld);
 			if (d <= bestDist) { best = b; bestDist = d; }
 		}

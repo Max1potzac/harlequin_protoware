@@ -19,7 +19,7 @@ public class PickingTests
 	//   root: joint (0, 0), pointing right, 40 long        body (on the root): 20×20 around (0, -100)
 	//   upper: joint (0, 100), 40 long                     hand (on the forearm): 20×20 around (60, 50)
 	//   lower: joint (60, 100), 40 long (on the upper arm, past its end)
-	private sealed class Rig
+	internal sealed class Rig   // (the step 15 tests use it too)
 	{
 		public readonly AssetStore Store = new();
 		public readonly Skeleton Skeleton = new();
@@ -404,7 +404,7 @@ public class PickingTests
 		Assert.True(rig.Body.IsHidden);
 
 		// And undo puts it back as it was
-		var before = VisibilitySnapshot.Capture(rig.Skeleton);
+		var before = EditAidsSnapshot.Capture(rig.Skeleton);
 		VisibilityOps.SetHidden(new object[] { rig.Root }, true);
 		Assert.True(rig.Hand.IsHidden);
 		before.Restore();

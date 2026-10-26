@@ -25,6 +25,16 @@ public class ProjectDto : RigDto
 	public bool? SceneLoop { get; set; }
 	public int? StageWidth { get; set; }
 	public int? StageHeight { get; set; }
+
+	// Editing aids: the grid's spacing and the guides (null = none: a 10 grid, no guides)
+	public float? GridSize { get; set; }
+	public List<GuideDto>? Guides { get; set; }
+}
+
+public class GuideDto
+{
+	public bool Vertical { get; set; }   // up and down, at this x; otherwise across, at this y
+	public float At { get; set; }
 }
 
 // One object in the scene: its place and settings, plus its rig and animations
@@ -65,6 +75,7 @@ public class RigDto
 	public string? ActiveSkin { get; set; }
 	public List<IkDto> IkConstraints { get; set; } = new();
 	public List<LookDto> LookConstraints { get; set; } = new();
+	public List<SetDto>? Sets { get; set; }   // selection sets (null = none)
 	public List<AnimationDto> Animations { get; set; } = new();
 }
 
@@ -84,6 +95,8 @@ public class BoneDto
 	public float Tilt { get; set; }
 	public bool? Connected { get; set; }   // snapped to the parent's end (null = no)
 	public bool? Hidden { get; set; }      // hidden while editing (null = no)
+	public bool? Locked { get; set; }      // can't be picked in the viewport (null = no)
+	public Rgb? EditorColor { get; set; }  // its line's colour while editing (null = the usual)
 }
 
 public class SlotDto
@@ -95,6 +108,15 @@ public class SlotDto
 	public Rgb? Color { get; set; }          // null = white (drawn as is)
 	public float? Opacity { get; set; }      // null = 1
 	public bool? Hidden { get; set; }        // hidden while editing (null = no)
+	public bool? Locked { get; set; }        // can't be picked in the viewport (null = no)
+}
+
+// A selection set: its name, and the names of its bones and parts
+public class SetDto
+{
+	public string Name { get; set; } = "";
+	public List<string>? Bones { get; set; }
+	public List<string>? Parts { get; set; }
 }
 
 // A colour as red, green, blue, 0..1 each

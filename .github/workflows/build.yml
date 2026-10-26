@@ -12,9 +12,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # The machine has .NET SDKs of its own: if this download fails (Microsoft's download site
+      # has outages), the build goes on with those
       - uses: actions/setup-dotnet@v5
+        continue-on-error: true
         with:
           dotnet-version: 8.0.x
+
+      - name: .NET on this machine
+        run: dotnet --list-sdks
 
       - name: Build
         run: dotnet build Harlequin.sln --configuration Release

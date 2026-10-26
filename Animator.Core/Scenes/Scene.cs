@@ -24,6 +24,11 @@ public class Scene
 	public int StageHeight { get; set; }
 	public bool HasStage => StageWidth > 0 && StageHeight > 0;
 
+	// The viewport's grid (its spacing, in the units the panels measure in: 1 = a pixel of art at
+	// full size) and guides. Editing aids, saved with the project, never exported.
+	public float GridSize { get; set; } = 10f;
+	public List<Guide> Guides { get; } = new();
+
 	public SceneObject? Find(string name) => Objects.Find(o => o.Name == name);
 
 	public string UniqueName(string baseName)

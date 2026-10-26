@@ -15,7 +15,7 @@ public partial class MainWindow
 		_projectPath == null ? "Untitled" : Path.GetFileNameWithoutExtension(_projectPath);
 
 	private void UpdateTitle() =>
-		Title = $"{DocumentName}{(_state.Undo.IsDirty ? " *" : "")} — Harlequin";
+		Title = $"{DocumentName}{(Unsaved ? " *" : "")} — Harlequin";
 
 	// ---------- menu ----------
 
@@ -102,18 +102,24 @@ public partial class MainWindow
 
 		var dialog = new OpenFileDialog { Filter = ProjectFile.Filter };
 		if (dialog.ShowDialog(this) != true) return;
+		OpenFile(dialog.FileName, dialog.FileName);
+	}
 
+	// Opens a project file. `savesTo`: where Save puts it (a recovered copy saves over the project
+	// it's a copy of; null: it asks). false: it couldn't be read, and nothing changed.
+	private bool OpenFile(string path, string? savesTo)
+	{
 		ProjectFile.LoadedProject loaded;
 		try
 		{
-			loaded = ProjectFile.Load(dialog.FileName);
+			loaded = ProjectFile.Load(path);
 		}
 		catch (Exception ex)
 		{
 			// Nothing was replaced yet: the current project is untouched
 			MessageBox.Show(this, $"Couldn't open the project:\n\n{ex.Message}", "Open failed",
 							MessageBoxButton.OK, MessageBoxImage.Error);
-			return;
+			return false;
 		}
 
 		ClosePaintEditor();
@@ -126,12 +132,14 @@ public partial class MainWindow
 		// opens at scene level
 		_sceneLevel = _scene.Objects.Count > 1 || _scene.Kind == ProjectKind.Animation;
 
-		_projectPath = dialog.FileName;
+		_projectPath = savesTo;
 		ResetEditorState();
+		return true;
 	}
 
 	private void ResetEditorState()
 	{
+		ForgetRecoveryCopy();   // the old document's copy isn't needed any more
 		_state.Selected = null;
 		_state.SelectedSlot = null;
 		_state.SelectedKeys.Clear();
@@ -169,8 +177,17 @@ public partial class MainWindow
 		{
 			using var thumbnail = RenderThumbnail(256);
 			_scene.Fps = _state.Fps;
+			try
+			{
+				ProjectFile.KeepBackup(path, _appSettings.BackupCount);   // the version being replaced
+			}
+			catch (Exception)
+			{
+				// No backup (a full disk, a read-only folder): the save itself still goes ahead
+			}
 			ProjectFile.Save(path, _scene, _assets, thumbnail);
 			_projectPath = path;
+			ForgetRecoveryCopy();
 			_state.Undo.MarkSaved();   // fires Undo.Changed, which refreshes the title
 			return true;
 		}
@@ -186,7 +203,7 @@ public partial class MainWindow
 	private bool ConfirmDiscard()
 	{
 		_paint.Tool.Deactivate(_paint);
-		if (!_state.Undo.IsDirty) return true;
+		if (!Unsaved) return true;
 
 		var answer = MessageBox.Show(this, $"Save changes to {DocumentName}?", "Harlequin",
 									 MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);

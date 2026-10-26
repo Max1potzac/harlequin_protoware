@@ -6,7 +6,7 @@
     <DockPanel Margin="10">
         <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <Button DockPanel.Dock="Left" Content="Everything back to the defaults" Padding="8,1" Click="ResetAll_Click"
-                    ToolTip="Every key and mouse button as it first was (nothing changes until OK)" />
+                    ToolTip="Every key, mouse button and saving choice as it first was (nothing changes until OK)" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="OK" IsDefault="True" Width="80" Margin="0,0,6,0" Click="Ok_Click" />
                 <Button Content="Cancel" IsCancel="True" Width="75" />
@@ -94,6 +94,37 @@
                                        Text="Drag to move the view around. The wheel zooms in and out wherever the mouse is." />
                         </Grid>
                         <TextBlock x:Name="MouseError" Foreground="#C03030" TextWrapping="Wrap" Margin="0,12,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ===== Saving ===== -->
+            <TabItem x:Name="SavingTab" Header="Saving">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="190" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Autosave" VerticalAlignment="Top" Margin="0,3,8,12" FontWeight="Bold" />
+                            <ComboBox x:Name="AutosaveBox" Grid.Row="0" Grid.Column="1" VerticalAlignment="Top" Margin="0,0,12,12" />
+                            <TextBlock Grid.Row="0" Grid.Column="2" TextWrapping="Wrap" Margin="0,3,0,12"
+                                       Text="While there's work that isn't saved, a copy of it is kept aside this often (written in the background, so nothing stalls). Saving, or closing and choosing not to save, throws the copy away. If Harlequin closes any other way (it crashes, the computer turns off), the next start offers the copy back." />
+
+                            <TextBlock Grid.Row="1" Text="Backups" VerticalAlignment="Top" Margin="0,3,8,0" FontWeight="Bold" />
+                            <ComboBox x:Name="BackupBox" Grid.Row="1" Grid.Column="1" VerticalAlignment="Top" Margin="0,0,12,0" />
+                            <TextBlock Grid.Row="1" Grid.Column="2" TextWrapping="Wrap" Margin="0,3,0,0"
+                                       Text="Saving over a project first keeps the version it replaces, in a Backups folder next to the project, named with the time that version was saved. Only the newest ones stay." />
+                        </Grid>
+                        <Button Content="Open the folder of autosaved copies" HorizontalAlignment="Left" Padding="8,1" Margin="0,16,0,0"
+                                Click="OpenRecoveryFolder_Click" ToolTip="Where the copies of unsaved work are kept (they open like any project)" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

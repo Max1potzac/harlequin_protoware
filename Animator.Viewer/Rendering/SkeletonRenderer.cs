@@ -31,6 +31,11 @@ public class SkeletonRenderer
 	private bool Shown(Slot slot) => !HideHidden || !slot.IsHidden;
 	private bool Shown(Bone bone) => !HideHidden || !bone.IsHidden;
 
+	// Inside an object in the editor: locked parts (the lock in the rig panel) can't be picked,
+	// so a click goes through to what's behind them
+	public bool SkipLocked { get; set; }
+	private bool Pickable(Slot slot) => Shown(slot) && !(SkipLocked && slot.Locked);
+
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
 	{
 		DrawAxes(canvas);
@@ -186,7 +191,11 @@ public class SkeletonRenderer
                 canvas.DrawLine(a.X, a.Y, h.X, h.Y, holderLine);
             }
 
+            // Its own colour (the usual yellow, or the one picked for it); faded while locked
             var paint = sel ? selLine : bone.SpaceOverridden ? spaceLine : idle ? idleLine : line;
+            if (!sel && !bone.SpaceOverridden)
+                paint.Color = BoneColor(bone).WithAlpha(idle ? (byte)60 : bone.Locked ? (byte)110 : (byte)255);
+            joint.Color = new SKColor(255, 90, 90, bone.Locked ? (byte)110 : (byte)255);
             canvas.DrawLine(a.X, a.Y, b.X, b.Y, paint);
             canvas.DrawCircle(a.X, a.Y, (primary ? 6 : 5) * px, sel ? selJoint : idle ? idleJoint : joint);
         }
@@ -306,7 +315,7 @@ public class SkeletonRenderer
 		for (int i = order.Count - 1; i >= 0; i--)   // last drawn = on top
 		{
 			var slot = order[i];
-			if (!Shown(slot)) continue;
+			if (!Pickable(slot)) continue;
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			var img = _assets.Get(asset);
@@ -326,7 +335,7 @@ public class SkeletonRenderer
 	{
 		foreach (var slot in skeleton.Slots)
 		{
-			if (!Shown(slot)) continue;
+			if (!Pickable(slot)) continue;
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			if (!Matrix3x2.Invert(ImageToWorld(slot, att, asset.Width, asset.Height), out var toImage)) continue;
@@ -443,6 +452,12 @@ public class SkeletonRenderer
 			}
 		}
 	}
+	// A bone's line colour: its own, or the usual yellow
+	public static readonly SKColor DefaultBoneColor = new(255, 200, 60);
+	public static SKColor BoneColor(Bone bone) => bone.EditorColor is { } c
+		? new SKColor((byte)Math.Clamp(MathF.Round(c.X * 255), 0, 255), (byte)Math.Clamp(MathF.Round(c.Y * 255), 0, 255), (byte)Math.Clamp(MathF.Round(c.Z * 255), 0, 255))
+		: DefaultBoneColor;
+
 	// The other picked parts: their boxes, without handles
 	private void DrawPickedParts(SKCanvas canvas, Skeleton skeleton)
 	{
@@ -475,7 +490,7 @@ public class SkeletonRenderer
 
 		using var line = new SKPaint
 		{
-			Color = new SKColor(255, 170, 60),
+			Color = slot.Locked ? new SKColor(160, 160, 160, 200) : new SKColor(255, 170, 60),   // locked: just its box, in grey
 			Style = SKPaintStyle.Stroke,
 			StrokeWidth = 1.5f * px,
 			IsAntialias = true
@@ -486,7 +501,7 @@ public class SkeletonRenderer
 			var b = h.Corners[(i + 1) % 4];
 			canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
 		}
-		if (!ShowPartHandles) return;
+		if (!ShowPartHandles || slot.Locked) return;
 
 		using var fill = new SKPaint { Color = new SKColor(255, 170, 60), IsAntialias = true };
 		float s = 4 * px;
