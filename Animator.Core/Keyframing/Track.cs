@@ -10,19 +10,25 @@ public class Track<T>
 
     // curve == null means "keep the existing key's curve if replacing, else Linear".
     // That way re-keying a value never silently changes its easing.
-    public void Add(float time, T value, CurveType? curve = null)
+    // bezier: the handles, for a Bezier curve
+    public void Add(float time, T value, CurveType? curve = null, Bezier? bezier = null)
     {
         const float eps = 1e-4f;
         int i = Keys.FindIndex(k => k.Time >= time - eps);
 
         if (i >= 0 && MathF.Abs(Keys[i].Time - time) < eps)
-            Keys[i] = new Keyframe<T>(Keys[i].Time, value, curve ?? Keys[i].Curve);   // replace
+            Keys[i] = curve == null
+                ? Keys[i] with { Value = value }                                                   // replace, same easing
+                : new Keyframe<T>(Keys[i].Time, value, curve.Value, bezier ?? Keys[i].Bezier);
         else
         {
-            var key = new Keyframe<T>(time, value, curve ?? CurveType.Linear);
+            var key = new Keyframe<T>(time, value, curve ?? CurveType.Linear, bezier ?? default);
             if (i < 0) Keys.Add(key); else Keys.Insert(i, key);                       // insert sorted
         }
     }
+
+    // A whole key (easing and all), at this time
+    public void Put(float time, Keyframe<T> key) => Add(time, key.Value, key.Curve, key.Bezier);
 
     // Returns false if the track has no keys (so the caller leaves the bone alone).
     public bool TrySample(float time, out T value)
@@ -50,6 +56,7 @@ public class Track<T>
         {
             CurveType.Stepped => a.Value,
             CurveType.Smooth => _lerp(a.Value, b.Value, t * t * (3 - 2 * t)),
+            CurveType.Bezier => _lerp(a.Value, b.Value, a.Bezier.Ease(t)),
             _ => _lerp(a.Value, b.Value, t),
         };
         return true;

@@ -53,6 +53,9 @@ internal static class KeyCutting<T>
 	private static int StretchAt(Track<T> track, int frame, float fps) =>
 		track.Keys.FindLastIndex(k => Pos(k, fps) <= frame + Grid);
 
+	// Eased stretches (Smooth, Bézier) are cut frame by frame: a key on each, so they play as they did
+	private static bool Eased(CurveType curve) => curve is CurveType.Smooth or CurveType.Bezier;
+
 	private static bool KeyedAt(Track<T> track, int frame, float fps) =>
 		track.Keys.Exists(k => MathF.Abs(Pos(k, fps) - frame) < Grid);
 
@@ -70,12 +73,12 @@ internal static class KeyCutting<T>
 		if (!ValueAt(track, kind, frame, fps, out var value)) yield break;
 		int s = StretchAt(track, frame, fps);
 		var curve = s >= 0 ? track.Keys[s].Curve : CurveType.Linear;
-		if (kind == KeyKind.Blended && curve == CurveType.Smooth && s + 1 < track.Keys.Count)
+		if (kind == KeyKind.Blended && Eased(curve) && s + 1 < track.Keys.Count)
 		{
 			foreach (var key in Baked(track, kind, frame, Math.Min(FrameBefore(Pos(track.Keys[s + 1], fps)), until), fps))
 				yield return key;
 		}
-		else yield return new Keyframe<T>(At(frame, fps), value, curve == CurveType.Smooth ? CurveType.Linear : curve);
+		else yield return new Keyframe<T>(At(frame, fps), value, Eased(curve) ? CurveType.Linear : curve);
 	}
 
 	// Keeps only frames first..last (both included), moved back to start at frame 0. Moments
@@ -97,7 +100,7 @@ internal static class KeyCutting<T>
 			int e = StretchAt(track, last, fps);
 			if (kind == KeyKind.Blended && !KeyedAt(track, last, fps) && e >= 0 && e + 1 < keys.Count)
 			{
-				if (keys[e].Curve != CurveType.Smooth)
+				if (!Eased(keys[e].Curve))
 				{
 					if (ValueAt(track, kind, last, fps, out var atEnd)) kept.Add(new Keyframe<T>(At(last, fps), atEnd, CurveType.Linear));
 				}
@@ -128,7 +131,7 @@ internal static class KeyCutting<T>
 			int s = StretchAt(track, first - 1, fps);
 			if (kind == KeyKind.Blended && first > 0 && !KeyedAt(track, first - 1, fps) && s + 1 < keys.Count && !Stays(keys[s + 1]))
 			{
-				if (s >= 0 && keys[s].Curve == CurveType.Smooth)
+				if (s >= 0 && Eased(keys[s].Curve))
 					added.AddRange(Baked(track, kind, FrameAfter(Pos(keys[s], fps)), first - 1, fps));
 				else if (ValueAt(track, kind, first - 1, fps, out var value))
 					added.Add(new Keyframe<T>(At(first - 1, fps), value, s >= 0 ? keys[s].Curve : CurveType.Linear));

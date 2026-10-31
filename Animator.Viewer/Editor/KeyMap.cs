@@ -203,6 +203,7 @@ public sealed class KeyMap
 		C("anim.event", "Animation", "Add an event at the playhead", K(Key.E)),
 		C("anim.key", "Animation", "Key the pose here: the unkeyed changes (auto key off), or else the picked", K(Key.S)),
 		C("anim.autoKey", "Animation", "Auto key on / off", K(Key.K, Shift)),
+		C("anim.graph", "Animation", "Curves (the graph editor) / keys (the dopesheet)", K(Key.G, Ctrl)),
 		C("keys.earlier", "Keys", "The selected keys a frame earlier", K(Key.Left, Alt)),
 		C("keys.later", "Keys", "The selected keys a frame later", K(Key.Right, Alt)),
 		C("keys.reverse", "Keys", "Reverse the selected keys"),

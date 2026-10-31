@@ -17,6 +17,8 @@ public abstract class Timeline
     public abstract object? TakeKey(float time);            // remove a key and return it
     public abstract void PutKey(object key, float time);    // insert (replaces any key already there)
     public abstract void SetCurve(float time, CurveType curve);
+    public abstract void SetBezier(float time, Bezier bezier);   // the stretch from this key: eased by these handles
+    public abstract Bezier? HandlesAt(float time);              // that stretch's handles (null: stepped, or no key)
 
     public abstract bool RemoveKey(float time);
     public abstract object CaptureKeys();             // copy of the keys, for undo
@@ -76,13 +78,25 @@ public abstract class TrackTimeline<T> : Timeline
     public override void PutKey(object key, float time)
     {
         var k = (Keyframe<T>)key;          // unpack: only works for this timeline's type
-        Track.Add(time, k.Value, k.Curve);
+        Track.Put(time, k);
     }
 
     public override void SetCurve(float time, CurveType curve)
     {
         int i = IndexAt(time);
         if (i >= 0) Track.Keys[i] = Track.Keys[i] with { Curve = curve };
+    }
+
+    public override void SetBezier(float time, Bezier bezier)
+    {
+        int i = IndexAt(time);
+        if (i >= 0) Track.Keys[i] = Track.Keys[i] with { Curve = CurveType.Bezier, Bezier = bezier.Clamped };
+    }
+
+    public override Bezier? HandlesAt(float time)
+    {
+        int i = IndexAt(time);
+        return i < 0 ? null : Track.Keys[i].Handles;
     }
 
     // How its keys behave when frames are cut out: most blend from key to key

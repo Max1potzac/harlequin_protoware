@@ -222,6 +222,7 @@ public class KeyDto
 	public string? Data { get; set; }
 	public List<string>? Order { get; set; }
 	public float[]? V { get; set; }   // colorLayer, layerAdjust: a colour layer's numbers (format 9)
+	public float[]? B { get; set; }   // a Bezier curve's handles: x1, y1, x2, y2 (format 10)
 }
 public class LookDto
 {

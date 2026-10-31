@@ -791,6 +791,9 @@
                       ToolTip="On: posing in Animate mode sets keys. Off: it only changes the pose (an empty orange key shows where), until Key keys it; going to another frame drops what wasn't keyed." />
                         <Button x:Name="KeyPoseButton" Content="Key" Padding="6,1" Margin="0,4,12,4" Click="KeyPose_Click"
                     ToolTip="Keys the pose at the playhead: the changes not keyed yet (auto key off), or else the picked bones' and parts' whole pose" />
+                        <CheckBox x:Name="GraphBox" Content="Curves" Foreground="White" VerticalAlignment="Center"
+                      Margin="0,4,12,4" Click="Graph_Click"
+                      ToolTip="The graph editor: the keys' numbers as curves over time (the picked bones and parts, or the selected keys). Drag a key to move it, its square handles to ease the stretch from it (Bézier)." />
                         <CheckBox x:Name="OnlyPickedBox" Content="Only the picked's rows" Foreground="White" VerticalAlignment="Center"
                       Margin="0,4,12,4" Click="OnlyPicked_Click"
                       ToolTip="With bones or parts picked, the timeline shows just their rows (and the events and stacking order)" />

@@ -88,6 +88,7 @@ public partial class MainWindow
 		ClosePaintButton.Content = WithKey("Close", "edit.back");
 		KeyPoseButton.Content = WithKey("Key", "anim.key");
 		AutoKeyBox.Content = WithKey("Auto key", "anim.autoKey");
+		GraphBox.Content = WithKey("Curves", "anim.graph");
 		_timeline.KeyHint = KeyOf("anim.key");
 		SceneButton.ToolTip = $"Back to the scene, to place whole objects ({KeyOf("edit.back")}). At scene level: open the selected object ({KeyOf("scene.open")})";
 		RefreshScenePanel();   // its hints name keys and buttons too
@@ -239,6 +240,7 @@ public partial class MainWindow
 			case "anim.mode": _state.AnimateMode = !_state.AnimateMode; return true;
 			case "anim.key": KeyThePose(); return true;
 			case "anim.autoKey": SetAutoKey(!_state.AutoKey); return true;
+			case "anim.graph": SetGraphMode(!_graphMode); return true;
 			case "keys.earlier": _timeline.Nudge(-1); return true;
 			case "keys.later": _timeline.Nudge(+1); return true;
 			case "keys.reverse": _timeline.ReverseSelected(); return true;

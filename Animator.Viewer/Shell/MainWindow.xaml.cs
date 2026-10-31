@@ -144,6 +144,7 @@ public partial class MainWindow : Window
 		canvas.Scale((float)(e.Info.Width / TimelineView.ActualWidth));   // same DPI fix
 		var size = new Vector2((float)TimelineView.ActualWidth, (float)TimelineView.ActualHeight);
 		if (_sceneLevel) _sceneTimeline.Draw(canvas, size);   // at scene level: the scene timeline
+		else if (_graphMode) Graph.Draw(canvas, size);        // the curves
 		else _timeline.Draw(canvas, size);
 	}
 
@@ -236,6 +237,20 @@ public partial class MainWindow : Window
 			return;
 		}
 
+		if (_graphMode)
+		{
+			// The curves: a key's menu on a right-click, the rest is the graph's
+			if (e.ChangedButton == MouseButton.Right)
+			{
+				if (Graph.SelectForMenu(p)) ShowKeyMenu();
+				return;
+			}
+			Graph.MouseDown(p, Keyboard.Modifiers, e.ChangedButton, e.ClickCount);
+			TimelineView.CaptureMouse();
+			UpdateStatus();
+			return;
+		}
+
 		if (e.ChangedButton == MouseButton.Right)
 		{
 			// Inside the picked frames, their menu comes first
@@ -263,12 +278,14 @@ public partial class MainWindow : Window
 	{
 		var p = PosIn(TimelineView, e);
 		if (_sceneTimelineDrag) _sceneTimeline.MouseMove(p);
+		else if (_graphMode) Graph.MouseMove(p, Keyboard.Modifiers);
 		else _timeline.MouseMove(p);
 	}
 
 	private void Timeline_MouseUp(object sender, MouseButtonEventArgs e)
 	{
 		if (_sceneTimelineDrag) _sceneTimeline.MouseUp();
+		else if (_graphMode) Graph.MouseUp();
 		else _timeline.MouseUp();
 		_sceneTimelineDrag = false;
 		TimelineView.ReleaseMouseCapture();
@@ -277,6 +294,7 @@ public partial class MainWindow : Window
 	private void Timeline_MouseWheel(object sender, MouseWheelEventArgs e)
 	{
 		if (_sceneLevel) _sceneTimeline.Wheel(PosIn(TimelineView, e), e.Delta);
+		else if (_graphMode) Graph.Wheel(PosIn(TimelineView, e), e.Delta);
 		else _timeline.Wheel(e.Delta);
 	}
 
@@ -429,6 +447,7 @@ public partial class MainWindow : Window
 			"Sets (under the list): + Set = a set of the picked; click a set = pick it again (Ctrl: picked or not, Shift: add), right-click = change it.   The square in the bone panel = the colour of the picked bones.   " +
 			"Colour (beside Bones / Layers) = colour layers on the whole object (parts can be left out); in the paint editor, + Colour layer = one for that drawing. Keyed in Animate mode; exports bake them in when asked\n" +
 			$"Timeline: click key = select, Shift+click = add, Ctrl+drag = a box of keys, Alt+click = every key at that frame, drag = move, right-click = curve, stretch, reverse, {K("keys.earlier")} / {K("keys.later")} = a frame earlier / later, {K("edit.copy")} / {K("edit.paste")} = copy / paste at playhead, {K("pick.keys")} = every key of the picked, drag across empty frames = pick them (right-click: split into an animation sequence; play loops them)\n" +
+			$"Curves ({K("anim.graph")}): the keys' numbers as curves; click / Shift+click a key, drag it (Shift: one way), drag its square handles to ease it (Bézier), wheel = zoom, middle-drag = move, double-click = fit, click a name = hide it.   " +
 			$"Frames: {K("time.insert")} = insert one after the playhead, {K("time.remove")} = remove the one at it, {K("play.prevKey")} / {K("play.nextKey")} = to the key before / after, {K("anim.key")} = key the pose (the unkeyed changes, or the picked)\n" +
 			$"IK: {K("ik.snap")} = snap target to hand, {K("ik.bake")} = bake IK into FK, {K("ik.switch")} = switch IK/FK at this frame (Animate mode).   Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   " +
 			$"Events: {K("anim.event")} = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +

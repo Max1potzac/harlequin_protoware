@@ -310,101 +310,104 @@ public static class ProjectMapper
 		{
 			Type = "rotate",
 			Target = r.Target,
-			Keys = r.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value }).ToList()
+			Keys = r.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value }).ToList()
 		},
 		TranslateTimeline t => new TimelineDto
 		{
 			Type = "translate",
 			Target = t.Target,
-			Keys = t.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+			Keys = t.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value.X, Y = k.Value.Y }).ToList()
 		},
 		ScaleTimeline sc => new TimelineDto
 		{
 			Type = "scale",
 			Target = sc.Target,
-			Keys = sc.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+			Keys = sc.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value.X, Y = k.Value.Y }).ToList()
 		},
 		IkMixTimeline ik => new TimelineDto
 		{
 			Type = "ikMix",
 			Target = ik.Target,
-			Keys = ik.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value }).ToList()
+			Keys = ik.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value }).ToList()
 		},
 		AttachmentTimeline at => new TimelineDto
 		{
 			Type = "attachment",
 			Target = at.Target,
-			Keys = at.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value }).ToList()
+			Keys = at.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), Name = k.Value }).ToList()
 		},
 		DepthTimeline d => new TimelineDto
 		{
 			Type = "depth",
 			Target = d.Target,
-			Keys = d.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+			Keys = d.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value.X, Y = k.Value.Y }).ToList()
 		},
 		SpaceTimeline sp => new TimelineDto
 		{
 			Type = "space",
 			Target = sp.Target,
-			Keys = sp.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value }).ToList()
+			Keys = sp.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), Name = k.Value }).ToList()
 		},
 		PartTranslateTimeline pt => new TimelineDto
 		{
 			Type = "partTranslate",
 			Target = pt.Target,
-			Keys = pt.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+			Keys = pt.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value.X, Y = k.Value.Y }).ToList()
 		},
 		PartRotateTimeline pr => new TimelineDto
 		{
 			Type = "partRotate",
 			Target = pr.Target,
-			Keys = pr.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value }).ToList()
+			Keys = pr.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value }).ToList()
 		},
 		PartScaleTimeline ps => new TimelineDto
 		{
 			Type = "partScale",
 			Target = ps.Target,
-			Keys = ps.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y }).ToList()
+			Keys = ps.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value.X, Y = k.Value.Y }).ToList()
 		},
 		PartColorTimeline pc => new TimelineDto
 		{
 			Type = "partColor",
 			Target = pc.Target,
-			Keys = pc.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value.X, Y = k.Value.Y, Z = k.Value.Z }).ToList()
+			Keys = pc.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value.X, Y = k.Value.Y, Z = k.Value.Z }).ToList()
 		},
 		PartOpacityTimeline po => new TimelineDto
 		{
 			Type = "partOpacity",
 			Target = po.Target,
-			Keys = po.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, X = k.Value }).ToList()
+			Keys = po.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), X = k.Value }).ToList()
 		},
 		EventTimeline ev => new TimelineDto
 		{
 			Type = "events",
 			Target = ev.Target,
-			Keys = ev.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Name = k.Value.Name, Data = k.Value.Data }).ToList()
+			Keys = ev.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), Name = k.Value.Name, Data = k.Value.Data }).ToList()
 		},
 		DrawOrderTimeline order => new TimelineDto
 		{
 			Type = "drawOrder",
 			Target = order.Target,
-			Keys = order.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Order = k.Value.ToList() }).ToList()
+			Keys = order.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), Order = k.Value.ToList() }).ToList()
 		},
 		ColorLayerTimeline cl => new TimelineDto
 		{
 			Type = "colorLayer",
 			Target = cl.Target,
-			Keys = cl.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, V = k.Value.ToArray() }).ToList()
+			Keys = cl.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), V = k.Value.ToArray() }).ToList()
 		},
 		LayerAdjustTimeline la => new TimelineDto
 		{
 			Type = "layerAdjust",
 			Target = la.Target,
 			Caption = la.Caption.Length > 0 ? la.Caption : null,
-			Keys = la.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, V = k.Value.ToArray() }).ToList()
+			Keys = la.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), V = k.Value.ToArray() }).ToList()
 		},
 		_ => throw new NotSupportedException($"Saving '{timeline.GetType().Name}' is not supported yet.")
 	};
+
+	// A Bézier key's handles (none for the other curves)
+	private static float[]? HandlesToDto(CurveType curve, Bezier bezier) => curve == CurveType.Bezier ? bezier.ToArray() : null;
 
 	private static AdjustDto AdjustToDto(ColorAdjust adjust) => new()
 	{
@@ -573,25 +576,25 @@ public static class ProjectMapper
 			case "rotate":
 				{
 					var tl = new RotateTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 0f, k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 0f, k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "translate":
 				{
 					var tl = new TranslateTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "scale":
 				{
 					var tl = new ScaleTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 1f, k.Y ?? 1f), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 1f, k.Y ?? 1f), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "ikMix":
 				{
 					var tl = new IkMixTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 1f, k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 1f, k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "attachment":
@@ -603,7 +606,7 @@ public static class ProjectMapper
 			case "depth":
 				{
 					var tl = new DepthTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "space":
@@ -615,31 +618,31 @@ public static class ProjectMapper
 			case "partTranslate":
 				{
 					var tl = new PartTranslateTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 0f, k.Y ?? 0f), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "partRotate":
 				{
 					var tl = new PartRotateTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 0f, k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 0f, k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "partScale":
 				{
 					var tl = new PartScaleTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 1f, k.Y ?? 1f), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector2(k.X ?? 1f, k.Y ?? 1f), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "partColor":
 				{
 					var tl = new PartColorTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector3(k.X ?? 1f, k.Y ?? 1f, k.Z ?? 1f), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, new Vector3(k.X ?? 1f, k.Y ?? 1f, k.Z ?? 1f), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "partOpacity":
 				{
 					var tl = new PartOpacityTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 1f, k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 1f, k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "events":
@@ -651,13 +654,13 @@ public static class ProjectMapper
 			case "colorLayer":
 				{
 					var tl = new ColorLayerTimeline(t.Target);
-					foreach (var k in t.Keys) tl.Track.Add(k.T, AdjustValues.FromArray(k.V), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, AdjustValues.FromArray(k.V), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "layerAdjust":
 				{
 					var tl = new LayerAdjustTimeline(t.Target) { Caption = t.Caption ?? "" };
-					foreach (var k in t.Keys) tl.Track.Add(k.T, AdjustValues.FromArray(k.V), k.Curve);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, AdjustValues.FromArray(k.V), k.Curve, Bezier.FromArray(k.B));
 					return tl;
 				}
 			case "drawOrder":

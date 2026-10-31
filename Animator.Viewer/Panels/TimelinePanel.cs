@@ -289,11 +289,17 @@ public class TimelinePanel
         canvas.DrawText($"{range.First}–{range.Last} ({count} frames)", x0 + 4, RulerHeight - 9, SKTextAlign.Left, font, label);
     }
 
-    // Shape shows the curve: diamond = Linear, circle = Smooth, square = Stepped
-    private static void DrawKey(SKCanvas canvas, float x, float y, CurveType curve, SKPaint paint)
+    // Shape shows the curve: diamond = Linear, circle = Smooth, square = Stepped, ring = Bézier
+    public static void DrawKey(SKCanvas canvas, float x, float y, CurveType curve, SKPaint paint)
     {
         switch (curve)
         {
+            case CurveType.Bezier:
+                {
+                    using var ring = new SKPaint { Color = paint.Color, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2.5f };
+                    canvas.DrawCircle(x, y, 3.8f, ring);
+                    break;
+                }
             case CurveType.Stepped:
                 canvas.DrawRect(x - 4, y - 4, 8, 8, paint);
                 break;
@@ -661,6 +667,16 @@ public class TimelinePanel
         Edit($"Set {Sel.Count} key(s) to {curve}", () =>
         {
             foreach (var (tl, f) in Sel) tl.SetCurve(FrameToTime(f), curve);
+        });
+    }
+
+    // The selected keys eased by these Bézier handles (from the key to the next)
+    public void SetBezier(Bezier bezier, string name)
+    {
+        if (Sel.Count == 0) return;
+        Edit($"{Sel.Count} key(s): {name}", () =>
+        {
+            foreach (var (tl, f) in Sel) tl.SetBezier(FrameToTime(f), bezier);
         });
     }
 
