@@ -237,13 +237,22 @@ public partial class MainWindow
 		ColourLeaveOutList.Children.Clear();
 		foreach (var slot in _skeleton.Slots.AsEnumerable().Reverse())
 		{
-			var box = new CheckBox { Content = slot.Name, IsChecked = layer.LeftOut.Contains(slot), Foreground = AdjustEditor.LabelBrush, Margin = new Thickness(0, 1, 0, 1) };
+			var box = new CheckBox
+			{
+				Content = slot.Name, IsChecked = layer.LeftOut.Contains(slot), Foreground = AdjustEditor.LabelBrush,
+				Padding = new Thickness(3, 0, 3, 0), Margin = new Thickness(0, 1, 0, 1),
+				ToolTip = "Ticked: this colour layer doesn't change it. (The mouse over it outlines it in the viewport; picked parts stand out here.)"
+			};
 			var part = slot;
+			box.MouseEnter += (_, _) => _renderer.HoverSlot = part;   // outlined in the viewport
+			box.MouseLeave += (_, _) => { if (_renderer.HoverSlot == part) _renderer.HoverSlot = null; };
 			box.Click += (_, _) => EditColourLayers($"{layer.Name}: {(box.IsChecked == true ? "leave out" : "take in")} {part.Name}", () =>
 				box.IsChecked == true ? layer.LeftOut.Add(part) : layer.LeftOut.Remove(part));
-			ColourLeaveOutList.Children.Add(box);
+			ColourLeaveOutList.Children.Add(new Border { Child = box, Tag = slot, CornerRadius = new CornerRadius(2) });   // (its background: picked or not)
 		}
 		ColourLeaveOut.Header = layer.LeftOut.Count > 0 ? $"Leave out ({layer.LeftOut.Count})" : "Leave out";
+		_leaveOutPicks = null;
+		SyncLeaveOutPicks();
 	}
 
 	// A number changed: the rest value in Setup mode; in Animate mode a key here (or, with auto key
@@ -353,10 +362,35 @@ public partial class MainWindow
 		_paintColourShown = ShownFor(layer, adjust, "") with { Values = values };
 	}
 
+	// The picked parts stand out in the Leave out list (in the viewport's selection colour), so
+	// what's selected there is easy to find and tick
+	private string? _leaveOutPicks;
+
+	private void SyncLeaveOutPicks()
+	{
+		string now = string.Join("\n", _state.PickedSlots.Select(s => s.Name));
+		if (now == _leaveOutPicks) return;
+		_leaveOutPicks = now;
+		var picked = _state.PickedSlots.ToHashSet();
+		foreach (var row in ColourLeaveOutList.Children.OfType<Border>())
+		{
+			bool mine = row.Tag is Slot slot && picked.Contains(slot);
+			row.Background = mine ? PickedRowBrush : System.Windows.Media.Brushes.Transparent;
+			if (row.Child is CheckBox box) box.FontWeight = mine ? FontWeights.SemiBold : FontWeights.Normal;
+		}
+		if (picked.Count > 0 && ColourLeaveOutList.Children.OfType<Border>().FirstOrDefault(b => b.Tag is Slot s && picked.Contains(s)) is { } first)
+			first.BringIntoView();
+	}
+
 	// Every frame: the settings follow the animation (another frame, another mode, an undo)
 	private void SyncColourPanels()
 	{
-		if (_colourView && !_sceneLevel) BuildColourSettings(force: false);
+		if (!_colourView && _renderer.HoverSlot != null) _renderer.HoverSlot = null;
+		if (_colourView && !_sceneLevel)
+		{
+			BuildColourSettings(force: false);
+			SyncLeaveOutPicks();
+		}
 		if (PaintPanel.Visibility == Visibility.Visible) BuildPaintColourSettings(force: false);
 	}
 }
