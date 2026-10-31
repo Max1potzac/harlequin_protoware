@@ -1,8 +1,15 @@
 ﻿namespace Animator.Core.Rigging;
 
+// A skin: drawings for some parts (one or several), shown in place of the object's own when the
+// skin is on. A part whose drawings are all in skins shows only while one of them is on (a hat,
+// a bucket). Skins in the same category are alternatives, one on at a time (the bucket and its
+// dents); skins in no category are outfits, one at a time too. Overlays stack: any number of them
+// show at once, over whatever else is on (see SkinOps).
 public class Skin
 {
     public string Name { get; set; } = "";
+	public string Category { get; set; } = "";   // "" = none (an outfit)
+	public bool Overlay { get; set; }
     private readonly Dictionary<(string Slot, string Attachment), Attachment> _map = new();
 
     public void Set(string slot, Attachment a) => _map[(slot, a.Name)] = a;

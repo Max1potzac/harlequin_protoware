@@ -280,7 +280,7 @@
                             <!-- Two views of the same object: its bones (parts under the bone they're on), or its
                                  parts as layers, in the order they're drawn whatever bone they're on -->
                             <StackPanel Grid.Row="3" Margin="6,0,6,4">
-                                <UniformGrid x:Name="RigViewSwitch" Columns="4">
+                                <UniformGrid x:Name="RigViewSwitch" Columns="5">
                                     <RadioButton x:Name="BonesViewChoice" Content="Bones" GroupName="RigView" Margin="0,0,1,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="The bones, each part under the bone it's on: drag a part onto a bone to put it there, or a bone onto another to hang it there" />
@@ -293,6 +293,9 @@
                                     <RadioButton x:Name="PosesViewChoice" Content="Poses" GroupName="RigView" Margin="1,0,0,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="Poses kept by name, to put the rig that way again (mirrored too), and mirroring: the pose, copy and paste mirrored, and symmetrizing the rig" />
+                                    <RadioButton x:Name="SkinsViewChoice" Content="Skins" GroupName="RigView" Margin="1,0,0,0"
+                                                 Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
+                                                 ToolTip="Skins: drawings for some parts, shown when the skin is on. Categories of alternatives (a bucket and its dents, one at a time) and overlays that show over the others. Picked parts, or a part's drawings, become skins." />
                                 </UniformGrid>
                                 <TextBlock x:Name="LayersHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="2,4,2,0" Visibility="Collapsed" />
                                 <!-- Selection sets: a click picks a set's bones and parts again -->
@@ -309,6 +312,42 @@
                       PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="BoneTree_PreviewMouseLeftButtonUp"
                       PreviewMouseMove="BoneTree_PreviewMouseMove"
                       DragOver="BoneTree_DragOver" DragLeave="BoneTree_DragLeave" Drop="BoneTree_Drop" />
+                            <!-- Skins: categories of alternatives (one on at a time), outfits, overlays; made from parts -->
+                            <ScrollViewer x:Name="SkinsPanel" Grid.Row="4" Margin="6,0,6,0" Visibility="Collapsed" Background="#1E2026"
+                                          VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="4">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <Button Content="+ Skin ▾" Padding="6,1" Margin="0,0,4,0" Click="SkinAdd_Click"
+                                                ToolTip="The picked parts as a skin, each picked part a skin of a category, a part's drawings as a category, or an empty skin" />
+                                        <Button x:Name="SkinDeleteButton" Content="Delete ▾" Padding="6,1" Margin="0,0,4,0" Click="SkinDelete_Click" />
+                                        <Button x:Name="SkinUpButton" Content="▲" Padding="5,1" Margin="0,0,2,0" Click="SkinUp_Click" ToolTip="Earlier in the list (later ones win where two that are on overlap)" />
+                                        <Button x:Name="SkinDownButton" Content="▼" Padding="5,1" Click="SkinDown_Click" ToolTip="Later in the list (wins over earlier ones where two that are on overlap)" />
+                                    </StackPanel>
+                                    <StackPanel x:Name="SkinList" Margin="0,0,0,6" />
+                                    <StackPanel x:Name="SkinSettings">
+                                        <DockPanel Margin="0,2,0,2">
+                                            <TextBlock Text="Name" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                            <TextBox x:Name="SkinName" KeyDown="SkinName_KeyDown" LostFocus="SkinName_LostFocus" />
+                                        </DockPanel>
+                                        <DockPanel Margin="0,2,0,2" ToolTip="Skins of the same category are alternatives: one on at a time. None: an outfit (one at a time too).">
+                                            <TextBlock Text="Category" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                            <ComboBox x:Name="SkinCategory" IsEditable="True" KeyDown="SkinCategory_KeyDown" LostFocus="SkinCategory_LostFocus"
+                                                      SelectionChanged="SkinCategory_SelectionChanged" />
+                                        </DockPanel>
+                                        <CheckBox x:Name="SkinOverlay" Content="Overlay (shows over the other skins)" Foreground="White" Margin="0,4,0,4" Click="SkinOverlay_Click"
+                                                  ToolTip="An overlay turns nothing off: any number show at once, over the others (a bandage, dirt, a glow)" />
+                                        <UniformGrid Columns="3" Margin="0,2,0,4">
+                                            <Button Content="Add the picked" Margin="0,0,2,0" Click="SkinAddParts_Click"
+                                                    ToolTip="The picked parts' own drawings go into this skin" />
+                                            <Button Content="Take out" Margin="2,0,2,0" Click="SkinTakeOut_Click"
+                                                    ToolTip="The picked parts' drawings in this skin go back to the object's own" />
+                                            <Button Content="Pick its parts" Margin="2,0,0,0" Click="SkinPickParts_Click" />
+                                        </UniformGrid>
+                                        <TextBlock x:Name="SkinParts" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="SkinHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </ScrollViewer>
                             <!-- Poses: kept by name, put on (partly, mirrored, just the picked), and mirroring -->
                             <ScrollViewer x:Name="PosesPanel" Grid.Row="4" Margin="6,0,6,0" Visibility="Collapsed" Background="#1E2026"
                                           VerticalScrollBarVisibility="Auto">
