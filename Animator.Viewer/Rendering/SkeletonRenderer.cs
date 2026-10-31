@@ -253,7 +253,7 @@ public class SkeletonRenderer
 		};
 
 		// The object's colour layers: one filter for each set of them a part gets (most get all)
-		var looks = ColorLayers && skeleton.ColorLayers.Any(l => l.Visible) ? new Dictionary<long, SKColorFilter?>() : null;
+		var looks = ColorLayers && skeleton.ColorLayers.Any(skeleton.Applies) ? new Dictionary<long, SKColorFilter?>() : null;
 		try
 		{
 			foreach (var slot in skeleton.DrawOrder)   // as it stands now (an animation can key it)
@@ -286,7 +286,7 @@ public class SkeletonRenderer
 		var layers = skeleton.ColorLayers;
 		long which = 0;
 		for (int i = 0; i < layers.Count && i < 63; i++)
-			if (layers[i].Changes(slot) && layers[i].Adjust.Kind != ColorAdjustKind.ReplaceColor) which |= 1L << i;
+			if (layers[i].Changes(slot) && skeleton.Applies(layers[i]) && layers[i].Adjust.Kind != ColorAdjustKind.ReplaceColor) which |= 1L << i;
 		if (which == 0) return null;
 		if (made.TryGetValue(which, out var known)) return known;
 		SKColorFilter? filter = null;

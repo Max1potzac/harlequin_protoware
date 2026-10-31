@@ -9,7 +9,25 @@ public class Skeleton
     public Dictionary<Guid, Asset> Assets { get; } = new();
 
     public Skin DefaultSkin { get; } = new() { Name = "default" };
-    public Skin? ActiveSkin { get; set; }
+
+	// The object's skins besides its own drawings (the default skin), in list order, and the ones
+	// on now. Where two that are on have a drawing for the same part, the overlay wins, then the
+	// one later in the list (see SkinOps for turning them on: one per category).
+	public List<Skin> Skins { get; } = new();
+	public HashSet<Skin> ShownSkins { get; } = new();
+	public Skin? FindSkin(string name) => Skins.Find(s => s.Name == name);
+
+	// The skins that are on, the one that wins first
+	public IEnumerable<Skin> SkinsOnTop() =>
+		Skins.Where(ShownSkins.Contains).Reverse().OrderBy(s => s.Overlay ? 0 : 1);
+
+	// The drawing a part shows under this name: from the skins that are on, or its own
+	public Attachment? FindAttachment(string slot, string name)
+	{
+		foreach (var skin in SkinsOnTop())
+			if (skin.Get(slot, name) is { } drawing) return drawing;
+		return DefaultSkin.Get(slot, name);
+	}
 
 	// Named groups of bones and parts, to pick in one click (the sets in the rig panel)
 	public List<SelectionSet> Sets { get; } = new();
@@ -17,6 +35,12 @@ public class Skeleton
 	// Colour layers on the whole object, applied first to last (see ColorLayer)
 	public List<ColorLayer> ColorLayers { get; } = new();
 	public ColorLayer? FindColorLayer(string name) => ColorLayers.Find(l => l.Name == name);
+
+	// The skin a colour layer is in (null: none, it's the object's own)
+	public Skin? SkinOf(ColorLayer layer) => Skins.Find(s => s.ColorLayers.Contains(layer));
+
+	// Whether a colour layer applies now: on, and its skin (if it's in one) on
+	public bool Applies(ColorLayer layer) => layer.Visible && (SkinOf(layer) is not { } skin || ShownSkins.Contains(skin));
 
 	// Poses kept by name, to put the rig that way again (the Poses view; see PoseOps)
 	public List<Editing.SavedPose> Poses { get; } = new();
@@ -30,13 +54,9 @@ public class Skeleton
         return null;
     }
 
-	// Every attachment in the default and active skins
-	public IEnumerable<Attachment> AllAttachments()
-	{
-		var skins = new List<Skin> { DefaultSkin };
-		if (ActiveSkin != null && ActiveSkin != DefaultSkin) skins.Add(ActiveSkin);
-		return skins.SelectMany(s => s.Attachments).Distinct();
-	}
+	// Every attachment in every skin (on or not)
+	public IEnumerable<Attachment> AllAttachments() =>
+		AllSkins().SelectMany(s => s.Attachments).Distinct();
 	private static Bone? FindBone(Bone bone, string name)
     {
         if (bone.Name == name) return bone;
@@ -170,7 +190,10 @@ public class Skeleton
 		Poses.Clear();
 		Poses.AddRange(other.Poses);
 		DefaultSkin.ReplaceWith(other.DefaultSkin);
-		ActiveSkin = other.ActiveSkin == other.DefaultSkin ? DefaultSkin : other.ActiveSkin;
+		Skins.Clear();
+		Skins.AddRange(other.Skins);
+		ShownSkins.Clear();
+		ShownSkins.UnionWith(other.ShownSkins);
 	}
 
 	public void Clear() => ReplaceWith(new Skeleton());
@@ -191,17 +214,15 @@ public class Skeleton
 			foreach (var bone in held) bone.UpdateWorld();
 	}
 
-    // Active skin wins; falls back to default. This is what makes
+    // The skins that are on win; falls back to the object's own drawings. This is what makes
     // "outfit swaps" work without duplicating the whole rig.
-    public Attachment? ResolveAttachment(Slot slot)
-    {
-        if (slot.ActiveAttachment == null) return null;
-        return ActiveSkin?.Get(slot.Name, slot.ActiveAttachment)
-            ?? DefaultSkin.Get(slot.Name, slot.ActiveAttachment);
-    }
+    public Attachment? ResolveAttachment(Slot slot) =>
+		slot.ActiveAttachment == null ? null : FindAttachment(slot.Name, slot.ActiveAttachment);
+
+	// Every skin, on or not: the object's own drawings first
 	public IEnumerable<Skin> AllSkins()
 	{
 		yield return DefaultSkin;
-		if (ActiveSkin != null && ActiveSkin != DefaultSkin) yield return ActiveSkin;
+		foreach (var skin in Skins) yield return skin;
 	}
 }
