@@ -252,6 +252,20 @@ public static class ProjectMapper
 			});
 		}
 
+		if (skeleton.CopyConstraints.Count > 0)
+			dto.CopyConstraints = skeleton.CopyConstraints.Select(c => new CopyDto
+			{
+				Name = c.Name, Bone = c.Bone.Name, Source = c.Source.Name, Local = c.Local,
+				Rotate = c.RotateMix, Move = c.MoveMix, Scale = c.ScaleMix,
+				RotationOffset = c.RotationOffset, PositionOffset = Vec.From(c.PositionOffset), ScaleOffset = Vec.From(c.ScaleOffset),
+				Mix = c.SetupMix
+			}).ToList();
+		if (skeleton.JiggleConstraints.Count > 0)
+			dto.JiggleConstraints = skeleton.JiggleConstraints.Select(c => new JiggleDto
+			{
+				Name = c.Name, Bone = c.Bone.Name, Stiffness = c.Stiffness, Damping = c.Damping, Gravity = c.Gravity, Mix = c.SetupMix
+			}).ToList();
+
 		if (skeleton.ColorLayers.Count > 0)
 		{
 			var parts = skeleton.Slots.ToHashSet();
@@ -618,6 +632,22 @@ public static class ProjectMapper
 				Mix = l.Mix
 			});
 		}
+
+		foreach (var c in dto.CopyConstraints ?? new List<CopyDto>())
+			if (bones.TryGetValue(c.Bone, out var bone) && bones.TryGetValue(c.Source, out var source))
+				skeleton.CopyConstraints.Add(new CopyConstraint
+				{
+					Name = c.Name, Bone = bone, Source = source, Local = c.Local,
+					RotateMix = c.Rotate, MoveMix = c.Move, ScaleMix = c.Scale,
+					RotationOffset = c.RotationOffset, PositionOffset = c.PositionOffset.ToVector2(), ScaleOffset = c.ScaleOffset.ToVector2(),
+					SetupMix = c.Mix, Mix = c.Mix
+				});
+		foreach (var j in dto.JiggleConstraints ?? new List<JiggleDto>())
+			if (bones.TryGetValue(j.Bone, out var bone))
+				skeleton.JiggleConstraints.Add(new JiggleConstraint
+				{
+					Name = j.Name, Bone = bone, Stiffness = j.Stiffness, Damping = j.Damping, Gravity = j.Gravity, SetupMix = j.Mix, Mix = j.Mix
+				});
 
 		foreach (var c in dto.ColorLayers ?? new List<ColorLayerDto>())
 		{

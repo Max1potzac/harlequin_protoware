@@ -18,6 +18,7 @@ public static class ScenePlayer
 		if (obj.ClipAt(sceneTime) is { } clip) clip.Animation.Apply(obj.Skeleton, clip.AnimationTime(sceneTime));
 		else Preview(obj)?.Apply(obj.Skeleton, sceneTime);
 		obj.Skeleton.UpdatePose();
+		obj.Skeleton.StepPhysics(sceneTime);
 	}
 
 	// One of the object's animations at its own time
@@ -26,6 +27,7 @@ public static class ScenePlayer
 		obj.Skeleton.SetToSetupPose();
 		animation.Apply(obj.Skeleton, time);
 		obj.Skeleton.UpdatePose();
+		obj.Skeleton.StepPhysics(time);
 	}
 
 	// The animation an object loops when it has no clips

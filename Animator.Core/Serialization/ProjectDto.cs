@@ -76,6 +76,8 @@ public class RigDto
 	public List<string>? ShownSkins { get; set; }           // the skins on (format 11)
 	public List<IkDto> IkConstraints { get; set; } = new();
 	public List<LookDto> LookConstraints { get; set; } = new();
+	public List<CopyDto>? CopyConstraints { get; set; }       // (format 15)
+	public List<JiggleDto>? JiggleConstraints { get; set; }   // (format 15)
 	public List<SetDto>? Sets { get; set; }   // selection sets (null = none)
 	public List<ColorLayerDto>? ColorLayers { get; set; }   // colour layers on the whole object (format 9)
 	public List<PoseDto>? Poses { get; set; }               // poses kept by name (format 10)
@@ -307,6 +309,33 @@ public class KeyDto
 	public float[]? V { get; set; }   // colorLayer, layerAdjust: a colour layer's numbers (format 9)
 	public float[]? B { get; set; }   // a Bezier curve's handles: x1, y1, x2, y2 (format 10)
 }
+// A bone following another's turn, place and size (each by its mix), in the world or locally
+public class CopyDto
+{
+	public string Name { get; set; } = "";
+	public string Bone { get; set; } = "";
+	public string Source { get; set; } = "";
+	public bool Local { get; set; }
+	public float Rotate { get; set; } = 1f;
+	public float Move { get; set; }
+	public float Scale { get; set; }
+	public float RotationOffset { get; set; }
+	public Vec PositionOffset { get; set; } = new(0, 0);
+	public Vec ScaleOffset { get; set; } = new(1, 1);
+	public float Mix { get; set; } = 1f;
+}
+
+// A bone that lags and springs back
+public class JiggleDto
+{
+	public string Name { get; set; } = "";
+	public string Bone { get; set; } = "";
+	public float Stiffness { get; set; } = 80f;
+	public float Damping { get; set; } = 6f;
+	public float Gravity { get; set; }
+	public float Mix { get; set; } = 1f;
+}
+
 public class LookDto
 {
 	public string Name { get; set; } = "";
