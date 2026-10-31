@@ -10,6 +10,7 @@ public class SceneClip
 	public float Length { get; set; }   // seconds on the scene timeline
 	public float Offset { get; set; }   // where in the animation the clip starts
 	public bool Loop { get; set; }
+	public float MixIn { get; set; }    // seconds: fading in from the clip before it (0: a cut)
 
 	public SceneClip(Animation animation, float start, float length)
 	{

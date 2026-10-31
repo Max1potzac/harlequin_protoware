@@ -63,6 +63,7 @@ public class ClipDto
 	public float Length { get; set; }
 	public float Offset { get; set; }
 	public bool Loop { get; set; }
+	public float? MixIn { get; set; }   // (format 16)
 }
 
 // A rig: bones, parts, pixels, skins, constraints and its animations
@@ -76,6 +77,7 @@ public class RigDto
 	public List<string>? ShownSkins { get; set; }           // the skins on (format 11)
 	public List<IkDto> IkConstraints { get; set; } = new();
 	public List<LookDto> LookConstraints { get; set; } = new();
+	public MixDto? Mixes { get; set; }                        // (format 16)
 	public List<CopyDto>? CopyConstraints { get; set; }       // (format 15)
 	public List<JiggleDto>? JiggleConstraints { get; set; }   // (format 15)
 	public List<SetDto>? Sets { get; set; }   // selection sets (null = none)
@@ -323,6 +325,20 @@ public class CopyDto
 	public Vec PositionOffset { get; set; } = new(0, 0);
 	public Vec ScaleOffset { get; set; } = new(1, 1);
 	public float Mix { get; set; } = 1f;
+}
+
+// How long animations take to fade into each other: the default, and pairs set apart
+public class MixDto
+{
+	public float Default { get; set; } = 0.2f;
+	public List<MixPairDto>? Pairs { get; set; }
+}
+
+public class MixPairDto
+{
+	public string From { get; set; } = "";
+	public string To { get; set; } = "";
+	public float Duration { get; set; }
 }
 
 // A bone that lags and springs back

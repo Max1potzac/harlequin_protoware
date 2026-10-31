@@ -8,7 +8,7 @@ namespace Animator.Core.Editing;
 // own snapshots.)
 public sealed class SceneSnapshot
 {
-	private sealed record ClipState(SceneClip Clip, Animation Animation, float Start, float Length, float Offset, bool Loop);
+	private sealed record ClipState(SceneClip Clip, Animation Animation, float Start, float Length, float Offset, bool Loop, float MixIn);
 
 	private sealed record ObjectState(
 		SceneObject Object, string Name, ObjectKind Kind, Vector2 Position, float Rotation, Vector2 Scale,
@@ -28,7 +28,7 @@ public sealed class SceneSnapshot
 		_objects = scene.Objects.Select(o => new ObjectState(
 			o, o.Name, o.Kind, o.Position, o.Rotation, o.Scale,
 			o.Visible, o.Locked, o.Export, o.Onion, o.PreviewAnimation, o.AttachObject, o.AttachBone,
-			o.Clips.Select(c => new ClipState(c, c.Animation, c.Start, c.Length, c.Offset, c.Loop)).ToList())).ToList();
+			o.Clips.Select(c => new ClipState(c, c.Animation, c.Start, c.Length, c.Offset, c.Loop, c.MixIn)).ToList())).ToList();
 		_duration = scene.Duration;
 		_loop = scene.Loop;
 		_stageWidth = scene.StageWidth;
@@ -65,6 +65,7 @@ public sealed class SceneSnapshot
 				c.Clip.Length = c.Length;
 				c.Clip.Offset = c.Offset;
 				c.Clip.Loop = c.Loop;
+				c.Clip.MixIn = c.MixIn;
 				o.Clips.Add(c.Clip);
 			}
 			_scene.Objects.Add(o);

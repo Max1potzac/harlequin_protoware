@@ -127,6 +127,7 @@ public partial class MainWindow
 		SetField(ClipStart, ToFrames(clip.Start).ToString());
 		SetField(ClipLength, ToFrames(clip.Length).ToString());
 		SetField(ClipOffset, ToFrames(clip.Offset).ToString());
+		SetField(ClipMixIn, ToFrames(clip.MixIn).ToString());
 	}
 
 	private void ClipField_KeyDown(object sender, KeyEventArgs e)
@@ -152,7 +153,7 @@ public partial class MainWindow
 
 		EditScene(() =>
 		{
-			var before = (clip.Start, clip.Length, clip.Offset);
+			var before = (clip.Start, clip.Length, clip.Offset, clip.MixIn);
 			switch (field)
 			{
 				case "CStart":
@@ -164,13 +165,34 @@ public partial class MainWindow
 				case "COffset":
 					clip.Offset = Math.Clamp(ToSeconds(v), 0f, MathF.Max(0f, clip.Animation.Duration - FrameTime));
 					break;
+				case "CMixIn":
+					clip.MixIn = Math.Clamp(ToSeconds(v), 0f, clip.Length);
+					break;
 				default:
 					return null;
 			}
-			return (clip.Start, clip.Length, clip.Offset) == before ? null : $"Clip {clip.Animation.Name} of {obj.Name}: {field[1..]}";
+			return (clip.Start, clip.Length, clip.Offset, clip.MixIn) == before ? null : $"Clip {clip.Animation.Name} of {obj.Name}: {field[1..]}";
 		});
-		if (field != "COffset" && ToFrames(field == "CStart" ? clip.Start : clip.Length) != v)
+		if (field is "CStart" or "CLength" && ToFrames(field == "CStart" ? clip.Start : clip.Length) != v)
 			ClipHint.Text = "It only goes as far as the clips next to it allow.";
+	}
+
+	// The fade in the object's mix plan, from the clip before's animation to this one's
+	private void ClipMixFromPlan_Click(object sender, RoutedEventArgs e)
+	{
+		if (_syncingScene || _objectTool.Selected is not { } obj || _shownClip is not { } clip) return;
+		if (obj.ClipBefore(clip) is not { } before)
+		{
+			ClipHint.Text = "No clip before it to fade in from.";
+			return;
+		}
+		float mix = obj.Skeleton.Mixes.Duration(before.Animation.Name, clip.Animation.Name);
+		EditScene(() =>
+		{
+			float was = clip.MixIn;
+			clip.MixIn = Math.Clamp(mix, 0f, clip.Length);
+			return clip.MixIn == was ? null : $"Clip {clip.Animation.Name} of {obj.Name}: fade in as mixed";
+		});
 	}
 
 	private void ClipAnimation_Changed(object sender, SelectionChangedEventArgs e)

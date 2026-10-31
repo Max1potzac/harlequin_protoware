@@ -1,0 +1,70 @@
+<Window x:Class="Animator.Viewer.Dialogs.MixerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Mixer" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="14" Width="460">
+        <TextBlock x:Name="Heading" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+        <!-- Tracks: animations over each other -->
+        <TextBlock Text="Tracks" FontWeight="SemiBold" Margin="0,0,0,2" />
+        <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                   Text="Each track plays an animation over the ones above it in this list: it changes only what it has keys for (legs walking on track 1, arms shooting on track 2). Weight: how much of it." />
+        <Grid x:Name="TrackGrid" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="50" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Column="1" Text="Animation" Foreground="Gray" />
+            <TextBlock Grid.Column="2" Text="Weight" Foreground="Gray" Margin="6,0,0,0" />
+            <TextBlock Grid.Column="3" Text="Speed" Foreground="Gray" Margin="6,0,0,0" />
+        </Grid>
+
+        <!-- Fades between animations -->
+        <TextBlock Text="Fade from one animation to another" FontWeight="SemiBold" Margin="0,0,0,2" />
+        <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                   Text="Try it: the first plays once, then fades into the second. Keep the time for the pair: the game (and a scene clip's As mixed) uses it." />
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="56" />
+            </Grid.ColumnDefinitions>
+            <ComboBox x:Name="FromBox" DisplayMemberPath="Name" SelectionChanged="Pair_Changed" />
+            <TextBlock Grid.Column="1" Text=" → " VerticalAlignment="Center" />
+            <ComboBox x:Name="ToBox" Grid.Column="2" DisplayMemberPath="Name" SelectionChanged="Pair_Changed" />
+            <TextBlock Grid.Column="3" Text="  seconds " VerticalAlignment="Center" />
+            <TextBox x:Name="DurationBox" Grid.Column="4" VerticalContentAlignment="Center" />
+        </Grid>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+            <ToggleButton x:Name="TryButton" Content="▶ Try the fade" Padding="8,2" Margin="0,0,6,0" Click="Try_Click" />
+            <Button Content="Keep for this pair" Padding="8,2" Margin="0,0,6,0" Click="KeepPair_Click" />
+            <Button x:Name="ForgetButton" Content="Back to the default" Padding="8,2" Click="ForgetPair_Click" />
+        </StackPanel>
+        <DockPanel Margin="0,0,0,4">
+            <TextBlock Text="Default fade (seconds)" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <TextBox x:Name="DefaultBox" Width="56" VerticalContentAlignment="Center" HorizontalAlignment="Left"
+                     KeyDown="Default_KeyDown" LostFocus="Default_LostFocus" ToolTip="For pairs not kept below" />
+        </DockPanel>
+        <ListBox x:Name="PairList" Height="90" Margin="0,0,0,10" SelectionChanged="PairList_Changed"
+                 ToolTip="The pairs with a fade of their own" />
+
+        <DockPanel>
+            <Button Content="Close" IsCancel="True" Width="75" DockPanel.Dock="Right" Click="Close_Click" />
+            <ToggleButton x:Name="PreviewButton" Content="▶ Play the tracks" Padding="8,2" HorizontalAlignment="Left" Click="Preview_Click"
+                          ToolTip="The viewport shows the tracks mixed, playing (closing the mixer goes back to the timeline)" />
+        </DockPanel>
+        <TextBlock x:Name="Hint" Foreground="#C04040" TextWrapping="Wrap" Margin="0,6,0,0" />
+    </StackPanel>
+</Window>
