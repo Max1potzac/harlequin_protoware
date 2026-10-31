@@ -232,6 +232,7 @@ public sealed class KeyMap
 		C("view.images", "View", "Pictures on / off", K(Key.G)),
 		C("view.pixels", "View", "Pixel filtering on / off", K(Key.P)),
 		C("view.reset", "View", "Reset the view", K(Key.F)),
+		C("help.keys", "Help", "Keyboard and mouse: what everything does here", K(Key.F1)),
 		C("view.onion", "View", "Onion skin on / off", K(Key.O)),
 		C("view.hitboxes", "View", "Hitboxes and points on / off (the Boxes view always shows them)", K(Key.J)),
 		C("view.rulers", "View", "Rulers on / off", K(Key.R, Ctrl)),

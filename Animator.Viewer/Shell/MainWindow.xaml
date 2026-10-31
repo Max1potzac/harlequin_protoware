@@ -66,11 +66,31 @@
                     <MenuItem Header="_Hitboxes and points" Tag="view.hitboxes" Click="MenuCommand_Click" />
                     <MenuItem Header="R_eset the view" Tag="view.reset" Click="MenuCommand_Click" />
                 </MenuItem>
+                <MenuItem x:Name="AnimationMenu" Header="_Animation" SubmenuOpened="AnimationMenu_Opened">
+                    <MenuItem Header="_Build / Animate" Tag="anim.mode" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Play / pause" Tag="play.toggle" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Key the pose" Tag="anim.key" Click="MenuCommand_Click" />
+                    <MenuItem x:Name="AutoKeyItem" Header="_Auto key" Tag="anim.autoKey" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Curves" Tag="anim.graph" Click="MenuCommand_Click" />
+                    <Separator />
+                    <MenuItem Header="_Mixer…" Click="Mixer_Click" />
+                    <MenuItem Header="_Sound map…" Click="SoundMapMenu_Click" />
+                    <MenuItem Header="_Import events…" Click="ImportEventsMenu_Click" />
+                    <MenuItem Header="E_xport events…" Click="ExportEventsMenu_Click" />
+                </MenuItem>
+                <MenuItem Header="_Help">
+                    <MenuItem Header="_Keyboard and mouse" InputGestureText="F1" Click="HelpKeys_Click" />
+                    <MenuItem Header="The _engine format (for game engines)" Click="HelpFormat_Click" />
+                    <Separator />
+                    <MenuItem Header="_About Harlequin" Click="About_Click" />
+                </MenuItem>
             </Menu>
         <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <RowDefinition x:Name="TimelineRow" Height="214" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition x:Name="TimelineRow" Height="230" MinHeight="0" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -78,10 +98,17 @@
             <ColumnDefinition x:Name="PaintColumn" Width="0" />
         </Grid.ColumnDefinitions>
 
-            <DockPanel Grid.Row="0" Grid.Column="0">
+            <Grid Grid.Row="0" Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="LeftColumn" Width="260" MinWidth="200" MaxWidth="600" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" MinWidth="200" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition x:Name="RightColumn" Width="300" MinWidth="220" MaxWidth="700" />
+                </Grid.ColumnDefinitions>
 
                 <!-- ===== Objects and rig panel ===== -->
-                <DockPanel DockPanel.Dock="Left" Width="250" Background="{DynamicResource PanelBrush}">
+                <DockPanel Grid.Column="0" Background="{DynamicResource PanelBrush}">
 
                     <!-- Objects in the scene (top of the list = in front) -->
                     <DockPanel DockPanel.Dock="Top" Margin="8,6,6,4">
@@ -255,9 +282,7 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="2*" MinHeight="50" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="3*" MinHeight="80" />
+                                <RowDefinition Height="*" MinHeight="50" />
                             </Grid.RowDefinitions>
                             <DockPanel Grid.Row="0" Margin="8,2,6,4">
                                 <CheckBox x:Name="SnapJointsBox" DockPanel.Dock="Right" Content="Snap to ends" Foreground="{DynamicResource TextBrush}"
@@ -481,11 +506,68 @@
                                     </StackPanel>
                                 </ScrollViewer>
                             </DockPanel>
-                            <GridSplitter Grid.Row="5" Height="5" HorizontalAlignment="Stretch" Background="{DynamicResource WindowBrush}"
-                          ResizeDirection="Rows" ToolTip="Drag to give the tree or the properties more room" />
+                        </Grid>
+                    </Grid>
+                </DockPanel>
 
-                            <!-- Properties of the selected bone or part (one shows at a time) -->
-                            <ScrollViewer Grid.Row="6" VerticalScrollBarVisibility="Auto">
+                <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"
+                              ToolTip="Drag to make the panel wider or narrower" />
+
+                <!-- ===== Viewport ===== -->
+                <Grid Grid.Column="2">
+                    <skia:SKElement x:Name="Viewport" Focusable="True" FocusVisualStyle="{x:Null}" PaintSurface="OnPaintSurface"
+                        MouseDown="Viewport_MouseDown" MouseMove="Viewport_MouseMove" MouseLeave="Viewport_MouseLeave"
+                        MouseUp="Viewport_MouseUp" MouseWheel="Viewport_MouseWheel" />
+                    <TextBlock x:Name="EventFlash" Foreground="{DynamicResource SuccessBrush}" FontSize="16" FontWeight="Bold" Margin="12"
+                   HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False" />
+                    <!-- Build or Animate: the frame round the viewport says which -->
+                    <Border x:Name="WorkspaceFrame" BorderThickness="3" IsHitTestVisible="False" />
+                    <StackPanel x:Name="WorkspaceBar" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,0">
+                        <Border Background="{DynamicResource PanelBrush}" CornerRadius="6" Padding="3" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="BuildChoice" GroupName="Workspace" Style="{StaticResource {x:Type ToggleButton}}"
+                                             Padding="14,4" Margin="0,0,2,0" FontWeight="SemiBold" Checked="Workspace_Checked"
+                                             ToolTip="Build the object: bones, parts, drawing, skins, hitboxes, all at rest. K switches.">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE90F;" Margin="0,1,7,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Build" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton x:Name="AnimateChoice" GroupName="Workspace" Style="{StaticResource {x:Type ToggleButton}}"
+                                             Padding="14,4" FontWeight="SemiBold" Checked="Workspace_Checked"
+                                             ToolTip="Animate it: the timeline, keys, poses. The rig itself can't change here. K switches.">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE768;" Margin="0,1,7,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Animate" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="SkinEditBanner" Background="{DynamicResource SkinEditingBrush}" CornerRadius="4" Padding="8,2" Margin="0,6,0,0"
+                                HorizontalAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed">
+                            <TextBlock x:Name="SkinEditText" Foreground="{DynamicResource TextBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <!-- The viewport's tools (inside an object), as in Blender -->
+                    <StackPanel x:Name="ViewToolBar" Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,24,0,0">
+                        <RadioButton x:Name="SelectToolButton" Tag="Select" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE8B3;" IsChecked="True" />
+                        <RadioButton x:Name="MoveToolButton" Tag="Move" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE7C2;" />
+                        <RadioButton x:Name="RotateToolButton" Tag="Rotate" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE7AD;" />
+                        <RadioButton x:Name="PaintToolButton" Tag="Paint" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE70F;" />
+                    </StackPanel>
+                </Grid>
+
+                <GridSplitter x:Name="PropertiesSplitter" Grid.Column="3" Width="5" HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"
+                              ToolTip="Drag to make the properties wider or narrower" />
+
+                <!-- ===== Properties of the selected bone or part (one shows at a time) ===== -->
+                <DockPanel x:Name="PropertiesPanel" Grid.Column="4" Background="{DynamicResource PanelBrush}">
+                    <TextBlock DockPanel.Dock="Top" Text="Properties" FontWeight="Bold" Margin="10,8,8,4" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <TextBlock x:Name="DrawnHint" Margin="8,6,8,6" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Visibility="Collapsed"
                        Text="A drawn object has no bones, just parts (layers): click one in the list above or in the viewport. + Part ▾ adds one; drag one up or down in the list (or ▲ Front / ▼ Back) to change their order. Double-click a part to paint it. To animate it with bones, Give it bones ▾ above." />
@@ -825,61 +907,9 @@
                                         </StackPanel>
                                     </Expander>
                                 </StackPanel>
-                            </ScrollViewer>
-                        </Grid>
-                    </Grid>
+                    </ScrollViewer>
                 </DockPanel>
-
-                <!-- ===== Viewport ===== -->
-                <Grid>
-                    <skia:SKElement x:Name="Viewport" Focusable="True" FocusVisualStyle="{x:Null}" PaintSurface="OnPaintSurface"
-                        MouseDown="Viewport_MouseDown" MouseMove="Viewport_MouseMove" MouseLeave="Viewport_MouseLeave"
-                        MouseUp="Viewport_MouseUp" MouseWheel="Viewport_MouseWheel" />
-                    <TextBlock x:Name="Status" Foreground="{DynamicResource TextBrush}" Margin="10"
-                   VerticalAlignment="Bottom" IsHitTestVisible="False" TextWrapping="Wrap" />
-                    <TextBlock x:Name="EventFlash" Foreground="{DynamicResource SuccessBrush}" FontSize="16" FontWeight="Bold" Margin="12"
-                   HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False" />
-                    <!-- Build or Animate: the frame round the viewport says which -->
-                    <Border x:Name="WorkspaceFrame" BorderThickness="3" IsHitTestVisible="False" />
-                    <StackPanel x:Name="WorkspaceBar" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,0">
-                        <Border Background="{DynamicResource PanelBrush}" CornerRadius="6" Padding="3" HorizontalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton x:Name="BuildChoice" GroupName="Workspace" Style="{StaticResource {x:Type ToggleButton}}"
-                                             Padding="14,4" Margin="0,0,2,0" FontWeight="SemiBold" Checked="Workspace_Checked"
-                                             ToolTip="Build the object: bones, parts, drawing, skins, hitboxes, all at rest. K switches.">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE90F;" Margin="0,1,7,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Build" />
-                                    </StackPanel>
-                                </RadioButton>
-                                <RadioButton x:Name="AnimateChoice" GroupName="Workspace" Style="{StaticResource {x:Type ToggleButton}}"
-                                             Padding="14,4" FontWeight="SemiBold" Checked="Workspace_Checked"
-                                             ToolTip="Animate it: the timeline, keys, poses. The rig itself can't change here. K switches.">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE768;" Margin="0,1,7,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Animate" />
-                                    </StackPanel>
-                                </RadioButton>
-                            </StackPanel>
-                        </Border>
-                        <Border x:Name="SkinEditBanner" Background="{DynamicResource SkinEditingBrush}" CornerRadius="4" Padding="8,2" Margin="0,6,0,0"
-                                HorizontalAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed">
-                            <TextBlock x:Name="SkinEditText" Foreground="{DynamicResource TextBrush}" />
-                        </Border>
-                    </StackPanel>
-                    <!-- The viewport's tools (inside an object), as in Blender -->
-                    <StackPanel x:Name="ViewToolBar" Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,24,0,0">
-                        <RadioButton x:Name="SelectToolButton" Tag="Select" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
-                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE8B3;" IsChecked="True" />
-                        <RadioButton x:Name="MoveToolButton" Tag="Move" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
-                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE7C2;" />
-                        <RadioButton x:Name="RotateToolButton" Tag="Rotate" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
-                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE7AD;" />
-                        <RadioButton x:Name="PaintToolButton" Tag="Paint" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
-                                     Width="30" Height="28" Checked="ViewTool_Checked" FontSize="14" FontFamily="{StaticResource IconFont}" Content="&#xE70F;" />
-                    </StackPanel>
-                </Grid>
-            </DockPanel>
+            </Grid>
 
             <GridSplitter x:Name="PaintSplitter" Grid.Row="0" Grid.Column="1" Width="5"
                       HorizontalAlignment="Stretch" ResizeBehavior="PreviousAndNext"
@@ -1049,8 +1079,22 @@
                             MouseLeave="PaintView_MouseLeave" />
         </DockPanel>
 
-            <DockPanel x:Name="TimelineArea" Grid.Row="1" Grid.ColumnSpan="3">
+            <GridSplitter x:Name="TimelineSplitter" Grid.Row="1" Grid.ColumnSpan="3" Height="5" HorizontalAlignment="Stretch"
+                          ResizeDirection="Rows" ToolTip="Drag to make the timeline taller or shorter" />
+            <DockPanel x:Name="TimelineArea" Grid.Row="2" Grid.ColumnSpan="3">
                 <WrapPanel DockPanel.Dock="Top" Background="{DynamicResource PanelBrush}">
+                    <!-- Playing: the first frame, a frame back, play / pause, a frame on -->
+                    <StackPanel x:Name="TransportBar" Orientation="Horizontal" Margin="6,4,6,4">
+                        <Button Tag="play.restart" Click="Transport_Click" Width="28" Padding="0,2" Margin="0,0,2,0" ToolTip="Back to the first frame"
+                                FontFamily="{StaticResource IconFont}" Content="&#xE892;" />
+                        <Button Tag="play.back" Click="Transport_Click" Width="28" Padding="0,2" Margin="0,0,2,0" ToolTip="A frame back"
+                                FontFamily="{StaticResource IconFont}" Content="&#xE76B;" />
+                        <Button x:Name="PlayButton" Tag="play.toggle" Click="Transport_Click" Width="34" Padding="0,2" Margin="0,0,2,0" ToolTip="Play / pause"
+                                FontFamily="{StaticResource IconFont}" Content="&#xE768;" />
+                        <Button Tag="play.on" Click="Transport_Click" Width="28" Padding="0,2" ToolTip="A frame on"
+                                FontFamily="{StaticResource IconFont}" Content="&#xE76C;" />
+                    </StackPanel>
+                    <Border Width="1" Margin="2,6" Background="{DynamicResource BorderBrush}" />
                     <!-- The open object's animations (disabled at scene level) -->
                     <StackPanel x:Name="AnimControls" Orientation="Horizontal">
                         <TextBlock Text="Animation" Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" Margin="8,4,6,4" />
@@ -1129,6 +1173,15 @@
                     MouseDown="Timeline_MouseDown" MouseMove="Timeline_MouseMove"
                     MouseUp="Timeline_MouseUp" MouseWheel="Timeline_MouseWheel" />
             </DockPanel>
+            <!-- The status bar: the mode, what's picked, the last edit -->
+            <Border Grid.Row="3" Grid.ColumnSpan="3" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+                <DockPanel Margin="8,3">
+                    <TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource TextMutedBrush}" Margin="12,0,0,0">
+                        <Hyperlink Click="HelpKeys_Click" Foreground="{DynamicResource AccentBrush}">Keyboard and mouse (F1)</Hyperlink>
+                    </TextBlock>
+                    <TextBlock x:Name="Status" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+            </Border>
         </Grid>
     </DockPanel>
 </Window>

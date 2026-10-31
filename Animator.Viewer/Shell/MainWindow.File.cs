@@ -28,6 +28,7 @@ public partial class MainWindow
 	private void Window_Closing(object? sender, CancelEventArgs e)
 	{
 		if (!ConfirmDiscard()) e.Cancel = true;   // Cancel = keep the window open
+		else RememberLayout();
 	}
 
 	// ---------- new / open ----------

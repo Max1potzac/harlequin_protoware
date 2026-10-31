@@ -13,7 +13,7 @@ public partial class MainWindow
 {
 	private bool? _shownAnimating;
 	private bool? _shownSceneLevel;
-	private GridLength _timelineHeight = new(214);
+	private GridLength _timelineHeight = new(230);
 	private bool _syncingWorkspace;
 
 	private static Brush BuildFrameBrush => Themes.Brush("BuildFrame");
@@ -39,6 +39,7 @@ public partial class MainWindow
 		bool scene = _sceneLevel, animate = _state.AnimateMode;
 		if (!scene && !animate && _state.Playing) _state.Playing = false;   // building: nothing plays
 		SyncSkinEditBanner();
+		SyncPlayButton();
 		if (_shownAnimating == animate && _shownSceneLevel == scene) return;
 		_shownAnimating = animate;
 		_shownSceneLevel = scene;
@@ -55,6 +56,7 @@ public partial class MainWindow
 		if (TimelineRow.Height.Value > 0) _timelineHeight = TimelineRow.Height;
 		TimelineRow.Height = timeline ? _timelineHeight : new GridLength(0);
 		TimelineArea.Visibility = timeline ? Visibility.Visible : Visibility.Collapsed;
+		SyncPanels(scene, timeline);
 
 		SyncRigMode();   // (what builds the rig shows only while building)
 		if (!scene) RefreshRigPanel();
