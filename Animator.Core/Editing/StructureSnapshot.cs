@@ -35,6 +35,7 @@ public sealed class StructureSnapshot
 	private readonly List<Skin> _skinList;
 	private readonly List<Skin> _shownSkins;
 	private readonly List<ColorLayer> _colorLayers;
+	private readonly MixPlan _mixes;
 	private readonly List<HitboxState> _hitboxes;
 	private readonly List<PointState> _points;   // which the object has (a skin deleted takes its own)
 	private readonly List<AttachmentState> _attachments;
@@ -63,6 +64,7 @@ public sealed class StructureSnapshot
 		_skinList = skeleton.Skins.ToList();
 		_shownSkins = skeleton.ShownSkins.ToList();
 		_colorLayers = skeleton.ColorLayers.ToList();
+		_mixes = skeleton.Mixes.Copy();
 		_hitboxes = skeleton.Hitboxes.Select(h => new HitboxState(h, h.Name, h.Bone, h.Shape, h.Offset, h.Rotation, h.Size, h.Kind, h.SetupActive)).ToList();
 		_points = skeleton.Points.Select(p => new PointState(p, p.Name, p.Bone, p.Offset, p.Rotation)).ToList();
 		_attachments = _skins.SelectMany(s => s.Map.Values).Distinct()
@@ -131,6 +133,7 @@ public sealed class StructureSnapshot
 		_skeleton.ShownSkins.UnionWith(_shownSkins);
 		_skeleton.ColorLayers.Clear();
 		_skeleton.ColorLayers.AddRange(_colorLayers);
+		_skeleton.Mixes.Take(_mixes);
 		_skeleton.Hitboxes.Clear();
 		foreach (var h in _hitboxes)
 		{

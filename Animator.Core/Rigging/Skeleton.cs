@@ -48,6 +48,9 @@ public class Skeleton
 	public Hitbox? FindHitbox(string name) => Hitboxes.Find(h => h.Name == name);
 	public RigPoint? FindPoint(string name) => Points.Find(p => p.Name == name);
 
+	// How long its animations take to fade into each other (the mixer; for the game)
+	public Editing.MixPlan Mixes { get; } = new();
+
 	// Poses kept by name, to put the rig that way again (the Poses view; see PoseOps)
 	public List<Editing.SavedPose> Poses { get; } = new();
     public Bone? FindBone(string name)
@@ -221,6 +224,7 @@ public class Skeleton
 		ColorLayers.AddRange(other.ColorLayers);
 		Poses.Clear();
 		Poses.AddRange(other.Poses);
+		Mixes.Take(other.Mixes);
 		Hitboxes.Clear();
 		Hitboxes.AddRange(other.Hitboxes);
 		Points.Clear();

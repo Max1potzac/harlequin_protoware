@@ -195,6 +195,7 @@ public partial class MainWindow
 					EditStructureAndScene(() =>
 					{
 						anim.Name = name;
+						_skeleton.Mixes.Rename(oldName, name);   // (its fades follow)
 						if (_active != null && _active.PreviewAnimation == oldName) _active.PreviewAnimation = name;
 						return $"Rename animation to {name}";
 					});

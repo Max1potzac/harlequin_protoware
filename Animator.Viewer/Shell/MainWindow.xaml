@@ -204,6 +204,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <TextBlock x:Name="ClipTitle" Grid.Row="0" Grid.ColumnSpan="3" Foreground="#9AA4B2"
@@ -230,6 +231,12 @@
                   VerticalAlignment="Center" Margin="6,0,0,4" Click="ClipLoop_Click"
                   ToolTip="On: a clip longer than its animation plays it again. Off: it holds the last frame." />
 
+                                <TextBlock Grid.Row="6" Text="Fade in" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,4" />
+                                <TextBox x:Name="ClipMixIn" Grid.Row="6" Grid.Column="1" Margin="0,0,2,4"
+                 Tag="CMixIn" KeyDown="ClipField_KeyDown" LostFocus="ClipField_LostFocus"
+                 ToolTip="Frames: the clip fades in from the clip before it (its animation going on) instead of cutting to it. 0 = a cut." />
+                                <Button Grid.Row="6" Grid.Column="2" Content="As mixed" Margin="2,0,0,4" Click="ClipMixFromPlan_Click"
+                 ToolTip="The fade the mixer has for these two animations (Mixer: from the clip before's animation to this one's)" />
                                 <UniformGrid Grid.Row="4" Grid.ColumnSpan="3" Columns="2" Margin="0,4,0,4">
                                     <Button Content="Edit in place ▸" Margin="0,0,3,0" Click="ClipEdit_Click"
                     ToolTip="Opens the object at this clip's animation and frame; the rest of the scene plays along (or double-click the clip)" />
@@ -1056,6 +1063,8 @@
                       ToolTip="On: posing in Animate mode sets keys. Off: it only changes the pose (an empty orange key shows where), until Key keys it; going to another frame drops what wasn't keyed." />
                         <Button x:Name="KeyPoseButton" Content="Key" Padding="6,1" Margin="0,4,12,4" Click="KeyPose_Click"
                     ToolTip="Keys the pose at the playhead: the changes not keyed yet (auto key off), or else the picked bones' and parts' whole pose" />
+                        <Button Content="Mixer…" Padding="6,1" Margin="0,4,12,4" Click="Mixer_Click"
+                    ToolTip="This object's animations together: on tracks over each other (walking legs, shooting arms), and fading from one into another, with the fade times kept for the game" />
                         <CheckBox x:Name="GraphBox" Content="Curves" Foreground="White" VerticalAlignment="Center"
                       Margin="0,4,12,4" Click="Graph_Click"
                       ToolTip="The graph editor: the keys' numbers as curves over time (the picked bones and parts, or the selected keys). Drag a key to move it, its square handles to ease the stretch from it (Bézier)." />

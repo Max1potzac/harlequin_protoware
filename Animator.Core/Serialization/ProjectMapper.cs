@@ -59,7 +59,7 @@ public static class ProjectMapper
 			Clips = o.LiveClips.Any()
 				? o.LiveClips.Select(c => new ClipDto
 				{
-					Animation = c.Animation.Name, Start = c.Start, Length = c.Length, Offset = c.Offset, Loop = c.Loop
+					Animation = c.Animation.Name, Start = c.Start, Length = c.Length, Offset = c.Offset, Loop = c.Loop, MixIn = c.MixIn > 0 ? c.MixIn : null
 				}).ToList()
 				: null
 		};
@@ -120,7 +120,7 @@ public static class ProjectMapper
 		// Clips name their animation; a clip whose animation isn't there is dropped
 		foreach (var c in o.Clips ?? new List<ClipDto>())
 			if (obj.FindAnimation(c.Animation) is { } animation && c.Length > 0)
-				obj.Clips.Add(new SceneClip(animation, Math.Max(0f, c.Start), c.Length) { Offset = Math.Max(0f, c.Offset), Loop = c.Loop });
+				obj.Clips.Add(new SceneClip(animation, Math.Max(0f, c.Start), c.Length) { Offset = Math.Max(0f, c.Offset), Loop = c.Loop, MixIn = Math.Max(0f, c.MixIn ?? 0f) });
 		obj.Clips.Sort((a, b) => a.Start.CompareTo(b.Start));
 		return obj;
 	}
@@ -251,6 +251,13 @@ public static class ProjectMapper
 				Mix = c.SetupMix
 			});
 		}
+
+		if (skeleton.Mixes.Pairs.Count > 0 || MathF.Abs(skeleton.Mixes.Default - 0.2f) > 1e-6f)
+			dto.Mixes = new MixDto
+			{
+				Default = skeleton.Mixes.Default,
+				Pairs = skeleton.Mixes.Pairs.Count > 0 ? skeleton.Mixes.Pairs.Select(p => new MixPairDto { From = p.From, To = p.To, Duration = p.Duration }).ToList() : null
+			};
 
 		if (skeleton.CopyConstraints.Count > 0)
 			dto.CopyConstraints = skeleton.CopyConstraints.Select(c => new CopyDto
@@ -631,6 +638,12 @@ public static class ProjectMapper
 				SetupMix = l.Mix,
 				Mix = l.Mix
 			});
+		}
+
+		if (dto.Mixes is { } mixes)
+		{
+			skeleton.Mixes.Default = mixes.Default;
+			foreach (var p in mixes.Pairs ?? new List<MixPairDto>()) skeleton.Mixes.Set(p.From, p.To, p.Duration);
 		}
 
 		foreach (var c in dto.CopyConstraints ?? new List<CopyDto>())

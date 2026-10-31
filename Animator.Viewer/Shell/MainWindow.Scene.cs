@@ -159,6 +159,7 @@ public partial class MainWindow
 		{
 			if (Editing && obj == _active)
 			{
+				if (PoseMix()) continue;   // the mixer playing
 				PoseAt(time);
 				if (_state.AnimateMode) _skeleton.StepPhysics(time);   // jiggles swing as time goes by
 				else _skeleton.ResetPhysics();

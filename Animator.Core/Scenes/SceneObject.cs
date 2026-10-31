@@ -52,6 +52,10 @@ public class SceneObject
 	// undo brings them back)
 	public IEnumerable<SceneClip> LiveClips => Clips.Where(c => Animations.Contains(c.Animation));
 
+	// The clip before this one on the timeline (the one it fades in from), or null
+	public SceneClip? ClipBefore(SceneClip clip) =>
+		LiveClips.Where(c => c != clip && c.Start < clip.Start).OrderBy(c => c.Start).LastOrDefault();
+
 	// The clip deciding the pose at a scene time: the one playing then; between clips, the last
 	// one that ended (on its last frame); before the first, the first one (on its first frame).
 	// Null when the object has no clips.

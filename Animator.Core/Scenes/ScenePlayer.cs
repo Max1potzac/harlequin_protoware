@@ -15,7 +15,14 @@ public static class ScenePlayer
 	public static void Pose(SceneObject obj, float sceneTime)
 	{
 		obj.Skeleton.SetToSetupPose();
-		if (obj.ClipAt(sceneTime) is { } clip) clip.Animation.Apply(obj.Skeleton, clip.AnimationTime(sceneTime));
+		if (obj.ClipAt(sceneTime) is { } clip)
+		{
+			// Fading in from the clip before (its animation goes on as it would)
+			float into = sceneTime - clip.Start;
+			if (clip.MixIn > 0f && clip.Covers(sceneTime) && into < clip.MixIn && obj.ClipBefore(clip) is { } before)
+				Mixing.Crossfade(obj.Skeleton, before.Animation, before.AnimationTime(sceneTime), clip.Animation, clip.AnimationTime(sceneTime), into / clip.MixIn);
+			else clip.Animation.Apply(obj.Skeleton, clip.AnimationTime(sceneTime));
+		}
 		else Preview(obj)?.Apply(obj.Skeleton, sceneTime);
 		obj.Skeleton.UpdatePose();
 		obj.Skeleton.StepPhysics(sceneTime);
