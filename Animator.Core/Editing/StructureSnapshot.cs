@@ -16,7 +16,7 @@ public sealed class StructureSnapshot
 
 	private sealed record AttachmentState(
 		Attachment Attachment, string Name, Guid AssetId,
-		Vector2 Offset, float Rotation, Vector2 Scale, Vector2 Pivot);
+		Vector2 Offset, float Rotation, Vector2 Scale, Vector2 Pivot, Mesh? Mesh);
 
 	private sealed record HitboxState(Hitbox Hitbox, string Name, Bone Bone, HitboxShape Shape, Vector2 Offset, float Rotation,
 		Vector2 Size, string Kind, bool Active);
@@ -64,7 +64,7 @@ public sealed class StructureSnapshot
 		_hitboxes = skeleton.Hitboxes.Select(h => new HitboxState(h, h.Name, h.Bone, h.Shape, h.Offset, h.Rotation, h.Size, h.Kind, h.SetupActive)).ToList();
 		_points = skeleton.Points.Select(p => new PointState(p, p.Name, p.Bone, p.Offset, p.Rotation)).ToList();
 		_attachments = _skins.SelectMany(s => s.Map.Values).Distinct()
-			.Select(a => new AttachmentState(a, a.Name, a.AssetId, a.Offset, a.Rotation, a.Scale, a.Pivot))
+			.Select(a => new AttachmentState(a, a.Name, a.AssetId, a.Offset, a.Rotation, a.Scale, a.Pivot, a.Mesh))
 			.ToList();
 		_assets = skeleton.Assets.ToList();
 		_assetNames = skeleton.Assets.Values.Select(a => (a, a.Name)).ToList();
@@ -149,6 +149,7 @@ public sealed class StructureSnapshot
 			a.Attachment.Rotation = a.Rotation;
 			a.Attachment.Scale = a.Scale;
 			a.Attachment.Pivot = a.Pivot;
+			a.Attachment.Mesh = a.Mesh;   // (meshes never change in place: the old one is as it was)
 		}
 
 		_skeleton.Assets.Clear();

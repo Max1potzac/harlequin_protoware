@@ -212,6 +212,7 @@ public partial class MainWindow
 		{
 			DrawInSpace(canvas, _camera.Space, () => _renderer.DrawOverlays(canvas, _skeleton));
 			DrawHitboxes(canvas);
+			DrawMeshOverlay(canvas);
 			return;
 		}
 

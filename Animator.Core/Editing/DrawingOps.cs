@@ -63,6 +63,7 @@ public static class DrawingOps
 			drawing.Rotation = template.Rotation;
 			drawing.Scale = template.Scale;
 			drawing.Pivot = template.Pivot;
+			if (template.Mesh is { } mesh && mesh.Width == asset.Width && mesh.Height == asset.Height) drawing.Mesh = mesh;   // (the same size: the same mesh)
 		}
 
 		var skin = into ?? (template == null ? skeleton.DefaultSkin

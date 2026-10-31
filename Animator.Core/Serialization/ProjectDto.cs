@@ -240,6 +240,26 @@ public class SkinEntryDto
 	public float Rotation { get; set; }
 	public Vec Scale { get; set; } = new(1, 1);
 	public Vec Pivot { get; set; } = new(0.5f, 0.5f);
+	public MeshDto? Mesh { get; set; }   // (format 14)
+}
+
+// A drawing's mesh: points (x, y pairs in its picture's pixels), triangles, and each point's
+// shares of bones with where the picture and those bones were when the shares were given
+public class MeshDto
+{
+	public int W { get; set; }
+	public int H { get; set; }
+	public float[] Points { get; set; } = Array.Empty<float>();
+	public int[] Triangles { get; set; } = Array.Empty<int>();
+	public List<List<WeightDto>>? Weights { get; set; }
+	public float[]? Bind { get; set; }                           // M11 M12 M21 M22 M31 M32
+	public Dictionary<string, float[]>? BoneBind { get; set; }
+}
+
+public class WeightDto
+{
+	public string Bone { get; set; } = "";
+	public float W { get; set; }
 }
 
 public class IkDto

@@ -316,6 +316,32 @@ public static class ProjectMapper
 
 	}
 
+	private static float[] MatrixToDto(Matrix3x2 m) => new[] { m.M11, m.M12, m.M21, m.M22, m.M31, m.M32 };
+	private static Matrix3x2 MatrixFromDto(float[]? v) => v is { Length: 6 } ? new Matrix3x2(v[0], v[1], v[2], v[3], v[4], v[5]) : Matrix3x2.Identity;
+
+	private static MeshDto MeshToDto(Mesh mesh) => new()
+	{
+		W = mesh.Width,
+		H = mesh.Height,
+		Points = mesh.Points.SelectMany(p => new[] { p.X, p.Y }).ToArray(),
+		Triangles = mesh.Triangles.ToArray(),
+		Weights = mesh.Weights?.Select(w => w.Select(s => new WeightDto { Bone = s.Bone.Name, W = s.Weight }).ToList()).ToList(),
+		Bind = mesh.Weighted ? MatrixToDto(mesh.Bind) : null,
+		BoneBind = mesh.Weighted ? mesh.BoneBind.ToDictionary(p => p.Key.Name, p => MatrixToDto(p.Value)) : null
+	};
+
+	// Bones a mesh named that aren't there: their shares are left out
+	private static Mesh MeshFromDto(MeshDto dto, IReadOnlyDictionary<string, Bone> bones)
+	{
+		var points = Enumerable.Range(0, dto.Points.Length / 2).Select(i => new Vector2(dto.Points[2 * i], dto.Points[2 * i + 1])).ToArray();
+		var mesh = new Mesh(dto.W, dto.H, points, dto.Triangles);
+		if (dto.Weights is not { } weights || weights.Count != points.Length) return mesh;
+		var shares = weights.Select(w => w.Where(s => bones.ContainsKey(s.Bone)).Select(s => new BoneWeight(bones[s.Bone], s.W)).ToArray()).ToArray();
+		if (shares.Any(s => s.Length == 0)) return mesh;
+		var boneBind = (dto.BoneBind ?? new()).Where(p => bones.ContainsKey(p.Key)).ToDictionary(p => bones[p.Key], p => MatrixFromDto(p.Value));
+		return mesh.WithWeights(shares, MatrixFromDto(dto.Bind), boneBind);
+	}
+
 	private static SkinDto SkinToDto(Skin skin) => new()
 	{
 		Name = skin.Name,
@@ -330,7 +356,8 @@ public static class ProjectMapper
 			Offset = Vec.From(e.Attachment.Offset),
 			Rotation = e.Attachment.Rotation,
 			Scale = Vec.From(e.Attachment.Scale),
-			Pivot = Vec.From(e.Attachment.Pivot)
+			Pivot = Vec.From(e.Attachment.Pivot),
+			Mesh = e.Attachment.Mesh is { } mesh ? MeshToDto(mesh) : null
 		}).ToList()
 	};
 
@@ -432,6 +459,16 @@ public static class ProjectMapper
 			Target = la.Target,
 			Caption = la.Caption.Length > 0 ? la.Caption : null,
 			Keys = la.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), V = k.Value.ToArray() }).ToList()
+		},
+		DeformTimeline df => new TimelineDto
+		{
+			Type = "deform",
+			Target = df.Target,
+			Keys = df.Track.Keys.Select(k => new KeyDto
+			{
+				T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), Name = k.Value.Drawing,
+				V = k.Value.Offsets.SelectMany(o => new[] { o.X, o.Y }).ToArray()
+			}).ToList()
 		},
 		HitboxTimeline hb => new TimelineDto
 		{
@@ -545,7 +582,8 @@ public static class ProjectMapper
 					Offset = e.Offset.ToVector2(),
 					Rotation = e.Rotation,
 					Scale = e.Scale.ToVector2(),
-					Pivot = e.Pivot.ToVector2()
+					Pivot = e.Pivot.ToVector2(),
+					Mesh = e.Mesh is { } mesh ? MeshFromDto(mesh, bones) : null
 				});
 			}
 			if (skin != skeleton.DefaultSkin && (dto.ShownSkins?.Contains(skinDto.Name) ?? skinDto.Name == dto.ActiveSkin))
@@ -663,6 +701,17 @@ public static class ProjectMapper
 				{
 					var tl = new IkMixTimeline(t.Target);
 					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 1f, k.Curve, Bezier.FromArray(k.B));
+					return tl;
+				}
+			case "deform":
+				{
+					var tl = new DeformTimeline(t.Target);
+					foreach (var k in t.Keys)
+					{
+						var v = k.V ?? Array.Empty<float>();
+						var offsets = Enumerable.Range(0, v.Length / 2).Select(i => new Vector2(v[2 * i], v[2 * i + 1])).ToArray();
+						tl.Track.Add(k.T, new DeformKey(k.Name ?? "", offsets), k.Curve, Bezier.FromArray(k.B));
+					}
 					return tl;
 				}
 			case "hitbox":

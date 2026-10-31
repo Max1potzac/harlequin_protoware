@@ -302,6 +302,21 @@ public class EventTimeline : TrackTimeline<AnimationEvent>
 	public IEnumerable<AnimationEvent> Between(float from, float to) =>
 		Track.Keys.Where(k => k.Time > from && k.Time <= to).Select(k => k.Value);
 }
+// Deform keys: a part's mesh points pushed about over time (a face squashed, a cape fluttering),
+// on top of what its bones do. Each key is for one drawing; it applies while that one shows.
+public class DeformTimeline : TrackTimeline<DeformKey>
+{
+	public DeformTimeline(string slot) : base(slot, DeformKey.Lerp) { }
+
+	public override string Label => $"{Target} (mesh)";
+
+	public override void Apply(Skeleton skeleton, float time)
+	{
+		var slot = skeleton.FindSlot(Target);
+		if (slot != null && Track.TrySample(time, out var key)) slot.Deform = key;   // (used while that drawing shows)
+	}
+}
+
 // Hitbox keys: a hitbox on or off from each key on, held until the next key (an attack's hitbox
 // only on the frames that strike). Before the first key, as it is at rest.
 public class HitboxTimeline : TrackTimeline<bool>

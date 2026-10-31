@@ -37,6 +37,14 @@ public class Slot
 	public BlendMode Blend { get; set; } = BlendMode.Normal;
 	public Vector3 SetupColor { get; set; } = Vector3.One;   // multiplies red, green, blue (0..1 each)
 	public float SetupOpacity { get; set; } = 1f;
+	// Deform keys: how far each point of a drawing's mesh is pushed now, in its picture's pixels
+	// (null: none); only while the drawing it names shows. Animated, back to none every frame.
+	public DeformKey? Deform { get; set; }
+
+	// The pushes for this drawing now (null: none for it)
+	public Vector2[]? DeformOf(Attachment drawing) =>
+		Deform is { } d && d.Drawing == drawing.Name && drawing.Mesh is { } mesh && d.Offsets.Length == mesh.Points.Length ? d.Offsets : null;
+
 	public Vector3 Color { get; set; } = Vector3.One;        // animated, back to the rest values every frame
 	public float Opacity { get; set; } = 1f;
 
@@ -44,6 +52,7 @@ public class Slot
 	public void ResetToSetup()
 	{
 		ActiveAttachment = SetupAttachment;
+		Deform = null;
 		ResetPlacement();
 		Color = SetupColor;
 		Opacity = SetupOpacity;
