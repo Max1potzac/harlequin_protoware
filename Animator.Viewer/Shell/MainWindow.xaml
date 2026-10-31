@@ -70,7 +70,7 @@
         <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
-            <RowDefinition Height="214" />
+            <RowDefinition x:Name="TimelineRow" Height="214" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
@@ -267,7 +267,7 @@
                                 <Button x:Name="GiveBonesButton" Content="Give it bones ▾" Click="GiveBones_Click" Visibility="Collapsed"
                         ToolTip="Makes this drawn object a rigged one: a root bone you draw the rest from (Ctrl+drag), or bones suggested from its parts' shapes. The parts stay where they are." />
                             </Grid>
-                            <UniformGrid Grid.Row="2" Columns="4" Margin="6,0,6,6">
+                            <UniformGrid x:Name="RigBuildButtons" Grid.Row="2" Columns="4" Margin="6,0,6,6">
                                 <Button x:Name="AddBoneButton" Content="+ Bone" Margin="0,0,2,0" Click="AddBone_Click"
                             ToolTip="Adds a child of the selected bone (or a root bone). Tip: Ctrl+drag in the viewport draws one." />
                                 <Button Content="+ Part ▾" Margin="2,0,2,0" Click="AddPart_Click"
@@ -738,6 +738,24 @@
                    VerticalAlignment="Bottom" IsHitTestVisible="False" TextWrapping="Wrap" />
                     <TextBlock x:Name="EventFlash" Foreground="#8CE6A0" FontSize="16" FontWeight="Bold" Margin="12"
                    HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False" />
+                    <!-- Build or Animate: the frame round the viewport says which -->
+                    <Border x:Name="WorkspaceFrame" BorderThickness="3" IsHitTestVisible="False" />
+                    <StackPanel x:Name="WorkspaceBar" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,10,0,0">
+                        <Border Background="#E624272E" CornerRadius="6" Padding="3" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="BuildChoice" GroupName="Workspace" Style="{StaticResource {x:Type ToggleButton}}"
+                                             Padding="14,4" Margin="0,0,2,0" FontWeight="SemiBold" Content="🔧 Build" Checked="Workspace_Checked"
+                                             ToolTip="Build the object: bones, parts, drawing, skins, hitboxes, all at rest (Setup mode). K switches." />
+                                <RadioButton x:Name="AnimateChoice" GroupName="Workspace" Style="{StaticResource {x:Type ToggleButton}}"
+                                             Padding="14,4" FontWeight="SemiBold" Content="▶ Animate" Checked="Workspace_Checked"
+                                             ToolTip="Animate it: the timeline, keys, poses (Animate mode). The rig itself can't change here. K switches." />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="SkinEditBanner" Background="#E6C87A2A" CornerRadius="4" Padding="8,2" Margin="0,6,0,0"
+                                HorizontalAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed">
+                            <TextBlock x:Name="SkinEditText" Foreground="White" />
+                        </Border>
+                    </StackPanel>
                     <!-- The viewport's tools (inside an object), as in Blender -->
                     <StackPanel x:Name="ViewToolBar" Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,24,0,0">
                         <RadioButton x:Name="SelectToolButton" Tag="Select" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
@@ -920,7 +938,7 @@
                             MouseLeave="PaintView_MouseLeave" />
         </DockPanel>
 
-            <DockPanel Grid.Row="1" Grid.ColumnSpan="3">
+            <DockPanel x:Name="TimelineArea" Grid.Row="1" Grid.ColumnSpan="3">
                 <WrapPanel DockPanel.Dock="Top" Background="#24272E">
                     <!-- The open object's animations (disabled at scene level) -->
                     <StackPanel x:Name="AnimControls" Orientation="Horizontal">

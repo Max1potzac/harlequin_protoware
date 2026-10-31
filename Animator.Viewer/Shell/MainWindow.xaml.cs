@@ -91,6 +91,7 @@ public partial class MainWindow : Window
 		SyncLayerOrder();
 		SyncColourPanels();
 		SyncViewToolBar();
+		SyncWorkspace();
 		SyncScenePanel();
 		if (PaintPanel.Visibility == Visibility.Visible)
 		{
@@ -461,7 +462,7 @@ public partial class MainWindow : Window
 		string picked = count > 1 ? $"{shown} + {count - 1} more" : shown;
 
 		Status.Text =
-			$"{(!_state.AnimateMode ? "SETUP: drags edit the rest pose" : _state.AutoKey ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : $"● ANIMATE, auto key off: drags pose without keys ({K("anim.key")} keys the pose, another frame drops it)")}  ({K("anim.mode")} to switch, {K("anim.autoKey")}: auto key)    " +
+			$"{(!_state.AnimateMode ? "🔧 BUILD: drags edit the rest pose" : _state.AutoKey ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : $"● ANIMATE, auto key off: drags pose without keys ({K("anim.key")} keys the pose, another frame drops it)")}  ({K("anim.mode")} to switch, {K("anim.autoKey")}: auto key)    " +
 			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 			$"Tool: {_tool?.Tool.ToString() ?? "Select"} ({K("tool.select")} select, {K("tool.move")} move, {K("tool.rotate")} rotate, {K("tool.paint")} paint: the buttons at the viewport's left).   " +
 			$"Viewport: {pick}-click = pick (Ctrl: toggle, Shift: add), {pick}-drag = pick in a box (Shift: add, Ctrl: let go), double-click a part = paint it.   " +

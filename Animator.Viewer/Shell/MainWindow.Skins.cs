@@ -20,6 +20,7 @@ public partial class MainWindow
 
 	private static readonly Brush SkinRowBrush = new SolidColorBrush(Color.FromRgb(0x24, 0x27, 0x2E));
 	private static readonly Brush SkinPickedBrush = new SolidColorBrush(Color.FromRgb(0x2F, 0x4A, 0x6E));
+	private static readonly Brush SkinEditingBrush = new SolidColorBrush(Color.FromRgb(0xC8, 0x7A, 0x2A));
 	private static readonly Brush SkinHeaderBrush = new SolidColorBrush(Color.FromRgb(0x9A, 0xA4, 0xB2));
 
 	private void EditSkins(string name, Func<bool> change)
@@ -70,7 +71,7 @@ public partial class MainWindow
 		Add($"All the colour layers, as one skin ({_skeleton.ColorLayers.Count})", _skeleton.ColorLayers.Count > 1,
 			"Every colour layer of the object, applying only while the skin is on", () => MakeSkinFromColours(_skeleton.ColorLayers.ToList()));
 		menu.Items.Add(new Separator());
-		Add("An empty skin", true, "Add parts to it later: pick them, then Add the picked", () => MakeEmptySkin());
+		Add("A new skin, to edit", true, "A skin edited from the start: paint a part, place it, give it new drawings or add parts, and that goes into the skin (the object's own, skin 0, stays as it was). Picked parts can be added too.", () => MakeEmptySkin());
 		menu.IsOpen = true;
 	}
 
@@ -129,6 +130,8 @@ public partial class MainWindow
 		BuildSkinsPanel();
 	}
 
+	// A new skin, being edited from the start: paint or place a part and that part's new look is
+	// the skin's, the object's own (skin 0) staying as it was
 	private void MakeEmptySkin()
 	{
 		Skin? made = null;
@@ -137,7 +140,70 @@ public partial class MainWindow
 			made = SkinOps.MakeSkin(_skeleton, "Skin");
 			return true;
 		});
-		SelectSkin(made, "Pick parts, then Add the picked: their drawings go into it.");
+		_state.EditSkin = made;
+		SelectSkin(made, $"Editing {made?.Name}: paint a part, move it, give it new drawings or add parts, and that goes into {made?.Name}. ✎ on Skin 0 to edit the object itself again.");
+	}
+
+	private void EditSkin(Skin? skin)
+	{
+		_state.EditSkin = skin;
+		if (skin != null && !_skeleton.ShownSkins.Contains(skin)) ShowSkin(skin, true);
+		_skin = skin ?? _skin;
+		BuildSkinsPanel();
+		SkinHint.Text = skin == null
+			? "Editing the object itself (skin 0): changes to parts change its own drawings."
+			: $"Editing {skin.Name}: changes to parts (painting, placing, new drawings, new parts) go into it; skin 0 stays as it was.";
+	}
+
+	// The ✎ button on a row: edit this skin (or skin 0)
+	private Button EditButton(Skin? skin)
+	{
+		bool editing = _state.EditSkin == skin;
+		var button = new Button
+		{
+			Content = "✎",
+			Padding = new Thickness(4, 0, 4, 0),
+			Margin = new Thickness(4, 0, 0, 0),
+			FontWeight = editing ? FontWeights.Bold : FontWeights.Normal,
+			Background = editing ? SkinEditingBrush : null,
+			ToolTip = editing ? "Being edited" : skin == null ? "Edit the object itself (skin 0)" : $"Edit {skin.Name}: changes to parts go into it"
+		};
+		button.Click += (_, e) => { EditSkin(skin); e.Handled = true; };
+		return button;
+	}
+
+	// Painting a part while editing a skin: the skin's own copy, with pixels of its own (made now,
+	// undoably). The pixels to open.
+	private Asset PixelsToPaint(Slot slot, Asset asset)
+	{
+		if (_state.EditSkin is not { } skin || _skeleton.ResolveAttachment(slot) is not { } shown || shown.AssetId != asset.Id) return asset;
+		if (skin.Get(slot.Name, shown.Name) == shown && !SkinOps.SharesPixels(_skeleton, shown)) return asset;
+		var result = asset;
+		_state.EditStructure(() =>
+		{
+			if (SkinOps.Own(_skeleton, skin, slot, shown.Name) is not { } own) return null;
+			if (SkinOps.SharesPixels(_skeleton, own))
+			{
+				result = CopyOfPixels(asset);
+				own.AssetId = result.Id;
+			}
+			return $"Paint {slot.Name} in the skin {skin.Name}";
+		});
+		return result;
+	}
+
+	private Asset CopyOfPixels(Asset source)
+	{
+		var copy = new Asset { Name = source.Name, Width = source.Width, Height = source.Height };
+		foreach (var layer in source.Layers)
+		{
+			var added = _assets.AddLayer(copy, layer.Name, _assets.GetLayer(layer));
+			added.Visible = layer.Visible;
+			added.Opacity = layer.Opacity;
+			added.Adjust = layer.Adjust?.Clone();
+		}
+		_skeleton.Assets[copy.Id] = copy;
+		return copy;
 	}
 
 	private string? AskCategory(string suggestion)
@@ -352,6 +418,9 @@ public partial class MainWindow
 		var row = new DockPanel();
 		DockPanel.SetDock(tick, Dock.Left);
 		row.Children.Add(tick);
+		var edit = EditButton(skin);
+		DockPanel.SetDock(edit, Dock.Right);
+		row.Children.Add(edit);
 		row.Children.Add(label);
 		var border = new Border
 		{
@@ -359,6 +428,8 @@ public partial class MainWindow
 			Padding = new Thickness(4, 2, 4, 2),
 			Margin = new Thickness(0, 0, 0, 1),
 			Background = skin == _skin ? SkinPickedBrush : SkinRowBrush,
+			BorderBrush = _state.EditSkin == skin ? SkinEditingBrush : null,
+			BorderThickness = new Thickness(_state.EditSkin == skin ? 1 : 0),
 			Tag = skin
 		};
 		border.MouseLeftButtonDown += (_, e) =>
@@ -370,12 +441,37 @@ public partial class MainWindow
 		return border;
 	}
 
+	// Skin 0: the object's own drawings, how it looks by default (always there, always on)
+	private FrameworkElement DefaultSkinRow()
+	{
+		var label = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Foreground = AdjustEditor.LabelBrush, Margin = new Thickness(22, 0, 0, 0) };
+		label.Inlines.Add(new System.Windows.Documents.Run("Skin 0 · Default"));
+		label.Inlines.Add(new System.Windows.Documents.Run("   the object's own drawings") { Foreground = SkinHeaderBrush });
+		var row = new DockPanel();
+		var edit = EditButton(null);
+		DockPanel.SetDock(edit, Dock.Right);
+		row.Children.Add(edit);
+		row.Children.Add(label);
+		bool editing = _state.EditSkin == null;
+		return new Border
+		{
+			Child = row,
+			Padding = new Thickness(4, 2, 4, 2),
+			Margin = new Thickness(0, 0, 0, 1),
+			Background = SkinRowBrush,
+			BorderBrush = editing ? SkinEditingBrush : null,
+			BorderThickness = new Thickness(editing ? 1 : 0),
+			ToolTip = "How the object looks by default: what shows where no skin that's on has a drawing of its own"
+		};
+	}
+
 	private void BuildSkinsPanel()
 	{
 		if (!_skinsView) return;
 		if (_skin != null && !_skeleton.Skins.Contains(_skin)) _skin = null;
 		_syncingSkins = true;
 		SkinList.Children.Clear();
+		SkinList.Children.Add(DefaultSkinRow());
 		foreach (var (title, category, skins) in SkinGroups())
 		{
 			var header = new TextBlock { Text = title, Foreground = SkinHeaderBrush, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 6, 0, 2) };

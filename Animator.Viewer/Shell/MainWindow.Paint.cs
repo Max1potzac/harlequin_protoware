@@ -78,14 +78,14 @@ public partial class MainWindow
 		{
 			_state.Selected = hit.Slot.Bone;
 			_state.SelectedSlot = hit.Slot;
-			OpenPaintEditor(hit.Asset, hit.Slot);
+			OpenPaintEditor(PixelsToPaint(hit.Slot, hit.Asset), hit.Slot);
 			return true;
 		}
 
 		// A blank (or see-through) part has no pixels to hit: inside the selected part's box will do
 		if (_state.SelectedSlot is { } slot && PartData(slot).Asset is { } asset && _tool.InsidePart(slot, world))
 		{
-			OpenPaintEditor(asset, slot);
+			OpenPaintEditor(PixelsToPaint(slot, asset), slot);
 			return true;
 		}
 		return false;
