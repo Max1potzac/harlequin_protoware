@@ -99,7 +99,7 @@ public class ColourLayerTests
 			target.Erase(SKColors.Transparent);
 			using (var canvas = new SKCanvas(target))
 			using (var paint = new SKPaint { ColorFilter = filter })
-				canvas.DrawBitmap(source, 0, 0, paint);
+				canvas.DrawBitmap(source, 0, 0, AssetStore.Nearest, paint);
 			AssertNear(ColorFilters.Apply(Rgb(colour), adjust, 1), Rgb(target.GetPixel(0, 0)), 3 / 255f);
 		}
 	}
