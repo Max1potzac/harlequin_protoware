@@ -197,6 +197,7 @@ public class SkinTests
 
 		var dto = ProjectMapper.ToDto(skeleton, Array.Empty<Animation>(), Fps);
 		var (loaded, _) = ProjectMapper.FromDto(JsonSerializer.Deserialize<ProjectDto>(JsonSerializer.Serialize(dto, ProjectMapper.Json), ProjectMapper.Json)!);
+		loaded.SetToSetupPose();
 		Assert.Equal(new[] { "bucket", "bucket_dented", "Bandage", "Wrecked" }, loaded.Skins.Select(s => s.Name));
 		Assert.Equal(new[] { "Bucket", "Bucket", "", "Bucket" }, loaded.Skins.Select(s => s.Category));
 		Assert.Equal(new[] { false, false, true, false }, loaded.Skins.Select(s => s.Overlay));
