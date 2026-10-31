@@ -103,7 +103,7 @@ public static class PoseOps
 			var head = new Vector2(-from.Head.X, from.Head.Y);
 			float angle = MathF.PI - from.Angle;
 			bone.Position = bone.WorldToParentLocal(head);
-			bone.Rotation = angle - ParentAngle(bone);
+			bone.Rotation += MathUtil.ShortestAngle(angle - ParentAngle(bone) - bone.Rotation);   // (the nearest way round: keys blend smoothly)
 			bone.Scale = from.Scale;
 			bone.Turn = -from.Turn;
 			bone.Tilt = from.Tilt;
@@ -134,8 +134,18 @@ public static class PoseOps
 		var mirrored = Capture(skeleton, "", bones, Enumerable.Empty<Slot>());
 		foreach (var name in pose.Parts.Keys)
 			if (skeleton.FindSlot(MirrorNames.Other(name) ?? name) is { } target) mirrored.Parts[target.Name] = (target.Offset, target.Rotation, target.Scale);
-		Apply(skeleton, asItWas);
+		Restore(skeleton, asItWas);
 		Apply(skeleton, mirrored, amount);
+	}
+
+	// Exactly as captured (not blended: angles come back as they were, not just pointing the same way)
+	private static void Restore(Skeleton skeleton, SavedPose pose)
+	{
+		foreach (var (name, p) in pose.Bones)
+			if (skeleton.FindBone(name) is { } b) (b.Position, b.Rotation, b.Scale, b.Turn, b.Tilt) = p;
+		foreach (var (name, p) in pose.Parts)
+			if (skeleton.FindSlot(name) is { } s) (s.Offset, s.Rotation, s.Scale) = p;
+		skeleton.UpdateWorld();
 	}
 
 	// The angle a bone's own turn is counted from: its parent's (when it follows it)
