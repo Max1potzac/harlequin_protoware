@@ -39,9 +39,10 @@ public partial class MainWindow
 	private void RigView_Changed(object sender, RoutedEventArgs e)
 	{
 		// (not while the window is still being built: the switch is set once the panel fills in)
-		if (_syncingRig || !IsLoaded || BonesViewChoice == null || LayersViewChoice == null || ColourViewChoice == null) return;
+		if (_syncingRig || !IsLoaded || BonesViewChoice == null || LayersViewChoice == null || ColourViewChoice == null || PosesViewChoice == null) return;
 		_colourView = ColourViewChoice.IsChecked == true;
-		if (!_colourView) _layersView = LayersViewChoice.IsChecked == true;
+		_posesView = PosesViewChoice.IsChecked == true;
+		if (!_colourView && !_posesView) _layersView = LayersViewChoice.IsChecked == true;
 		RefreshRigPanel();
 	}
 
@@ -77,12 +78,15 @@ public partial class MainWindow
 	{
 		// A drawn object has no bones: its parts, or its colour layers
 		BonesViewChoice.Visibility = IsDrawn ? Visibility.Collapsed : Visibility.Visible;
-		RigViewSwitch.Columns = IsDrawn ? 2 : 3;
-		BonesViewChoice.IsChecked = !_colourView && !ShowingLayers;
-		LayersViewChoice.IsChecked = !_colourView && ShowingLayers;
+		RigViewSwitch.Columns = IsDrawn ? 3 : 4;
+		bool other = _colourView || _posesView;
+		BonesViewChoice.IsChecked = !other && !ShowingLayers;
+		LayersViewChoice.IsChecked = !other && ShowingLayers;
 		ColourViewChoice.IsChecked = _colourView;
-		BoneTree.Visibility = _colourView ? Visibility.Collapsed : Visibility.Visible;
+		PosesViewChoice.IsChecked = _posesView;
+		BoneTree.Visibility = other ? Visibility.Collapsed : Visibility.Visible;
 		ColourPanel.Visibility = _colourView ? Visibility.Visible : Visibility.Collapsed;
+		PosesPanel.Visibility = _posesView ? Visibility.Visible : Visibility.Collapsed;
 		LayersHint.Text = LayersHintText();
 		LayersHint.Visibility = LayersHint.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 	}

@@ -89,6 +89,10 @@ public partial class MainWindow
 		KeyPoseButton.Content = WithKey("Key", "anim.key");
 		AutoKeyBox.Content = WithKey("Auto key", "anim.autoKey");
 		GraphBox.Content = WithKey("Curves", "anim.graph");
+		MirrorPoseButton.ToolTip = WithKey("Left and right swapped: the picked bones and parts (or everything) take their other side's pose, flipped. Animate mode: keys here; Setup: the rest pose", "pose.mirror");
+		CopyPoseButton.ToolTip = WithKey("The pose of the picked bones and parts (or everything), to paste at another frame or in another animation", "pose.copy");
+		PastePoseButton.ToolTip = WithKey("The copied pose, here", "pose.paste");
+		PasteMirroredButton.ToolTip = WithKey("The copied pose on the other side, flipped (a left step pasted as a right one)", "pose.pasteMirrored");
 		string pick = ButtonName(_tool.SelectButton).ToLowerInvariant();
 		SelectToolButton.ToolTip = WithKey($"Select: {pick}-click picks, a {pick}-drag draws a box over several (the {ButtonName(_tool.TransformButton).ToLowerInvariant()} button still moves things)", "tool.select");
 		MoveToolButton.ToolTip = WithKey($"Move: {pick}-drag a bone (its joint or its body) or a part to move it, and everything picked with it; on empty space, a box", "tool.move");
@@ -246,6 +250,10 @@ public partial class MainWindow
 			case "anim.key": KeyThePose(); return true;
 			case "anim.autoKey": SetAutoKey(!_state.AutoKey); return true;
 			case "anim.graph": SetGraphMode(!_graphMode); return true;
+			case "pose.mirror": MirrorThePose(); return true;
+			case "pose.copy": CopyThePose(); return true;
+			case "pose.paste": PasteThePose(mirrored: false); return true;
+			case "pose.pasteMirrored": PasteThePose(mirrored: true); return true;
 			case "tool.select": SetViewTool(ViewTool.Select); return true;
 			case "tool.move": SetViewTool(ViewTool.Move); return true;
 			case "tool.rotate": SetViewTool(ViewTool.Rotate); return true;

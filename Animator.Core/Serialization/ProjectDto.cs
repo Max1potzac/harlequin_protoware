@@ -77,6 +77,7 @@ public class RigDto
 	public List<LookDto> LookConstraints { get; set; } = new();
 	public List<SetDto>? Sets { get; set; }   // selection sets (null = none)
 	public List<ColorLayerDto>? ColorLayers { get; set; }   // colour layers on the whole object (format 9)
+	public List<PoseDto>? Poses { get; set; }               // poses kept by name (format 10)
 	public List<AnimationDto> Animations { get; set; } = new();
 }
 
@@ -152,6 +153,32 @@ public class AdjustDto
 	public bool? Colorize { get; set; }
 	public bool? KeepLight { get; set; }
 	public float[]? Values { get; set; }
+}
+
+// A pose kept by name: each bone's place, angle, scale and depth, each part's placement
+public class PoseDto
+{
+	public string Name { get; set; } = "";
+	public List<PoseBoneDto> Bones { get; set; } = new();
+	public List<PosePartDto>? Parts { get; set; }
+}
+
+public class PoseBoneDto
+{
+	public string Name { get; set; } = "";
+	public Vec Position { get; set; } = new(0, 0);
+	public float Rotation { get; set; }
+	public Vec Scale { get; set; } = new(1, 1);
+	public float? Turn { get; set; }
+	public float? Tilt { get; set; }
+}
+
+public class PosePartDto
+{
+	public string Name { get; set; } = "";
+	public Vec Offset { get; set; } = new(0, 0);
+	public float Rotation { get; set; }
+	public Vec Scale { get; set; } = new(1, 1);
 }
 
 public class ColorLayerDto

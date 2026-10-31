@@ -264,6 +264,21 @@ public static class ProjectMapper
 			}).ToList();
 		}
 
+		if (skeleton.Poses.Count > 0)
+			dto.Poses = skeleton.Poses.Select(p => new PoseDto
+			{
+				Name = p.Name,
+				Bones = p.Bones.Select(b => new PoseBoneDto
+				{
+					Name = b.Key, Position = Vec.From(b.Value.Position), Rotation = b.Value.Rotation, Scale = Vec.From(b.Value.Scale),
+					Turn = b.Value.Turn == 0 ? null : b.Value.Turn, Tilt = b.Value.Tilt == 0 ? null : b.Value.Tilt
+				}).ToList(),
+				Parts = p.Parts.Count == 0 ? null : p.Parts.Select(s => new PosePartDto
+				{
+					Name = s.Key, Offset = Vec.From(s.Value.Offset), Rotation = s.Value.Rotation, Scale = Vec.From(s.Value.Scale)
+				}).ToList()
+			}).ToList();
+
 		if (skeleton.Sets.Count > 0)
 		{
 			var bones = skeleton.AllBones().ToHashSet();
@@ -545,6 +560,16 @@ public static class ProjectMapper
 			foreach (var name in c.LeaveOut ?? new List<string>())
 				if (skeleton.FindSlot(name) is { } slot) layer.LeftOut.Add(slot);
 			skeleton.ColorLayers.Add(layer);
+		}
+
+		foreach (var p in dto.Poses ?? new List<PoseDto>())
+		{
+			var pose = new SavedPose { Name = p.Name };
+			foreach (var b in p.Bones)
+				pose.Bones[b.Name] = (b.Position.ToVector2(), b.Rotation, b.Scale.ToVector2(), b.Turn ?? 0f, b.Tilt ?? 0f);
+			foreach (var s in p.Parts ?? new List<PosePartDto>())
+				pose.Parts[s.Name] = (s.Offset.ToVector2(), s.Rotation, s.Scale.ToVector2());
+			skeleton.Poses.Add(pose);
 		}
 
 		// Selection sets: members that aren't there (any more) are left out
