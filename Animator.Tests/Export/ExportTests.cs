@@ -206,6 +206,56 @@ public class ExportTests
 		}
 	}
 
+	// Step 26: the engine export: the rig as data, its pictures trimmed and packed in an atlas
+	[Fact]
+	public void The_engine_export_writes_the_rig_and_an_atlas_of_its_pictures()
+	{
+		var (scene, obj, store) = RedSquare();
+		// A second picture with see-through edges: a 2 × 2 blue dot in the middle of 10 × 8
+		var dot = new Asset { Name = "dot", Width = 10, Height = 8 };
+		using (var pixels = new SKBitmap(AssetStore.InfoFor(10, 8)))
+		{
+			pixels.Erase(SKColors.Transparent);
+			for (int y = 3; y < 5; y++)
+				for (int x = 4; x < 6; x++) pixels.SetPixel(x, y, SKColors.Blue);
+			store.AddLayer(dot, "Base", pixels);
+		}
+		var part = PartOps.CreatePart(obj.Skeleton, obj.Skeleton.Roots[0], dot, "dot", new Vector2(20, 0), 0f);
+		obj.Animations[0].GetOrCreate(part.Name, n => new RotateTimeline(n));   // (a timeline: it goes with the rig)
+		scene.Sounds["boom"] = Path.Combine(Path.GetTempPath(), "boom.wav");
+		string folder = TempFolder();
+		try
+		{
+			new Exporter(scene, store, fps: 24, new ExportSettings
+			{
+				Scene = false, Object = obj, Animations = { obj.Animations[0] }, Format = ExportFormat.Engine,
+				Path = Path.Combine(folder, "hero.hqrig.json"), AtlasGap = 1
+			}).Run().ToList();
+
+			var rig = EngineFile.FromJson(File.ReadAllText(Path.Combine(folder, "hero.hqrig.json")));
+			Assert.Equal(("harlequin-rig", 1, "square", 24), (rig.Format, rig.Version, rig.Object, rig.Fps));
+			var page = Assert.Single(rig.Atlas.Pages);
+			Assert.Equal("hero.atlas.png", page.File);
+			Assert.Equal(2, rig.Atlas.Regions.Count);
+			var region = rig.Atlas.Regions[dot.Id];
+			Assert.Equal((2, 2, 4, 3, 10, 8), (region.W, region.H, region.OffsetX, region.OffsetY, region.Width, region.Height));   // trimmed
+			using var atlas = SKBitmap.Decode(Path.Combine(folder, page.File));
+			Assert.Equal((page.Width, page.Height), (atlas.Width, atlas.Height));
+			Assert.Equal(SKColors.Blue, atlas.GetPixel(region.X, region.Y));
+			var square = rig.Atlas.Regions.Values.Single(r => r != region);
+			Assert.Equal(new SKColor(220, 30, 30), atlas.GetPixel(square.X + 3, square.Y + 3));
+
+			Assert.Equal(new[] { "square", "dot" }, rig.Rig.Slots.Select(s => s.Name));
+			Assert.Contains(rig.Rig.Skins.Single().Entries, e => e.Asset == dot.Id && e.Slot == "dot");
+			Assert.Equal(obj.Animations[0].Name, rig.Rig.Animations.Single().Name);
+			Assert.Equal("boom.wav", Path.GetFileName(rig.Sounds!["boom"]));
+		}
+		finally
+		{
+			Directory.Delete(folder, recursive: true);
+		}
+	}
+
 	// Step 25: an object's export writes its animations' events beside the pictures
 	[Fact]
 	public void An_objects_export_writes_an_events_file_beside_it()

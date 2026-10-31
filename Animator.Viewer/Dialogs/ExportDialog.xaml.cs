@@ -31,8 +31,14 @@ public partial class ExportDialog : Window
 			"Every frame on one picture, in a grid, plus a JSON file listing the frames and animations " +
 			"(the Aseprite / TexturePacker layout that game engines and tools read). Harlequin can import it again."),
 		new(ExportFormat.Video, "Video (MP4)",
-			"An H.264 video, made with FFmpeg (a free program). Videos can't be see-through: the background colour fills the empty space.")
+			"An H.264 video, made with FFmpeg (a free program). Videos can't be see-through: the background colour fills the empty space."),
+		new(ExportFormat.Engine, "Game engine (rig + atlas)",
+			"The object itself for a game to play: name.hqrig.json (bones, parts, skins, meshes and weights, constraints, masks, " +
+			"hitboxes, colour layers, every animation, events, fades) and its pictures packed in atlas pages (name.atlas.png). " +
+			"The Harlequin plugin for an engine reads it; its format is described in docs/engine-format.md.")
 	};
+
+	private static readonly int[] AtlasSizes = { 512, 1024, 2048, 4096, 8192 };
 
 	private readonly Scene _scene;
 	private readonly int _fps;
@@ -83,6 +89,11 @@ public partial class ExportDialog : Window
 		ScaleBox.Text = s.Scale.ToString("0.###", CultureInfo.CurrentCulture);
 		PixelBox.IsChecked = s.PixelArt;
 		BakeColorBox.IsChecked = s.BakeColorLayers;
+		foreach (int size in AtlasSizes) AtlasSizeBox.Items.Add(size);
+		AtlasSizeBox.SelectedItem = AtlasSizes.Contains(s.AtlasSize) ? s.AtlasSize : 2048;
+		AtlasGapBox.Text = s.AtlasGap.ToString();
+		PowerOfTwoBox.IsChecked = s.PowerOfTwo;
+		TrimBox.IsChecked = s.Trim;
 		EventsBox.IsChecked = s.WriteEvents;
 		TransparentBox.IsChecked = s.Background == null;
 		_background = s.Background ?? SKColors.White;
@@ -129,6 +140,12 @@ public partial class ExportDialog : Window
 		Show(format == ExportFormat.SpriteSheet, SheetLabel, SheetFields);
 		Show(format == ExportFormat.Gif, GifLabel, GifFields);
 		Show(format == ExportFormat.Video, VideoLabel, VideoFields);
+		Show(format == ExportFormat.Engine, EngineLabel, EngineFields);
+		if (format == ExportFormat.Engine && scene)
+		{
+			ObjectChoice.IsChecked = true;   // an engine takes an object, not the scene
+			return;
+		}
 
 		bool video = format == ExportFormat.Video;
 		TransparentBox.IsEnabled = !video;
@@ -191,7 +208,8 @@ public partial class ExportDialog : Window
 			if (to == last) to = -1;   // to the end, even if the scene gets longer later
 		}
 
-		int columns = 0, padding = 2;
+		int columns = 0, padding = 2, atlasGap = 2;
+		if (format == ExportFormat.Engine && !Whole(AtlasGapBox, 0, 64, out atlasGap, "The atlas gap is a whole number of pixels, from 0 to 64.")) return;
 		if (format == ExportFormat.SpriteSheet)
 		{
 			if (!Whole(ColumnsBox, 0, 1000, out columns, "Columns is a whole number (0 = automatic).")) return;
@@ -217,6 +235,10 @@ public partial class ExportDialog : Window
 			PixelArt = PixelBox.IsChecked == true,
 			BakeColorLayers = BakeColorBox.IsChecked == true,
 			WriteEvents = EventsBox.IsChecked == true,
+			AtlasSize = AtlasSizeBox.SelectedItem as int? ?? 2048,
+			AtlasGap = atlasGap,
+			PowerOfTwo = PowerOfTwoBox.IsChecked == true,
+			Trim = TrimBox.IsChecked == true,
 			Background = TransparentBox.IsChecked == true && format != ExportFormat.Video ? null : _background,
 			FrameStep = step,
 			FirstFrame = from,

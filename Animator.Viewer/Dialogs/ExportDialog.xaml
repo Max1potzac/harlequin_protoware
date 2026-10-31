@@ -47,6 +47,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock x:Name="AreaLabel" Text="Area" VerticalAlignment="Center" Margin="0,0,8,6" />
@@ -110,6 +111,18 @@
                 <TextBox x:Name="FfmpegBox" IsReadOnly="True"
                          ToolTip="Videos are made with FFmpeg, a free program (ffmpeg.org). Point to its ffmpeg.exe, or leave it empty if it's installed for the whole system." />
             </DockPanel>
+
+            <TextBlock x:Name="EngineLabel" Grid.Row="7" Text="Atlas" VerticalAlignment="Center" Margin="0,0,8,6" />
+            <StackPanel x:Name="EngineFields" Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                <TextBlock Text="pages up to" VerticalAlignment="Center" Margin="0,0,4,0" />
+                <ComboBox x:Name="AtlasSizeBox" Width="70" ToolTip="The biggest an atlas page may be; more pages are made when the pictures don't fit one" />
+                <TextBlock Text="gap" VerticalAlignment="Center" Margin="12,0,4,0" />
+                <TextBox x:Name="AtlasGapBox" Width="36" ToolTip="Empty pixels round each picture (keeps neighbours from bleeding in when the engine smooths)" />
+                <CheckBox x:Name="PowerOfTwoBox" Content="Sizes a power of two" VerticalAlignment="Center" Margin="12,0,0,0"
+                          ToolTip="Pages 256, 512, 1024 … pixels wide and high (some engines and older hardware want this)" />
+                <CheckBox x:Name="TrimBox" Content="Trim" VerticalAlignment="Center" Margin="12,0,0,0" IsChecked="True"
+                          ToolTip="Leave out each picture's see-through edges (the file says where they were, so nothing moves)" />
+            </StackPanel>
         </Grid>
 
         <TextBlock x:Name="ErrorText" Foreground="#C03030" TextWrapping="Wrap" Margin="0,6,0,0" />
