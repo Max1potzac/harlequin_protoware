@@ -79,6 +79,8 @@ public class RigDto
 	public List<SetDto>? Sets { get; set; }   // selection sets (null = none)
 	public List<ColorLayerDto>? ColorLayers { get; set; }   // colour layers on the whole object (format 9)
 	public List<PoseDto>? Poses { get; set; }               // poses kept by name (format 10)
+	public List<HitboxDto>? Hitboxes { get; set; }          // hitboxes on bones (format 12)
+	public List<PointDto>? Points { get; set; }             // points on bones (format 12)
 	public List<AnimationDto> Animations { get; set; } = new();
 }
 
@@ -154,6 +156,28 @@ public class AdjustDto
 	public bool? Colorize { get; set; }
 	public bool? KeepLight { get; set; }
 	public float[]? Values { get; set; }
+}
+
+// A hitbox on a bone: a box (width × height) or a circle (diameter), its kind, whether it's on at rest
+public class HitboxDto
+{
+	public string Name { get; set; } = "";
+	public string Bone { get; set; } = "";
+	public string Shape { get; set; } = "box";   // box, circle
+	public Vec Offset { get; set; } = new(0, 0);
+	public float Rotation { get; set; }
+	public Vec Size { get; set; } = new(40, 40);
+	public string Kind { get; set; } = "hurt";
+	public bool Active { get; set; } = true;
+}
+
+// A point on a bone, and which way it faces
+public class PointDto
+{
+	public string Name { get; set; } = "";
+	public string Bone { get; set; } = "";
+	public Vec Offset { get; set; } = new(0, 0);
+	public float Rotation { get; set; }
 }
 
 // A pose kept by name: each bone's place, angle, scale and depth, each part's placement

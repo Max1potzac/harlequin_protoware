@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -111,6 +112,75 @@ public sealed class SheetFrame
 	public SheetRect SpriteSourceSize { get; set; } = new();
 	public SheetSize SourceSize { get; set; } = new();
 	public int Duration { get; set; } = 100;   // milliseconds
+	public List<SheetHitbox>? Hitboxes { get; set; }   // Harlequin: the hitboxes on in this frame, in its pixels
+	public List<SheetMarker>? Points { get; set; }     // Harlequin: the points, in its pixels
+}
+
+// A hitbox in a frame: its middle and size in the frame's pixels (y down), turned clockwise by
+// Angle degrees; a circle has a Radius instead of W and H
+public sealed class SheetHitbox
+{
+	public string Name { get; set; } = "";
+	public string Kind { get; set; } = "";
+	public string Shape { get; set; } = "box";
+	public float X { get; set; }
+	public float Y { get; set; }
+	public float? W { get; set; }
+	public float? H { get; set; }
+	public float? Angle { get; set; }
+	public float? Radius { get; set; }
+}
+
+// A point in a frame: where it is in the frame's pixels (y down), and which way it faces
+// (degrees, clockwise from pointing right)
+public sealed class SheetMarker
+{
+	public string Name { get; set; } = "";
+	public float X { get; set; }
+	public float Y { get; set; }
+	public float Angle { get; set; }
+}
+
+// An object's hitboxes and points as a frame shows them, posed as it is now.
+// toPixels: the object's space → the frame's pixels.
+public static class SheetMarkers
+{
+	private static float Round(float v) => MathF.Round(v, 2);
+	private static float Degrees(Vector2 along) => Round(MathF.Atan2(along.Y, along.X) * 180f / MathF.PI);
+
+	public static List<SheetHitbox> Hitboxes(Skeleton skeleton, Matrix3x2 toPixels, string prefix = "")
+	{
+		var list = new List<SheetHitbox>();
+		foreach (var hitbox in skeleton.Hitboxes.Where(h => h.Active))
+		{
+			var m = hitbox.World * toPixels;
+			var centre = m.Translation;
+			var box = new SheetHitbox { Name = prefix + hitbox.Name, Kind = hitbox.Kind, X = Round(centre.X), Y = Round(centre.Y) };
+			if (hitbox.Shape == HitboxShape.Box)
+			{
+				var across = Vector2.TransformNormal(new Vector2(hitbox.Size.X / 2f, 0f), m);
+				var up = Vector2.TransformNormal(new Vector2(0f, hitbox.Size.Y / 2f), m);
+				box.W = Round(2f * across.Length());
+				box.H = Round(2f * up.Length());
+				box.Angle = Degrees(across);
+			}
+			else
+			{
+				box.Shape = "circle";
+				box.Radius = Round((Vector2.TransformNormal(new Vector2(hitbox.Radius, 0f), m).Length()
+					+ Vector2.TransformNormal(new Vector2(0f, hitbox.Radius), m).Length()) / 2f);
+			}
+			list.Add(box);
+		}
+		return list;
+	}
+
+	public static List<SheetMarker> Points(Skeleton skeleton, Matrix3x2 toPixels, string prefix = "") =>
+		skeleton.Points.Select(p =>
+		{
+			var m = p.World * toPixels;
+			return new SheetMarker { Name = prefix + p.Name, X = Round(m.Translation.X), Y = Round(m.Translation.Y), Angle = Degrees(Vector2.TransformNormal(Vector2.UnitX, m)) };
+		}).ToList();
 }
 
 public sealed class SheetRect

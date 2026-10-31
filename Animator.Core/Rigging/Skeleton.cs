@@ -42,6 +42,12 @@ public class Skeleton
 	// Whether a colour layer applies now: on, and its skin (if it's in one) on
 	public bool Applies(ColorLayer layer) => layer.Visible && (SkinOf(layer) is not { } skin || ShownSkins.Contains(skin));
 
+	// Hitboxes and points on bones, for the game (the Boxes view; see HitboxOps)
+	public List<Hitbox> Hitboxes { get; } = new();
+	public List<RigPoint> Points { get; } = new();
+	public Hitbox? FindHitbox(string name) => Hitboxes.Find(h => h.Name == name);
+	public RigPoint? FindPoint(string name) => Points.Find(p => p.Name == name);
+
 	// Poses kept by name, to put the rig that way again (the Poses view; see PoseOps)
 	public List<Editing.SavedPose> Poses { get; } = new();
     public Bone? FindBone(string name)
@@ -133,6 +139,7 @@ public class Skeleton
 		foreach (var slot in Slots) slot.ResetToSetup();
 		_drawOrder = null;
 		foreach (var c in IkConstraints) c.Mix = c.SetupMix;
+		foreach (var hitbox in Hitboxes) hitbox.Active = hitbox.SetupActive;
 		foreach (var c in LookConstraints) c.Mix = c.SetupMix;
 		foreach (var layer in ColorLayers) layer.Adjust.Now = layer.Adjust.Setup;
 		foreach (var asset in Assets.Values)   // colour layers in drawings: their picture is made again when they change
@@ -189,6 +196,10 @@ public class Skeleton
 		ColorLayers.AddRange(other.ColorLayers);
 		Poses.Clear();
 		Poses.AddRange(other.Poses);
+		Hitboxes.Clear();
+		Hitboxes.AddRange(other.Hitboxes);
+		Points.Clear();
+		Points.AddRange(other.Points);
 		DefaultSkin.ReplaceWith(other.DefaultSkin);
 		Skins.Clear();
 		Skins.AddRange(other.Skins);

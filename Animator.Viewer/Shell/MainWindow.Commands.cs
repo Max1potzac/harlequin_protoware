@@ -186,6 +186,7 @@ public partial class MainWindow
 			case "view.pixels": _renderer.PixelArt = !_renderer.PixelArt; return true;
 			case "view.reset": ResetView(); return true;
 			case "view.onion": ToggleOnion(); return true;
+			case "view.hitboxes": ToggleHitboxes(); return true;
 			case "view.rulers": ToggleViewAid("rulers"); return true;
 			case "view.grid": ToggleViewAid("grid"); return true;
 			case "view.guides": ToggleViewAid("guides"); return true;

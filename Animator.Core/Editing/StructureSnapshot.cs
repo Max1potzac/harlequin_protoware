@@ -18,6 +18,10 @@ public sealed class StructureSnapshot
 		Attachment Attachment, string Name, Guid AssetId,
 		Vector2 Offset, float Rotation, Vector2 Scale, Vector2 Pivot);
 
+	private sealed record HitboxState(Hitbox Hitbox, string Name, Bone Bone, HitboxShape Shape, Vector2 Offset, float Rotation,
+		Vector2 Size, string Kind, bool Active);
+	private sealed record PointState(RigPoint Point, string Name, Bone Bone, Vector2 Offset, float Rotation);
+
 	private sealed record LookState(
 		LookConstraint Constraint, Bone Target, LookShape Shape, Vector2 Radius, float Follow, float Mix);
 	private sealed record IkState(
@@ -30,7 +34,9 @@ public sealed class StructureSnapshot
 	private readonly List<(Skin Skin, Dictionary<(string Slot, string Attachment), Attachment> Map, string Name, string Category, bool Overlay, List<ColorLayer> Colours)> _skins;
 	private readonly List<Skin> _skinList;
 	private readonly List<Skin> _shownSkins;
-	private readonly List<ColorLayer> _colorLayers;   // which the object has (a skin deleted takes its own)
+	private readonly List<ColorLayer> _colorLayers;
+	private readonly List<HitboxState> _hitboxes;
+	private readonly List<PointState> _points;   // which the object has (a skin deleted takes its own)
 	private readonly List<AttachmentState> _attachments;
 	private readonly List<KeyValuePair<Guid, Asset>> _assets;
 	private readonly List<(Asset Asset, string Name)> _assetNames;   // drawings rename their pixels too
@@ -55,6 +61,8 @@ public sealed class StructureSnapshot
 		_skinList = skeleton.Skins.ToList();
 		_shownSkins = skeleton.ShownSkins.ToList();
 		_colorLayers = skeleton.ColorLayers.ToList();
+		_hitboxes = skeleton.Hitboxes.Select(h => new HitboxState(h, h.Name, h.Bone, h.Shape, h.Offset, h.Rotation, h.Size, h.Kind, h.SetupActive)).ToList();
+		_points = skeleton.Points.Select(p => new PointState(p, p.Name, p.Bone, p.Offset, p.Rotation)).ToList();
 		_attachments = _skins.SelectMany(s => s.Map.Values).Distinct()
 			.Select(a => new AttachmentState(a, a.Name, a.AssetId, a.Offset, a.Rotation, a.Scale, a.Pivot))
 			.ToList();
@@ -118,6 +126,19 @@ public sealed class StructureSnapshot
 		_skeleton.ShownSkins.UnionWith(_shownSkins);
 		_skeleton.ColorLayers.Clear();
 		_skeleton.ColorLayers.AddRange(_colorLayers);
+		_skeleton.Hitboxes.Clear();
+		foreach (var h in _hitboxes)
+		{
+			(h.Hitbox.Name, h.Hitbox.Bone, h.Hitbox.Shape, h.Hitbox.Offset, h.Hitbox.Rotation) = (h.Name, h.Bone, h.Shape, h.Offset, h.Rotation);
+			(h.Hitbox.Size, h.Hitbox.Kind, h.Hitbox.SetupActive, h.Hitbox.Active) = (h.Size, h.Kind, h.Active, h.Active);
+			_skeleton.Hitboxes.Add(h.Hitbox);
+		}
+		_skeleton.Points.Clear();
+		foreach (var p in _points)
+		{
+			(p.Point.Name, p.Point.Bone, p.Point.Offset, p.Point.Rotation) = (p.Name, p.Bone, p.Offset, p.Rotation);
+			_skeleton.Points.Add(p.Point);
+		}
 
 		foreach (var a in _attachments)
 		{
