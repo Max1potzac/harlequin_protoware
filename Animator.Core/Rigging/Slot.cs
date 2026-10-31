@@ -20,6 +20,12 @@ public class Slot
 	public bool Locked { get; set; }
     public Slot(string name, Bone bone) { Name = name; Bone = bone; }
 
+	// A clipping mask (see MaskOps): the parts drawn above it, up to MaskUntil (null: all of
+	// them), show only where its picture does. Not drawn itself unless MaskShows.
+	public bool IsMask { get; set; }
+	public Slot? MaskUntil { get; set; }   // (itself: it clips nothing)
+	public bool MaskShows { get; set; }
+
 	// Placement keys (milestone 9.3): the part moved, turned and scaled on its bone, on top of
 	// its drawing's own placement. Animated values, back to "nothing extra" every frame.
 	public Vector2 Offset { get; set; }                   // in the bone's space

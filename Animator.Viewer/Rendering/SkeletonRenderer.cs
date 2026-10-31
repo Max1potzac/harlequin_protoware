@@ -41,6 +41,9 @@ public class SkeletonRenderer
 
 	// A part outlined, as one the mouse is over in a list (the Colour view's Leave out)
 	public Slot? HoverSlot { get; set; }
+
+	// A faint dashed edge round each clipping mask's picture (while editing; never in exports)
+	public bool MaskOutlines { get; set; } = true;
 	private bool Pickable(Slot slot) => Shown(slot) && !(SkipLocked && slot.Locked);
 
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
@@ -252,25 +255,66 @@ public class SkeletonRenderer
 			PathEffect = dash
 		};
 
+		using var maskEdge = new SKPaint
+		{
+			Color = new SKColor(200, 140, 255, 150),
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1f / Zoom,
+			IsAntialias = true,
+			PathEffect = dash
+		};
+
 		// The object's colour layers: one filter for each set of them a part gets (most get all)
 		var looks = ColorLayers && skeleton.ColorLayers.Any(skeleton.Applies) ? new Dictionary<long, SKColorFilter?>() : null;
+		void DrawOne(Slot slot)
+		{
+			if (!Shown(slot) || Picture(skeleton, slot) is not { } p) return;
+			canvas.Save();
+			canvas.Concat(in p.ToWorld);
+			DrawPart(canvas, slot, p.Bitmap, looks != null ? LookFor(skeleton, slot, looks) : null);
+			if (p.Asset == Highlight || slot == HoverSlot) canvas.DrawRect(0, 0, p.Bitmap.Width, p.Bitmap.Height, outline);
+			else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, p.Bitmap.Width, p.Bitmap.Height, onBone);
+			canvas.Restore();
+		}
+
 		try
 		{
-			foreach (var slot in skeleton.DrawOrder)   // as it stands now (an animation can key it)
+			var order = skeleton.DrawOrder;   // as it stands now (an animation can key it)
+			for (int i = 0; i < order.Count; i++)
 			{
-				if (!Shown(slot)) continue;
-				var att = skeleton.ResolveAttachment(slot);
-				if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
-				var bmp = _assets.Get(asset, ColorLayers);
-				if (bmp == null) continue;
-
-				var m = ToSk(ImageToWorld(slot, att, bmp.Width, bmp.Height));
-				canvas.Save();
-				canvas.Concat(in m);
-				DrawPart(canvas, slot, bmp, looks != null ? LookFor(skeleton, slot, looks) : null);
-				if (asset == Highlight || slot == HoverSlot) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
-				else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, onBone);
+				var slot = order[i];
+				if (!slot.IsMask)
+				{
+					DrawOne(slot);
+					continue;
+				}
+				// A clipping mask: the parts it clips, drawn on their own, then cut to its picture.
+				// Hidden (its eye) or showing nothing: it clips nothing.
+				var clipped = MaskOps.Clipped(order, slot);
+				var picture = Shown(slot) ? Picture(skeleton, slot) : null;
+				if (picture is not { } mask)
+					continue;   // (the parts it would clip are drawn as they come)
+				if (slot.MaskShows) DrawOne(slot);
+				canvas.SaveLayer();
+				foreach (var part in clipped) DrawOne(part);   // (a mask among them: drawn as a part)
+				using (var cut = new SKPaint { BlendMode = SKBlendMode.DstIn })
+				{
+					canvas.SaveLayer(cut);
+					canvas.Save();
+					canvas.Concat(in mask.ToWorld);
+					canvas.DrawBitmap(mask.Bitmap, 0, 0, Sampling, null);
+					canvas.Restore();
+					canvas.Restore();   // keeps the clipped parts only where the mask has pixels
+				}
 				canvas.Restore();
+				if (MaskOutlines)
+				{
+					canvas.Save();
+					canvas.Concat(in mask.ToWorld);
+					canvas.DrawRect(0, 0, mask.Bitmap.Width, mask.Bitmap.Height, maskEdge);
+					canvas.Restore();
+				}
+				i += clipped.Count;
 			}
 		}
 		finally
@@ -278,6 +322,16 @@ public class SkeletonRenderer
 			if (looks != null)
 				foreach (var filter in looks.Values) filter?.Dispose();
 		}
+	}
+
+	// A part's picture as it shows now, and its pixels → world (null: it shows nothing)
+	private (Asset Asset, SKBitmap Bitmap, SKMatrix ToWorld)? Picture(Skeleton skeleton, Slot slot)
+	{
+		var att = skeleton.ResolveAttachment(slot);
+		if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return null;
+		var bmp = _assets.Get(asset, ColorLayers);
+		if (bmp == null) return null;
+		return (asset, bmp, ToSk(ImageToWorld(slot, att, bmp.Width, bmp.Height)));
 	}
 
 	// The colour layers that change this part, as one filter (first layer first)
@@ -350,20 +404,28 @@ public class SkeletonRenderer
 		for (int i = order.Count - 1; i >= 0; i--)   // last drawn = on top
 		{
 			var slot = order[i];
-			if (!Pickable(slot)) continue;
-			var att = skeleton.ResolveAttachment(slot);
-			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
-			var img = _assets.Get(asset);
-			if (img == null) continue;
-
-			if (!Matrix3x2.Invert(ImageToWorld(slot, att, img.Width, img.Height), out var toImage)) continue;
-			var p = Vector2.Transform(world, toImage);
-			int x = (int)MathF.Floor(p.X), y = (int)MathF.Floor(p.Y);
-			if (x < 0 || y < 0 || x >= img.Width || y >= img.Height) continue;
-
-			if (img.GetPixel(x, y).Alpha > 10) return (slot, asset);
+			if (!Pickable(slot) || (slot.IsMask && !slot.MaskShows)) continue;   // (a mask that isn't drawn: pick it in the layers)
+			if (OnPixels(skeleton, slot, world) is not { } asset) continue;
+			// Clipped: only where its mask shows it
+			if (MaskOps.MaskOf(skeleton, slot) is { } mask && Shown(mask) && skeleton.ResolveAttachment(mask) != null
+				&& OnPixels(skeleton, mask, world) == null) continue;
+			return (slot, asset);
 		}
 		return null;
+	}
+
+	// The part's pixels under a world point show (its pixels' asset), or null
+	private Asset? OnPixels(Skeleton skeleton, Slot slot, Vector2 world)
+	{
+		var att = skeleton.ResolveAttachment(slot);
+		if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return null;
+		var img = _assets.Get(asset);
+		if (img == null) return null;
+		if (!Matrix3x2.Invert(ImageToWorld(slot, att, img.Width, img.Height), out var toImage)) return null;
+		var p = Vector2.Transform(world, toImage);
+		int x = (int)MathF.Floor(p.X), y = (int)MathF.Floor(p.Y);
+		if (x < 0 || y < 0 || x >= img.Width || y >= img.Height) return null;
+		return img.GetPixel(x, y).Alpha > 10 ? asset : null;
 	}
 	// Inside any part's rectangle, see-through pixels included (a blank drawing can be grabbed too)
 	public bool InsidePartBox(Skeleton skeleton, Vector2 world)
@@ -385,13 +447,16 @@ public class SkeletonRenderer
 		var highlight = Highlight;
 		var partsOf = PartsOf;
 		var hover = HoverSlot;
+		bool maskEdges = MaskOutlines;
 		Highlight = null;   // just the pictures
 		PartsOf = null;
 		HoverSlot = null;
+		MaskOutlines = false;
 		DrawSlots(canvas, skeleton);
 		Highlight = highlight;
 		PartsOf = partsOf;
 		HoverSlot = hover;
+		MaskOutlines = maskEdges;
 	}
 
 	// One onion-skin ghost: the parts in the skeleton's current pose, tinted and see-through.

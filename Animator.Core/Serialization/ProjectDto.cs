@@ -114,6 +114,14 @@ public class SlotDto
 	public float? Opacity { get; set; }      // null = 1
 	public bool? Hidden { get; set; }        // hidden while editing (null = no)
 	public bool? Locked { get; set; }        // can't be picked in the viewport (null = no)
+	public MaskDto? Mask { get; set; }       // a clipping mask (format 13; null = not one)
+}
+
+// A part used as a clipping mask: the last part it clips (null = all above it), and whether it shows
+public class MaskDto
+{
+	public string? Until { get; set; }
+	public bool? Shows { get; set; }
 }
 
 // A selection set: its name, and the names of its bones and parts
