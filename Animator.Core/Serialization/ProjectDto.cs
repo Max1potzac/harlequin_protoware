@@ -76,6 +76,7 @@ public class RigDto
 	public List<IkDto> IkConstraints { get; set; } = new();
 	public List<LookDto> LookConstraints { get; set; } = new();
 	public List<SetDto>? Sets { get; set; }   // selection sets (null = none)
+	public List<ColorLayerDto>? ColorLayers { get; set; }   // colour layers on the whole object (format 9)
 	public List<AnimationDto> Animations { get; set; } = new();
 }
 
@@ -141,6 +142,24 @@ public class LayerDto
 	public string Name { get; set; } = "";
 	public bool Visible { get; set; } = true;
 	public float Opacity { get; set; } = 1f;
+	public AdjustDto? Adjust { get; set; }   // a colour layer, not pixels (format 9)
+}
+
+// What a colour layer does: its kind, switches and numbers at rest (see AdjustValues.ToArray)
+public class AdjustDto
+{
+	public ColorAdjustKind Kind { get; set; }
+	public bool? Colorize { get; set; }
+	public bool? KeepLight { get; set; }
+	public float[]? Values { get; set; }
+}
+
+public class ColorLayerDto
+{
+	public string Name { get; set; } = "";
+	public bool Visible { get; set; } = true;
+	public AdjustDto Adjust { get; set; } = new();
+	public List<string>? LeaveOut { get; set; }   // the parts it doesn't change
 }
 
 public class SkinDto
@@ -183,6 +202,7 @@ public class TimelineDto
 	public string Type { get; set; } = "";    // rotate, translate, scale, depth, attachment, ikMix, space, events,
 	                                          // partTranslate, partRotate, partScale, partColor, partOpacity, drawOrder
 	public string Target { get; set; } = "";
+	public string? Caption { get; set; }   // layerAdjust: what its row says
 	public List<KeyDto> Keys { get; set; } = new();
 }
 
@@ -201,6 +221,7 @@ public class KeyDto
 	public string? Name { get; set; }
 	public string? Data { get; set; }
 	public List<string>? Order { get; set; }
+	public float[]? V { get; set; }   // colorLayer, layerAdjust: a colour layer's numbers (format 9)
 }
 public class LookDto
 {

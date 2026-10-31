@@ -280,13 +280,16 @@
                             <!-- Two views of the same object: its bones (parts under the bone they're on), or its
                                  parts as layers, in the order they're drawn whatever bone they're on -->
                             <StackPanel Grid.Row="3" Margin="6,0,6,4">
-                                <UniformGrid x:Name="RigViewSwitch" Columns="2">
+                                <UniformGrid x:Name="RigViewSwitch" Columns="3">
                                     <RadioButton x:Name="BonesViewChoice" Content="Bones" GroupName="RigView" Margin="0,0,1,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="The bones, each part under the bone it's on: drag a part onto a bone to put it there, or a bone onto another to hang it there" />
                                     <RadioButton x:Name="LayersViewChoice" Content="Layers" GroupName="RigView" Margin="1,0,0,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="Every part in the order it's drawn, the top one in front, whatever bone it's on. Drag one up or down to change the order; right-click for more (Ctrl+] / Ctrl+[ a step, with Shift all the way). In Animate mode, that keys the order at the playhead." />
+                                    <RadioButton x:Name="ColourViewChoice" Content="Colour" GroupName="RigView" Margin="1,0,0,0"
+                                                 Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
+                                                 ToolTip="Colour layers on the whole object: hue and saturation, brightness and contrast, tint, colour balance. Each can leave parts out, and its numbers can be keyed." />
                                 </UniformGrid>
                                 <TextBlock x:Name="LayersHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="2,4,2,0" Visibility="Collapsed" />
                                 <!-- Selection sets: a click picks a set's bones and parts again -->
@@ -303,6 +306,32 @@
                       PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="BoneTree_PreviewMouseLeftButtonUp"
                       PreviewMouseMove="BoneTree_PreviewMouseMove"
                       DragOver="BoneTree_DragOver" DragLeave="BoneTree_DragLeave" Drop="BoneTree_Drop" />
+                            <!-- Colour: the object's colour layers, and the settings of the one selected -->
+                            <DockPanel x:Name="ColourPanel" Grid.Row="4" Margin="6,0,6,0" Visibility="Collapsed" Background="#1E2026">
+                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2,4,2,4">
+                                    <Button Content="+ Colour layer ▾" Padding="6,1" Margin="0,0,4,0" Click="ColourAdd_Click"
+                                            ToolTip="A new colour layer on the whole object (on top of the others)" />
+                                    <Button x:Name="ColourDeleteButton" Content="Delete" Padding="6,1" Margin="0,0,4,0" Click="ColourDelete_Click" />
+                                    <Button x:Name="ColourUpButton" Content="▲" Padding="5,1" Margin="0,0,2,0" Click="ColourUp_Click" ToolTip="Earlier (applied before the others)" />
+                                    <Button x:Name="ColourDownButton" Content="▼" Padding="5,1" Click="ColourDown_Click" ToolTip="Later (applied after the others)" />
+                                </StackPanel>
+                                <ListBox x:Name="ColourList" DockPanel.Dock="Top" MaxHeight="110" Background="#24272E" Foreground="White"
+                                         BorderThickness="0" SelectionChanged="ColourList_SelectionChanged" />
+                                <TextBlock x:Name="ColourHint" DockPanel.Dock="Top" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="2,4,2,2" />
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Margin="2,0,4,6">
+                                        <DockPanel x:Name="ColourNameRow" Margin="0,2,0,4">
+                                            <TextBlock Text="Name" Foreground="White" Width="74" VerticalAlignment="Center" />
+                                            <TextBox x:Name="ColourName" KeyDown="ColourName_KeyDown" LostFocus="ColourName_LostFocus" />
+                                        </DockPanel>
+                                        <StackPanel x:Name="ColourSettings" />
+                                        <Expander x:Name="ColourLeaveOut" Header="Leave out" Foreground="White" Margin="0,6,0,0"
+                                                  ToolTip="Parts this colour layer doesn't change (the eyes of a body made green, say)">
+                                            <StackPanel x:Name="ColourLeaveOutList" Margin="6,2,0,0" />
+                                        </Expander>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </DockPanel>
                             <GridSplitter Grid.Row="5" Height="5" HorizontalAlignment="Stretch" Background="#1B1D22"
                           ResizeDirection="Rows" ToolTip="Drag to give the tree or the properties more room" />
 
@@ -707,6 +736,11 @@
 
             <DockPanel DockPanel.Dock="Right" Width="190" Margin="0,0,6,6">
                 <TextBlock DockPanel.Dock="Top" Text="Layers (top first)" Foreground="White" Margin="0,0,0,4" />
+                <ScrollViewer DockPanel.Dock="Bottom" MaxHeight="320" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0">
+                    <StackPanel x:Name="LayerAdjustHost" />
+                </ScrollViewer>
+                <Button DockPanel.Dock="Bottom" Content="+ Colour layer ▾" Margin="0,4,0,0" Click="LayerAddColour_Click"
+                        ToolTip="A colour layer: it changes the colours of the layers under it, in this drawing only (and can be keyed in Animate mode)" />
                 <UniformGrid DockPanel.Dock="Bottom" Columns="4" Margin="0,4,0,0">
                     <Button Content="+" ToolTip="Add layer" Click="LayerAdd_Click" />
                     <Button Content="−" ToolTip="Delete layer" Click="LayerDelete_Click" />

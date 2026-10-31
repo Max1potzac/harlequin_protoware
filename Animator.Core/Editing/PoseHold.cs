@@ -44,6 +44,8 @@ public sealed class PoseHold
 {
 	private readonly Dictionary<Bone, (BonePose Pose, PoseChannels Channels)> _bones = new();
 	private readonly Dictionary<Slot, (PartPose Pose, PoseChannels Channels)> _parts = new();
+	private readonly Dictionary<ColorLayer, AdjustValues> _colors = new();                      // an object's colour layers
+	private readonly Dictionary<AssetLayer, (Asset Asset, AdjustValues Values)> _layerColors = new();   // colour layers in drawings
 
 	public Skeleton? Skeleton { get; private set; }
 	public Animation? Animation { get; private set; }
@@ -52,16 +54,25 @@ public sealed class PoseHold
 	// While a drag is going on (its keys stand in for the held values meanwhile): nothing applied
 	public bool Suspended { get; set; }
 
-	public bool Any => _bones.Count > 0 || _parts.Count > 0;
-	public int Count => _bones.Count + _parts.Count;
+	public bool Any => Count > 0;
+	public int Count => _bones.Count + _parts.Count + _colors.Count + _layerColors.Count;
 	public IEnumerable<Bone> HeldBones => _bones.Keys;
 	public IEnumerable<Slot> HeldParts => _parts.Keys;
-	public bool Holds(object item) => item switch { Bone b => _bones.ContainsKey(b), Slot s => _parts.ContainsKey(s), _ => false };
+	public bool Holds(object item) => item switch
+	{
+		Bone b => _bones.ContainsKey(b),
+		Slot s => _parts.ContainsKey(s),
+		ColorLayer c => _colors.ContainsKey(c),
+		AssetLayer l => _layerColors.ContainsKey(l),
+		_ => false
+	};
 
 	public void Clear()
 	{
 		_bones.Clear();
 		_parts.Clear();
+		_colors.Clear();
+		_layerColors.Clear();
 		Skeleton = null;
 		Animation = null;
 		Suspended = false;
@@ -71,10 +82,7 @@ public sealed class PoseHold
 	// same frame of the same animation; otherwise that goes). true: something is held now.
 	public bool Take(PoseValues before, PoseValues after, Skeleton skeleton, Animation animation, int frame)
 	{
-		if (!ReferenceEquals(Skeleton, skeleton) || !ReferenceEquals(Animation, animation) || Frame != frame) Clear();
-		Skeleton = skeleton;
-		Animation = animation;
-		Frame = frame;
+		Start(skeleton, animation, frame);
 
 		// Bones an IK chain turns: their angle is IK's to set (moving its target is what changed)
 		var solved = skeleton.IkConstraints.Where(c => c.Mix > 0).SelectMany(c => c.Bones).ToHashSet();
@@ -95,6 +103,32 @@ public sealed class PoseHold
 			_parts[slot] = (now, (held ? old.Channels : PoseChannels.None) | changed);
 		}
 		return Any;
+	}
+
+	// What's held is for this frame of this animation (anything held for another goes)
+	private void Start(Skeleton skeleton, Animation animation, int frame)
+	{
+		if (!ReferenceEquals(Skeleton, skeleton) || !ReferenceEquals(Animation, animation) || Frame != frame) Clear();
+		Skeleton = skeleton;
+		Animation = animation;
+		Frame = frame;
+	}
+
+	// A colour layer's numbers changed without a key
+	public void HoldColor(ColorLayer layer, AdjustValues values, Skeleton skeleton, Animation animation, int frame)
+	{
+		Start(skeleton, animation, frame);
+		_colors[layer] = values;
+		layer.Adjust.Now = values;
+	}
+
+	public void HoldColor(Asset asset, AssetLayer layer, AdjustValues values, Skeleton skeleton, Animation animation, int frame)
+	{
+		if (layer.Adjust is not { } adjust) return;
+		Start(skeleton, animation, frame);
+		_layerColors[layer] = (asset, values);
+		adjust.Now = values;
+		asset.MarkEdited();
 	}
 
 	// Still the frame they were made at? Otherwise they go (another frame, playing, another
@@ -127,6 +161,13 @@ public sealed class PoseHold
 			if (channels.HasFlag(PoseChannels.Turn)) slot.Rotation = pose.Rotation;
 			if (channels.HasFlag(PoseChannels.Scale)) slot.Scale = pose.Scale;
 		}
+		foreach (var (layer, values) in _colors) layer.Adjust.Now = values;
+		foreach (var (layer, (asset, values)) in _layerColors)
+			if (layer.Adjust is { } adjust && adjust.Now != values)
+			{
+				adjust.Now = values;
+				asset.MarkEdited();
+			}
 	}
 
 	// Keys for everything held, at `time` (they stay held: Clear when they're meant to be keys
@@ -135,6 +176,10 @@ public sealed class PoseHold
 	{
 		foreach (var (bone, (pose, channels)) in _bones) KeyBone(animation, time, bone, pose, channels);
 		foreach (var (slot, (pose, channels)) in _parts) KeyPart(animation, time, slot, pose, channels);
+		foreach (var (layer, values) in _colors)
+			animation.GetOrCreate(layer.Name, n => new ColorLayerTimeline(n)).Track.Add(time, values);
+		foreach (var (layer, (_, values)) in _layerColors)
+			animation.GetOrCreate(LayerAdjustTimeline.TargetOf(layer), n => new LayerAdjustTimeline(n) { Caption = layer.Name }).Track.Add(time, values);
 		return Count;
 	}
 

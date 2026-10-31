@@ -89,6 +89,7 @@ public partial class MainWindow : Window
 		TimelineView.InvalidateVisual();
 		SyncRigSelection();
 		SyncLayerOrder();
+		SyncColourPanels();
 		SyncScenePanel();
 		if (PaintPanel.Visibility == Visibility.Visible)
 		{
@@ -425,7 +426,8 @@ public partial class MainWindow : Window
 			$"{ViewAidsHelp()}\n" +
 			$"Rig panel: Ctrl+click = pick several, Shift+click = every row from the selected one, {K("pick.all")} = everything shown, ● = hide / show ({K("pick.hide")}: hide the picked, {K("pick.hideOthers")}: hide the others, {K("pick.showAll")}: show all), " +
 			$"padlock = lock / unlock: no clicking or dragging it in the viewport ({K("pick.lock")}: lock the picked, {K("pick.lockOthers")}: lock the others, {K("pick.unlockAll")}: unlock all)\n" +
-			"Sets (under the list): + Set = a set of the picked; click a set = pick it again (Ctrl: picked or not, Shift: add), right-click = change it.   The square in the bone panel = the colour of the picked bones\n" +
+			"Sets (under the list): + Set = a set of the picked; click a set = pick it again (Ctrl: picked or not, Shift: add), right-click = change it.   The square in the bone panel = the colour of the picked bones.   " +
+			"Colour (beside Bones / Layers) = colour layers on the whole object (parts can be left out); in the paint editor, + Colour layer = one for that drawing. Keyed in Animate mode; exports bake them in when asked\n" +
 			$"Timeline: click key = select, Shift+click = add, Ctrl+drag = a box of keys, Alt+click = every key at that frame, drag = move, right-click = curve, stretch, reverse, {K("keys.earlier")} / {K("keys.later")} = a frame earlier / later, {K("edit.copy")} / {K("edit.paste")} = copy / paste at playhead, {K("pick.keys")} = every key of the picked, drag across empty frames = pick them (right-click: split into an animation sequence; play loops them)\n" +
 			$"Frames: {K("time.insert")} = insert one after the playhead, {K("time.remove")} = remove the one at it, {K("play.prevKey")} / {K("play.nextKey")} = to the key before / after, {K("anim.key")} = key the pose (the unkeyed changes, or the picked)\n" +
 			$"IK: {K("ik.snap")} = snap target to hand, {K("ik.bake")} = bake IK into FK, {K("ik.switch")} = switch IK/FK at this frame (Animate mode).   Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   " +

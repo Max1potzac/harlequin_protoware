@@ -13,6 +13,10 @@ public class Skeleton
 
 	// Named groups of bones and parts, to pick in one click (the sets in the rig panel)
 	public List<SelectionSet> Sets { get; } = new();
+
+	// Colour layers on the whole object, applied first to last (see ColorLayer)
+	public List<ColorLayer> ColorLayers { get; } = new();
+	public ColorLayer? FindColorLayer(string name) => ColorLayers.Find(l => l.Name == name);
     public Bone? FindBone(string name)
     {
         foreach (var root in Roots)
@@ -107,6 +111,18 @@ public class Skeleton
 		_drawOrder = null;
 		foreach (var c in IkConstraints) c.Mix = c.SetupMix;
 		foreach (var c in LookConstraints) c.Mix = c.SetupMix;
+		foreach (var layer in ColorLayers) layer.Adjust.Now = layer.Adjust.Setup;
+		foreach (var asset in Assets.Values)   // colour layers in drawings: their picture is made again when they change
+		{
+			bool changed = false;
+			foreach (var layer in asset.Layers)
+				if (layer.Adjust is { } adjust && adjust.Now != adjust.Setup)
+				{
+					adjust.Now = adjust.Setup;
+					changed = true;
+				}
+			if (changed) asset.MarkEdited();
+		}
 	}
 
 	private static void ResetBone(Bone bone)
@@ -144,6 +160,10 @@ public class Skeleton
 		IkConstraints.AddRange(other.IkConstraints);
 		LookConstraints.Clear();
 		LookConstraints.AddRange(other.LookConstraints);
+		Sets.Clear();
+		Sets.AddRange(other.Sets);
+		ColorLayers.Clear();
+		ColorLayers.AddRange(other.ColorLayers);
 		DefaultSkin.ReplaceWith(other.DefaultSkin);
 		ActiveSkin = other.ActiveSkin == other.DefaultSkin ? DefaultSkin : other.ActiveSkin;
 	}

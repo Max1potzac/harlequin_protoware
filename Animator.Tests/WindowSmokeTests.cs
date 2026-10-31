@@ -126,6 +126,22 @@ public class WindowSmokeTests
 				Run(window, "edit.undo");
 				Assert.Empty(scene.Guides);
 
+				// The Colour view: a colour layer on the whole object, its settings in both modes, undone
+				((RadioButton)window.FindName("ColourViewChoice")).IsChecked = true;
+				Pump(40);
+				Call(window, "AddObjectColour", ColorAdjustKind.HueSaturation);
+				Pump(40);
+				Assert.Single(skeleton.ColorLayers);
+				Assert.NotEmpty(((Panel)window.FindName("ColourSettings")).Children);
+				foreach (var command in new[] { "anim.mode", "anim.autoKey", "anim.autoKey", "anim.mode" })
+				{
+					Run(window, command);
+					Pump(40);
+				}
+				Run(window, "edit.undo");
+				Pump(40);
+				Assert.Empty(skeleton.ColorLayers);
+
 				// The layers view, with everything picked
 				((RadioButton)window.FindName("LayersViewChoice")).IsChecked = true;
 				Pump(40);

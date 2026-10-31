@@ -12,6 +12,7 @@ public class AssetStore
 
 	// Asset id -> merged image, plus the asset version it was built from
 	private readonly Dictionary<Guid, (int Version, SKBitmap? Image)> _composites = new();
+	private readonly Dictionary<Guid, (int Version, SKBitmap? Image)> _plain = new();   // without colour layers
 
 	public static SKImageInfo InfoFor(int width, int height) =>
 		new(width, height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
@@ -82,41 +83,56 @@ public class AssetStore
 		_layers.Clear();
 		foreach (var (id, bmp) in other._layers) _layers[id] = bmp;
 		_composites.Clear();
+		_plain.Clear();
 	}
 
 	public void Clear()
 	{
 		_layers.Clear();
 		_composites.Clear();
+		_plain.Clear();
 	}
 	public SKBitmap? GetLayer(AssetLayer layer) =>
 		_layers.TryGetValue(layer.Id, out var b) ? b : null;
 
-	// The merged image the rig draws. Rebuilt only when the asset's version changed.
-	public SKBitmap? Get(Asset asset)
+	// The merged image the rig draws. Rebuilt only when the asset's version changed. Colour layers
+	// change the layers under them; colorLayers false: the picture without them (an export that
+	// doesn't bake them in).
+	public SKBitmap? Get(Asset asset, bool colorLayers = true)
+	{
+		if (!colorLayers && asset.Layers.Any(l => l.IsColorLayer && l.Visible))
+			return Merge(asset, _plain, withColor: false);
+		return Merge(asset, _composites, withColor: true);
+	}
+
+	private SKBitmap? Merge(Asset asset, Dictionary<Guid, (int Version, SKBitmap? Image)> cache, bool withColor)
 	{
 		if (asset.Width <= 0 || asset.Height <= 0) return null;
 
-		_composites.TryGetValue(asset.Id, out var cached);
+		cache.TryGetValue(asset.Id, out var cached);
 		if (cached.Image != null && cached.Version == asset.Version) return cached.Image;
 
 		var image = cached.Image != null && cached.Image.Width == asset.Width && cached.Image.Height == asset.Height
 			? cached.Image
 			: new SKBitmap(InfoFor(asset.Width, asset.Height));
 
-		using (var canvas = new SKCanvas(image))
-		using (var paint = new SKPaint())
+		using (var clear = new SKCanvas(image)) clear.Clear(SKColors.Transparent);
+		using var paint = new SKPaint();
+		foreach (var layer in asset.Layers)   // bottom to top
 		{
-			canvas.Clear(SKColors.Transparent);
-			foreach (var layer in asset.Layers)   // bottom to top
+			if (!layer.Visible || layer.Opacity <= 0) continue;
+			if (layer.Adjust is { } adjust)
 			{
-				if (!layer.Visible || layer.Opacity <= 0 || GetLayer(layer) is not { } bmp) continue;
-				paint.Color = SKColors.White.WithAlpha((byte)(Math.Clamp(layer.Opacity, 0f, 1f) * 255));
-				canvas.DrawBitmap(bmp, 0, 0, Nearest, paint);
+				if (withColor) ColorFilters.ApplyTo(image, adjust, Math.Clamp(layer.Opacity, 0f, 1f));
+				continue;
 			}
+			if (GetLayer(layer) is not { } bmp) continue;
+			paint.Color = SKColors.White.WithAlpha((byte)(Math.Clamp(layer.Opacity, 0f, 1f) * 255));
+			using var canvas = new SKCanvas(image);
+			canvas.DrawBitmap(bmp, 0, 0, Nearest, paint);
 		}
 
-		_composites[asset.Id] = (asset.Version, image);
+		cache[asset.Id] = (asset.Version, image);
 		return image;
 	}
 }

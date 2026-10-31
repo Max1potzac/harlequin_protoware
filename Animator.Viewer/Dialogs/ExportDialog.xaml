@@ -72,6 +72,8 @@
                 <TextBox x:Name="ScaleBox" Width="50"
                          ToolTip="1 = one pixel per unit, as in the editor. 2 = twice as big, 0.5 = half" />
                 <CheckBox x:Name="PixelBox" Content="Pixel art (crisp, no smoothing)" VerticalAlignment="Center" Margin="12,0,0,0" />
+                <CheckBox x:Name="BakeColorBox" Content="Bake colour correction layers" VerticalAlignment="Center" Margin="12,0,0,0"
+                          ToolTip="On: the pictures come out with the colour layers (an object's, and those in its drawings) as the editor shows them. Off: without them." />
             </StackPanel>
 
             <TextBlock Grid.Row="3" Text="Background" VerticalAlignment="Center" Margin="0,0,8,6" />

@@ -205,6 +205,20 @@ public class PaintSession
 			Layer = Store.AddLayer(asset, $"Layer {asset.Layers.Count + 1}", index: index));
 	}
 
+	// A colour layer above the active layer: it changes the colours of the layers under it
+	public void AddColorLayer(ColorAdjustKind kind)
+	{
+		if (Asset is not { } asset) return;
+		int index = Layer == null ? asset.Layers.Count : asset.Layers.IndexOf(Layer) + 1;
+		string name = ColorAdjust.KindName(kind);
+		EditLayers($"Add a colour layer ({name})", asset, () =>
+		{
+			var layer = Store.AddLayer(asset, name, index: index);
+			layer.Adjust = new ColorAdjust(kind);
+			Layer = layer;
+		});
+	}
+
 	public void DeleteLayer()
 	{
 		if (Asset is not { } asset || Layer == null || asset.Layers.Count <= 1) return;

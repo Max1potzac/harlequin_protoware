@@ -34,6 +34,10 @@ public class SkeletonRenderer
 	// Inside an object in the editor: locked parts (the lock in the rig panel) can't be picked,
 	// so a click goes through to what's behind them
 	public bool SkipLocked { get; set; }
+
+	// Colour layers (an object's, and those inside drawings) shown. Exports turn them off unless
+	// asked to bake them in.
+	public bool ColorLayers { get; set; } = true;
 	private bool Pickable(Slot slot) => Shown(slot) && !(SkipLocked && slot.Locked);
 
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
@@ -245,41 +249,69 @@ public class SkeletonRenderer
 			PathEffect = dash
 		};
 
-		foreach (var slot in skeleton.DrawOrder)   // as it stands now (an animation can key it)
+		// The object's colour layers: one filter for each set of them a part gets (most get all)
+		var looks = ColorLayers && skeleton.ColorLayers.Any(l => l.Visible) ? new Dictionary<long, SKColorFilter?>() : null;
+		try
 		{
-			if (!Shown(slot)) continue;
-			var att = skeleton.ResolveAttachment(slot);
-			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
-			var bmp = _assets.Get(asset);
-			if (bmp == null) continue;
+			foreach (var slot in skeleton.DrawOrder)   // as it stands now (an animation can key it)
+			{
+				if (!Shown(slot)) continue;
+				var att = skeleton.ResolveAttachment(slot);
+				if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
+				var bmp = _assets.Get(asset, ColorLayers);
+				if (bmp == null) continue;
 
-			var m = ToSk(ImageToWorld(slot, att, bmp.Width, bmp.Height));
-			canvas.Save();
-			canvas.Concat(in m);
-			DrawPart(canvas, slot, bmp);
-			if (asset == Highlight) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
-			else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, onBone);
-			canvas.Restore();
+				var m = ToSk(ImageToWorld(slot, att, bmp.Width, bmp.Height));
+				canvas.Save();
+				canvas.Concat(in m);
+				DrawPart(canvas, slot, bmp, looks != null ? LookFor(skeleton, slot, looks) : null);
+				if (asset == Highlight) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
+				else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, onBone);
+				canvas.Restore();
+			}
+		}
+		finally
+		{
+			if (looks != null)
+				foreach (var filter in looks.Values) filter?.Dispose();
 		}
 	}
 
+	// The colour layers that change this part, as one filter (first layer first)
+	private static SKColorFilter? LookFor(Skeleton skeleton, Slot slot, Dictionary<long, SKColorFilter?> made)
+	{
+		var layers = skeleton.ColorLayers;
+		long which = 0;
+		for (int i = 0; i < layers.Count && i < 63; i++)
+			if (layers[i].Changes(slot) && layers[i].Adjust.Kind != ColorAdjustKind.ReplaceColor) which |= 1L << i;
+		if (which == 0) return null;
+		if (made.TryGetValue(which, out var known)) return known;
+		SKColorFilter? filter = null;
+		for (int i = 0; i < layers.Count && i < 63; i++)
+			if ((which & (1L << i)) != 0) filter = ColorFilters.Then(filter, ColorFilters.For(layers[i].Adjust, 1f));
+		made[which] = filter;
+		return filter;
+	}
+
 	// One part's pixels, with its blend mode, tint and opacity (plainly when it has none)
-	private void DrawPart(SKCanvas canvas, Slot slot, SKBitmap bmp)
+	// look: the object's colour layers for it, after its own tint (not disposed here)
+	private void DrawPart(SKCanvas canvas, Slot slot, SKBitmap bmp, SKColorFilter? look = null)
 	{
 		bool tinted = slot.Color != Vector3.One;
 		float opacity = Math.Clamp(slot.Opacity, 0f, 1f);
-		if (slot.Blend == BlendMode.Normal && !tinted && opacity >= 1f)
+		if (slot.Blend == BlendMode.Normal && !tinted && opacity >= 1f && look == null)
 		{
 			canvas.DrawBitmap(bmp, 0, 0, Sampling, null);
 			return;
 		}
 
 		using var tint = tinted ? TintFilter(slot.Color) : null;
+		using var both = tint != null && look != null ? SKColorFilter.CreateCompose(look, tint) : null;
 		using var paint = new SKPaint
 		{
 			BlendMode = ToSk(slot.Blend),
 			Color = SKColors.White.WithAlpha((byte)MathF.Round(opacity * 255)),
-			ColorFilter = tint
+			ColorFilter = both ?? tint ?? look
 		};
 		canvas.DrawBitmap(bmp, 0, 0, Sampling, paint);
 	}

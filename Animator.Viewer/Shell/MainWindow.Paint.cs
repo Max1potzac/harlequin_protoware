@@ -441,8 +441,9 @@ public partial class MainWindow
 			row.Children.Add(visible);
 			row.Children.Add(new TextBlock
 			{
-				Text = layer.Opacity < 1f ? $"{layer.Name}  ({layer.Opacity:P0})" : layer.Name,
-				Foreground = Brushes.White
+				Text = (layer.IsColorLayer ? "◐ " : "") + (layer.Opacity < 1f ? $"{layer.Name}  ({layer.Opacity:P0})" : layer.Name),
+				Foreground = layer.IsColorLayer ? new SolidColorBrush(Color.FromRgb(150, 210, 255)) : Brushes.White,
+				ToolTip = layer.IsColorLayer ? $"A colour layer ({ColorAdjust.KindName(layer.Adjust!.Kind)}): it changes the layers under it" : null
 			});
 
 			LayerList.Items.Add(row);
@@ -464,6 +465,7 @@ public partial class MainWindow
 		LayerName.IsEnabled = LayerOpacity.IsEnabled = layer != null;
 		if (!LayerName.IsKeyboardFocused) LayerName.Text = layer?.Name ?? "";
 		LayerOpacity.Value = (layer?.Opacity ?? 1f) * 100;
+		BuildPaintColourSettings(force: false);   // a colour layer: its settings under the list
 
 		_syncingUi = wasSyncing;
 	}
