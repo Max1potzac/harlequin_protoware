@@ -11,7 +11,7 @@ public static class ProjectFile
 {
 	public const string Extension = ".hqnap";
 	public const string Filter = "Harlequin Animation Project (*.hqnap)|*.hqnap";
-	public const int FormatVersion = 12;   // 2: depth rotation, look constraints. 3: detach/attach keys, events.
+	public const int FormatVersion = 13;   // 2: depth rotation, look constraints. 3: detach/attach keys, events.
 	                                      // 4: placement keys. 5: blend modes, part colour and opacity.
 	                                      // 6: a scene of objects, each with its own rig and animations
 	                                      // 7: the scene timeline (clips), project kind, stage size
@@ -20,6 +20,7 @@ public static class ProjectFile
 	                                      // 10: Bézier curves (keys with handles)
 	                                      // 11: skins: several, in categories, overlays, the ones on
 	                                      // 12: hitboxes and points (hitbox on/off keys)
+	                                      // 13: clipping masks
 
 	private sealed class Manifest
 	{

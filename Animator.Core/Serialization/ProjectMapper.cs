@@ -197,7 +197,8 @@ public static class ProjectMapper
 				Color = s.SetupColor == Vector3.One ? null : Rgb.From(s.SetupColor),
 				Opacity = s.SetupOpacity >= 1f ? null : s.SetupOpacity,
 				Hidden = s.Hidden ? true : null,
-				Locked = s.Locked ? true : null
+				Locked = s.Locked ? true : null,
+				Mask = s.IsMask ? new MaskDto { Until = s.MaskUntil?.Name, Shows = s.MaskShows ? true : null } : null
 			});
 		}
 
@@ -514,6 +515,9 @@ public static class ProjectMapper
 				Locked = s.Locked ?? false
 			});
 		}
+		foreach (var s in dto.Slots)   // masks name parts: once they're all there
+			if (s.Mask is { } mask && skeleton.FindSlot(s.Name) is { } slot)
+				MaskOps.MakeMask(skeleton, slot, mask.Until != null ? skeleton.FindSlot(mask.Until) ?? slot : null, mask.Shows ?? false);
 
 		foreach (var a in dto.Assets)
 		{

@@ -62,6 +62,10 @@ public partial class MainWindow
 		header.Inlines.Add(new Run($"▣ {slot.Name}"));
 		if (!IsDrawn)
 			header.Inlines.Add(new Run($"   on {slot.Bone.Name}") { Foreground = new SolidColorBrush(Color.FromRgb(140, 150, 165)), FontStyle = FontStyles.Normal });
+		if (slot.IsMask)
+			header.Inlines.Add(new Run($"   ◐ mask{(slot.MaskShows ? ", shows" : "")}") { Foreground = new SolidColorBrush(Color.FromRgb(200, 150, 255)), FontStyle = FontStyles.Normal });
+		else if (MaskOps.MaskOf(_skeleton, slot) is { } mask)
+			header.Inlines.Add(new Run($"   ↳ clipped by {mask.Name}") { Foreground = new SolidColorBrush(Color.FromRgb(200, 150, 255)), FontStyle = FontStyles.Normal });
 		if (SkinOps.SkinsWith(_skeleton, slot) is { Count: > 0 } skins)
 			header.Inlines.Add(new Run($"   skin{(skins.Count == 1 ? "" : "s")}: {string.Join(", ", skins.Select(s => s.Name))}")
 				{ Foreground = new SolidColorBrush(Color.FromRgb(150, 175, 210)), FontStyle = FontStyles.Normal });
@@ -173,8 +177,12 @@ public partial class MainWindow
 		Add("Bring forward", "order.forward", +1, false);
 		Add("Send backward", "order.backward", -1, false);
 		Add("Send to back", "order.back", -1, true);
+		menu.Items.Add(new Separator());
+		var masking = new MenuItem();
+		menu.Items.Add(masking);
 		menu.Opened += (_, _) =>
 		{
+			FillMaskMenu(masking, slot);
 			var order = CurrentOrder();
 			var parts = DraggedAlong(slot);
 			var at = parts.Select(part => IndexIn(order, part)).ToList();
@@ -186,6 +194,62 @@ public partial class MainWindow
 			}
 		};
 		return menu;
+	}
+
+	// ======================= clipping masks =======================
+
+	// The part's clipping: make it a mask for the parts above it (all, or up to one), or change it
+	private void FillMaskMenu(MenuItem menu, Slot slot)
+	{
+		menu.Items.Clear();
+		var order = CurrentOrder();
+		int at = IndexIn(order, slot);
+		var above = order.Skip(at + 1).ToList();
+		menu.Header = slot.IsMask ? $"Clipping mask ({MaskOps.Clipped(_skeleton, slot).Count} part(s))" : "Clip the parts above it";
+		menu.IsEnabled = slot.IsMask || above.Count > 0;
+		if (_state.AnimateMode)
+		{
+			menu.IsEnabled = false;
+			menu.ToolTip = "Masks are part of the object: set them in Build";
+			return;
+		}
+
+		void Item(string header, bool check, Func<string?> change)
+		{
+			var item = new MenuItem { Header = header, IsChecked = check };
+			item.Click += (_, _) =>
+			{
+				_state.EditStructure(change);
+				RefreshRigPanel();
+			};
+			menu.Items.Add(item);
+		}
+		Item($"All the parts above it ({above.Count})", slot.IsMask && slot.MaskUntil == null, () =>
+		{
+			MaskOps.MakeMask(_skeleton, slot, null, slot.MaskShows);
+			return $"{slot.Name}: clip every part above it";
+		});
+		foreach (var until in above)
+		{
+			int count = IndexIn(order, until) - at;
+			Item($"Up to {until.Name} ({count})", slot.IsMask && slot.MaskUntil == until, () =>
+			{
+				MaskOps.MakeMask(_skeleton, slot, until, slot.MaskShows);
+				return $"{slot.Name}: clip the parts up to {until.Name}";
+			});
+		}
+		if (!slot.IsMask) return;
+		menu.Items.Add(new Separator());
+		Item("The mask shows too", slot.MaskShows, () =>
+		{
+			slot.MaskShows = !slot.MaskShows;
+			return slot.MaskShows ? $"{slot.Name}: show the mask too" : $"{slot.Name}: the mask doesn't show";
+		});
+		Item("Stop clipping", false, () =>
+		{
+			MaskOps.ClearMask(slot);
+			return $"{slot.Name}: not a mask";
+		});
 	}
 
 	// ======================= dragging in the layers =======================

@@ -43,6 +43,7 @@ public static class PartOps
 
 	public static void DeletePart(Skeleton skeleton, IEnumerable<Animation> animations, Slot slot)
 	{
+		MaskOps.Forget(skeleton, slot);
 		skeleton.Slots.Remove(slot);
 		foreach (var skin in skeleton.AllSkins()) skin.RemoveSlot(slot.Name);
 		foreach (var anim in animations)
