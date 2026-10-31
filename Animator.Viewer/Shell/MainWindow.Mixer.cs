@@ -8,7 +8,7 @@ namespace Animator.Viewer;
 public partial class MainWindow
 {
 	private readonly MixPreview _mixPreview = new();
-	private MixerWindow? _mixer;
+	private MixerWindow? _mixerWindow;
 	private SceneObject? _mixerObject;
 	private bool _mixing;
 	private float _mixClock;
@@ -16,21 +16,21 @@ public partial class MainWindow
 	private void Mixer_Click(object sender, RoutedEventArgs e)
 	{
 		if (_sceneLevel || _active is not { } obj) return;
-		if (_mixer != null)
+		if (_mixerWindow != null)
 		{
-			_mixer.Activate();
+			_mixerWindow.Activate();
 			return;
 		}
 		_mixerObject = obj;
-		_mixer = new MixerWindow(obj.Name, _state.Animations, _skeleton.Mixes, _mixPreview,
+		_mixerWindow = new MixerWindow(obj.Name, _state.Animations, _skeleton.Mixes, _mixPreview,
 			(name, change) => _state.EditStructure(() => change() ? name : null),
 			PlayMix) { Owner = this };
-		_mixer.Closed += (_, _) =>
+		_mixerWindow.Closed += (_, _) =>
 		{
-			_mixer = null;
+			_mixerWindow = null;
 			_mixerObject = null;
 		};
-		_mixer.Show();
+		_mixerWindow.Show();
 	}
 
 	private void PlayMix(bool on)
@@ -45,9 +45,9 @@ public partial class MainWindow
 	// Every frame: the mixer's clock runs; it closes when its object isn't open any more
 	private void AdvanceMixer(float dt)
 	{
-		if (_mixer != null && (_sceneLevel || _mixerObject != _active))
+		if (_mixerWindow != null && (_sceneLevel || _mixerObject != _active))
 		{
-			_mixer.Close();
+			_mixerWindow.Close();
 			return;
 		}
 		if (_mixing) _mixClock += dt * _state.Speed;
