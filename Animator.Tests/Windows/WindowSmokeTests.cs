@@ -172,7 +172,6 @@ public class WindowSmokeTests
 				{
 					Animator.Viewer.Theming.Themes.Apply(theme);
 					Pump(60);
-					var scene = (Scene)typeof(MainWindow).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
 					foreach (var dialog in new Window[]
 					{
 						new ExportDialog(scene, scene.Objects[0], 30, null, null, false) { Owner = window },
