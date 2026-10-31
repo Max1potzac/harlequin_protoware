@@ -219,16 +219,12 @@ public sealed class GraphPanel
 		{
 			// The curve, a point a pixel
 			line.Color = c.Color;
-			using (var path = new SKPath())
+			var points = new List<Vector2>();
+			for (float x = FrameToX(0); x <= FrameToX(frames); x += 1)
+				if (c.Sample(XToFrame(x) / Fps) is { } v) points.Add(new Vector2(x, ValueToY(v)));
+			if (points.Count > 1)
 			{
-				bool started = false;
-				for (float x = FrameToX(0); x <= FrameToX(frames); x += 1)
-				{
-					if (c.Sample(XToFrame(x) / Fps) is not { } v) continue;
-					var p = new Vector2(x, ValueToY(v));
-					if (!started) { path.MoveTo(p.X, p.Y); started = true; }
-					else path.LineTo(p.X, p.Y);
-				}
+				using var path = ShapePaths.Polyline(points, closed: false);
 				canvas.DrawPath(path, line);
 			}
 
