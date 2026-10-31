@@ -83,6 +83,27 @@ public class TimelinePanel
 
     // ======================= drawing =======================
 
+    // The animation's sound track, drawn faintly behind the keys: how loud it is over time
+    // (null: none, or not a file whose loudness can be read)
+    public (float[] Peaks, float Duration, float Offset)? Waveform { get; set; }
+
+    private void DrawWaveform(SKCanvas canvas, Vector2 size, int frames)
+    {
+        if (Waveform is not { Peaks.Length: > 0 } wave || wave.Duration <= 0) return;
+        float top = RulerHeight, height = MathF.Max(0, size.Y - RulerHeight);
+        float middle = top + height / 2;
+        using var line = new SKPaint { Color = new SKColor(90, 160, 255, 70), StrokeWidth = 1 };
+        float left = FrameToX(0), right = FrameToX(frames);
+        for (float x = MathF.Max(LabelWidth, left); x < MathF.Min(size.X, right); x += 1f)
+        {
+            float time = (x - LabelWidth - LeftPad) / _frameWidth / _state.Fps - wave.Offset;
+            if (time < 0 || time >= wave.Duration) continue;
+            float peak = wave.Peaks[Math.Min(wave.Peaks.Length - 1, (int)(time / wave.Duration * wave.Peaks.Length))];
+            float h = peak * height * 0.45f;
+            canvas.DrawLine(x, middle - h, x, middle + h, line);
+        }
+    }
+
     public void Draw(SKCanvas canvas, Vector2 size)
     {
         _viewHeight = size.Y;
@@ -115,6 +136,8 @@ public class TimelinePanel
         using var orderText = new SKPaint { Color = new SKColor(130, 215, 225), IsAntialias = true };
         using var playhead = new SKPaint { Color = new SKColor(255, 90, 90), StrokeWidth = 2 };
         using var scrollbar = new SKPaint { Color = new SKColor(255, 255, 255, 50), IsAntialias = true };
+
+        DrawWaveform(canvas, size, frames);
 
         if (_state.AnimateMode)
         {

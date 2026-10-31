@@ -20,6 +20,7 @@ public sealed class ExportSettings
 	public float Scale { get; set; } = 1f;                // output pixels per scene unit
 	public bool PixelArt { get; set; }                    // no smoothing (crisp pixels)
 	public bool BakeColorLayers { get; set; }             // the colour layers in the pictures (else without them)
+	public bool WriteEvents { get; set; } = true;         // an object's animations: name.events.json too
 	public SKColor? Background { get; set; }              // null = see-through
 	public int FrameStep { get; set; } = 1;               // every frame, every 2nd…
 	public int FirstFrame { get; set; }                   // scene: the range to export
@@ -208,6 +209,7 @@ public sealed class Exporter
 				_ => WritePngs()
 			};
 			foreach (var p in steps) yield return p;
+			WriteEventsFile();
 			finished = true;
 		}
 		finally
@@ -216,6 +218,17 @@ public sealed class Exporter
 				foreach (var file in _written)
 					TryDelete(file);
 		}
+	}
+
+	// An object's animations: their events (and sound tracks) beside the pictures, for the game
+	private void WriteEventsFile()
+	{
+		if (_settings.Scene || !_settings.WriteEvents || _settings.Object is not { } obj) return;
+		var file = EventsFile.Of(obj.Name, _settings.Animations, _fps);
+		if (file.Animations.Count == 0) return;
+		string path = BaseNameForSheet() + ".events.json";
+		Track(path);
+		File.WriteAllText(path, file.ToJson());
 	}
 
 	private static void TryDelete(string file)

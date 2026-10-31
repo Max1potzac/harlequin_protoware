@@ -29,6 +29,8 @@ public class ProjectDto : RigDto
 	// Editing aids: the grid's spacing and the guides (null = none: a 10 grid, no guides)
 	public float? GridSize { get; set; }
 	public List<GuideDto>? Guides { get; set; }
+
+	public Dictionary<string, string>? Sounds { get; set; }   // the sound map (format 17)
 }
 
 public class GuideDto
@@ -282,6 +284,14 @@ public class AnimationDto
 	public float Duration { get; set; }
 	public bool Loop { get; set; }
 	public List<TimelineDto> Timelines { get; set; } = new();
+	public SoundTrackDto? Sound { get; set; }   // (format 17)
+}
+
+public class SoundTrackDto
+{
+	public string Path { get; set; } = "";
+	public float Offset { get; set; }
+	public float Volume { get; set; } = 1f;
 }
 
 public class TimelineDto

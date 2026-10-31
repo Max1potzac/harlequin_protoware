@@ -1063,6 +1063,8 @@
                       ToolTip="On: posing in Animate mode sets keys. Off: it only changes the pose (an empty orange key shows where), until Key keys it; going to another frame drops what wasn't keyed." />
                         <Button x:Name="KeyPoseButton" Content="Key" Padding="6,1" Margin="0,4,12,4" Click="KeyPose_Click"
                     ToolTip="Keys the pose at the playhead: the changes not keyed yet (auto key off), or else the picked bones' and parts' whole pose" />
+                        <Button Content="Sound ▾" Padding="6,1" Margin="0,4,6,4" Click="SoundMenu_Click"
+                    ToolTip="A sound track along this animation, what events sound like (the sound map), and events and sound map files to and from the game" />
                         <Button Content="Mixer…" Padding="6,1" Margin="0,4,12,4" Click="Mixer_Click"
                     ToolTip="This object's animations together: on tracks over each other (walking legs, shooting arms), and fading from one into another, with the fade times kept for the game" />
                         <CheckBox x:Name="GraphBox" Content="Curves" Foreground="White" VerticalAlignment="Center"

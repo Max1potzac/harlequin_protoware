@@ -79,6 +79,7 @@ public partial class MainWindow : Window
 			FireEvents(_state.Advance(dt));
 		}
 		AdvanceMixer(dt);
+		SyncSound();
 		// Unkeyed changes (auto key off) last as long as the playhead stays on their frame
 		_state.Hold.KeepOnlyAt(_skeleton, _state.Animation, _state.Frame, Editing && _state.AnimateMode && !_state.Playing);
 		UpdateEventFlash();

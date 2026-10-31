@@ -11,6 +11,10 @@ public enum ProjectKind { Character, Animation }
 public class Scene
 {
 	public List<SceneObject> Objects { get; } = new();
+
+	// The sound map: what each event name sounds like in the editor (a sound file's path, relative
+	// to the project's folder or full). Never exported into pictures; an events file's companion.
+	public Dictionary<string, string> Sounds { get; } = new(StringComparer.Ordinal);
 	public int Fps { get; set; } = 30;
 	public ProjectKind Kind { get; set; } = ProjectKind.Character;
 
