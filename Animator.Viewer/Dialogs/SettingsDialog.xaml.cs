@@ -74,6 +74,10 @@ public partial class SettingsDialog : Window
 	public MouseButton PanButton { get; private set; }
 	public int AutosaveMinutes { get; private set; }   // 0: never
 	public int BackupCount { get; private set; }       // 0: none
+	public string ThemeName { get; private set; } = Themes.Current.Name;
+
+	private readonly Theme _themeBefore = Themes.Current;   // (Cancel: back to it)
+	private bool _themeChosen;
 
 	public SettingsDialog(KeyMap keys, MouseButton select, MouseButton transform, MouseButton pan,
 						  int autosaveMinutes, int backupCount)
@@ -89,8 +93,49 @@ public partial class SettingsDialog : Window
 		ShowButtons(select, transform, pan);
 		ShowSaving(autosaveMinutes, backupCount);
 		ShowCommand();
+		ShowThemes();
+		Closed += (_, _) =>
+		{
+			if (!_themeChosen && Themes.Current != _themeBefore) Themes.Apply(_themeBefore);
+		};
 		DialogLayout.FitToScreen(this);
 	}
+
+	// ======================= appearance =======================
+
+	private bool _showingThemes;
+
+	private void ShowThemes()
+	{
+		var problems = new List<string>();
+		var all = Themes.All(problems);
+		_showingThemes = true;
+		ThemeBox.ItemsSource = all;
+		ThemeBox.SelectedItem = all.FirstOrDefault(t => t.Name == Themes.Current.Name) ?? all[0];
+		_showingThemes = false;
+		ThemeProblems.Text = problems.Count == 0 ? "" : "Themes that can't be read:\n" + string.Join("\n", problems);
+	}
+
+	private void Theme_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_showingThemes || ThemeBox.SelectedItem is not Theme theme) return;
+		Themes.Apply(theme);
+	}
+
+	private void OpenThemes_Click(object sender, RoutedEventArgs e)
+	{
+		try
+		{
+			string folder = Themes.PrepareFolder();
+			System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(folder) { UseShellExecute = true });
+		}
+		catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+		{
+			ThemeProblems.Text = $"The themes folder can't be opened: {ex.Message}";
+		}
+	}
+
+	private void ReloadThemes_Click(object sender, RoutedEventArgs e) => ShowThemes();
 
 	private KeyRow? Selected => CommandList.SelectedItem as KeyRow;
 
@@ -228,6 +273,8 @@ public partial class SettingsDialog : Window
 		PanButton = pan;
 		AutosaveMinutes = ValueIn(AutosaveBox);
 		BackupCount = ValueIn(BackupBox);
+		ThemeName = Themes.Current.Name;
+		_themeChosen = true;
 		DialogResult = true;
 	}
 

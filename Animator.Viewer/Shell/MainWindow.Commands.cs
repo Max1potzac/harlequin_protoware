@@ -36,6 +36,7 @@ public partial class MainWindow
 		_appSettings.PanButton = dialog.PanButton;
 		_appSettings.AutosaveMinutes = dialog.AutosaveMinutes;   // the next autosave tick goes by it
 		_appSettings.BackupCount = dialog.BackupCount;
+		_appSettings.Theme = dialog.ThemeName == Themes.Dark.Name ? null : dialog.ThemeName;
 		_appSettings.Save();
 		ApplyMouseButtons();
 		ApplyKeyMap();

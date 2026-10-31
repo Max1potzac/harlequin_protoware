@@ -3,6 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:Animator.Viewer">
     <Application.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="Theming/Controls.xaml" />
+        </ResourceDictionary.MergedDictionaries>
         <!-- Grey checkerboard, shown behind colours so transparency is visible -->
         <DrawingBrush x:Key="CheckerBrush" TileMode="Tile" Viewport="0,0,10,10" ViewportUnits="Absolute">
             <DrawingBrush.Drawing>
@@ -12,5 +16,6 @@
                 </DrawingGroup>
             </DrawingBrush.Drawing>
         </DrawingBrush>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

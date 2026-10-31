@@ -2,11 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Harlequin" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}">
     <StackPanel Margin="14" Width="320">
         <TextBlock x:Name="Prompt" TextWrapping="Wrap" Margin="0,0,0,8" />
         <TextBox x:Name="AnswerBox" />
-        <TextBlock x:Name="Problem" Foreground="#C03030" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" />
+        <TextBlock x:Name="Problem" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
             <Button Content="OK" IsDefault="True" Width="75" Margin="0,0,6,0" Click="Ok_Click" />
             <Button Content="Cancel" IsCancel="True" Width="75" />

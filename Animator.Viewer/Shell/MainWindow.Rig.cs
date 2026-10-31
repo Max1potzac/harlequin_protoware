@@ -96,9 +96,9 @@ public partial class MainWindow
 	private TreeViewItem MakeTreeItem(Bone bone)
 	{
 		string header = bone.Name;
-		if (LookOf(bone) is { } look) header += $"  👁 {look.Target.Name}";
+		if (LookOf(bone) is { } look) header += $"  ◉ looks at {look.Target.Name}";
 
-		var item = new TreeViewItem { Header = RowHeader(bone, new TextBlock { Text = header }), Tag = bone, IsExpanded = true, Foreground = Brushes.White };
+		var item = new TreeViewItem { Header = RowHeader(bone, new TextBlock { Text = header }), Tag = bone, IsExpanded = true, Foreground = Themes.Brush("Text") };
 		_treeItems[bone] = item;
 
 		// Parts on this bone; the number is the draw order (higher = in front)

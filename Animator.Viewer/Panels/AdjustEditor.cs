@@ -17,8 +17,8 @@ public sealed class AdjustEditor
 	private readonly Func<Vector3, string, Vector3?> _pickColor;
 	private bool _building = true;
 
-	public static readonly Brush LabelBrush = Freeze(new SolidColorBrush(Color.FromRgb(220, 224, 230)));
-	public static readonly Brush FaintBrush = Freeze(new SolidColorBrush(Color.FromRgb(154, 164, 178)));
+	public static Brush LabelBrush => Themes.Brush("Text");        // (the theme's, when made)
+	public static Brush FaintBrush => Themes.Brush("TextMuted");
 
 	private static Brush Freeze(Brush brush)
 	{

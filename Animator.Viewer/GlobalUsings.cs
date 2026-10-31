@@ -15,3 +15,4 @@ global using Animator.Core.Export;
 global using Animator.Viewer.Export;
 global using Animator.Core.Import;
 global using Animator.Viewer.Import;
+global using Animator.Viewer.Theming;

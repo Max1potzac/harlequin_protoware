@@ -23,8 +23,8 @@ public static class ViewAids
 		if (size <= 0 || zoom <= 0) return;
 		float step = size * NiceAtLeast(MinGridGapPx / (size * zoom));
 		float px = 1f / zoom;
-		using var minor = new SKPaint { Color = new SKColor(255, 255, 255, 20), StrokeWidth = px };
-		using var major = new SKPaint { Color = new SKColor(255, 255, 255, 44), StrokeWidth = px };
+		using var minor = new SKPaint { Color = Themes.SkAlpha("CanvasText", 20), StrokeWidth = px };
+		using var major = new SKPaint { Color = Themes.SkAlpha("CanvasText", 44), StrokeWidth = px };
 
 		long first = (long)MathF.Floor(area.Left / step), last = (long)MathF.Ceiling(area.Right / step);
 		if (last - first <= 4000)
@@ -77,10 +77,10 @@ public static class ViewAids
 	public static void DrawRulers(SKCanvas canvas, Vector2 view, Func<Vector2, Vector2> toUnits,
 		IEnumerable<float> topMarks, IEnumerable<float> leftMarks, Vector2? mouse)
 	{
-		using var back = new SKPaint { Color = new SKColor(28, 31, 37, 240) };
-		using var edge = new SKPaint { Color = new SKColor(255, 255, 255, 40), StrokeWidth = 1 };
-		using var tick = new SKPaint { Color = new SKColor(200, 205, 215, 150), StrokeWidth = 1 };
-		using var text = new SKPaint { Color = new SKColor(200, 205, 215), IsAntialias = true };
+		using var back = new SKPaint { Color = Themes.SkAlpha("Canvas", 240) };
+		using var edge = new SKPaint { Color = Themes.SkAlpha("CanvasText", 40), StrokeWidth = 1 };
+		using var tick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 150), StrokeWidth = 1 };
+		using var text = new SKPaint { Color = Themes.Sk("CanvasText"), IsAntialias = true };
 		using var font = new SKFont { Size = 9 };
 		using var mark = new SKPaint { Color = GuideColor, IsAntialias = true };
 		using var cursor = new SKPaint { Color = new SKColor(255, 90, 90, 200), StrokeWidth = 1 };

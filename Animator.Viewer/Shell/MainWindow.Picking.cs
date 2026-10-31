@@ -13,10 +13,10 @@ namespace Animator.Viewer;
 // can't be picked or dragged in the viewport. The viewport picks the same way (see BoneTool).
 public partial class MainWindow
 {
-	private static readonly Brush PickedRowBrush = Frozen(Color.FromRgb(46, 72, 106));
-	private static readonly Brush EyeOnBrush = Frozen(Color.FromRgb(150, 160, 176));
-	private static readonly Brush EyeOffBrush = Frozen(Color.FromRgb(240, 240, 240));
-	private static readonly Brush EyeUnderBrush = Frozen(Color.FromRgb(96, 102, 112));
+	private static Brush PickedRowBrush => Themes.Brush("Selection");
+	private static Brush EyeOnBrush => Themes.Brush("TextMuted");
+	private static Brush EyeOffBrush => Themes.Brush("Text");
+	private static Brush EyeUnderBrush => Themes.Brush("TextDisabled");
 	private static readonly object EyeMark = new();   // the Tag of a row's eye
 	private static readonly Brush LockOnBrush = Frozen(Color.FromRgb(240, 200, 120));
 	private static readonly Brush LockOffBrush = Frozen(Color.FromArgb(70, 150, 160, 176));

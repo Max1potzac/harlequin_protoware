@@ -89,7 +89,7 @@ public partial class XflImportDialog : Window
 			var inRig = Tick(1, "Use it to work out the rig (R, for the picked part; untick skins and extras: they ride on the bone they move with)", InRig_Click);
 			var effect = Tick(2, "An effect (VFX; X, for the picked part): left out of the rig, it moves on its own and is hidden at rest", Effect_Click);
 			var name = new TextBlock { TextWrapping = TextWrapping.Wrap };
-			var details = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11 };
+			var details = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Themes.Brush("TextMuted"), FontSize = 11 };
 			var text = new StackPanel();
 			text.Children.Add(name);
 			text.Children.Add(details);

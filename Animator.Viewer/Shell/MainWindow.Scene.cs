@@ -367,7 +367,7 @@ public partial class MainWindow
 		{
 			Content = $"{obj.Name}   ({kind}{flags})",
 			Tag = obj,
-			Foreground = obj.Visible ? Brushes.White : Brushes.Gray,
+			Foreground = obj.Visible ? Themes.Brush("Text") : Themes.Brush("TextDisabled"),
 			FontWeight = obj == _active && !_sceneLevel ? FontWeights.Bold : FontWeights.Normal
 		};
 	}

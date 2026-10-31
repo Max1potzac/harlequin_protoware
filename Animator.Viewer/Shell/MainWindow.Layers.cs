@@ -61,14 +61,14 @@ public partial class MainWindow
 		var header = new TextBlock();
 		header.Inlines.Add(new Run($"▣ {slot.Name}"));
 		if (!IsDrawn)
-			header.Inlines.Add(new Run($"   on {slot.Bone.Name}") { Foreground = new SolidColorBrush(Color.FromRgb(140, 150, 165)), FontStyle = FontStyles.Normal });
+			header.Inlines.Add(new Run($"   on {slot.Bone.Name}") { Foreground = Themes.Brush("TextMuted"), FontStyle = FontStyles.Normal });
 		if (slot.IsMask)
 			header.Inlines.Add(new Run($"   ◐ mask{(slot.MaskShows ? ", shows" : "")}") { Foreground = new SolidColorBrush(Color.FromRgb(200, 150, 255)), FontStyle = FontStyles.Normal });
 		else if (MaskOps.MaskOf(_skeleton, slot) is { } mask)
 			header.Inlines.Add(new Run($"   ↳ clipped by {mask.Name}") { Foreground = new SolidColorBrush(Color.FromRgb(200, 150, 255)), FontStyle = FontStyles.Normal });
 		if (SkinOps.SkinsWith(_skeleton, slot) is { Count: > 0 } skins)
 			header.Inlines.Add(new Run($"   skin{(skins.Count == 1 ? "" : "s")}: {string.Join(", ", skins.Select(s => s.Name))}")
-				{ Foreground = new SolidColorBrush(Color.FromRgb(150, 175, 210)), FontStyle = FontStyles.Normal });
+				{ Foreground = Themes.Brush("TextMuted"), FontStyle = FontStyles.Normal });
 		var item = new TreeViewItem
 		{
 			Header = RowHeader(slot, header),

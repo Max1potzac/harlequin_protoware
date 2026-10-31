@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
         Title="Import a sprite sheet" Width="1150" Height="760" MinWidth="820" MinHeight="520"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}">
     <DockPanel>
 
         <!-- ===== The steps ===== -->
@@ -62,21 +62,21 @@
                 </StackPanel>
 
                 <RadioButton x:Name="HandMode" GroupName="Cut" Content="Draw them by hand" Checked="Mode_Changed" />
-                <TextBlock x:Name="HandHint" Margin="18,2,0,6" Foreground="Gray" TextWrapping="Wrap"
+                <TextBlock x:Name="HandHint" Margin="18,2,0,6" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"
                            Text="Drag on the sheet to draw a piece (Ctrl+drag picks pieces instead). Del removes the picked ones. The pieces there are stay, so you can fix up a cut." />
 
                 <RadioButton x:Name="JsonMode" GroupName="Cut" Content="As its JSON file says" Checked="Mode_Changed" />
-                <TextBlock x:Name="JsonHint" Margin="18,2,0,6" Foreground="Gray" TextWrapping="Wrap" />
+                <TextBlock x:Name="JsonHint" Margin="18,2,0,6" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
 
                 <DockPanel Margin="0,4,0,0">
                     <Button x:Name="CutButton" DockPanel.Dock="Right" Content="Cut again" Padding="8,1" Click="Cut_Click"
                             ToolTip="Cuts the sheet with the settings above (Enter in a field does too). Animations made so far are dropped." />
-                    <TextBlock x:Name="PieceCount" Foreground="Gray" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <TextBlock x:Name="PieceCount" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </DockPanel>
 
                 <!-- 2. Animations -->
                 <TextBlock Text="2. Make animations" FontWeight="Bold" Margin="0,16,0,4" />
-                <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                <TextBlock Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"
                            Text="Pick pieces on the sheet (click; Ctrl+click adds or removes; drag around several), then make them an animation: they play left to right, top to bottom (cut by its JSON: in the JSON's order). Pieces in no animation are stills." />
                 <UniformGrid Columns="2" Margin="0,0,0,4">
                     <Button Content="Make an animation" Margin="0,0,3,0" Click="MakeAnimation_Click"
@@ -115,7 +115,7 @@
                     <Button Grid.Row="3" Grid.ColumnSpan="2" Content="Remove this animation (its pieces become stills)" Margin="0,2,0,0"
                             Click="RemoveAnimation_Click" />
                 </Grid>
-                <Border Height="150" Margin="0,8,0,0" BorderBrush="#808080" BorderThickness="1"
+                <Border Height="150" Margin="0,8,0,0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                         ToolTip="The picked animation playing, as it will in the project">
                     <skia:SKElement x:Name="PreviewView" PaintSurface="PreviewView_Paint" />
                 </Border>
@@ -130,7 +130,7 @@
                 <CheckBox x:Name="SharpBox" Content="Show pixels sharp (pixel art; P switches it later)" Margin="0,6,0,0"
                           ToolTip="Draws every picture with hard pixel edges instead of smoothing them when zoomed" />
                 <TextBlock x:Name="Summary" TextWrapping="Wrap" Margin="0,10,0,0" />
-                <TextBlock x:Name="ErrorText" Foreground="#C03030" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <TextBlock x:Name="ErrorText" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                     <Button Content="Import" IsDefault="True" Width="80" Margin="0,0,6,0" Click="Import_Click" />
@@ -144,7 +144,7 @@
             <skia:SKElement x:Name="SheetView" Focusable="True" PaintSurface="SheetView_Paint"
                             MouseDown="SheetView_MouseDown" MouseMove="SheetView_MouseMove"
                             MouseUp="SheetView_MouseUp" MouseWheel="SheetView_MouseWheel" />
-            <TextBlock Text="Wheel: zoom   Middle drag: move around   Home: fit" Foreground="#9AA4B2" Margin="8"
+            <TextBlock Text="Wheel: zoom   Middle drag: move around   Home: fit" Foreground="{DynamicResource TextMutedBrush}" Margin="8"
                        VerticalAlignment="Bottom" IsHitTestVisible="False" />
         </Grid>
     </DockPanel>

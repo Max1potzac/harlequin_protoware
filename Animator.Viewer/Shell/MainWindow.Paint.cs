@@ -442,7 +442,7 @@ public partial class MainWindow
 			row.Children.Add(new TextBlock
 			{
 				Text = (layer.IsColorLayer ? "◐ " : "") + (layer.Opacity < 1f ? $"{layer.Name}  ({layer.Opacity:P0})" : layer.Name),
-				Foreground = layer.IsColorLayer ? new SolidColorBrush(Color.FromRgb(150, 210, 255)) : Brushes.White,
+				Foreground = layer.IsColorLayer ? Themes.Brush("Accent") : Themes.Brush("Text"),
 				ToolTip = layer.IsColorLayer ? $"A colour layer ({ColorAdjust.KindName(layer.Adjust!.Kind)}): it changes the layers under it" : null
 			});
 
