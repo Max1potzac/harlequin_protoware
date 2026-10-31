@@ -60,8 +60,9 @@ public class TimelineToolsTests
 		Assert.Equal(new[] { 0, 5, 13 }, Frames(a));
 		Assert.Equal(33, KeyTimeOps.FrameOf(animation.Duration, Fps));
 
+		// Frames 6 and 7 go: what was at frame 8 is at 6 now, so a key there keeps it looking the same
 		Assert.Equal(2, KeyTimeOps.RemoveFrames(animation, at: 6, count: 2, Fps));
-		Assert.Equal(new[] { 0, 5, 11 }, Frames(a));
+		Assert.Equal(new[] { 0, 5, 6, 11 }, Frames(a));
 		Assert.Equal(31, KeyTimeOps.FrameOf(animation.Duration, Fps));
 		Assert.Equal(0, KeyTimeOps.RemoveFrames(animation, at: 40, count: 1, Fps));   // past the end: nothing
 	}
