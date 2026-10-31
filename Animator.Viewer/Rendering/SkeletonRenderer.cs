@@ -65,6 +65,7 @@ public class SkeletonRenderer
 		if (ShowBones)
 		{
 			DrawLookGuides(canvas, skeleton);
+			DrawFollowGuides(canvas, skeleton);
 			DrawBones(canvas, skeleton);
 		}
 		DrawPartGizmo(canvas, skeleton);
@@ -588,6 +589,22 @@ public class SkeletonRenderer
 
 	// Each look constraint's boundary, drawn in the iris's parent space so it turns
 	// with the head. Bright, plus a line to the target, when the iris or target is selected.
+	// The selected bone's copy constraint: a dashed line to the bone it follows (or from the ones following it)
+	private void DrawFollowGuides(SKCanvas canvas, Skeleton skeleton)
+	{
+		if (Selected == null) return;
+		float px = 1f / Zoom;
+		using var dash = SKPathEffect.CreateDash(new[] { 4f * px, 3f * px }, 0);
+		using var line = new SKPaint { Color = new SKColor(255, 210, 90, 200), Style = SKPaintStyle.Stroke, StrokeWidth = 1.25f * px, IsAntialias = true, PathEffect = dash };
+		foreach (var c in skeleton.CopyConstraints)
+		{
+			if (c.Bone != Selected && c.Source != Selected) continue;
+			var a = c.Bone.World.Translation;
+			var b = c.Source.World.Translation;
+			canvas.DrawLine(a.X, a.Y, b.X, b.Y, line);
+		}
+	}
+
 	private void DrawLookGuides(SKCanvas canvas, Skeleton skeleton)
 	{
 		float px = 1f / Zoom;

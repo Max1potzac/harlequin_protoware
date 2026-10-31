@@ -80,6 +80,8 @@ public static class RigOps
 		skeleton.IkConstraints.RemoveAll(c => ikNames.Contains(c.Name));
 
 		skeleton.LookConstraints.RemoveAll(c => doomed.Contains(c.Bone) || doomed.Contains(c.Target));
+		skeleton.CopyConstraints.RemoveAll(c => doomed.Contains(c.Bone) || doomed.Contains(c.Source));
+		skeleton.JiggleConstraints.RemoveAll(c => doomed.Contains(c.Bone));
 		HitboxOps.ForgetBones(skeleton, animations, doomed);
 		MeshOps.ForgetBones(skeleton, doomed);
 

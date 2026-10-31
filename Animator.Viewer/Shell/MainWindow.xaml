@@ -605,6 +605,67 @@
 
                                         <TextBlock x:Name="RigHint" Grid.Row="16" Grid.ColumnSpan="3" Foreground="#FF8080" TextWrapping="Wrap" />
                                     </Grid>
+                                    <!-- The selected bone's copy and jiggle constraints -->
+                                    <Expander x:Name="ConstraintBox" Header="Follow and jiggle" Foreground="White" Margin="6,0,6,6" Visibility="Collapsed"
+                                              ToolTip="Constraints: follow another bone's turn, place or size; or lag behind and spring back (hair, tails)">
+                                        <StackPanel Margin="4,4,0,0">
+                                            <TextBlock Text="Follow another bone" Foreground="#9AA4B2" Margin="0,0,0,2" />
+                                            <DockPanel Margin="0,1,0,1">
+                                                <TextBlock Text="Bone" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <ComboBox x:Name="CopySourceBox" SelectionChanged="CopySource_Changed"
+                                                          ToolTip="The bone it follows (none: it doesn't)" />
+                                            </DockPanel>
+                                            <CheckBox x:Name="CopyLocalBox" Content="How it moves (local), not where it is" Foreground="White" Margin="0,2,0,2" Click="CopyLocal_Click"
+                                                      ToolTip="On: it takes how the other bone turns, moves and grows from its own rest (a gear, a mirrored limb). Off: it takes the other's angle, place and size in the object, keeping the offsets it had." />
+                                            <DockPanel Margin="0,1,0,1" ToolTip="How much of the other bone's turn it takes">
+                                                <TextBlock Text="Turn" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="CopyRotateText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <Slider x:Name="CopyRotate" Tag="CopyRotate" Minimum="0" Maximum="1" Value="1" VerticalAlignment="Center"
+                                                        ValueChanged="ConstraintSlider_Changed" Thumb.DragStarted="ConstraintSlider_DragStarted" Thumb.DragCompleted="ConstraintSlider_DragCompleted" />
+                                            </DockPanel>
+                                            <DockPanel Margin="0,1,0,1" ToolTip="How much of the other bone's place it takes">
+                                                <TextBlock Text="Place" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="CopyMoveText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <Slider x:Name="CopyMove" Tag="CopyMove" Minimum="0" Maximum="1" Value="0" VerticalAlignment="Center"
+                                                        ValueChanged="ConstraintSlider_Changed" Thumb.DragStarted="ConstraintSlider_DragStarted" Thumb.DragCompleted="ConstraintSlider_DragCompleted" />
+                                            </DockPanel>
+                                            <DockPanel Margin="0,1,0,1" ToolTip="How much of the other bone's size it takes">
+                                                <TextBlock Text="Size" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="CopyScaleText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <Slider x:Name="CopyScale" Tag="CopyScale" Minimum="0" Maximum="1" Value="0" VerticalAlignment="Center"
+                                                        ValueChanged="ConstraintSlider_Changed" Thumb.DragStarted="ConstraintSlider_DragStarted" Thumb.DragCompleted="ConstraintSlider_DragCompleted" />
+                                            </DockPanel>
+                                            <Button x:Name="CopyKeepButton" Content="Keep it where it is now" Margin="0,2,0,6" Click="CopyKeep_Click"
+                                                    ToolTip="World: the offsets from the other bone become what they are right now" />
+                                            <CheckBox x:Name="JiggleBox" Content="Jiggle (lags behind and springs back)" Foreground="White" Margin="0,4,0,2" Click="Jiggle_Click"
+                                                      ToolTip="Secondary motion as time goes by (Animate, playing, exports): hair, a tail, ears, an antenna" />
+                                            <DockPanel Margin="0,1,0,1" ToolTip="How hard it springs back: higher = quicker, smaller swings">
+                                                <TextBlock Text="Stiffness" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="JiggleStiffnessText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <Slider x:Name="JiggleStiffness" Tag="JiggleStiffness" Minimum="5" Maximum="400" Value="80" VerticalAlignment="Center"
+                                                        ValueChanged="ConstraintSlider_Changed" Thumb.DragStarted="ConstraintSlider_DragStarted" Thumb.DragCompleted="ConstraintSlider_DragCompleted" />
+                                            </DockPanel>
+                                            <DockPanel Margin="0,1,0,1" ToolTip="How fast the swinging dies down">
+                                                <TextBlock Text="Damping" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="JiggleDampingText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <Slider x:Name="JiggleDamping" Tag="JiggleDamping" Minimum="0" Maximum="30" Value="6" VerticalAlignment="Center"
+                                                        ValueChanged="ConstraintSlider_Changed" Thumb.DragStarted="ConstraintSlider_DragStarted" Thumb.DragCompleted="ConstraintSlider_DragCompleted" />
+                                            </DockPanel>
+                                            <DockPanel Margin="0,1,0,1" ToolTip="Pulls its tip down (or up, below 0), in object units per second²">
+                                                <TextBlock Text="Gravity" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="JiggleGravityText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <Slider x:Name="JiggleGravity" Tag="JiggleGravity" Minimum="-1000" Maximum="1000" Value="0" VerticalAlignment="Center"
+                                                        ValueChanged="ConstraintSlider_Changed" Thumb.DragStarted="ConstraintSlider_DragStarted" Thumb.DragCompleted="ConstraintSlider_DragCompleted" />
+                                            </DockPanel>
+                                            <DockPanel Margin="0,1,0,1" ToolTip="How much of the follow and the jiggle it takes (0: none)">
+                                                <TextBlock Text="Mix" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <TextBlock x:Name="ConstraintMixText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="40" TextAlignment="Right" VerticalAlignment="Center" />
+                                                <Slider x:Name="ConstraintMix" Tag="ConstraintMix" Minimum="0" Maximum="1" Value="1" VerticalAlignment="Center"
+                                                        ValueChanged="ConstraintSlider_Changed" Thumb.DragStarted="ConstraintSlider_DragStarted" Thumb.DragCompleted="ConstraintSlider_DragCompleted" />
+                                            </DockPanel>
+                                            <TextBlock x:Name="ConstraintHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                    </Expander>
                                     <Grid x:Name="PartProps" Margin="6" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />

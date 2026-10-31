@@ -157,7 +157,12 @@ public partial class MainWindow
 		float sceneTime = Editing ? _sceneTimeAtZero + time : time;
 		foreach (var obj in _scene.Objects)
 		{
-			if (Editing && obj == _active) PoseAt(time);
+			if (Editing && obj == _active)
+			{
+				PoseAt(time);
+				if (_state.AnimateMode) _skeleton.StepPhysics(time);   // jiggles swing as time goes by
+				else _skeleton.ResetPhysics();
+			}
 			else ScenePlayer.Pose(obj, sceneTime);   // its clip there, or its preview animation looping
 		}
 	}

@@ -141,6 +141,8 @@ public class Skeleton
 		foreach (var c in IkConstraints) c.Mix = c.SetupMix;
 		foreach (var hitbox in Hitboxes) hitbox.Active = hitbox.SetupActive;
 		foreach (var c in LookConstraints) c.Mix = c.SetupMix;
+		foreach (var c in CopyConstraints) c.Mix = c.SetupMix;
+		foreach (var c in JiggleConstraints) c.Mix = c.SetupMix;
 		foreach (var layer in ColorLayers) layer.Adjust.Now = layer.Adjust.Setup;
 		foreach (var asset in Assets.Values)   // colour layers in drawings: their picture is made again when they change
 		{
@@ -165,14 +167,33 @@ public class Skeleton
     public IkConstraint? FindIkConstraint(string name) =>
         IkConstraints.Find(c => c.Name == name);
 	public List<LookConstraint> LookConstraints { get; } = new();
+	public List<CopyConstraint> CopyConstraints { get; } = new();
+	public List<JiggleConstraint> JiggleConstraints { get; } = new();
 	// The full pipeline in one call: limits → world transforms → IK → look constraints.
 	public void UpdatePose()
 	{
 		ApplyLimits();
 		UpdateWorld();
 		foreach (var c in IkConstraints) c.Solve();
+		foreach (var c in CopyConstraints) c.Solve();   // after IK: they may copy IK-driven bones
 		foreach (var c in LookConstraints) c.Solve();   // after IK: targets may sit on IK-driven bones
 		UpdateHeldBones();   // a bone held by an IK hand must follow where IK put the hand
+	}
+
+	// Jiggle constraints, one step on to this time (after UpdatePose), parents first so a child
+	// swings from where its parent swung to. Only where time goes by (playing, exports).
+	public void StepPhysics(float time)
+	{
+		if (JiggleConstraints.Count == 0) return;
+		var order = AllBones().Select((b, i) => (b, i)).ToDictionary(p => p.b, p => p.i);
+		foreach (var c in JiggleConstraints.OrderBy(c => order.GetValueOrDefault(c.Bone, int.MaxValue))) c.Step(time);
+		UpdateHeldBones();
+	}
+
+	// Jiggle constraints still again: the next step starts them from rest
+	public void ResetPhysics()
+	{
+		foreach (var c in JiggleConstraints) c.Reset();
 	}
 
 	// Takes over another skeleton's contents. Everything that holds a reference to
@@ -190,6 +211,10 @@ public class Skeleton
 		IkConstraints.AddRange(other.IkConstraints);
 		LookConstraints.Clear();
 		LookConstraints.AddRange(other.LookConstraints);
+		CopyConstraints.Clear();
+		CopyConstraints.AddRange(other.CopyConstraints);
+		JiggleConstraints.Clear();
+		JiggleConstraints.AddRange(other.JiggleConstraints);
 		Sets.Clear();
 		Sets.AddRange(other.Sets);
 		ColorLayers.Clear();

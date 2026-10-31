@@ -42,6 +42,8 @@ public sealed class StructureSnapshot
 	private readonly List<(Asset Asset, string Name)> _assetNames;   // drawings rename their pixels too
 	private readonly List<IkState> _ik;
 	private readonly List<LookState> _looks;
+	private readonly List<(CopyConstraint Constraint, CopyConstraint Was)> _copies;
+	private readonly List<(JiggleConstraint Constraint, JiggleConstraint Was)> _jiggles;
 	private readonly List<Animation> _animationList;
 	private readonly List<Animation> _animationContents;
 	private readonly List<AnimationSnapshot> _animations;
@@ -73,6 +75,8 @@ public sealed class StructureSnapshot
 			c, c.Name, c.Bones.ToList(), c.Target, c.SetupMix, c.BendDirection)).ToList();
 		_looks = skeleton.LookConstraints.Select(c => new LookState(
 			c, c.Target, c.Shape, c.Radius, c.Follow, c.SetupMix)).ToList();
+		_copies = skeleton.CopyConstraints.Select(c => (c, c.Settings())).ToList();
+		_jiggles = skeleton.JiggleConstraints.Select(c => (c, c.Settings())).ToList();
 
 		_animationList = animations;
 		_animationContents = animations.ToList();
@@ -176,6 +180,19 @@ public sealed class StructureSnapshot
 			s.Constraint.Follow = s.Follow;
 			s.Constraint.SetupMix = s.Mix;
 			_skeleton.LookConstraints.Add(s.Constraint);
+		}
+		_skeleton.CopyConstraints.Clear();
+		foreach (var (c, was) in _copies)
+		{
+			c.Take(was);
+			_skeleton.CopyConstraints.Add(c);
+		}
+		_skeleton.JiggleConstraints.Clear();
+		foreach (var (c, was) in _jiggles)
+		{
+			c.Take(was);
+			c.Reset();
+			_skeleton.JiggleConstraints.Add(c);
 		}
 
 		_animationList.Clear();
