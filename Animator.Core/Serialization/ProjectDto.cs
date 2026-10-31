@@ -72,7 +72,8 @@ public class RigDto
 	public List<SlotDto> Slots { get; set; } = new();
 	public List<AssetDto> Assets { get; set; } = new();
 	public List<SkinDto> Skins { get; set; } = new();
-	public string? ActiveSkin { get; set; }
+	public string? ActiveSkin { get; set; }                 // (before format 11: the one skin on)
+	public List<string>? ShownSkins { get; set; }           // the skins on (format 11)
 	public List<IkDto> IkConstraints { get; set; } = new();
 	public List<LookDto> LookConstraints { get; set; } = new();
 	public List<SetDto>? Sets { get; set; }   // selection sets (null = none)
@@ -192,6 +193,8 @@ public class ColorLayerDto
 public class SkinDto
 {
 	public string Name { get; set; } = "";
+	public string? Category { get; set; }   // (format 11)
+	public bool Overlay { get; set; }
 	public List<SkinEntryDto> Entries { get; set; } = new();
 }
 

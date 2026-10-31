@@ -42,7 +42,7 @@ public static class PartRigging
 	private static (SKBitmap Image, Matrix3x2 ToWorld)? RestShape(Skeleton skeleton, Slot slot, AssetStore store)
 	{
 		if (slot.SetupAttachment is not { } name) return null;
-		var drawing = skeleton.ActiveSkin?.Get(slot.Name, name) ?? skeleton.DefaultSkin.Get(slot.Name, name);
+		var drawing = skeleton.FindAttachment(slot.Name, name);
 		if (drawing == null || !skeleton.Assets.TryGetValue(drawing.AssetId, out var asset) || store.Get(asset) is not { } image)
 			return null;
 		return (image, drawing.LocalMatrix(image.Width, image.Height) * slot.Bone.World);

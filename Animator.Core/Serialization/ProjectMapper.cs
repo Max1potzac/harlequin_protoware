@@ -220,10 +220,9 @@ public static class ProjectMapper
 			});
 		}
 
-		dto.Skins.Add(SkinToDto(skeleton.DefaultSkin));
-		if (skeleton.ActiveSkin != null && skeleton.ActiveSkin != skeleton.DefaultSkin)
-			dto.Skins.Add(SkinToDto(skeleton.ActiveSkin));
-		dto.ActiveSkin = skeleton.ActiveSkin?.Name;
+		foreach (var skin in skeleton.AllSkins()) dto.Skins.Add(SkinToDto(skin));
+		if (skeleton.ShownSkins.Count > 0)
+			dto.ShownSkins = skeleton.Skins.Where(skeleton.ShownSkins.Contains).Select(s => s.Name).ToList();
 
 		foreach (var c in skeleton.IkConstraints)
 		{
@@ -307,6 +306,8 @@ public static class ProjectMapper
 	private static SkinDto SkinToDto(Skin skin) => new()
 	{
 		Name = skin.Name,
+		Category = skin.Category.Length > 0 ? skin.Category : null,
+		Overlay = skin.Overlay,
 		Entries = skin.Entries.Select(e => new SkinEntryDto
 		{
 			Slot = e.Slot,
@@ -509,7 +510,9 @@ public static class ProjectMapper
 
 		foreach (var skinDto in dto.Skins)
 		{
-			var skin = skinDto.Name == skeleton.DefaultSkin.Name ? skeleton.DefaultSkin : new Skin { Name = skinDto.Name };
+			var skin = skinDto.Name == skeleton.DefaultSkin.Name ? skeleton.DefaultSkin
+				: new Skin { Name = skinDto.Name, Category = skinDto.Category ?? "", Overlay = skinDto.Overlay };
+			if (skin != skeleton.DefaultSkin) skeleton.Skins.Add(skin);
 			foreach (var e in skinDto.Entries)
 			{
 				skin.Set(e.Slot, new Attachment
@@ -522,7 +525,8 @@ public static class ProjectMapper
 					Pivot = e.Pivot.ToVector2()
 				});
 			}
-			if (skin != skeleton.DefaultSkin && skinDto.Name == dto.ActiveSkin) skeleton.ActiveSkin = skin;
+			if (skin != skeleton.DefaultSkin && (dto.ShownSkins?.Contains(skinDto.Name) ?? skinDto.Name == dto.ActiveSkin))
+				skeleton.ShownSkins.Add(skin);
 		}
 
 		foreach (var i in dto.IkConstraints)
