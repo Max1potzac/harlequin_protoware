@@ -60,7 +60,7 @@ public class TimelinePanel
         if (!OnlyPicked || _state.Picked.Count == 0) return all;
         var bones = _state.PickedBones.Select(b => b.Name).ToHashSet();
         var parts = _state.PickedSlots.Select(s => s.Name).ToHashSet();
-        return all.Where(tl => tl is EventTimeline or DrawOrderTimeline ||
+        return all.Where(tl => tl is EventTimeline or DrawOrderTimeline or ColorLayerTimeline or LayerAdjustTimeline ||
                                (RigOps.TargetsBone(tl) && bones.Contains(tl.Target)) ||
                                (PartOps.TargetsPart(tl) && parts.Contains(tl.Target))).ToList();
     }
@@ -486,6 +486,8 @@ public class TimelinePanel
     // The bone or part a row animates (null: another kind of row, or it's gone)
     private object? Animated(Timeline row) => row switch
     {
+        ColorLayerTimeline colour => _state.Skeleton.FindColorLayer(colour.Target),
+        LayerAdjustTimeline layer => ColorLayerOps.FindAssetLayer(_state.Skeleton, layer.Target)?.Layer,
         _ when PartOps.TargetsPart(row) => _state.Skeleton.FindSlot(row.Target),
         _ when RigOps.TargetsBone(row) => _state.Skeleton.FindBone(row.Target),
         _ => null

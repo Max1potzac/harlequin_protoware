@@ -11,11 +11,12 @@ public static class ProjectFile
 {
 	public const string Extension = ".hqnap";
 	public const string Filter = "Harlequin Animation Project (*.hqnap)|*.hqnap";
-	public const int FormatVersion = 8;   // 2: depth rotation, look constraints. 3: detach/attach keys, events.
+	public const int FormatVersion = 9;   // 2: depth rotation, look constraints. 3: detach/attach keys, events.
 	                                      // 4: placement keys. 5: blend modes, part colour and opacity.
 	                                      // 6: a scene of objects, each with its own rig and animations
 	                                      // 7: the scene timeline (clips), project kind, stage size
 	                                      // 8: draw order keys
+	                                      // 9: colour layers (on objects and in drawings) and their keys
 
 	private sealed class Manifest
 	{
@@ -55,7 +56,7 @@ public static class ProjectFile
 		var snapshot = new Snapshot { Dto = ProjectMapper.SceneToDto(scene) };
 		foreach (var asset in scene.Objects.SelectMany(o => o.Skeleton.Assets.Values))
 			foreach (var layer in asset.Layers)
-				if (store.GetLayer(layer) is { } bmp)
+				if (!layer.IsColorLayer && store.GetLayer(layer) is { } bmp)   // a colour layer has no pixels
 					snapshot.Pictures.Add(Picture($"layers/{layer.Id}.png", bmp, copyPixels));
 		if (thumbnail != null) snapshot.Pictures.Add(Picture("thumbnail.png", thumbnail, copyPixels));
 		return snapshot;

@@ -237,6 +237,11 @@ public class PaintCanvas
 		ReadModifiers();
 		_s.ClickCount = clickCount;
 		_active = alt && !_s.Tool.UsesAlt ? _altPicker : _s.Tool;   // Alt+click picks a color, except with tools that use Alt
+		if (_active != _altPicker && _s.Layer is { IsColorLayer: true })
+		{
+			_active = null;   // a colour layer has no pixels to paint (its settings are in the layers panel)
+			return;
+		}
 		_active.Down(_s, ScreenToImage(screen));
 	}
 

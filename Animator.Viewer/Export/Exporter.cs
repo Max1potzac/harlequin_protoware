@@ -19,6 +19,7 @@ public sealed class ExportSettings
 
 	public float Scale { get; set; } = 1f;                // output pixels per scene unit
 	public bool PixelArt { get; set; }                    // no smoothing (crisp pixels)
+	public bool BakeColorLayers { get; set; }             // the colour layers in the pictures (else without them)
 	public SKColor? Background { get; set; }              // null = see-through
 	public int FrameStep { get; set; } = 1;               // every frame, every 2nd…
 	public int FirstFrame { get; set; }                   // scene: the range to export
@@ -64,7 +65,7 @@ public sealed class Exporter
 		_settings = settings;
 		_fps = Math.Max(1, fps);
 		_scale = Math.Clamp(settings.Scale, 0.01f, 100f);
-		_renderer = new SkeletonRenderer(assets) { PixelArt = settings.PixelArt };
+		_renderer = new SkeletonRenderer(assets) { PixelArt = settings.PixelArt, ColorLayers = settings.BakeColorLayers };
 		_sequences = BuildSequences();
 	}
 

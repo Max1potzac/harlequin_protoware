@@ -151,6 +151,12 @@ public static class ProjectMapper
 			if (newAssetIds.TryGetValue(entry.Asset, out var id))
 				entry.Asset = id;
 
+		// Keys for a drawing's colour layers go with the copied layers
+		var copyOf = layerSources.ToDictionary(p => p.Value.ToString("N"), p => p.Key.ToString("N"));
+		foreach (var timeline in dto.Animations.SelectMany(a => a.Timelines))
+			if (timeline.Type == "layerAdjust" && copyOf.TryGetValue(timeline.Target, out var copied))
+				timeline.Target = copied;
+
 		return (ObjectFromDto(dto), layerSources);
 	}
 
@@ -208,7 +214,8 @@ public static class ProjectMapper
 					Id = l.Id,
 					Name = l.Name,
 					Visible = l.Visible,
-					Opacity = l.Opacity
+					Opacity = l.Opacity,
+					Adjust = l.Adjust is { } adjust ? AdjustToDto(adjust) : null
 				}).ToList()
 			});
 		}
@@ -243,6 +250,18 @@ public static class ProjectMapper
 				Follow = c.Follow,
 				Mix = c.SetupMix
 			});
+		}
+
+		if (skeleton.ColorLayers.Count > 0)
+		{
+			var parts = skeleton.Slots.ToHashSet();
+			dto.ColorLayers = skeleton.ColorLayers.Select(l => new ColorLayerDto
+			{
+				Name = l.Name,
+				Visible = l.Visible,
+				Adjust = AdjustToDto(l.Adjust),
+				LeaveOut = l.LeftOut.Count == 0 ? null : l.LeftOut.Where(parts.Contains).Select(s => s.Name).ToList()
+			}).ToList();
 		}
 
 		if (skeleton.Sets.Count > 0)
@@ -371,8 +390,41 @@ public static class ProjectMapper
 			Target = order.Target,
 			Keys = order.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, Order = k.Value.ToList() }).ToList()
 		},
+		ColorLayerTimeline cl => new TimelineDto
+		{
+			Type = "colorLayer",
+			Target = cl.Target,
+			Keys = cl.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, V = k.Value.ToArray() }).ToList()
+		},
+		LayerAdjustTimeline la => new TimelineDto
+		{
+			Type = "layerAdjust",
+			Target = la.Target,
+			Caption = la.Caption.Length > 0 ? la.Caption : null,
+			Keys = la.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, V = k.Value.ToArray() }).ToList()
+		},
 		_ => throw new NotSupportedException($"Saving '{timeline.GetType().Name}' is not supported yet.")
 	};
+
+	private static AdjustDto AdjustToDto(ColorAdjust adjust) => new()
+	{
+		Kind = adjust.Kind,
+		Colorize = adjust.Colorize ? true : null,
+		KeepLight = adjust.KeepLight ? null : false,
+		Values = adjust.Setup.ToArray()
+	};
+
+	private static ColorAdjust AdjustFromDto(AdjustDto dto)
+	{
+		var values = AdjustValues.FromArray(dto.Values);
+		return new ColorAdjust(dto.Kind)
+		{
+			Colorize = dto.Colorize ?? false,
+			KeepLight = dto.KeepLight ?? true,
+			Setup = values,
+			Now = values
+		};
+	}
 
 	// ======================= file -> model =======================
 
@@ -429,7 +481,11 @@ public static class ProjectMapper
 		{
 			var asset = new Asset { Id = a.Id, Name = a.Name, Width = a.Width, Height = a.Height };
 			foreach (var l in a.Layers)
-				asset.Layers.Add(new AssetLayer { Id = l.Id, Name = l.Name, Visible = l.Visible, Opacity = l.Opacity });
+				asset.Layers.Add(new AssetLayer
+				{
+					Id = l.Id, Name = l.Name, Visible = l.Visible, Opacity = l.Opacity,
+					Adjust = l.Adjust is { } adjust ? AdjustFromDto(adjust) : null
+				});
 			skeleton.Assets[asset.Id] = asset;
 		}
 
@@ -478,6 +534,14 @@ public static class ProjectMapper
 				SetupMix = l.Mix,
 				Mix = l.Mix
 			});
+		}
+
+		foreach (var c in dto.ColorLayers ?? new List<ColorLayerDto>())
+		{
+			var layer = new ColorLayer { Name = c.Name, Visible = c.Visible, Adjust = AdjustFromDto(c.Adjust ?? new AdjustDto()) };
+			foreach (var name in c.LeaveOut ?? new List<string>())
+				if (skeleton.FindSlot(name) is { } slot) layer.LeftOut.Add(slot);
+			skeleton.ColorLayers.Add(layer);
 		}
 
 		// Selection sets: members that aren't there (any more) are left out
@@ -582,6 +646,18 @@ public static class ProjectMapper
 				{
 					var tl = new EventTimeline();
 					foreach (var k in t.Keys) tl.Add(k.T, new AnimationEvent(k.Name ?? "event", k.Data));
+					return tl;
+				}
+			case "colorLayer":
+				{
+					var tl = new ColorLayerTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Track.Add(k.T, AdjustValues.FromArray(k.V), k.Curve);
+					return tl;
+				}
+			case "layerAdjust":
+				{
+					var tl = new LayerAdjustTimeline(t.Target) { Caption = t.Caption ?? "" };
+					foreach (var k in t.Keys) tl.Track.Add(k.T, AdjustValues.FromArray(k.V), k.Curve);
 					return tl;
 				}
 			case "drawOrder":

@@ -7,4 +7,8 @@ public class AssetLayer
 	public string Name { get; set; } = "Layer";
 	public bool Visible { get; set; } = true;
 	public float Opacity { get; set; } = 1f;
+
+	// A colour layer (null: a layer of pixels): it changes the colours of the layers under it
+	public ColorAdjust? Adjust { get; set; }
+	public bool IsColorLayer => Adjust != null;
 }
