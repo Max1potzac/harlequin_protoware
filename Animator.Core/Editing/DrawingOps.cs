@@ -23,10 +23,9 @@ public static class DrawingOps
 				.OrderBy(n => n, NaturalOrder.Instance)
 				.ToList();
 
-	// The drawing with this name, as the rig would draw it (the active skin wins)
+	// The drawing with this name, as the rig would draw it (the skins that are on win)
 	public static Attachment? Find(Skeleton skeleton, Slot slot, string? name) =>
-		name == null ? null
-		: skeleton.ActiveSkin?.Get(slot.Name, name) ?? skeleton.DefaultSkin.Get(slot.Name, name);
+		name == null ? null : skeleton.FindAttachment(slot.Name, name);
 
 	// The drawing the animation shows at this time (null = the part is hidden).
 	// Before the row's first key, that's the part's rest drawing.
@@ -65,10 +64,8 @@ public static class DrawingOps
 			drawing.Pivot = template.Pivot;
 		}
 
-		var skin = template != null && skeleton.ActiveSkin is { } active
-				   && active.Get(slot.Name, template.Name) == template
-			? active
-			: skeleton.DefaultSkin;
+		var skin = template == null ? skeleton.DefaultSkin
+			: skeleton.AllSkins().FirstOrDefault(s => s.Get(slot.Name, template.Name) == template) ?? skeleton.DefaultSkin;
 		skin.Set(slot.Name, drawing);
 		return drawing;
 	}

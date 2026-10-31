@@ -27,8 +27,10 @@ public sealed class StructureSnapshot
 	private readonly List<Bone> _roots;
 	private readonly List<BoneState> _bones;
 	private readonly List<SlotState> _slots;
-	private readonly List<(Skin Skin, Dictionary<(string Slot, string Attachment), Attachment> Map)> _skins;
-	private readonly Skin? _activeSkin;
+	private readonly List<(Skin Skin, Dictionary<(string Slot, string Attachment), Attachment> Map, string Name, string Category, bool Overlay, List<ColorLayer> Colours)> _skins;
+	private readonly List<Skin> _skinList;
+	private readonly List<Skin> _shownSkins;
+	private readonly List<ColorLayer> _colorLayers;   // which the object has (a skin deleted takes its own)
 	private readonly List<AttachmentState> _attachments;
 	private readonly List<KeyValuePair<Guid, Asset>> _assets;
 	private readonly List<(Asset Asset, string Name)> _assetNames;   // drawings rename their pixels too
@@ -49,8 +51,10 @@ public sealed class StructureSnapshot
 
 		_slots = skeleton.Slots.Select(s => new SlotState(s, s.Name, s.Bone, s.SetupAttachment,
 			s.Blend, s.SetupColor, s.SetupOpacity)).ToList();
-		_skins = skeleton.AllSkins().Select(s => (s, s.CopyMap())).ToList();
-		_activeSkin = skeleton.ActiveSkin;
+		_skins = skeleton.AllSkins().Select(s => (s, s.CopyMap(), s.Name, s.Category, s.Overlay, s.ColorLayers.ToList())).ToList();
+		_skinList = skeleton.Skins.ToList();
+		_shownSkins = skeleton.ShownSkins.ToList();
+		_colorLayers = skeleton.ColorLayers.ToList();
 		_attachments = _skins.SelectMany(s => s.Map.Values).Distinct()
 			.Select(a => new AttachmentState(a, a.Name, a.AssetId, a.Offset, a.Rotation, a.Scale, a.Pivot))
 			.ToList();
@@ -101,8 +105,19 @@ public sealed class StructureSnapshot
 			_skeleton.Slots.Add(s.Slot);
 		}
 
-		foreach (var (skin, map) in _skins) skin.RestoreMap(map);
-		_skeleton.ActiveSkin = _activeSkin;
+		foreach (var (skin, map, name, category, overlay, colours) in _skins)
+		{
+			skin.RestoreMap(map);
+			skin.ColorLayers.Clear();
+			skin.ColorLayers.AddRange(colours);
+			(skin.Name, skin.Category, skin.Overlay) = (name, category, overlay);
+		}
+		_skeleton.Skins.Clear();
+		_skeleton.Skins.AddRange(_skinList);
+		_skeleton.ShownSkins.Clear();
+		_skeleton.ShownSkins.UnionWith(_shownSkins);
+		_skeleton.ColorLayers.Clear();
+		_skeleton.ColorLayers.AddRange(_colorLayers);
 
 		foreach (var a in _attachments)
 		{

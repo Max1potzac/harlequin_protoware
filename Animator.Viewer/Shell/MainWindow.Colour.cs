@@ -81,6 +81,7 @@ public partial class MainWindow
 		EditColourAndKeys($"Delete colour layer {layer.Name}", () =>
 		{
 			_skeleton.ColorLayers.Remove(layer);
+			SkinOps.Forget(_skeleton, layer);
 			foreach (var animation in _state.Animations)
 				animation.Timelines.RemoveAll(t => t is ColorLayerTimeline && t.Target == layer.Name);
 			return true;
@@ -181,7 +182,8 @@ public partial class MainWindow
 			row.Children.Add(shown);
 			row.Children.Add(new TextBlock
 			{
-				Text = layer.LeftOut.Count > 0 ? $"{layer.Name}  (leaves out {layer.LeftOut.Count})" : layer.Name,
+				Text = (layer.LeftOut.Count > 0 ? $"{layer.Name}  (leaves out {layer.LeftOut.Count})" : layer.Name)
+					+ (_skeleton.SkinOf(layer) is { } skin ? $"  · skin {skin.Name}{(_skeleton.ShownSkins.Contains(skin) ? "" : " (off)")}" : ""),
 				Foreground = AdjustEditor.LabelBrush
 			});
 			ColourList.Items.Add(row);
