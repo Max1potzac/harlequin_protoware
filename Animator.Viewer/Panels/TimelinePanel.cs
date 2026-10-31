@@ -60,7 +60,7 @@ public class TimelinePanel
         if (!OnlyPicked || _state.Picked.Count == 0) return all;
         var bones = _state.PickedBones.Select(b => b.Name).ToHashSet();
         var parts = _state.PickedSlots.Select(s => s.Name).ToHashSet();
-        return all.Where(tl => tl is EventTimeline or DrawOrderTimeline or ColorLayerTimeline or LayerAdjustTimeline ||
+        return all.Where(tl => tl is EventTimeline or DrawOrderTimeline or ColorLayerTimeline or LayerAdjustTimeline or HitboxTimeline ||
                                (RigOps.TargetsBone(tl) && bones.Contains(tl.Target)) ||
                                (PartOps.TargetsPart(tl) && parts.Contains(tl.Target))).ToList();
     }

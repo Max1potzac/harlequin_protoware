@@ -298,13 +298,16 @@ public sealed class Exporter
 				DrawFrame(canvas, seq, seq.Times[i]);
 				canvas.Restore();
 
+				var (hitboxes, points) = MarkersNow(seq);   // (posed for this frame by DrawFrame)
 				json.Frames.Add(new SheetFrame
 				{
 					Filename = $"{seq.Name} {i}",
 					Frame = new SheetRect { X = x, Y = y, W = _width, H = _height },
 					SpriteSourceSize = new SheetRect { X = 0, Y = 0, W = _width, H = _height },
 					SourceSize = new SheetSize { W = _width, H = _height },
-					Duration = FrameMilliseconds(i)
+					Duration = FrameMilliseconds(i),
+					Hitboxes = hitboxes,
+					Points = points
 				});
 				yield return new ExportProgress(++done, FrameCount, $"Frame {done} of {FrameCount}");
 			}
@@ -322,6 +325,26 @@ public sealed class Exporter
 		SavePng(sheet, png);
 		Track(data);
 		File.WriteAllText(data, json.ToJson());
+	}
+
+	// The hitboxes on and the points of the objects as posed now, in the frame's pixels (null: none
+	// have any). Several objects: each name starts with its object's.
+	private (List<SheetHitbox>? Hitboxes, List<SheetMarker>? Points) MarkersNow(Sequence seq)
+	{
+		var hitboxes = new List<SheetHitbox>();
+		var points = new List<SheetMarker>();
+		bool several = seq.Objects.Count > 1;
+		var toFrame = Matrix3x2.CreateTranslation(-_minX, -_maxY) * Matrix3x2.CreateScale(_scale, -_scale);
+		foreach (var obj in seq.Objects)
+		{
+			if (obj.Skeleton.Hitboxes.Count == 0 && obj.Skeleton.Points.Count == 0) continue;
+			var toPixels = seq.Transform(obj) * toFrame;
+			string prefix = several ? $"{obj.Name}/" : "";
+			hitboxes.AddRange(SheetMarkers.Hitboxes(obj.Skeleton, toPixels, prefix));
+			points.AddRange(SheetMarkers.Points(obj.Skeleton, toPixels, prefix));
+		}
+		bool any = seq.Objects.Any(o => o.Skeleton.Hitboxes.Count > 0 || o.Skeleton.Points.Count > 0);
+		return (any ? hitboxes : null, points.Count > 0 ? points : null);
 	}
 
 	private string BaseNameForSheet() => System.IO.Path.Combine(

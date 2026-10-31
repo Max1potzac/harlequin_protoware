@@ -263,6 +263,18 @@ public static class ProjectMapper
 			}).ToList();
 		}
 
+		if (skeleton.Hitboxes.Count > 0)
+			dto.Hitboxes = skeleton.Hitboxes.Select(h => new HitboxDto
+			{
+				Name = h.Name, Bone = h.Bone.Name, Shape = h.Shape == HitboxShape.Circle ? "circle" : "box",
+				Offset = Vec.From(h.Offset), Rotation = h.Rotation, Size = Vec.From(h.Size), Kind = h.Kind, Active = h.SetupActive
+			}).ToList();
+		if (skeleton.Points.Count > 0)
+			dto.Points = skeleton.Points.Select(p => new PointDto
+			{
+				Name = p.Name, Bone = p.Bone.Name, Offset = Vec.From(p.Offset), Rotation = p.Rotation
+			}).ToList();
+
 		if (skeleton.Poses.Count > 0)
 			dto.Poses = skeleton.Poses.Select(p => new PoseDto
 			{
@@ -420,6 +432,12 @@ public static class ProjectMapper
 			Caption = la.Caption.Length > 0 ? la.Caption : null,
 			Keys = la.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), V = k.Value.ToArray() }).ToList()
 		},
+		HitboxTimeline hb => new TimelineDto
+		{
+			Type = "hitbox",
+			Target = hb.Target,
+			Keys = hb.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = CurveType.Stepped, X = k.Value ? 1f : 0f }).ToList()
+		},
 		_ => throw new NotSupportedException($"Saving '{timeline.GetType().Name}' is not supported yet.")
 	};
 
@@ -571,6 +589,18 @@ public static class ProjectMapper
 				foreach (var name in skinDto.ColorLayers)
 					if (skeleton.FindColorLayer(name) is { } layer && skeleton.SkinOf(layer) == null) skin.ColorLayers.Add(layer);
 
+		foreach (var h in dto.Hitboxes ?? new List<HitboxDto>())
+			if (bones.TryGetValue(h.Bone, out var bone))
+				skeleton.Hitboxes.Add(new Hitbox(h.Name, bone)
+				{
+					Shape = h.Shape == "circle" ? HitboxShape.Circle : HitboxShape.Box,
+					Offset = h.Offset.ToVector2(), Rotation = h.Rotation, Size = h.Size.ToVector2(), Kind = h.Kind,
+					SetupActive = h.Active, Active = h.Active
+				});
+		foreach (var p in dto.Points ?? new List<PointDto>())
+			if (bones.TryGetValue(p.Bone, out var bone))
+				skeleton.Points.Add(new RigPoint(p.Name, bone) { Offset = p.Offset.ToVector2(), Rotation = p.Rotation });
+
 		foreach (var p in dto.Poses ?? new List<PoseDto>())
 		{
 			var pose = new SavedPose { Name = p.Name };
@@ -629,6 +659,12 @@ public static class ProjectMapper
 				{
 					var tl = new IkMixTimeline(t.Target);
 					foreach (var k in t.Keys) tl.Track.Add(k.T, k.X ?? 1f, k.Curve, Bezier.FromArray(k.B));
+					return tl;
+				}
+			case "hitbox":
+				{
+					var tl = new HitboxTimeline(t.Target);
+					foreach (var k in t.Keys) tl.Add(k.T, (k.X ?? 1f) > 0.5f);
 					return tl;
 				}
 			case "attachment":

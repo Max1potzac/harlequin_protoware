@@ -302,6 +302,26 @@ public class EventTimeline : TrackTimeline<AnimationEvent>
 	public IEnumerable<AnimationEvent> Between(float from, float to) =>
 		Track.Keys.Where(k => k.Time > from && k.Time <= to).Select(k => k.Value);
 }
+// Hitbox keys: a hitbox on or off from each key on, held until the next key (an attack's hitbox
+// only on the frames that strike). Before the first key, as it is at rest.
+public class HitboxTimeline : TrackTimeline<bool>
+{
+	public HitboxTimeline(string hitbox) : base(hitbox, (a, b, t) => a) { }
+
+	protected override KeyKind Kind => KeyKind.FromFirstKey;
+
+	public override string Label => $"{Target} (hitbox on)";
+
+	public void Add(float time, bool on) => Track.Add(time, on, CurveType.Stepped);
+
+	public override void Apply(Skeleton skeleton, float time)
+	{
+		var hitbox = skeleton.FindHitbox(Target);
+		if (hitbox == null || Track.Keys.Count == 0 || time < Track.Keys[0].Time) return;
+		if (Track.TrySample(time, out var on)) hitbox.Active = on;
+	}
+}
+
 // Draw order keys: the order the parts are drawn in from each key on (back to front, by name),
 // held until the next key. Before the first key, the setup order; a part added since a key was
 // made goes where the setup order has it (see Skeleton.SetDrawOrder).
