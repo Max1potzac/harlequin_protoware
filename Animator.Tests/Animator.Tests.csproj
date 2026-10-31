@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Automatic checks of the core logic. GitHub runs them after every build;
-       in Visual Studio: Test > Run All Tests. -->
+       in Visual Studio: Test > Run All Tests.
+       The tests are in folders by what they check: Animation (keys, sequences, colour layers),
+       Rigging, Editing (picking, locks, undo, keys), Scenes, Painting, Import, Export, and
+       Windows (the windows themselves). Files: what the tests read. -->
   <PropertyGroup>
     <!-- Windows, because some tests check the paint tools of the (WPF) viewer -->
     <TargetFramework>net8.0-windows</TargetFramework>

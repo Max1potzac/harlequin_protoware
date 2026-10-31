@@ -38,6 +38,9 @@ public class SkeletonRenderer
 	// Colour layers (an object's, and those inside drawings) shown. Exports turn them off unless
 	// asked to bake them in.
 	public bool ColorLayers { get; set; } = true;
+
+	// A part outlined, as one the mouse is over in a list (the Colour view's Leave out)
+	public Slot? HoverSlot { get; set; }
 	private bool Pickable(Slot slot) => Shown(slot) && !(SkipLocked && slot.Locked);
 
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
@@ -265,7 +268,7 @@ public class SkeletonRenderer
 				canvas.Save();
 				canvas.Concat(in m);
 				DrawPart(canvas, slot, bmp, looks != null ? LookFor(skeleton, slot, looks) : null);
-				if (asset == Highlight) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
+				if (asset == Highlight || slot == HoverSlot) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
 				else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, onBone);
 				canvas.Restore();
 			}
@@ -381,11 +384,14 @@ public class SkeletonRenderer
 	{
 		var highlight = Highlight;
 		var partsOf = PartsOf;
+		var hover = HoverSlot;
 		Highlight = null;   // just the pictures
 		PartsOf = null;
+		HoverSlot = null;
 		DrawSlots(canvas, skeleton);
 		Highlight = highlight;
 		PartsOf = partsOf;
+		HoverSlot = hover;
 	}
 
 	// One onion-skin ghost: the parts in the skeleton's current pose, tinted and see-through.

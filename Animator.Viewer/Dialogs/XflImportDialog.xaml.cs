@@ -85,9 +85,9 @@ public partial class XflImportDialog : Window
 				row.Children.Add(tick);
 				return tick;
 			}
-			var include = Tick(0, "Bring it in", Include_Click);
-			var inRig = Tick(1, "Use it to work out the rig (untick skins and extras: they ride on the bone they move with)", InRig_Click);
-			var effect = Tick(2, "An effect (VFX): left out of the rig, it moves on its own and is hidden at rest", Effect_Click);
+			var include = Tick(0, "Bring it in (I, for the picked part)", Include_Click);
+			var inRig = Tick(1, "Use it to work out the rig (R, for the picked part; untick skins and extras: they ride on the bone they move with)", InRig_Click);
+			var effect = Tick(2, "An effect (VFX; X, for the picked part): left out of the rig, it moves on its own and is hidden at rest", Effect_Click);
 			var name = new TextBlock { TextWrapping = TextWrapping.Wrap };
 			var details = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11 };
 			var text = new StackPanel();
@@ -185,9 +185,13 @@ public partial class XflImportDialog : Window
 		PlayButton.Content = "⏸";
 	}
 
-	private void Step()
+	private void Step() => StepBy(+1);
+
+	// A frame on or back (round to the other end)
+	private void StepBy(int by)
 	{
-		_frame = (_frame + 1) % Math.Max(1, _plan.Data.FrameCount);
+		int count = Math.Max(1, _plan.Data.FrameCount);
+		_frame = ((_frame + by) % count + count) % count;
 		_syncing = true;
 		FrameSlider.Value = _frame;
 		_syncing = false;
@@ -600,8 +604,8 @@ public partial class XflImportDialog : Window
 		}
 		if (_rig != null) DrawRig(canvas, _rig, _frame);
 		ViewHint.Text = _rig != null
-			? "The bones move as they'll be animated (red: a joint the parts don't turn around)   Click: pick a part   Wheel: zoom   Space: play"
-			: "Click: pick a part   Wheel: zoom   Middle drag: move around   Home: fit   Space: play";
+			? "The bones move as they'll be animated (red: a joint the parts don't turn around)   Click: pick a part   Wheel: zoom   Space: play   < >: a frame back / on   I / R / X: the picked part's In / Rig / FX"
+			: "Click: pick a part   Wheel: zoom   Middle drag: move around   Home: fit   Space: play   < >: a frame back / on   I / R / X: the picked part's In / Rig / FX";
 	}
 
 	// The object's space → the timeline's (the picture's)
@@ -753,9 +757,27 @@ public partial class XflImportDialog : Window
 			PreviewView.InvalidateVisual();
 			e.Handled = true;
 		}
-		else if (e.Key == Key.Space && Keyboard.FocusedElement is not ButtonBase)
+		else if (e.Key == Key.Space)
 		{
+			// Always play, whatever has the focus (a part's tick box, a button): they'd take Space otherwise
 			TogglePlay();
+			e.Handled = true;
+		}
+		else if (e.Key is Key.OemComma or Key.OemPeriod)
+		{
+			// < and > (with or without Shift): a frame back or on
+			if (_player.IsEnabled) TogglePlay();
+			StepBy(e.Key == Key.OemPeriod ? +1 : -1);
+			e.Handled = true;
+		}
+		else if (e.Key is Key.I or Key.R or Key.X && _picked >= 0 && _picked < _plan.Parts.Count)
+		{
+			// The picked part's ticks: I = bring it in, R = use it for the rig, X = an effect
+			var part = _plan.Parts[_picked];
+			if (e.Key == Key.I) part.Include = !part.Include;
+			else if (e.Key == Key.R) part.InRig = !part.InRig;
+			else part.Effect = !part.Effect;
+			Refresh();
 			e.Handled = true;
 		}
 	}
