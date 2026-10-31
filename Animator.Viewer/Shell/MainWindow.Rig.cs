@@ -69,6 +69,7 @@ public partial class MainWindow
 		SelectTreeItem();
 		SyncLayersView();
 		BuildColourPanel();   // (the Colour view's list, when it shows)
+		BuildPosesPanel();
 		BuildSetChips();
 		_syncingRig = false;
 		SyncTreePicks(force: true);

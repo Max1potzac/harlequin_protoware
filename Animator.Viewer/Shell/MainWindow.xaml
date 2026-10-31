@@ -280,7 +280,7 @@
                             <!-- Two views of the same object: its bones (parts under the bone they're on), or its
                                  parts as layers, in the order they're drawn whatever bone they're on -->
                             <StackPanel Grid.Row="3" Margin="6,0,6,4">
-                                <UniformGrid x:Name="RigViewSwitch" Columns="3">
+                                <UniformGrid x:Name="RigViewSwitch" Columns="4">
                                     <RadioButton x:Name="BonesViewChoice" Content="Bones" GroupName="RigView" Margin="0,0,1,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="The bones, each part under the bone it's on: drag a part onto a bone to put it there, or a bone onto another to hang it there" />
@@ -290,6 +290,9 @@
                                     <RadioButton x:Name="ColourViewChoice" Content="Colour" GroupName="RigView" Margin="1,0,0,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="Colour layers on the whole object: hue and saturation, brightness and contrast, tint, colour balance. Each can leave parts out, and its numbers can be keyed." />
+                                    <RadioButton x:Name="PosesViewChoice" Content="Poses" GroupName="RigView" Margin="1,0,0,0"
+                                                 Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
+                                                 ToolTip="Poses kept by name, to put the rig that way again (mirrored too), and mirroring: the pose, copy and paste mirrored, and symmetrizing the rig" />
                                 </UniformGrid>
                                 <TextBlock x:Name="LayersHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="2,4,2,0" Visibility="Collapsed" />
                                 <!-- Selection sets: a click picks a set's bones and parts again -->
@@ -306,6 +309,49 @@
                       PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="BoneTree_PreviewMouseLeftButtonUp"
                       PreviewMouseMove="BoneTree_PreviewMouseMove"
                       DragOver="BoneTree_DragOver" DragLeave="BoneTree_DragLeave" Drop="BoneTree_Drop" />
+                            <!-- Poses: kept by name, put on (partly, mirrored, just the picked), and mirroring -->
+                            <ScrollViewer x:Name="PosesPanel" Grid.Row="4" Margin="6,0,6,0" Visibility="Collapsed" Background="#1E2026"
+                                          VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="4">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <Button Content="+ Keep this pose" Padding="6,1" Margin="0,0,4,0" Click="PoseSave_Click"
+                                                ToolTip="The picked bones and parts as they're posed now (nothing picked: the whole rig), kept by name" />
+                                        <Button x:Name="PoseUpdateButton" Content="Update" Padding="6,1" Margin="0,0,4,0" Click="PoseUpdate_Click"
+                                                ToolTip="The selected pose kept again, as its bones are posed now" />
+                                        <Button x:Name="PoseDeleteButton" Content="Delete" Padding="6,1" Click="PoseDelete_Click" />
+                                    </StackPanel>
+                                    <ListBox x:Name="PoseList" MaxHeight="140" MinHeight="40" Background="#24272E" Foreground="White" BorderThickness="0"
+                                             SelectionChanged="PoseList_SelectionChanged" MouseDoubleClick="PoseList_DoubleClick"
+                                             ToolTip="Double-click a pose to put it on" />
+                                    <DockPanel Margin="0,4,0,2">
+                                        <TextBlock Text="Name" Foreground="White" Width="56" VerticalAlignment="Center" />
+                                        <TextBox x:Name="PoseName" KeyDown="PoseName_KeyDown" LostFocus="PoseName_LostFocus" />
+                                    </DockPanel>
+                                    <DockPanel Margin="0,2,0,2" ToolTip="How much of the pose to put on: 100% = all of it, 50% = halfway from how the rig is now">
+                                        <TextBlock Text="Amount" Foreground="White" Width="56" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="PoseAmountText" DockPanel.Dock="Right" Foreground="#9AA4B2" Width="38" TextAlignment="Right" VerticalAlignment="Center" Text="100%" />
+                                        <Slider x:Name="PoseAmount" Minimum="0" Maximum="100" Value="100" VerticalAlignment="Center" ValueChanged="PoseAmount_Changed" />
+                                    </DockPanel>
+                                    <CheckBox x:Name="PoseOnlyPicked" Content="Only on the picked" Foreground="White" Margin="0,2,0,4"
+                                              ToolTip="Put it on just the picked bones and parts (of those the pose has)" />
+                                    <UniformGrid Columns="2" Margin="0,0,0,8">
+                                        <Button x:Name="PoseApplyButton" Content="Put it on" Margin="0,0,2,0" Click="PoseApply_Click"
+                                                ToolTip="Animate mode: keys at the playhead (auto key off: held until keyed). Setup mode: the rest pose." />
+                                        <Button x:Name="PoseApplyMirroredButton" Content="Mirrored" Margin="2,0,0,0" Click="PoseApplyMirrored_Click"
+                                                ToolTip="On the other side: the bones on the other side of its bones take it, flipped (names that say a side: arm_L / arm_R, Left Arm / Right Arm…)" />
+                                    </UniformGrid>
+                                    <TextBlock Text="Mirror" Foreground="#9AA4B2" Margin="0,2,0,4" />
+                                    <UniformGrid Columns="2">
+                                        <Button x:Name="MirrorPoseButton" Content="Mirror the pose" Margin="0,0,2,4" Click="MirrorPose_Click" />
+                                        <Button x:Name="SymmetrizeButton" Content="Symmetrize the rig" Margin="2,0,0,4" Click="Symmetrize_Click"
+                                                ToolTip="Setup mode: the other side of the picked bones (all of them, if none are picked) made their mirror image at rest, made if it isn't there" />
+                                        <Button x:Name="CopyPoseButton" Content="Copy pose" Margin="0,0,2,4" Click="CopyPose_Click" />
+                                        <Button x:Name="PastePoseButton" Content="Paste pose" Margin="2,0,0,4" Click="PastePose_Click" />
+                                        <Button x:Name="PasteMirroredButton" Content="Paste mirrored" Margin="0,0,2,0" Click="PasteMirrored_Click" />
+                                    </UniformGrid>
+                                    <TextBlock x:Name="PoseHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </ScrollViewer>
                             <!-- Colour: the object's colour layers, and the settings of the one selected -->
                             <DockPanel x:Name="ColourPanel" Grid.Row="4" Margin="6,0,6,0" Visibility="Collapsed" Background="#1E2026">
                                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2,4,2,4">

@@ -17,6 +17,9 @@ public class Skeleton
 	// Colour layers on the whole object, applied first to last (see ColorLayer)
 	public List<ColorLayer> ColorLayers { get; } = new();
 	public ColorLayer? FindColorLayer(string name) => ColorLayers.Find(l => l.Name == name);
+
+	// Poses kept by name, to put the rig that way again (the Poses view; see PoseOps)
+	public List<Editing.SavedPose> Poses { get; } = new();
     public Bone? FindBone(string name)
     {
         foreach (var root in Roots)
@@ -164,6 +167,8 @@ public class Skeleton
 		Sets.AddRange(other.Sets);
 		ColorLayers.Clear();
 		ColorLayers.AddRange(other.ColorLayers);
+		Poses.Clear();
+		Poses.AddRange(other.Poses);
 		DefaultSkin.ReplaceWith(other.DefaultSkin);
 		ActiveSkin = other.ActiveSkin == other.DefaultSkin ? DefaultSkin : other.ActiveSkin;
 	}
