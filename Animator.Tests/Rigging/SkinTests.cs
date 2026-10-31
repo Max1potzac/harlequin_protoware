@@ -208,7 +208,7 @@ public class SkinTests
 		// A file from before: one skin on, by name
 		dto.ShownSkins = null;
 		dto.ActiveSkin = "Wrecked";
-		var (old, _) = ProjectMapper.FromDto(dto);
+		var (old, _) = ProjectMapper.FromDto(JsonSerializer.Deserialize<ProjectDto>(JsonSerializer.Serialize(dto, ProjectMapper.Json), ProjectMapper.Json)!);
 		Assert.Equal(new[] { "Wrecked" }, old.ShownSkins.Select(s => s.Name));
 		Assert.Equal(hidden.Name, old.ShownSkins.Single().Name);
 	}
