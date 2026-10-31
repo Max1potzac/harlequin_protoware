@@ -36,6 +36,7 @@ public partial class MainWindow : Window
 	{
 		Themes.Apply(Themes.Find(_appSettings.Theme));   // (before the window's parts take its colours)
 		InitializeComponent();
+		RestoreLayout();   // the window and its panels as they were left
 		Themes.Changed += ThemeChanged;
 		Closed += (_, _) => Themes.Changed -= ThemeChanged;
 		_renderer = new SkeletonRenderer(_assets);
@@ -466,7 +467,7 @@ public partial class MainWindow : Window
 
 		if (_sceneLevel)
 		{
-			Status.Text =
+			string text =
 				$"SCENE    Object: {_objectTool?.Selected?.Name ?? "none"}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 				$"Viewport: {pick}-click an object = select, double-click (or {K("scene.open")}) = edit it.   {move}-drag an object = move, a corner = scale (Shift: keep proportions), the round handle = turn (Shift: 15° steps)\n" +
 				$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
@@ -476,6 +477,7 @@ public partial class MainWindow : Window
 				$"{K("play.toggle")}: play/pause   {K("play.restart")}: restart   {K("play.back")} / {K("play.on")}: step   {K("edit.delete")}: delete clip (or object)   {K("edit.undo")} / {K("edit.redo")}: undo/redo   " +
 				$"{K("view.images")}: images   {K("view.onion")}: onion skin   {K("view.pixels")}: pixel filtering ({pixels})\n" +
 				$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys, mouse, autosave)";
+			ShowStatus(text);
 			UpdateTitle();
 			return;
 		}
@@ -485,7 +487,7 @@ public partial class MainWindow : Window
 		string shown = _state.SelectedSlot?.Name ?? _state.Selected?.Name ?? "none";
 		string picked = count > 1 ? $"{shown} + {count - 1} more" : shown;
 
-		Status.Text =
+		string status =
 			$"{(!_state.AnimateMode ? "BUILD: drags edit the rest pose" : _state.AutoKey ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : $"● ANIMATE, auto key off: drags pose without keys ({K("anim.key")} keys the pose, another frame drops it)")}  ({K("anim.mode")} to switch, {K("anim.autoKey")}: auto key)    " +
 			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 			$"Tool: {_tool?.Tool.ToString() ?? "Select"} ({K("tool.select")} select, {K("tool.move")} move, {K("tool.rotate")} rotate, {K("tool.paint")} paint: the buttons at the viewport's left).   " +
@@ -508,6 +510,7 @@ public partial class MainWindow : Window
 			$"{K("play.toggle")}: play/pause   {K("play.restart")}: restart   {K("play.back")} / {K("play.on")}: step   {K("edit.delete")}: delete   {K("edit.undo")} / {K("edit.redo")}: undo/redo   {K("edit.back")}: back to the scene   " +
 			$"{K("ik.toggle")}: IK/FK ({(ikOn ? "IK" : "FK")})   {K("ik.flip")}: elbow   {K("view.images")}: images   {K("view.pixels")}: pixel filtering ({pixels})\n" +
 			$"File: {K("file.new")} new   {K("file.open")} open   {K("file.save")} save   {K("file.saveAs")} save as   {K("file.import")} import   {K("file.export")} export   {K("file.settings")} settings (keys, mouse, autosave)";
+		ShowStatus(status);
 
 		UpdateTitle();
 	}

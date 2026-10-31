@@ -185,7 +185,7 @@ public class WindowSmokeTests
 						Pump(60);
 						dialog.Close();
 					}
-					foreach (var menu in new[] { "EditMenu", "ViewMenu" })
+					foreach (var menu in new[] { "EditMenu", "ViewMenu", "AnimationMenu" })
 					{
 						var item = (MenuItem)window.FindName(menu);
 						item.IsSubmenuOpen = true;
@@ -194,10 +194,32 @@ public class WindowSmokeTests
 					}
 				}
 
-				// As if just saved, so closing doesn't stop to ask
+				// The layout: the status bar has the first line, F1 the rest; the play buttons; the
+				// properties panel goes away at scene level
+				Assert.False(string.IsNullOrWhiteSpace(((TextBlock)window.FindName("Status")).Text));
+				Run(window, "help.keys");
+				Pump(60);
+				var help = (Window)Field(window, "_helpWindow");
+				Assert.True(help.IsVisible);
+				help.Close();
+				Pump(20);
+				var play = (Button)window.FindName("PlayButton");
+				Run(window, "anim.mode");
+				Pump(20);
+				play.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+				Pump(40);
+				play.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+				Pump(40);
+				Assert.Equal(Visibility.Visible, ((FrameworkElement)window.FindName("PropertiesPanel")).Visibility);
+
+				// As if just saved, so closing doesn't stop to ask; the layout is remembered
 				state.Undo.MarkSaved();
 				window.Close();
 				Pump(40);
+				var kept = AppSettings.Load();
+				Assert.NotNull(kept.TimelineHeight);
+				Assert.NotNull(kept.LeftPanelWidth);
+				Assert.Equal("bones", kept.RigTab);
 			}
 			catch (Exception e)
 			{

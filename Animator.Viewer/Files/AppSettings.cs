@@ -15,6 +15,17 @@ public sealed class AppSettings
 	public bool KeepPartsInPlace { get; set; } = true;   // "Parts stay put when bones move" (rig panel)
 	public string? Theme { get; set; }           // the theme's name (Settings → Appearance; null = Dark)
 
+	// The window as it was left (MainWindow.Layout): where, how big, the panels and the timeline
+	public double? WindowLeft { get; set; }
+	public double? WindowTop { get; set; }
+	public double? WindowWidth { get; set; }
+	public double? WindowHeight { get; set; }
+	public bool WindowMaximized { get; set; }
+	public double? LeftPanelWidth { get; set; }
+	public double? RightPanelWidth { get; set; }
+	public double? TimelineHeight { get; set; }
+	public string? RigTab { get; set; }          // bones, layers, colour, poses, skins, boxes
+
 	// Settings: the shortcuts changed from the defaults (command → its keys, see KeyMap), and which
 	// mouse button picks, which moves things and which moves the view
 	public Dictionary<string, string[]>? Shortcuts { get; set; }

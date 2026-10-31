@@ -157,7 +157,7 @@ public partial class MainWindow
 		UpdateStatus();
 	}
 
-	private static bool SafeWhilePainting(string id) => id is "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides" or "view.rulers";
+	private static bool SafeWhilePainting(string id) => id is "help.keys" or "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides" or "view.rulers";
 	private static bool SafeWhileDragging(string id) => id is "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides"
 		or "view.snapGrid" or "view.snapGuides" or "file.save" or "file.saveAs";
 
@@ -183,6 +183,7 @@ public partial class MainWindow
 				_state.Undo.Redo();
 				return true;
 			case "play.toggle": TogglePlaying(); return true;
+			case "help.keys": ShowHelp(); return true;
 			case "view.images": _renderer.ShowImages = !_renderer.ShowImages; return true;
 			case "view.pixels": _renderer.PixelArt = !_renderer.PixelArt; return true;
 			case "view.reset": ResetView(); return true;
