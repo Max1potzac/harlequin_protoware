@@ -11,14 +11,12 @@ public partial class MainWindow
 	// ---------- playback ----------
 
 	// Called every frame while playing, with the time before and after this frame
-	private void FireEvents(float from, float to)
+	// The stretches of time the playhead went past (see EditorState.Advance)
+	private void FireEvents(IReadOnlyList<(float From, float To)> passed)
 	{
 		if (_state.Animation.Events is not { } events) return;
 
-		bool wrapped = to < from;   // a looping animation went past its end and started over
-		var fired = wrapped
-			? events.Between(from, _state.Animation.Duration).Concat(events.Between(-1f, to))
-			: events.Between(from, to);
+		var fired = passed.SelectMany(span => events.Between(span.From, span.To));
 
 		var names = fired.Select(e => e.Data == null ? e.Name : $"{e.Name} ({e.Data})").ToList();
 		if (names.Count == 0) return;
@@ -108,6 +106,7 @@ public partial class MainWindow
 			}
 			menu.Items.Add(new Separator());
 		}
+		AddKeyTimingItems(menu);
 
 		var copy = new MenuItem { Header = "Copy", InputGestureText = _keys.Gesture("edit.copy") };
 		copy.Click += (_, _) => _timeline.Copy();
@@ -125,6 +124,7 @@ public partial class MainWindow
 	{
 		var menu = new ContextMenu();
 		if (picked is { } range) AddSequenceItems(menu, range);
+		AddFrameItems(menu, frame);
 		var add = new MenuItem { Header = $"Add event at frame {frame}…" };
 		add.Click += (_, _) => AddEventAt(frame);
 		menu.Items.Add(add);

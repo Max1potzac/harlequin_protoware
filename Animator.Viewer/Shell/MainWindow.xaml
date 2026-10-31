@@ -752,6 +752,14 @@
                      Tag="Length" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus" />
                         <CheckBox x:Name="AnimLoop" Content="Loop" Foreground="White" VerticalAlignment="Center"
                       Margin="0,4,12,4" Click="AnimLoop_Click" />
+                        <CheckBox x:Name="AutoKeyBox" Content="Auto key" Foreground="White" VerticalAlignment="Center"
+                      Margin="0,4,4,4" Click="AutoKey_Click"
+                      ToolTip="On: posing in Animate mode sets keys. Off: it only changes the pose (an empty orange key shows where), until Key keys it; going to another frame drops what wasn't keyed." />
+                        <Button x:Name="KeyPoseButton" Content="Key" Padding="6,1" Margin="0,4,12,4" Click="KeyPose_Click"
+                    ToolTip="Keys the pose at the playhead: the changes not keyed yet (auto key off), or else the picked bones' and parts' whole pose" />
+                        <CheckBox x:Name="OnlyPickedBox" Content="Only the picked's rows" Foreground="White" VerticalAlignment="Center"
+                      Margin="0,4,12,4" Click="OnlyPicked_Click"
+                      ToolTip="With bones or parts picked, the timeline shows just their rows (and the events and stacking order)" />
                     </StackPanel>
                     <!-- At scene level: the scene timeline's settings -->
                     <StackPanel x:Name="SceneControls" Orientation="Horizontal" Visibility="Collapsed">
@@ -776,6 +784,11 @@
                     <TextBox x:Name="AnimFps" Width="40" Margin="0,4,12,4" VerticalContentAlignment="Center"
                  Tag="Fps" KeyDown="AnimField_KeyDown" LostFocus="AnimField_LostFocus"
                  ToolTip="Frames per second for the whole project. Timing is kept in seconds." />
+                    <TextBlock Text="Speed" Foreground="White" VerticalAlignment="Center" Margin="0,4,4,4" />
+                    <ComboBox x:Name="SpeedBox" Width="58" Margin="0,4,4,4" SelectionChanged="Speed_Changed"
+                  ToolTip="How fast play goes (the animation itself doesn't change)" />
+                    <Button x:Name="PlaybackButton" Content="Playback ▾" Padding="6,1" Margin="0,4,12,4" Click="PlaybackMenu_Click"
+                    ToolTip="Back and forth, the picked frames over and over, and where stopping leaves the playhead" />
                     <CheckBox x:Name="OnionBox" Content="Onion skin (O)" Foreground="White" VerticalAlignment="Center"
                   Margin="0,4,6,4" Click="Onion_Click"
                   ToolTip="Faint copies of the neighbouring frames: red = before, blue = after. In the paint editor: the part's previous and next drawings, under the one you paint." />

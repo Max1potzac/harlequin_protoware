@@ -86,6 +86,9 @@ public partial class MainWindow
 		DeselectButton.ToolTip = $"Drop the selection, so tools work everywhere again ({KeyOf("paint.deselect")})";
 		LayersViewChoice.ToolTip = $"Every part in the order it's drawn, the top one in front, whatever bone it's on. Drag one up or down to change the order (picked ones go together); right-click for more ({KeyOf("order.forward")} / {KeyOf("order.backward")} a step, {KeyOf("order.front")} / {KeyOf("order.back")} all the way). In Animate mode, that keys the order at the playhead.";
 		ClosePaintButton.Content = WithKey("Close", "edit.back");
+		KeyPoseButton.Content = WithKey("Key", "anim.key");
+		AutoKeyBox.Content = WithKey("Auto key", "anim.autoKey");
+		_timeline.KeyHint = KeyOf("anim.key");
 		SceneButton.ToolTip = $"Back to the scene, to place whole objects ({KeyOf("edit.back")}). At scene level: open the selected object ({KeyOf("scene.open")})";
 		RefreshScenePanel();   // its hints name keys and buttons too
 		UpdateStatus();
@@ -168,7 +171,7 @@ public partial class MainWindow
 				_state.SelectedKeys.Clear();
 				_state.Undo.Redo();
 				return true;
-			case "play.toggle": _state.Playing = !_state.Playing; return true;
+			case "play.toggle": TogglePlaying(); return true;
 			case "view.images": _renderer.ShowImages = !_renderer.ShowImages; return true;
 			case "view.pixels": _renderer.PixelArt = !_renderer.PixelArt; return true;
 			case "view.reset": ResetView(); return true;
@@ -213,6 +216,7 @@ public partial class MainWindow
 			case "edit.back":
 				// Closes the paint editor first, then lets go of picked frames, then goes back to the scene
 				if (PaintPanel.Visibility == Visibility.Visible) ClosePaintEditor();
+				else if (_state.Hold.Any) _state.Hold.Clear();   // the unkeyed changes go
 				else if (_timeline.Range != null) _timeline.ClearRange();
 				else LeaveObject();
 				return true;
@@ -229,8 +233,17 @@ public partial class MainWindow
 			case "play.restart": _state.Time = 0; return true;
 			case "play.back": _state.Playing = false; _state.SetFrame(_state.Frame - 1); return true;
 			case "play.on": _state.Playing = false; _state.SetFrame(_state.Frame + 1); return true;
+			case "play.prevKey": _timeline.JumpToKey(-1); return true;
+			case "play.nextKey": _timeline.JumpToKey(+1); return true;
 
 			case "anim.mode": _state.AnimateMode = !_state.AnimateMode; return true;
+			case "anim.key": KeyThePose(); return true;
+			case "anim.autoKey": SetAutoKey(!_state.AutoKey); return true;
+			case "keys.earlier": _timeline.Nudge(-1); return true;
+			case "keys.later": _timeline.Nudge(+1); return true;
+			case "keys.reverse": _timeline.ReverseSelected(); return true;
+			case "time.insert": _timeline.InsertFrames(_state.Frame, 1); return true;
+			case "time.remove": _timeline.RemoveFrames(_state.Frame, 1); return true;
 			case "anim.event": AddEventAt(_state.Frame); return true;
 			case "order.forward": ReorderPicked(+1, toEnd: false); return true;
 			case "order.backward": ReorderPicked(-1, toEnd: false); return true;

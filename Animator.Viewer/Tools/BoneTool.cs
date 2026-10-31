@@ -133,6 +133,40 @@ public class BoneTool
 	private List<Bone> _pickedBones = new();
 	private List<Slot> _pickedParts = new();
 
+	// Auto key off: a drag in Animate mode sets keys while it goes on (so the pose follows), and
+	// when it ends they're taken back and what changed is held instead (see PoseHold). What was
+	// held already becomes keys for the drag too, so everything lines up while it lasts.
+	private sealed record Holding(AnimationSnapshot Keys, PoseValues Before);
+	private Holding? _holding;
+
+	// Keys a drag may shift along (Animate mode, keys selected): none while holding, where drags
+	// leave every key alone
+	private IReadOnlySet<(Timeline Tl, int Frame)> ShiftableKeys => _holding != null ? NoKeys : _state.SelectedKeys;
+	private static readonly HashSet<(Timeline Tl, int Frame)> NoKeys = new();
+
+	private void BeginHolding()
+	{
+		var animation = _state.Animation;
+		_state.Playing = false;
+		_state.SetFrame(_state.Frame);
+		_holding = new Holding(AnimationSnapshot.Capture(animation), PoseValues.Capture(_state.Skeleton));
+		_state.Hold.KeyInto(animation, _state.Time);
+		_state.Hold.Suspended = true;
+	}
+
+	// The drag's keys taken back, what it changed held. true: it was holding.
+	private bool EndHolding()
+	{
+		if (_holding is not { } holding) return false;
+		_holding = null;
+		var after = PoseValues.Capture(_state.Skeleton);
+		holding.Keys.Restore();
+		_state.Hold.Suspended = false;
+		_state.Hold.Take(holding.Before, after, _state.Skeleton, _state.Animation, _state.Frame);
+		_changed = false;   // nothing for the undo history: no key changed
+		return true;
+	}
+
 	public BoneTool(EditorState state, Camera camera, SkeletonRenderer renderer)
 	{
 		_state = state;
@@ -154,6 +188,7 @@ public class BoneTool
 
 		var world = _camera.ScreenToWorld(screen);
 		bool setup = !_state.AnimateMode;
+		if (!setup && !_state.AutoKey) BeginHolding();
 
 		// Ctrl+drag draws a new bone (a child of the selected one). Started near the selected
 		// bone's end, it starts exactly there.
@@ -325,6 +360,7 @@ public class BoneTool
 
 	public void MouseUp()
 	{
+		EndHolding();
 		switch (_drag)
 		{
 			case Drag.Select:
@@ -440,8 +476,8 @@ public class BoneTool
 			_state.SetFrame(_state.Frame);
 			_poseAtStart = bone.Position;
 			_turnAtStart = bone.Rotation;
-			_moveKeys = KeyShift<Vector2>.Of(_state.Animation.Find<TranslateTimeline>(bone.Name), _state.SelectedKeys, _state.Fps);
-			_turnKeys = KeyShift<float>.Of(_state.Animation.Find<RotateTimeline>(bone.Name), _state.SelectedKeys, _state.Fps);
+			_moveKeys = KeyShift<Vector2>.Of(_state.Animation.Find<TranslateTimeline>(bone.Name), ShiftableKeys, _state.Fps);
+			_turnKeys = KeyShift<float>.Of(_state.Animation.Find<RotateTimeline>(bone.Name), ShiftableKeys, _state.Fps);
 		}
 
 		_before = PoseSnapshot.Capture(bone, _state.Animation);
@@ -655,9 +691,9 @@ public class BoneTool
 			_slotRotation0 = slot.Rotation;
 			_slotScale0 = slot.Scale;
 			var animation = _state.Animation;
-			_partMoveKeys = KeyShift<Vector2>.Of(animation.Find<PartTranslateTimeline>(slot.Name), _state.SelectedKeys, _state.Fps);
-			_partTurnKeys = KeyShift<float>.Of(animation.Find<PartRotateTimeline>(slot.Name), _state.SelectedKeys, _state.Fps);
-			_partScaleKeys = KeyShift<Vector2>.Of(animation.Find<PartScaleTimeline>(slot.Name), _state.SelectedKeys, _state.Fps);
+			_partMoveKeys = KeyShift<Vector2>.Of(animation.Find<PartTranslateTimeline>(slot.Name), ShiftableKeys, _state.Fps);
+			_partTurnKeys = KeyShift<float>.Of(animation.Find<PartRotateTimeline>(slot.Name), ShiftableKeys, _state.Fps);
+			_partScaleKeys = KeyShift<Vector2>.Of(animation.Find<PartScaleTimeline>(slot.Name), ShiftableKeys, _state.Fps);
 		}
 		else
 		{
@@ -889,8 +925,8 @@ public class BoneTool
 		};
 		if (animate)
 		{
-			mover.MoveKeys = KeyShift<Vector2>.Of(_state.Animation.Find<TranslateTimeline>(bone.Name), _state.SelectedKeys, _state.Fps);
-			mover.TurnKeys = KeyShift<float>.Of(_state.Animation.Find<RotateTimeline>(bone.Name), _state.SelectedKeys, _state.Fps);
+			mover.MoveKeys = KeyShift<Vector2>.Of(_state.Animation.Find<TranslateTimeline>(bone.Name), ShiftableKeys, _state.Fps);
+			mover.TurnKeys = KeyShift<float>.Of(_state.Animation.Find<RotateTimeline>(bone.Name), ShiftableKeys, _state.Fps);
 		}
 		return mover;
 	}
@@ -914,9 +950,9 @@ public class BoneTool
 		if (animate)
 		{
 			var animation = _state.Animation;
-			mover.MoveKeys = KeyShift<Vector2>.Of(animation.Find<PartTranslateTimeline>(slot.Name), _state.SelectedKeys, _state.Fps);
-			mover.TurnKeys = KeyShift<float>.Of(animation.Find<PartRotateTimeline>(slot.Name), _state.SelectedKeys, _state.Fps);
-			mover.ScaleKeys = KeyShift<Vector2>.Of(animation.Find<PartScaleTimeline>(slot.Name), _state.SelectedKeys, _state.Fps);
+			mover.MoveKeys = KeyShift<Vector2>.Of(animation.Find<PartTranslateTimeline>(slot.Name), ShiftableKeys, _state.Fps);
+			mover.TurnKeys = KeyShift<float>.Of(animation.Find<PartRotateTimeline>(slot.Name), ShiftableKeys, _state.Fps);
+			mover.ScaleKeys = KeyShift<Vector2>.Of(animation.Find<PartScaleTimeline>(slot.Name), ShiftableKeys, _state.Fps);
 		}
 		return mover;
 	}

@@ -91,6 +91,7 @@ public partial class MainWindow
 	{
 		_skeleton.SetToSetupPose();
 		_state.Animation.Apply(_skeleton, time);
+		_state.Hold.Apply(_skeleton, _state.Animation, (int)MathF.Round(time * _state.Fps));   // unkeyed changes, at their frame
 		_skeleton.UpdatePose();
 	}
 

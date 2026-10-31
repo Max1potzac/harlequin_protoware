@@ -21,8 +21,18 @@ public class TimelinePanel
     private object? _scrolledTo;    // the bone or part whose rows were last brought into view
     private float _viewHeight;
 
-    private enum Drag { None, Scrub, Keys }
+    private enum Drag { None, Scrub, Keys, Box }
     private Drag _drag;
+
+    // Ctrl+drag over the keys: a box picks the keys in it (with Shift, as well as the ones picked)
+    private Vector2 _boxFrom, _boxTo;
+    private HashSet<(Timeline Tl, int Frame)> _boxKept = new();
+
+    // Only the rows of what's picked (and the events and stacking-order rows) when something is
+    public bool OnlyPicked { get; set; }
+
+    // The key that keys unkeyed changes (auto key off), for the note about them
+    public string KeyHint { get; set; } = "S";
 
     // Key dragging
     private int _dragStartFrame;
@@ -42,6 +52,18 @@ public class TimelinePanel
     public void ClearRange() => Range = null;
 
     public TimelinePanel(EditorState state) => _state = state;
+
+    // The rows shown, top to bottom
+    private IReadOnlyList<Timeline> Rows()
+    {
+        var all = _state.Animation.Timelines;
+        if (!OnlyPicked || _state.Picked.Count == 0) return all;
+        var bones = _state.PickedBones.Select(b => b.Name).ToHashSet();
+        var parts = _state.PickedSlots.Select(s => s.Name).ToHashSet();
+        return all.Where(tl => tl is EventTimeline or DrawOrderTimeline ||
+                               (RigOps.TargetsBone(tl) && bones.Contains(tl.Target)) ||
+                               (PartOps.TargetsPart(tl) && parts.Contains(tl.Target))).ToList();
+    }
 
     private HashSet<(Timeline Tl, int Frame)> Sel => _state.SelectedKeys;
 
@@ -95,7 +117,10 @@ public class TimelinePanel
         using var scrollbar = new SKPaint { Color = new SKColor(255, 255, 255, 50), IsAntialias = true };
 
         if (_state.AnimateMode)
-            canvas.DrawRect(0, 0, size.X, 3, playhead);
+        {
+            using var noAutoKey = new SKPaint { Color = new SKColor(255, 170, 40) };
+            canvas.DrawRect(0, 0, size.X, 3, _state.AutoKey ? playhead : noAutoKey);   // orange: auto key off
+        }
 
         // Ruler
         for (int f = 0; f <= frames; f++)
@@ -116,7 +141,8 @@ public class TimelinePanel
         var pickedBones = _state.PickedBones.Select(b => b.Name).ToHashSet();
         var pickedParts = _state.PickedSlots.Select(s => s.Name).ToHashSet();
 
-        var timelines = _state.Animation.Timelines;
+        var timelines = Rows();
+        using var held = new SKPaint { Color = new SKColor(255, 170, 40), Style = SKPaintStyle.Stroke, StrokeWidth = 1.5f, IsAntialias = true };
         for (int i = 0; i < timelines.Count; i++)
         {
             float y = RowTop(i);
@@ -170,6 +196,10 @@ public class TimelinePanel
                 DrawKey(canvas, FrameToX(f), cy, curve, paint);
             }
 
+            // Unkeyed changes here (auto key off): an empty key at the playhead, where S would put one
+            if (_state.AnimateMode && _state.Hold.Any && Animated(tl) is { } posed && _state.Hold.Holds(posed))
+                DrawKey(canvas, FrameToX(_state.Frame), cy, CurveType.Linear, held);
+
             // Colour keys get a dot of their colour in the middle
             if (tl is PartColorTimeline colors)
             {
@@ -198,9 +228,47 @@ public class TimelinePanel
 
         if (Range is { } range) DrawRange(canvas, size, range, font);
 
+        if (_drag == Drag.Box)
+        {
+            using var boxFill = new SKPaint { Color = new SKColor(255, 255, 255, 25) };
+            using var boxEdge = new SKPaint { Color = new SKColor(255, 255, 255, 140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
+            var box = BoxRect();
+            canvas.DrawRect(box, boxFill);
+            canvas.DrawRect(box, boxEdge);
+        }
+
         float px = FrameToX(_state.Frame);
         canvas.DrawLine(px, 0, px, size.Y, playhead);
         canvas.DrawText($"frame {_state.Frame} / {frames}", 8, 14, SKTextAlign.Left, font, text);
+
+        if (_state.AnimateMode && _state.Hold.Any)
+        {
+            using var note = new SKPaint { Color = new SKColor(255, 180, 70), IsAntialias = true };
+            int count = _state.Hold.Count;
+            canvas.DrawText($"{count} unkeyed change{(count == 1 ? "" : "s")}: {KeyHint} keys {(count == 1 ? "it" : "them")}, another frame drops {(count == 1 ? "it" : "them")}",
+                size.X - 8, 14, SKTextAlign.Right, font, note);
+        }
+    }
+
+    private SKRect BoxRect() => new(MathF.Min(_boxFrom.X, _boxTo.X), MathF.Min(_boxFrom.Y, _boxTo.Y),
+                                    MathF.Max(_boxFrom.X, _boxTo.X), MathF.Max(_boxFrom.Y, _boxTo.Y));
+
+    // The keys of the shown rows inside the box (a row counts if the box reaches into it)
+    private IEnumerable<(Timeline Tl, int Frame)> KeysInBox()
+    {
+        var box = BoxRect();
+        var rows = Rows();
+        for (int i = 0; i < rows.Count; i++)
+        {
+            float top = RowTop(i);
+            if (top + RowHeight < box.Top || top > box.Bottom) continue;
+            foreach (var t in rows[i].KeyTimes)
+            {
+                int f = TimeToFrame(t);
+                float x = FrameToX(f);
+                if (x >= box.Left - 3 && x <= box.Right + 3) yield return (rows[i], f);
+            }
+        }
     }
 
     // The picked frames: a band over their keys, and across the ruler with how many there are
@@ -324,7 +392,7 @@ public class TimelinePanel
     private void ShowRowsOf(object? item)
     {
         if (item == null) return;
-        var timelines = _state.Animation.Timelines;
+        var timelines = Rows();
         var rows = Enumerable.Range(0, timelines.Count).Where(i => Animated(timelines[i]) == item).ToList();
         if (rows.Count == 0) return;
         float visible = MathF.Max(0, _viewHeight - RulerHeight);
@@ -336,7 +404,7 @@ public class TimelinePanel
 
     private void ClampScroll()
     {
-        float content = _state.Animation.Timelines.Count * RowHeight;
+        float content = Rows().Count * RowHeight;
         float visible = MathF.Max(0, _viewHeight - RulerHeight);
         _scroll = Math.Clamp(_scroll, 0, MathF.Max(0, content - visible));
     }
@@ -352,7 +420,7 @@ public class TimelinePanel
         if (p.X < LabelWidth && p.Y > RulerHeight)
         {
             int row = RowAt(p.Y);
-            var timelines = _state.Animation.Timelines;
+            var timelines = Rows();
             if (row >= 0 && row < timelines.Count && Animated(timelines[row]) is { } item)
             {
                 if (modifiers.HasFlag(ModifierKeys.Control)) _state.TogglePick(item);
@@ -364,7 +432,13 @@ public class TimelinePanel
 
         if (HitKey(p) is { } hit)
         {
-            if (shift)
+            if (modifiers.HasFlag(ModifierKeys.Alt))
+            {
+                // Alt: every key at that frame (Shift: as well as the ones picked)
+                if (!shift) Sel.Clear();
+                foreach (var key in KeysAt(hit.Frame)) Sel.Add(key);
+            }
+            else if (shift)
             {
                 if (!Sel.Remove(hit)) Sel.Add(hit);   // toggle
                 if (!Sel.Contains(hit)) return;       // just deselected: don't start a drag
@@ -383,6 +457,16 @@ public class TimelinePanel
 
             _state.Playing = false;
             _state.SetFrame(hit.Frame);   // jump to the clicked key so you see its pose
+            return;
+        }
+
+        // Ctrl: a box over the keys picks the keys in it
+        if (modifiers.HasFlag(ModifierKeys.Control) && IsInKeyArea(p))
+        {
+            _drag = Drag.Box;
+            _boxFrom = _boxTo = p;
+            if (!shift) Sel.Clear();
+            _boxKept = Sel.ToHashSet();
             return;
         }
 
@@ -436,6 +520,13 @@ public class TimelinePanel
                 int frame = LastFrameAt(p.X);
                 Range = frame == _rangeAnchor ? null : (Math.Min(frame, _rangeAnchor), Math.Max(frame, _rangeAnchor));
             }
+        }
+        else if (_drag == Drag.Box)
+        {
+            _boxTo = p;
+            Sel.Clear();
+            Sel.UnionWith(_boxKept);
+            Sel.UnionWith(KeysInBox());
         }
         else if (_drag == Drag.Keys && _dragBefore != null)
         {
@@ -496,7 +587,7 @@ public class TimelinePanel
         if (p.X < LabelWidth || p.Y < RulerHeight) return null;
 
         int row = RowAt(p.Y);
-        var timelines = _state.Animation.Timelines;
+        var timelines = Rows();
         if (row < 0 || row >= timelines.Count) return null;
 
         var tl = timelines[row];
@@ -615,5 +706,96 @@ public class TimelinePanel
 
         Sel.Clear();
         foreach (var k in pasted) Sel.Add(k);
+    }
+
+    // ======================= the dopesheet's tools (all undoable) =======================
+
+    // Every key of the shown rows at a frame
+    public List<(Timeline Tl, int Frame)> KeysAt(int frame) =>
+        Rows().SelectMany(tl => tl.KeyTimes.Select(t => (Tl: tl, Frame: TimeToFrame(t)))).Where(k => k.Frame == frame).ToList();
+
+    // Picks every key of the shown rows at this frame, or from it on
+    public int SelectKeys(int frame, bool fromOn)
+    {
+        Sel.Clear();
+        foreach (var tl in Rows())
+            foreach (var t in tl.KeyTimes)
+            {
+                int f = TimeToFrame(t);
+                if (fromOn ? f >= frame : f == frame) Sel.Add((tl, f));
+            }
+        return Sel.Count;
+    }
+
+    private void Reselect(IEnumerable<(Timeline Tl, int Frame)> keys)
+    {
+        Sel.Clear();
+        Sel.UnionWith(keys);
+    }
+
+    // The selected keys some frames earlier (negative) or later
+    public bool Nudge(int by)
+    {
+        if (Sel.Count == 0 || by == 0) return false;
+        var keys = Sel.ToList();
+        Edit($"Nudge {keys.Count} key(s) {(by < 0 ? "earlier" : "later")}", () => Reselect(KeyTimeOps.Nudge(keys, by, _state.FrameCount, _state.Fps)));
+        return true;
+    }
+
+    // Further apart or closer together (factor 2 = twice as long), from the first selected key
+    public bool Stretch(float factor)
+    {
+        if (Sel.Count < 2 || !(factor > 0)) return false;
+        var keys = Sel.ToList();
+        int from = keys.Min(k => k.Frame);
+        Edit($"Stretch {keys.Count} keys to {factor * 100:0}%", () => Reselect(KeyTimeOps.Stretch(keys, from, factor, _state.FrameCount, _state.Fps)));
+        return true;
+    }
+
+    // Back to front, between the first and last selected key
+    public bool ReverseSelected()
+    {
+        if (Sel.Count < 2) return false;
+        var keys = Sel.ToList();
+        Edit($"Reverse {keys.Count} keys", () => Reselect(KeyTimeOps.Reverse(keys, _state.Fps)));
+        return true;
+    }
+
+    // New frames after `at` (every later key moves on, the animation gets longer)
+    public void InsertFrames(int at, int count)
+    {
+        if (count <= 0) return;
+        Sel.Clear();
+        Range = null;
+        Edit(count == 1 ? $"Insert a frame after frame {at}" : $"Insert {count} frames after frame {at}",
+            () => KeyTimeOps.InsertFrames(_state.Animation, at, count, _state.Fps));
+    }
+
+    // Frames at..at+count-1 taken out (their keys go, later keys move up). false: nothing to take
+    public bool RemoveFrames(int at, int count)
+    {
+        var before = AnimationSnapshot.Capture(_state.Animation);
+        int removed = KeyTimeOps.RemoveFrames(_state.Animation, at, count, _state.Fps);
+        if (removed == 0) return false;
+        Sel.Clear();
+        Range = null;
+        _state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
+            removed == 1 ? $"Remove frame {at}" : $"Remove frames {at}–{at + removed - 1}",
+            before, AnimationSnapshot.Capture(_state.Animation), s => s.Restore()));
+        _state.SetFrame(Math.Min(at, _state.FrameCount));
+        return true;
+    }
+
+    // The playhead to the next key of the shown rows after it (or the one before it). false: none
+    public bool JumpToKey(int direction)
+    {
+        int now = _state.Frame;
+        var frames = Rows().SelectMany(tl => tl.KeyTimes).Select(TimeToFrame).Distinct().ToList();
+        var next = direction > 0 ? frames.Where(f => f > now).DefaultIfEmpty(-1).Min()
+                                 : frames.Where(f => f < now).DefaultIfEmpty(-1).Max();
+        if (next < 0) return false;
+        _state.Playing = false;
+        _state.SetFrame(next);
+        return true;
     }
 }

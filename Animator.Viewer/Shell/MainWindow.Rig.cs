@@ -287,7 +287,7 @@ public partial class MainWindow
 		bool pose = _state.AnimateMode;
 
 		PropsTitle.Text = bone == null ? "No bone selected"
-			: pose ? $"Pose at frame {_state.Frame}: typing sets keys"
+			: pose ? (_state.AutoKey ? $"Pose at frame {_state.Frame}: typing sets keys" : $"Pose at frame {_state.Frame}: typing poses it ({KeyOf("anim.key")} keys it)")
 			: "Rest pose (setup)";
 
 		foreach (var box in new[] { BoneX, BoneY, BoneRotation, BoneLength, BoneScaleX, BoneScaleY,
@@ -424,6 +424,21 @@ public partial class MainWindow
 
 	private void KeyField(Bone bone, string field, float v)
 	{
+		// Auto key off: the pose changes, no key yet
+		if (HoldInsteadOfKey(() =>
+		{
+			switch (field)
+			{
+				case "X": bone.Position = new Vector2(v, bone.Position.Y); break;
+				case "Y": bone.Position = new Vector2(bone.Position.X, v); break;
+				case "Rotation": bone.Rotation = Rad(v); break;
+				case "ScaleX": bone.Scale = new Vector2(v, bone.Scale.Y); break;
+				case "ScaleY": bone.Scale = new Vector2(bone.Scale.X, v); break;
+				case "Turn": bone.Turn = Rad(v); break;
+				case "Tilt": bone.Tilt = Rad(v); break;
+			}
+		})) return;
+
 		_state.Playing = false;
 		_state.SetFrame(_state.Frame);
 		var anim = _state.Animation;
