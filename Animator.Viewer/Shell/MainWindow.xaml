@@ -63,6 +63,7 @@
                     <MenuItem Header="_Pictures" Tag="view.images" Click="MenuCommand_Click" />
                     <MenuItem Header="Pi_xel filtering" Tag="view.pixels" Click="MenuCommand_Click" />
                     <MenuItem Header="_Onion skin" Tag="view.onion" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Hitboxes and points" Tag="view.hitboxes" Click="MenuCommand_Click" />
                     <MenuItem Header="R_eset the view" Tag="view.reset" Click="MenuCommand_Click" />
                 </MenuItem>
             </Menu>
@@ -280,7 +281,7 @@
                             <!-- Two views of the same object: its bones (parts under the bone they're on), or its
                                  parts as layers, in the order they're drawn whatever bone they're on -->
                             <StackPanel Grid.Row="3" Margin="6,0,6,4">
-                                <UniformGrid x:Name="RigViewSwitch" Columns="5">
+                                <UniformGrid x:Name="RigViewSwitch" Columns="6">
                                     <RadioButton x:Name="BonesViewChoice" Content="Bones" GroupName="RigView" Margin="0,0,1,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="The bones, each part under the bone it's on: drag a part onto a bone to put it there, or a bone onto another to hang it there" />
@@ -296,6 +297,9 @@
                                     <RadioButton x:Name="SkinsViewChoice" Content="Skins" GroupName="RigView" Margin="1,0,0,0"
                                                  Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
                                                  ToolTip="Skins: drawings for some parts, shown when the skin is on. Categories of alternatives (a bucket and its dents, one at a time) and overlays that show over the others. Picked parts, or a part's drawings, become skins." />
+                                    <RadioButton x:Name="BoxesViewChoice" Content="Boxes" GroupName="RigView" Margin="1,0,0,0"
+                                                 Style="{StaticResource {x:Type ToggleButton}}" Checked="RigView_Changed"
+                                                 ToolTip="Hitboxes and points on bones, for the game: boxes and circles of a kind (hurt, hit, block…), keyed on and off in animations, and points (a muzzle, a hand). Drag them in the viewport while this view is open." />
                                 </UniformGrid>
                                 <TextBlock x:Name="LayersHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="2,4,2,0" Visibility="Collapsed" />
                                 <!-- Selection sets: a click picks a set's bones and parts again -->
@@ -312,6 +316,55 @@
                       PreviewMouseLeftButtonDown="BoneTree_PreviewMouseLeftButtonDown" PreviewMouseLeftButtonUp="BoneTree_PreviewMouseLeftButtonUp"
                       PreviewMouseMove="BoneTree_PreviewMouseMove"
                       DragOver="BoneTree_DragOver" DragLeave="BoneTree_DragLeave" Drop="BoneTree_Drop" />
+                            <!-- Boxes: hitboxes and points on bones -->
+                            <ScrollViewer x:Name="BoxesPanel" Grid.Row="4" Margin="6,0,6,0" Visibility="Collapsed" Background="#1E2026"
+                                          VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="4">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <Button Content="+ Hitbox ▾" Padding="6,1" Margin="0,0,4,0" Click="BoxAdd_Click"
+                                                ToolTip="A box or circle on the selected bone (a part selected: on its bone, round it)" />
+                                        <Button Content="+ Point" Padding="6,1" Margin="0,0,4,0" Click="PointAdd_Click"
+                                                ToolTip="A point at the tip of the selected bone: where the game spawns or holds things" />
+                                        <Button x:Name="BoxDeleteButton" Content="Delete" Padding="6,1" Click="BoxDelete_Click" />
+                                    </StackPanel>
+                                    <ListBox x:Name="BoxList" MaxHeight="150" MinHeight="40" Background="#24272E" Foreground="White" BorderThickness="0"
+                                             SelectionChanged="BoxList_SelectionChanged" />
+                                    <StackPanel x:Name="BoxSettings" Margin="0,4,0,0">
+                                        <DockPanel Margin="0,1,0,1">
+                                            <TextBlock Text="Name" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                            <TextBox x:Name="BoxName" KeyDown="BoxName_KeyDown" LostFocus="BoxName_LostFocus" />
+                                        </DockPanel>
+                                        <DockPanel Margin="0,1,0,1" ToolTip="The bone it moves with (changing it keeps it where it is)">
+                                            <TextBlock Text="Bone" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                            <ComboBox x:Name="BoxBoneChoice" SelectionChanged="BoxBone_Changed" />
+                                        </DockPanel>
+                                        <StackPanel x:Name="BoxHitboxOnly">
+                                            <DockPanel Margin="0,1,0,1" ToolTip="What it's for, as the game knows it: hurt (can be hit), hit (hits others), block, trigger… or any word">
+                                                <TextBlock Text="Kind" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <ComboBox x:Name="BoxKind" IsEditable="True" KeyDown="BoxKind_KeyDown" LostFocus="BoxKind_LostFocus"
+                                                          SelectionChanged="BoxKind_SelectionChanged" />
+                                            </DockPanel>
+                                            <DockPanel Margin="0,1,0,1">
+                                                <TextBlock Text="Shape" Foreground="White" Width="64" VerticalAlignment="Center" />
+                                                <ComboBox x:Name="BoxShape" SelectionChanged="BoxShape_Changed">
+                                                    <ComboBoxItem Content="Box" />
+                                                    <ComboBoxItem Content="Circle" />
+                                                </ComboBox>
+                                            </DockPanel>
+                                            <CheckBox x:Name="BoxActive" Content="On at rest" Foreground="White" Margin="0,4,0,2" Click="BoxActive_Click"
+                                                      ToolTip="Whether it's on when an animation hasn't keyed it (an attack's hitbox: off, keyed on where it strikes)" />
+                                            <UniformGrid x:Name="BoxKeyRow" Columns="2" Margin="0,2,0,2">
+                                                <Button Content="On from here" Margin="0,0,2,0" Click="BoxOnHere_Click" ToolTip="Keys it on at the playhead, until its next key" />
+                                                <Button Content="Off from here" Margin="2,0,0,0" Click="BoxOffHere_Click" ToolTip="Keys it off at the playhead, until its next key" />
+                                            </UniformGrid>
+                                            <Button Content="Fit round the selected part" Margin="0,2,0,2" Click="BoxFit_Click"
+                                                    ToolTip="Round the part's visible pixels, as it rests (a box turns with the picture)" />
+                                        </StackPanel>
+                                        <StackPanel x:Name="BoxFields" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="BoxHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </ScrollViewer>
                             <!-- Skins: categories of alternatives (one on at a time), outfits, overlays; made from parts -->
                             <ScrollViewer x:Name="SkinsPanel" Grid.Row="4" Margin="6,0,6,0" Visibility="Collapsed" Background="#1E2026"
                                           VerticalScrollBarVisibility="Auto">

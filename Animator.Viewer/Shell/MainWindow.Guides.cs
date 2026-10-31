@@ -315,6 +315,7 @@ public partial class MainWindow
 				"view.images" => _renderer.ShowImages,
 				"view.pixels" => _renderer.PixelArt,
 				"view.onion" => _onion.Enabled,
+				"view.hitboxes" => _showHitboxes,
 				_ => false
 			};
 		}

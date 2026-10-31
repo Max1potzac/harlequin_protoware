@@ -211,6 +211,7 @@ public partial class MainWindow
 		if (Editing)
 		{
 			DrawInSpace(canvas, _camera.Space, () => _renderer.DrawOverlays(canvas, _skeleton));
+			DrawHitboxes(canvas);
 			return;
 		}
 

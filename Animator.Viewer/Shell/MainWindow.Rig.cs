@@ -71,6 +71,7 @@ public partial class MainWindow
 		BuildColourPanel();   // (the Colour view's list, when it shows)
 		BuildPosesPanel();
 		BuildSkinsPanel();
+		BuildBoxesPanel();
 		BuildSetChips();
 		_syncingRig = false;
 		SyncTreePicks(force: true);
