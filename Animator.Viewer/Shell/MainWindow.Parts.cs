@@ -154,6 +154,19 @@ public partial class MainWindow
 	// added on top of the drawing's own placement, so the part ends up exactly where you typed.
 	private void KeyPartField(Slot slot, Attachment att, string field, float v)
 	{
+		// Auto key off: the placement changes, no key yet
+		if (HoldInsteadOfKey(() =>
+		{
+			switch (field)
+			{
+				case "PX": slot.Offset = new Vector2(v - att.Offset.X, slot.Offset.Y); break;
+				case "PY": slot.Offset = new Vector2(slot.Offset.X, v - att.Offset.Y); break;
+				case "PRotation": slot.Rotation = Rad(v) - att.Rotation; break;
+				case "PScaleX": slot.Scale = new Vector2(Ratio(v, att.Scale.X), slot.Scale.Y); break;
+				case "PScaleY": slot.Scale = new Vector2(slot.Scale.X, Ratio(v, att.Scale.Y)); break;
+			}
+		})) return;
+
 		_state.Playing = false;
 		_state.SetFrame(_state.Frame);
 		var anim = _state.Animation;

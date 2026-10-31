@@ -169,16 +169,75 @@ public class EditorState
 	// Keys are always placed at exact frame times, so the playhead and keys line up
 	public void SetFrame(int frame) => Time = Math.Clamp(frame, 0, FrameCount) / (float)Fps;
 
-	public void Advance(float dt)
-	{
-		float d = Animation.Duration;
-		if (d <= 0) { Time = 0; return; }
+	// ----- auto key -----
+	// On: posing in Animate mode sets keys. Off: it only changes the pose, held here until it's
+	// keyed (S) or the playhead moves on (see PoseHold).
+	public bool AutoKey { get; set; } = true;
+	public PoseHold Hold { get; } = new();
 
-		Time += dt;
-		if (Time > d)
+	// ----- playback -----
+	public float Speed { get; set; } = 1f;       // 0.5 = half speed
+	public bool PingPong { get; set; }           // forwards, then backwards, and so on
+	public (int First, int Last)? PlayRange { get; set; }   // just these frames, over and over (null: all of it)
+	public bool PlayingBackwards => _direction < 0;
+	private int _direction = 1;
+
+	// The playhead moved on by dt seconds of play. What it went past, as (from, to] spans of time
+	// (for the events to fire), from < to whichever way it went.
+	public IReadOnlyList<(float From, float To)> Advance(float dt)
+	{
+		var spans = new List<(float, float)>(2);
+		float d = Animation.Duration;
+		if (d <= 0) { Time = 0; return spans; }
+
+		float start = 0, end = d;
+		bool loop = Animation.Loop;
+		if (PlayRange is { } range && range.Last >= range.First)
 		{
-			if (Animation.Loop) Time %= d;
-			else { Time = d; Playing = false; }
+			start = Math.Clamp(range.First, 0, FrameCount) / (float)Fps;
+			end = Math.Clamp(range.Last + 1, 0, FrameCount) / (float)Fps;   // through the last picked frame
+			loop = true;
+			if (end - start < 1e-6f) { Time = start; return spans; }
+			if (Time < start || Time > end) Time = start;
 		}
+		if (!PingPong) _direction = 1;
+
+		float step = dt * MathF.Max(0.01f, Speed);
+		float from = Time;
+		if (PingPong)
+		{
+			float t = Time + step * _direction;
+			if (t > end)
+			{
+				spans.Add((from, end));
+				t = MathF.Max(start, end - (t - end));
+				_direction = -1;
+				spans.Add((t, end));
+			}
+			else if (t < start)
+			{
+				spans.Add((start - 1e-4f, from));
+				t = MathF.Min(end, start + (start - t));
+				_direction = 1;
+				spans.Add((start - 1e-4f, t));
+			}
+			else spans.Add(_direction > 0 ? (from, t) : (t, from));
+			Time = t;
+			return spans;
+		}
+
+		Time += step;
+		if (Time > end)
+		{
+			spans.Add((from, end));
+			if (loop)
+			{
+				Time = start + (Time - start) % (end - start);
+				spans.Add((start - 1e-4f, Time));
+			}
+			else { Time = end; Playing = false; }
+		}
+		else spans.Add((from, Time));
+		return spans;
 	}
 }

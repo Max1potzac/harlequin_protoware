@@ -35,6 +35,16 @@ public sealed class AppSettings
 	public int AutosaveMinutes { get; set; } = 5;
 	public int BackupCount { get; set; } = 3;
 
+	// The timeline: auto key (off: posing doesn't set keys until S), only the picked's rows, and
+	// playback: speed, back and forth, the picked frames over and over, and back where it
+	// started when it stops
+	public bool AutoKey { get; set; } = true;
+	public bool OnlyPickedRows { get; set; }
+	public float PlaybackSpeed { get; set; } = 1f;
+	public bool PingPong { get; set; }
+	public bool LoopPickedFrames { get; set; } = true;
+	public bool StopGoesBack { get; set; }
+
 	// The three must be different buttons (a hand-edited file might not have them so)
 	[JsonIgnore] public bool MouseButtonsValid =>
 		SelectButton != TransformButton && SelectButton != PanButton && TransformButton != PanButton;

@@ -55,6 +55,7 @@ public partial class MainWindow : Window
 		InitPlaces();   // undo first goes back to where an edit was made
 		InitViewAids();   // rulers, grid, guides and snapping
 		InitAutosave();
+		InitTimelineTools();   // auto key, the rows shown, playback
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;
@@ -70,14 +71,15 @@ public partial class MainWindow : Window
 		if (_exporting) return;   // the export poses the scene itself, frame by frame
 		if (_state.Playing && _sceneLevel)
 		{
-			AdvanceScene(dt);
+			AdvanceScene(dt * _state.Speed);
 		}
 		else if (_state.Playing)
 		{
-			float before = _state.Time;
-			_state.Advance(dt);
-			FireEvents(before, _state.Time);
+			_state.PlayRange = _appSettings.LoopPickedFrames ? _timeline.Range : null;
+			FireEvents(_state.Advance(dt));
 		}
+		// Unkeyed changes (auto key off) last as long as the playhead stays on their frame
+		_state.Hold.KeepOnlyAt(_skeleton, _state.Animation, _state.Frame, Editing && _state.AnimateMode && !_state.Playing);
 		UpdateEventFlash();
 
 		PoseScene(ClockTime);
@@ -415,7 +417,7 @@ public partial class MainWindow : Window
 		string picked = count > 1 ? $"{shown} + {count - 1} more" : shown;
 
 		Status.Text =
-			$"{(_state.AnimateMode ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : "SETUP: drags edit the rest pose")}  ({K("anim.mode")} to switch)    " +
+			$"{(!_state.AnimateMode ? "SETUP: drags edit the rest pose" : _state.AutoKey ? "● ANIMATE: drags set keys, or move the selected keys of what's dragged" : $"● ANIMATE, auto key off: drags pose without keys ({K("anim.key")} keys the pose, another frame drops it)")}  ({K("anim.mode")} to switch, {K("anim.autoKey")}: auto key)    " +
 			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 			$"Viewport: {pick}-click = pick (Ctrl: toggle, Shift: add), {pick}-drag = pick in a box (Shift: add, Ctrl: let go), double-click a part = paint it.   " +
 			$"{move}-drag: a joint = move, a bone = turn (Shift: 15° steps), a part = move (its corners / round handle / pivot), anything picked = all that's picked; Ctrl+{move}-drag = new bone, Alt+{move}-click a part = put it on the selected bone, the ring at a bone's end = where it ends (Setup mode).   " +
@@ -424,7 +426,8 @@ public partial class MainWindow : Window
 			$"Rig panel: Ctrl+click = pick several, Shift+click = every row from the selected one, {K("pick.all")} = everything shown, ● = hide / show ({K("pick.hide")}: hide the picked, {K("pick.hideOthers")}: hide the others, {K("pick.showAll")}: show all), " +
 			$"padlock = lock / unlock: no clicking or dragging it in the viewport ({K("pick.lock")}: lock the picked, {K("pick.lockOthers")}: lock the others, {K("pick.unlockAll")}: unlock all)\n" +
 			"Sets (under the list): + Set = a set of the picked; click a set = pick it again (Ctrl: picked or not, Shift: add), right-click = change it.   The square in the bone panel = the colour of the picked bones\n" +
-			$"Timeline: click key = select, Shift+click = add, drag = move, right-click = curve, {K("edit.copy")} / {K("edit.paste")} = copy / paste at playhead, {K("pick.keys")} = every key of the picked, drag across empty frames = pick them (right-click: split into an animation sequence)\n" +
+			$"Timeline: click key = select, Shift+click = add, Ctrl+drag = a box of keys, Alt+click = every key at that frame, drag = move, right-click = curve, stretch, reverse, {K("keys.earlier")} / {K("keys.later")} = a frame earlier / later, {K("edit.copy")} / {K("edit.paste")} = copy / paste at playhead, {K("pick.keys")} = every key of the picked, drag across empty frames = pick them (right-click: split into an animation sequence; play loops them)\n" +
+			$"Frames: {K("time.insert")} = insert one after the playhead, {K("time.remove")} = remove the one at it, {K("play.prevKey")} / {K("play.nextKey")} = to the key before / after, {K("anim.key")} = key the pose (the unkeyed changes, or the picked)\n" +
 			$"IK: {K("ik.snap")} = snap target to hand, {K("ik.bake")} = bake IK into FK, {K("ik.switch")} = switch IK/FK at this frame (Animate mode).   Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   " +
 			$"Events: {K("anim.event")} = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
 			$"Frame by frame (select a part): {K("frames.new")} = new drawing, {K("frames.copy")} = copy drawing, {K("frames.longer")} / {K("frames.shorter")} = hold longer / shorter, {K("edit.delete")} = its key here.   {K("view.onion")} = onion skin\n" +
