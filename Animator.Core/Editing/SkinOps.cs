@@ -76,6 +76,39 @@ public static class SkinOps
 	public static bool HasOwnDrawings(Skeleton skeleton, Slot slot) =>
 		skeleton.DefaultSkin.AttachmentsFor(slot.Name).Any();
 
+	// Editing in a skin: the skin's own copy of the drawing a part shows by this name (its rest
+	// drawing when null), made from the one showing now if the skin has none: placed the same,
+	// the same pixels (copy them before painting it: see SharesPixels). From then on, changing it
+	// changes only the skin; the object's own drawing (skin 0) stays as it was. The skin is on.
+	public static Attachment? Own(Skeleton skeleton, Skin skin, Slot slot, string? name = null)
+	{
+		name ??= slot.ActiveAttachment ?? slot.SetupAttachment;
+		if (name == null) return null;
+		if (skin.Get(slot.Name, name) is { } mine)
+		{
+			Show(skeleton, skin);
+			return mine;
+		}
+		var from = skeleton.FindAttachment(slot.Name, name);   // (what shows now, before turning the skin on)
+		if (from == null) return null;
+		var copy = new Attachment
+		{
+			Name = name,
+			AssetId = from.AssetId,
+			Offset = from.Offset,
+			Rotation = from.Rotation,
+			Scale = from.Scale,
+			Pivot = from.Pivot
+		};
+		skin.Set(slot.Name, copy);
+		Show(skeleton, skin);
+		return copy;
+	}
+
+	// Whether another drawing shows the same pixels (painting it would change that one too)
+	public static bool SharesPixels(Skeleton skeleton, Attachment drawing) =>
+		skeleton.AllAttachments().Any(a => a != drawing && a.AssetId == drawing.AssetId);
+
 	// The parts' own drawings moved into the skin (from then on they show only while it's on).
 	// A drawing the skin has already, by the same name, stays the skin's. How many parts moved.
 	public static int AddParts(Skeleton skeleton, Skin skin, IEnumerable<Slot> parts)

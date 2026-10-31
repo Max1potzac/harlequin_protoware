@@ -157,7 +157,8 @@ public partial class MainWindow
 				added.Opacity = layer.Opacity;
 			}
 
-			created = DrawingOps.AddDrawing(_skeleton, slot, template, pixels);
+			created = DrawingOps.AddDrawing(_skeleton, slot, template, pixels, _state.EditSkin);
+			if (_state.EditSkin is { } skin) SkinOps.Show(_skeleton, skin);
 			DrawingOps.Show(_state.Animation, slot, created.Name, frame, _state.Fps, key);
 			return $"{(copy ? "Duplicate" : "New")} drawing {created.Name}{(key ? $" @ frame {frame}" : "")}";
 		});

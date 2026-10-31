@@ -199,7 +199,7 @@ public sealed class KeyMap
 		C("play.prevKey", "Playback", "To the key before the playhead", K(Key.Left, Shift)),
 		C("play.nextKey", "Playback", "To the key after the playhead", K(Key.Right, Shift)),
 
-		C("anim.mode", "Animation", "Setup / Animate mode", K(Key.K)),
+		C("anim.mode", "Animation", "Build / Animate: switch between building the object and animating it", K(Key.K)),
 		C("anim.event", "Animation", "Add an event at the playhead", K(Key.E)),
 		C("anim.key", "Animation", "Key the pose here: the unkeyed changes (auto key off), or else the picked", K(Key.S)),
 		C("anim.autoKey", "Animation", "Auto key on / off", K(Key.K, Shift)),

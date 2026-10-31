@@ -36,6 +36,21 @@ public class EditorState
 
 	public bool AnimateMode { get; set; }
 
+	// The skin being edited (null: the object's own drawings, skin 0). Changes to a part's drawing
+	// (painting it, placing it, new drawings, new parts) go into it, leaving the object's own as
+	// they were. Forgotten when the skin is gone.
+	public Skin? EditSkin
+	{
+		get => _editSkin != null && Skeleton.Skins.Contains(_editSkin) ? _editSkin : null;
+		set => _editSkin = value;
+	}
+	private Skin? _editSkin;
+
+	// The drawing a part shows, ready to be changed: in the skin being edited, its own copy
+	// (made now if it has none); else the drawing itself. Call it inside the change's undo step.
+	public Attachment? EditableDrawing(Slot slot) =>
+		EditSkin is { } skin ? SkinOps.Own(Skeleton, skin, slot) : Skeleton.ResolveAttachment(slot);
+
 	// ----- several picked at once -----
 	// Bones and parts can be picked together (Ctrl / Shift / a box in the viewport, Ctrl+A). The
 	// panels show one of them: Selected / SelectedSlot, the last picked. Anything that selects

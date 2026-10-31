@@ -83,11 +83,12 @@ public partial class MainWindow
 	// Rigged object: bones and parts. Drawn object: parts only (no bone tools, no snapping).
 	private void SyncRigMode()
 	{
-		bool drawn = IsDrawn;
-		RigTitle.Text = drawn ? "Parts" : "Rig";
+		bool drawn = IsDrawn, building = !_state.AnimateMode;   // (Animate: what builds the rig is put away)
+		RigTitle.Text = (drawn ? "Parts" : "Rig") + (building ? "" : " · animating");
 		AddBoneButton.IsEnabled = BindButton.IsEnabled = !drawn;
-		SnapJointsBox.Visibility = KeepPartsBox.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
-		GiveBonesButton.Visibility = drawn ? Visibility.Visible : Visibility.Collapsed;
+		RigBuildButtons.Visibility = building ? Visibility.Visible : Visibility.Collapsed;
+		SnapJointsBox.Visibility = KeepPartsBox.Visibility = drawn || !building ? Visibility.Collapsed : Visibility.Visible;
+		GiveBonesButton.Visibility = drawn && building ? Visibility.Visible : Visibility.Collapsed;
 		PartBoneLabel.Visibility = PartBone.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
 		if (_tool is not null) _tool.BonesEnabled = !drawn;   // also after undoing "Give it bones"
 	}

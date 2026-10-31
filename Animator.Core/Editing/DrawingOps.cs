@@ -48,8 +48,9 @@ public static class DrawingOps
 	}
 
 	// Adds an (already filled) asset to the part as a new drawing, placed exactly like
-	// `template`, the drawing it's made from. It goes into the same skin as the template.
-	public static Attachment AddDrawing(Skeleton skeleton, Slot slot, Attachment? template, Asset asset)
+	// `template`, the drawing it's made from. It goes into the same skin as the template (into: that
+	// skin instead, the one being edited).
+	public static Attachment AddDrawing(Skeleton skeleton, Slot slot, Attachment? template, Asset asset, Skin? into = null)
 	{
 		string name = UniqueDrawingName(skeleton, slot);
 		asset.Name = name;
@@ -64,8 +65,8 @@ public static class DrawingOps
 			drawing.Pivot = template.Pivot;
 		}
 
-		var skin = template == null ? skeleton.DefaultSkin
-			: skeleton.AllSkins().FirstOrDefault(s => s.Get(slot.Name, template.Name) == template) ?? skeleton.DefaultSkin;
+		var skin = into ?? (template == null ? skeleton.DefaultSkin
+			: skeleton.AllSkins().FirstOrDefault(s => s.Get(slot.Name, template.Name) == template) ?? skeleton.DefaultSkin);
 		skin.Set(slot.Name, drawing);
 		return drawing;
 	}

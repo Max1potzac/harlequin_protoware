@@ -727,6 +727,7 @@ public class BoneTool
 		else
 		{
 			_partBefore = _state.CaptureStructure();
+			if (_state.EditSkin != null && _state.EditableDrawing(slot) is { } own) _att = own;   // editing a skin: its own copy
 		}
 
 		_changed = false;

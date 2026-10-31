@@ -129,6 +129,7 @@ public partial class MainWindow
 
 		_state.EditStructure(() =>
 		{
+			att = _state.EditableDrawing(slot) ?? att;   // editing a skin: its own copy
 			switch (field)
 			{
 				case "PX": att.Offset = new Vector2(v, att.Offset.Y); break;
@@ -223,7 +224,7 @@ public partial class MainWindow
 
 	private void EditPixels_Click(object sender, RoutedEventArgs e)
 	{
-		if (_state.SelectedSlot is { } slot && PartData(slot).Asset is { } asset) OpenPaintEditor(asset, slot);
+		if (_state.SelectedSlot is { } slot && PartData(slot).Asset is { } asset) OpenPaintEditor(PixelsToPaint(slot, asset), slot);
 	}
 
 	// ======================= creating & deleting =======================
@@ -301,6 +302,7 @@ public partial class MainWindow
 			var offset = new Vector2(bone.Length / 2, 0);
 			float rotation = -bone.WorldRotation;
 			var slot = PartOps.CreatePart(_skeleton, bone, asset, name, offset, rotation);
+			if (_state.EditSkin is { } skin) SkinOps.AddParts(_skeleton, skin, new[] { slot });   // a part of the skin being edited (a hat)
 
 			_state.SelectedSlot = slot;
 			_state.Selected = bone;
