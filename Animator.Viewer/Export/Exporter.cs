@@ -6,7 +6,7 @@ using SkiaSharp;
 
 namespace Animator.Viewer.Export;
 
-public enum ExportFormat { PngSequence, Gif, SpriteSheet, Video }
+public enum ExportFormat { PngSequence, Gif, SpriteSheet, Video, Engine }
 
 // What to export and how (filled in by the Export dialog)
 public sealed class ExportSettings
@@ -21,6 +21,11 @@ public sealed class ExportSettings
 	public bool PixelArt { get; set; }                    // no smoothing (crisp pixels)
 	public bool BakeColorLayers { get; set; }             // the colour layers in the pictures (else without them)
 	public bool WriteEvents { get; set; } = true;         // an object's animations: name.events.json too
+	public int AtlasSize { get; set; } = 2048;            // engine: the biggest an atlas page may be
+	public int AtlasGap { get; set; } = 2;                // engine: empty pixels round each picture
+	public bool PowerOfTwo { get; set; }                  // engine: pages 256, 512 … wide and high
+	public bool Trim { get; set; } = true;                // engine: pictures without their see-through edges
+	public Func<string, string>? ResolveSound { get; set; }   // a sound path as the project keeps it → the file
 	public SKColor? Background { get; set; }              // null = see-through
 	public int FrameStep { get; set; } = 1;               // every frame, every 2nd…
 	public int FirstFrame { get; set; }                   // scene: the range to export
@@ -55,6 +60,7 @@ public sealed class Exporter
 	private readonly int _fps;
 	private readonly float _scale;
 	private readonly List<string> _written = new();
+	private readonly AssetStore _assets;
 
 	// The part of the scene (or object) that's exported, y up, and the picture's size
 	private float _minX, _maxY;
@@ -63,6 +69,7 @@ public sealed class Exporter
 	public Exporter(Scene scene, AssetStore assets, int fps, ExportSettings settings)
 	{
 		_scene = scene;
+		_assets = assets;
 		_settings = settings;
 		_fps = Math.Max(1, fps);
 		_scale = Math.Clamp(settings.Scale, 0.01f, 100f);
@@ -195,6 +202,11 @@ public sealed class Exporter
 
 	public IEnumerable<ExportProgress> Run()
 	{
+		if (_settings.Format == ExportFormat.Engine)
+		{
+			foreach (var p in RunEngine()) yield return p;
+			yield break;
+		}
 		if (FrameCount == 0) throw new InvalidOperationException("Nothing to export: no frames (pick at least one animation).");
 		bool finished = false;
 		try
@@ -226,6 +238,8 @@ public sealed class Exporter
 		if (_settings.Scene || !_settings.WriteEvents || _settings.Object is not { } obj) return;
 		var file = EventsFile.Of(obj.Name, _settings.Animations, _fps);
 		if (file.Animations.Count == 0) return;
+		foreach (var a in file.Animations)
+			if (a.Sound != null) a.Sound.Path = Relocated(a.Sound.Path);
 		string path = BaseNameForSheet() + ".events.json";
 		Track(path);
 		File.WriteAllText(path, file.ToJson());
@@ -280,6 +294,103 @@ public sealed class Exporter
 	}
 
 	// ----- Sprite sheet: one PNG with every frame in a grid, and a JSON describing it
+
+	// ----- Game engine: name.hqrig.json, the object's pictures packed in atlas pages (name.atlas.png,
+	// name.atlas2.png …), and its events file
+
+	private IEnumerable<ExportProgress> RunEngine()
+	{
+		if (_settings.Object is not { } obj) throw new InvalidOperationException("Pick the object to export for the game.");
+		bool finished = false;
+		try
+		{
+			foreach (var p in WriteEngine(obj)) yield return p;
+			WriteEventsFile();
+			finished = true;
+		}
+		finally
+		{
+			if (!finished)
+				foreach (var file in _written) TryDelete(file);
+		}
+	}
+
+	private IEnumerable<ExportProgress> WriteEngine(SceneObject obj)
+	{
+		var skeleton = obj.Skeleton;
+		var pictures = skeleton.AllAttachments().Select(a => a.AssetId).Distinct()
+			.Where(skeleton.Assets.ContainsKey).Select(id => skeleton.Assets[id])
+			.Select(asset => (Asset: asset, Bitmap: _assets.Get(asset, _settings.BakeColorLayers)))
+			.Where(p => p.Bitmap != null)
+			.Select(p => (p.Asset, Bitmap: p.Bitmap!, Kept: _settings.Trim ? Shows(p.Bitmap!) : new SKRectI(0, 0, p.Bitmap!.Width, p.Bitmap!.Height)))
+			.ToList();
+		int total = pictures.Count + 1;
+		yield return new ExportProgress(0, total, "Packing the atlas");
+
+		var packed = AtlasPacker.Pack(pictures.Select(p => (p.Kept.Width, p.Kept.Height)).ToList(),
+			_settings.AtlasSize, _settings.AtlasGap, _settings.PowerOfTwo);
+		string baseName = BaseNameForSheet();
+		string stem = System.IO.Path.GetFileName(baseName);
+		var atlas = new EngineAtlas();
+		var pages = packed.Pages.Select(size => new SKBitmap(AssetStore.InfoFor(size.Width, size.Height))).ToList();
+		try
+		{
+			foreach (var page in pages) page.Erase(SKColors.Transparent);
+			int done = 0;
+			foreach (var place in packed.Placed)
+			{
+				var (asset, bitmap, kept) = pictures[place.Index];
+				using (var canvas = new SKCanvas(pages[place.Page]))
+				{
+					canvas.ClipRect(new SKRect(place.X, place.Y, place.X + place.Width, place.Y + place.Height));
+					canvas.DrawBitmap(bitmap, place.X - kept.Left, place.Y - kept.Top, AssetStore.Nearest, null);
+				}
+				atlas.Regions[asset.Id] = new EngineRegion
+				{
+					Page = place.Page, X = place.X, Y = place.Y, W = place.Width, H = place.Height,
+					OffsetX = kept.Left, OffsetY = kept.Top, Width = bitmap.Width, Height = bitmap.Height
+				};
+				yield return new ExportProgress(++done, total, $"Picture {done} of {pictures.Count}");
+			}
+			for (int i = 0; i < pages.Count; i++)
+			{
+				string file = $"{stem}.atlas{(i == 0 ? "" : (i + 1).ToString())}.png";
+				string path = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(baseName) ?? "", file);
+				Track(path);
+				SavePng(pages[i], path);
+				atlas.Pages.Add(new EnginePage { File = file, Width = pages[i].Width, Height = pages[i].Height });
+			}
+		}
+		finally
+		{
+			foreach (var page in pages) page.Dispose();
+		}
+
+		var sounds = _scene.Sounds.ToDictionary(p => p.Key, p => Relocated(p.Value));
+		var rig = EngineFile.Of(obj.Name, skeleton, _settings.Animations, _fps, atlas, sounds);
+		foreach (var a in rig.Rig.Animations)
+			if (a.Sound != null) a.Sound.Path = Relocated(a.Sound.Path);
+		string json = baseName + ".hqrig.json";
+		Track(json);
+		File.WriteAllText(json, rig.ToJson());
+		yield return new ExportProgress(total, total, "Written");
+	}
+
+	// The part of a picture that shows (its see-through edges left out; nothing shows: one pixel)
+	private static SKRectI Shows(SKBitmap bitmap)
+	{
+		int minX = bitmap.Width, minY = bitmap.Height, maxX = -1, maxY = -1;
+		for (int y = 0; y < bitmap.Height; y++)
+			for (int x = 0; x < bitmap.Width; x++)
+				if (bitmap.GetPixel(x, y).Alpha > 0)
+				{
+					if (x < minX) minX = x;
+					if (x > maxX) maxX = x;
+					if (y < minY) minY = y;
+					if (y > maxY) maxY = y;
+				}
+		return maxX < 0 ? new SKRectI(0, 0, 1, 1) : new SKRectI(minX, minY, maxX + 1, maxY + 1);
+	}
 
 	private IEnumerable<ExportProgress> WriteSheet()
 	{
@@ -360,8 +471,23 @@ public sealed class Exporter
 		return (any ? hitboxes : null, points.Count > 0 ? points : null);
 	}
 
-	private string BaseNameForSheet() => System.IO.Path.Combine(
-		System.IO.Path.GetDirectoryName(_settings.Path) ?? "", System.IO.Path.GetFileNameWithoutExtension(_settings.Path));
+	private string BaseNameForSheet()
+	{
+		string name = System.IO.Path.GetFileNameWithoutExtension(_settings.Path);
+		if (name.EndsWith(".hqrig", StringComparison.OrdinalIgnoreCase)) name = name[..^6];   // (name.hqrig.json chosen)
+		return System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_settings.Path) ?? "", name);
+	}
+
+	// A sound's path as the project keeps it → as a file written beside the export names it:
+	// relative to the export's folder (or full, on another drive)
+	private string Relocated(string stored)
+	{
+		string full = _settings.ResolveSound?.Invoke(stored) ?? stored;
+		if (!System.IO.Path.IsPathRooted(full)) return full;
+		string folder = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(_settings.Path)) ?? "";
+		return string.Equals(System.IO.Path.GetPathRoot(folder), System.IO.Path.GetPathRoot(full), StringComparison.OrdinalIgnoreCase)
+			? System.IO.Path.GetRelativePath(folder, full) : full;
+	}
 
 	// Frame i's share of the time, rounded so the durations add up right
 	private int FrameMilliseconds(int i)

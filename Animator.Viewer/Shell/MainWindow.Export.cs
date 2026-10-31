@@ -40,6 +40,7 @@ public partial class MainWindow
 			ExportFormat.Gif => ("GIF (*.gif)|*.gif", ".gif"),
 			ExportFormat.SpriteSheet => ("Sprite sheet (*.png, with a .json next to it)|*.png", ".png"),
 			ExportFormat.Video => ("MP4 video (*.mp4)|*.mp4", ".mp4"),
+			ExportFormat.Engine => ("Harlequin rig (*.hqrig.json, with its atlas pages)|*.hqrig.json", ".hqrig.json"),
 			_ => ("PNG pictures (*.png: name_0000.png, name_0001.png …)|*.png", ".png")
 		};
 		string suggested = settings.Scene ? DocumentName : settings.Object?.Name ?? DocumentName;
@@ -55,6 +56,7 @@ public partial class MainWindow
 		if (save.ShowDialog(this) != true) return;
 
 		settings.Path = save.FileName;
+		settings.ResolveSound = ResolveSound;
 		_appSettings.ExportFolder = Path.GetDirectoryName(save.FileName);
 		_appSettings.Save();
 
