@@ -41,6 +41,7 @@ public partial class MainWindow
 		float edge = s.ShowRulers ? ViewAids.RulerSize + 8 : 10;
 		Status.Margin = new Thickness(edge, 10, 10, 10);
 		EventFlash.Margin = new Thickness(12, s.ShowRulers ? ViewAids.RulerSize + 6 : 12, 12, 12);
+		ViewToolBar.Margin = s.ShowRulers ? new Thickness(ViewAids.RulerSize + 6, ViewAids.RulerSize + 6, 0, 0) : new Thickness(6);
 	}
 
 	private void ToggleViewAid(string what)

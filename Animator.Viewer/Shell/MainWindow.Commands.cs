@@ -89,6 +89,11 @@ public partial class MainWindow
 		KeyPoseButton.Content = WithKey("Key", "anim.key");
 		AutoKeyBox.Content = WithKey("Auto key", "anim.autoKey");
 		GraphBox.Content = WithKey("Curves", "anim.graph");
+		string pick = ButtonName(_tool.SelectButton).ToLowerInvariant();
+		SelectToolButton.ToolTip = WithKey($"Select: {pick}-click picks, a {pick}-drag draws a box over several (the {ButtonName(_tool.TransformButton).ToLowerInvariant()} button still moves things)", "tool.select");
+		MoveToolButton.ToolTip = WithKey($"Move: {pick}-drag a bone (its joint or its body) or a part to move it, and everything picked with it; on empty space, a box", "tool.move");
+		RotateToolButton.ToolTip = WithKey($"Rotate: {pick}-drag a bone to turn it round its joint, a part round its pivot (Shift: 15° steps); on empty space, a box", "tool.rotate");
+		PaintToolButton.ToolTip = WithKey("Paint: one click on a part opens it in the paint editor (a part of another object opens that object)", "tool.paint");
 		_timeline.KeyHint = KeyOf("anim.key");
 		SceneButton.ToolTip = $"Back to the scene, to place whole objects ({KeyOf("edit.back")}). At scene level: open the selected object ({KeyOf("scene.open")})";
 		RefreshScenePanel();   // its hints name keys and buttons too
@@ -241,6 +246,10 @@ public partial class MainWindow
 			case "anim.key": KeyThePose(); return true;
 			case "anim.autoKey": SetAutoKey(!_state.AutoKey); return true;
 			case "anim.graph": SetGraphMode(!_graphMode); return true;
+			case "tool.select": SetViewTool(ViewTool.Select); return true;
+			case "tool.move": SetViewTool(ViewTool.Move); return true;
+			case "tool.rotate": SetViewTool(ViewTool.Rotate); return true;
+			case "tool.paint": SetViewTool(ViewTool.Paint); return true;
 			case "keys.earlier": _timeline.Nudge(-1); return true;
 			case "keys.later": _timeline.Nudge(+1); return true;
 			case "keys.reverse": _timeline.ReverseSelected(); return true;
