@@ -80,6 +80,7 @@ public static class RigOps
 		skeleton.IkConstraints.RemoveAll(c => ikNames.Contains(c.Name));
 
 		skeleton.LookConstraints.RemoveAll(c => doomed.Contains(c.Bone) || doomed.Contains(c.Target));
+		HitboxOps.ForgetBones(skeleton, animations, doomed);
 
 		foreach (var anim in animations)
 			anim.Timelines.RemoveAll(t =>
@@ -99,6 +100,7 @@ public static class RigOps
 		if (bone.Parent is not { } parent) return false;
 		foreach (var slot in skeleton.Slots.Where(s => s.Bone == bone).ToList())
 			PartOps.MoveToBone(skeleton, slot, parent);
+		HitboxOps.MoveToBone(skeleton, bone, parent);
 		foreach (var child in bone.Children.ToList())
 		{
 			SetConnected(child, false);   // it was on this bone's end, not on the new parent's

@@ -184,6 +184,13 @@ public partial class MainWindow : Window
 		if (e.ChangedButton == _tool.SelectButton && (e.ClickCount == 2 || _tool.Tool == ViewTool.Paint) &&
 			(TryOpenPaintAt(pos) || TryEnterOtherObjectAt(pos))) return;
 
+		// The Boxes view open: a hitbox or point under the mouse is picked and dragged
+		if (BoxMouseDown(pos, e.ChangedButton))
+		{
+			Viewport.CaptureMouse();
+			return;
+		}
+
 		_tool.MouseDown(pos, e.ChangedButton);
 		Viewport.CaptureMouse();
 		UpdateStatus();
@@ -198,7 +205,16 @@ public partial class MainWindow : Window
 			GuideMouseMove(pos);
 			return;
 		}
-		if (!Viewport.IsMouseCaptured) ShowViewPointer(pos);
+		if (_boxDrag != null)
+		{
+			BoxMouseMove(pos);
+			return;
+		}
+		if (!Viewport.IsMouseCaptured)
+		{
+			ShowViewPointer(pos);
+			BoxHoverAt(pos);
+		}
 		if (_objectDrag || _sceneLevel) _objectTool.MouseMove(pos);
 		else _tool.MouseMove(pos);
 	}
@@ -210,6 +226,12 @@ public partial class MainWindow : Window
 		if (_guideDrag != null)
 		{
 			GuideMouseUp(PosIn(Viewport, e));
+			Viewport.ReleaseMouseCapture();
+			return;
+		}
+		if (_boxDrag != null)
+		{
+			BoxMouseUp();
 			Viewport.ReleaseMouseCapture();
 			return;
 		}

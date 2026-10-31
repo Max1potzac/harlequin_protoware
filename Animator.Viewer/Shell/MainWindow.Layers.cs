@@ -39,11 +39,12 @@ public partial class MainWindow
 	private void RigView_Changed(object sender, RoutedEventArgs e)
 	{
 		// (not while the window is still being built: the switch is set once the panel fills in)
-		if (_syncingRig || !IsLoaded || BonesViewChoice == null || LayersViewChoice == null || ColourViewChoice == null || PosesViewChoice == null || SkinsViewChoice == null) return;
+		if (_syncingRig || !IsLoaded || BonesViewChoice == null || LayersViewChoice == null || ColourViewChoice == null || PosesViewChoice == null || SkinsViewChoice == null || BoxesViewChoice == null) return;
 		_colourView = ColourViewChoice.IsChecked == true;
 		_posesView = PosesViewChoice.IsChecked == true;
 		_skinsView = SkinsViewChoice.IsChecked == true;
-		if (!_colourView && !_posesView && !_skinsView) _layersView = LayersViewChoice.IsChecked == true;
+		_boxesView = BoxesViewChoice.IsChecked == true;
+		if (!_colourView && !_posesView && !_skinsView && !_boxesView) _layersView = LayersViewChoice.IsChecked == true;
 		RefreshRigPanel();
 	}
 
@@ -82,17 +83,19 @@ public partial class MainWindow
 	{
 		// A drawn object has no bones: its parts, or its colour layers
 		BonesViewChoice.Visibility = IsDrawn ? Visibility.Collapsed : Visibility.Visible;
-		RigViewSwitch.Columns = IsDrawn ? 4 : 5;
-		bool other = _colourView || _posesView || _skinsView;
+		RigViewSwitch.Columns = IsDrawn ? 5 : 6;
+		bool other = _colourView || _posesView || _skinsView || _boxesView;
 		BonesViewChoice.IsChecked = !other && !ShowingLayers;
 		LayersViewChoice.IsChecked = !other && ShowingLayers;
 		ColourViewChoice.IsChecked = _colourView;
 		PosesViewChoice.IsChecked = _posesView;
 		SkinsViewChoice.IsChecked = _skinsView;
+		BoxesViewChoice.IsChecked = _boxesView;
 		BoneTree.Visibility = other ? Visibility.Collapsed : Visibility.Visible;
 		ColourPanel.Visibility = _colourView ? Visibility.Visible : Visibility.Collapsed;
 		PosesPanel.Visibility = _posesView ? Visibility.Visible : Visibility.Collapsed;
 		SkinsPanel.Visibility = _skinsView ? Visibility.Visible : Visibility.Collapsed;
+		BoxesPanel.Visibility = _boxesView ? Visibility.Visible : Visibility.Collapsed;
 		LayersHint.Text = LayersHintText();
 		LayersHint.Visibility = LayersHint.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 	}
