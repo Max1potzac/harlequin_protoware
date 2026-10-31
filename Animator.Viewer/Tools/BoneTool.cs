@@ -36,6 +36,11 @@ public class BoneTool
 	// A box being dragged with the select button: its corners in the world, for drawing
 	public Vector2[]? SelectionBox { get; private set; }
 
+	// The viewport's tools (the toolbar over it): Select picks with the select button (the
+	// transform button moves what it's on); Move and Rotate take what's under the select button
+	// that way; Paint opens a part to paint with one click
+	public ViewTool Tool { get; set; } = ViewTool.Select;
+
 	// Snapping to the grid and guides (joints, bone ends, new bones, parts, several at once)
 	public Snapping Snap { get; set; } = new();
 	private Vector2 Snapped(Vector2 world) => Snap.Snap(world, _camera.EditZoom);
@@ -183,16 +188,32 @@ public class BoneTool
 		_partMoving = false;
 		SelectionBox = null;
 		if (button == PanButton) { _drag = Drag.Pan; return; }
-		if (button == SelectButton) { _drag = Drag.Select; return; }
+		if (button == SelectButton)
+		{
+			// The Move and Rotate tools: what's under the mouse is taken hold of that way (else: a box)
+			if (Tool is ViewTool.Move or ViewTool.Rotate && Hit(_camera.ScreenToWorld(screen)) != null)
+			{
+				Transform(screen, Tool == ViewTool.Move ? Gesture.Move : Gesture.Turn);
+				return;
+			}
+			_drag = Drag.Select;
+			return;
+		}
 		if (button != TransformButton) return;
+		Transform(screen, null);
+	}
 
+	// A drag with the transform button (only: what it does depends on where it starts), or with
+	// the Move / Rotate tool (only: that way, whatever's grabbed)
+	private void Transform(Vector2 screen, Gesture? only)
+	{
 		var world = _camera.ScreenToWorld(screen);
 		bool setup = !_state.AnimateMode;
 		if (!setup && !_state.AutoKey) BeginHolding();
 
 		// Ctrl+drag draws a new bone (a child of the selected one). Started near the selected
 		// bone's end, it starts exactly there.
-		if (setup && BonesEnabled && Held(ModifierKeys.Control))
+		if (only == null && setup && BonesEnabled && Held(ModifierKeys.Control))
 		{
 			_drag = Drag.Create;
 			var parent = _state.Selected;
@@ -202,7 +223,7 @@ public class BoneTool
 		}
 
 		// Alt+click a part: it goes on the selected bone, staying where it is
-		if (setup && BonesEnabled && Held(ModifierKeys.Alt) && _state.SelectedSlot == null &&
+		if (only == null && setup && BonesEnabled && Held(ModifierKeys.Alt) && _state.SelectedSlot == null &&
 			_state.Selected is { } holder && _renderer.Pick(_state.Skeleton, world) is { } clicked)
 		{
 			var slot = clicked.Slot;
@@ -215,10 +236,10 @@ public class BoneTool
 		bool many = _state.Picked.Count > 1;
 
 		// 1. Handles of the selected part (in Animate mode, dragging one sets placement keys)
-		if (_state.SelectedSlot is { } selected && TryPartHandle(selected, world, many)) return;
+		if (only == null && _state.SelectedSlot is { } selected && TryPartHandle(selected, world, many)) return;
 
 		// 2. The ring at the selected bone's end (nearer it than the joint, for a bone with no length)
-		if (!many && TipHandle is { } ending && Vector2.Distance(world, ending.TipWorld) <= HandlePickPx / _camera.EditZoom &&
+		if (only == null && !many && TipHandle is { } ending && Vector2.Distance(world, ending.TipWorld) <= HandlePickPx / _camera.EditZoom &&
 			Vector2.Distance(world, ending.TipWorld) < Vector2.Distance(world, ending.World.Translation))
 		{
 			BeginTipDrag(ending, world);
@@ -231,6 +252,7 @@ public class BoneTool
 			var hit = HitJoint(world);
 			var mode = Drag.Move;
 			if (hit == null) { hit = HitBone(world); mode = Drag.Rotate; }
+			if (only != null) mode = only == Gesture.Move ? Drag.Move : Drag.Rotate;   // (the tool's way)
 			if (hit != null)
 			{
 				if (many && _state.IsPicked(hit))
@@ -243,26 +265,33 @@ public class BoneTool
 		// 4. Anywhere inside the selected part's box (even transparent pixels): move it
 		if (_state.SelectedSlot is { Locked: false } current && InsidePart(current, world))
 		{
-			if (many) BeginMany(Gesture.Move, world, world, snapPoints: SnapPointsOf(current));
-			else BeginPartDrag(current, Drag.PartMove, world);
+			GrabPart(current, world, many, only);
 			return;
 		}
 
 		// 5. Any part's visible pixels: move it (a part that isn't picked gets picked on its own)
 		if (_renderer.Pick(_state.Skeleton, world) is { } part)
 		{
-			if (many && _state.IsPicked(part.Slot))
-			{
-				BeginMany(Gesture.Move, world, world, snapPoints: SnapPointsOf(part.Slot));
-				return;
-			}
-			_state.Pick(new object[] { part.Slot });
-			BeginPartDrag(part.Slot, Drag.PartMove, world);
+			if (!(many && _state.IsPicked(part.Slot))) _state.Pick(new object[] { part.Slot });
+			GrabPart(part.Slot, world, many && _state.IsPicked(part.Slot), only);
 			return;
 		}
 
-		// 6. Empty space: pan
-		_drag = Drag.Pan;
+		// 6. Empty space: pan (with a tool: a box)
+		_drag = only == null ? Drag.Pan : Drag.Select;
+	}
+
+	// A part taken hold of: moved, or (the Rotate tool) turned round its pivot; with others picked, all of them
+	private void GrabPart(Slot slot, Vector2 world, bool many, Gesture? only)
+	{
+		bool turn = only == Gesture.Turn;
+		if (many)
+		{
+			if (turn && PartGizmo.For(_state.Skeleton, slot, _camera.EditZoom) is { } h) BeginMany(Gesture.Turn, world, h.Pivot);
+			else BeginMany(Gesture.Move, world, world, snapPoints: SnapPointsOf(slot));
+			return;
+		}
+		BeginPartDrag(slot, turn ? Drag.PartRotate : Drag.PartMove, world);
 	}
 
 	public void MouseMove(Vector2 screen)
@@ -1145,3 +1174,5 @@ public class BoneTool
 		return Vector2.Distance(p, a + ab * t);
 	}
 }
+
+public enum ViewTool { Select, Move, Rotate, Paint }

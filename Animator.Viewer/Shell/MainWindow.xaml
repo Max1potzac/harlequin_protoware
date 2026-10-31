@@ -596,6 +596,17 @@
                    VerticalAlignment="Bottom" IsHitTestVisible="False" TextWrapping="Wrap" />
                     <TextBlock x:Name="EventFlash" Foreground="#8CE6A0" FontSize="16" FontWeight="Bold" Margin="12"
                    HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False" />
+                    <!-- The viewport's tools (inside an object), as in Blender -->
+                    <StackPanel x:Name="ViewToolBar" Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,24,0,0">
+                        <RadioButton x:Name="SelectToolButton" Tag="Select" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="15" Content="⬚" IsChecked="True" />
+                        <RadioButton x:Name="MoveToolButton" Tag="Move" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="15" Content="✥" />
+                        <RadioButton x:Name="RotateToolButton" Tag="Rotate" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Margin="0,0,0,2" Checked="ViewTool_Checked" FontSize="15" Content="⟳" />
+                        <RadioButton x:Name="PaintToolButton" Tag="Paint" GroupName="ViewTool" Style="{StaticResource {x:Type ToggleButton}}"
+                                     Width="30" Height="28" Checked="ViewTool_Checked" FontSize="15" Content="✎" />
+                    </StackPanel>
                 </Grid>
             </DockPanel>
 

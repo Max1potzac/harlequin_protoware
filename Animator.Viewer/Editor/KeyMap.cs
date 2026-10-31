@@ -238,6 +238,11 @@ public sealed class KeyMap
 
 		C("scene.open", "Scene", "Open the selected object", K(Key.Enter)),
 
+		C("tool.select", "Viewport tools", "Select: pick (a box over several); the transform button moves things", K(Key.D1), K(Key.Q)),
+		C("tool.move", "Viewport tools", "Move: drag a bone or part to move it (a box elsewhere)", K(Key.D2), K(Key.W)),
+		C("tool.rotate", "Viewport tools", "Rotate: drag a bone or part to turn it", K(Key.D3)),
+		C("tool.paint", "Viewport tools", "Paint: one click on a part opens it to paint", K(Key.D4)),
+
 		P("paint.select", "Paint tools", "Select", K(Key.M)),
 		P("paint.wand", "Paint tools", "Wand", K(Key.W)),
 		P("paint.move", "Paint tools", "Move", K(Key.V)),
