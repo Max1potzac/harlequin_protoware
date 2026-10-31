@@ -308,6 +308,7 @@ public static class ProjectMapper
 		Name = skin.Name,
 		Category = skin.Category.Length > 0 ? skin.Category : null,
 		Overlay = skin.Overlay,
+		ColorLayers = skin.ColorLayers.Count > 0 ? skin.ColorLayers.Select(l => l.Name).ToList() : null,
 		Entries = skin.Entries.Select(e => new SkinEntryDto
 		{
 			Slot = e.Slot,
@@ -565,6 +566,10 @@ public static class ProjectMapper
 				if (skeleton.FindSlot(name) is { } slot) layer.LeftOut.Add(slot);
 			skeleton.ColorLayers.Add(layer);
 		}
+		foreach (var skinDto in dto.Skins)
+			if (skinDto.ColorLayers != null && skeleton.FindSkin(skinDto.Name) is { } skin)
+				foreach (var name in skinDto.ColorLayers)
+					if (skeleton.FindColorLayer(name) is { } layer && skeleton.SkinOf(layer) == null) skin.ColorLayers.Add(layer);
 
 		foreach (var p in dto.Poses ?? new List<PoseDto>())
 		{

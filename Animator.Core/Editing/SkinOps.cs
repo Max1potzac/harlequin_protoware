@@ -115,12 +115,39 @@ public static class SkinOps
 		return moved;
 	}
 
-	// A new skin (at the end of the list, on), with these parts' own drawings in it
-	public static Skin MakeSkin(Skeleton skeleton, string name, IEnumerable<Slot>? parts = null, string category = "", bool overlay = false)
+	// Colour layers of the object into the skin (out of any other they were in): from then on they
+	// apply only while it's on, in the same order as ever. How many moved.
+	public static int AddColorLayers(Skeleton skeleton, Skin skin, IEnumerable<ColorLayer> layers)
+	{
+		int moved = 0;
+		foreach (var layer in layers)
+		{
+			if (!skeleton.ColorLayers.Contains(layer) || skin.ColorLayers.Contains(layer)) continue;
+			foreach (var other in skeleton.Skins) other.ColorLayers.Remove(layer);
+			skin.ColorLayers.Add(layer);
+			moved++;
+		}
+		return moved;
+	}
+
+	// Colour layers out of the skin: the object's own again (they apply whatever skins are on)
+	public static int TakeOutColorLayers(Skin skin, IEnumerable<ColorLayer> layers) =>
+		layers.ToList().Count(skin.ColorLayers.Remove);
+
+	// A colour layer gone from the object: out of its skin too
+	public static void Forget(Skeleton skeleton, ColorLayer layer)
+	{
+		foreach (var skin in skeleton.Skins) skin.ColorLayers.Remove(layer);
+	}
+
+	// A new skin (at the end of the list, on), with these parts' own drawings and these colour layers in it
+	public static Skin MakeSkin(Skeleton skeleton, string name, IEnumerable<Slot>? parts = null, string category = "", bool overlay = false,
+		IEnumerable<ColorLayer>? colorLayers = null)
 	{
 		var skin = new Skin { Name = UniqueName(skeleton, name), Category = category.Trim(), Overlay = overlay };
 		skeleton.Skins.Add(skin);
 		if (parts != null) AddParts(skeleton, skin, parts);
+		if (colorLayers != null) AddColorLayers(skeleton, skin, colorLayers);
 		Show(skeleton, skin);
 		return skin;
 	}
@@ -183,10 +210,18 @@ public static class SkinOps
 		return made;
 	}
 
-	// The skin gone with its drawings; parts left with no drawings at all go too
+	// The skin gone with its drawings and colour layers (and their keys); parts left with no
+	// drawings at all go too
 	public static void Delete(Skeleton skeleton, IEnumerable<Animation> animations, Skin skin)
 	{
 		var parts = PartsOf(skeleton, skin);
+		animations = animations.ToList();
+		foreach (var layer in skin.ColorLayers)
+		{
+			skeleton.ColorLayers.Remove(layer);
+			foreach (var animation in animations)
+				animation.Timelines.RemoveAll(t => t is ColorLayerTimeline && t.Target == layer.Name);
+		}
 		skeleton.Skins.Remove(skin);
 		skeleton.ShownSkins.Remove(skin);
 		foreach (var slot in parts)
@@ -195,10 +230,12 @@ public static class SkinOps
 		PartOps.RemoveUnusedAssets(skeleton);
 	}
 
-	// The skin gone, its drawings back to the object's own (where it has none by those names)
+	// The skin gone, its drawings and colour layers back to the object's own (drawings where it has
+	// none by those names)
 	public static void Dissolve(Skeleton skeleton, Skin skin)
 	{
 		TakeOutParts(skeleton, skin, PartsOf(skeleton, skin));
+		skin.ColorLayers.Clear();
 		skeleton.Skins.Remove(skin);
 		skeleton.ShownSkins.Remove(skin);
 		PartOps.RemoveUnusedAssets(skeleton);

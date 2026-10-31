@@ -56,6 +56,19 @@ public partial class MainWindow
 		int drawings = one != null ? DrawingOps.DrawingNames(_skeleton, one).Count(n => _skeleton.DefaultSkin.Get(one.Name, n) != null) : 0;
 		Add(one != null ? $"{one.Name}'s drawings, each a skin, in a category…" : "A part's drawings, each a skin, in a category…", drawings > 1,
 			"A part that swaps between drawings (frame by frame): each drawing becomes a skin of one category, and the skin on says which it shows", () => MakeCategoryFromDrawings(one!));
+		// Colour layers: one, or all of them, as a skin (more go in with the skin's Colour layers list)
+		var colours = new MenuItem { Header = "A colour layer, as a skin", IsEnabled = _skeleton.ColorLayers.Count > 0,
+			ToolTip = "It applies only while the skin is on (a red glow while hurt, say). Tick more in the skin's Colour layers list." };
+		ToolTipService.SetShowOnDisabled(colours, true);
+		foreach (var layer in _skeleton.ColorLayers)
+		{
+			var item = new MenuItem { Header = _skeleton.SkinOf(layer) is { } holder ? $"{layer.Name}   (now in {holder.Name})" : layer.Name };
+			item.Click += (_, _) => MakeSkinFromColours(new[] { layer });
+			colours.Items.Add(item);
+		}
+		menu.Items.Add(colours);
+		Add($"All the colour layers, as one skin ({_skeleton.ColorLayers.Count})", _skeleton.ColorLayers.Count > 1,
+			"Every colour layer of the object, applying only while the skin is on", () => MakeSkinFromColours(_skeleton.ColorLayers.ToList()));
 		menu.Items.Add(new Separator());
 		Add("An empty skin", true, "Add parts to it later: pick them, then Add the picked", () => MakeEmptySkin());
 		menu.IsOpen = true;
@@ -94,6 +107,26 @@ public partial class MainWindow
 			return made.Count > 0;
 		});
 		SelectSkin(made.FirstOrDefault(), $"{category}: {made.Count} skins for {slot.Name}, one on at a time. Its drawing keys show the skin's drawing now.");
+	}
+
+	private void MakeSkinFromColours(IReadOnlyList<ColorLayer> layers)
+	{
+		Skin? made = null;
+		string what = layers.Count == 1 ? layers[0].Name : $"{layers.Count} colour layers";
+		EditSkins($"Make a skin of {what}", () =>
+		{
+			made = SkinOps.MakeSkin(_skeleton, layers.Count == 1 ? layers[0].Name : "Colours", colorLayers: layers);
+			return true;
+		});
+		SelectSkin(made, $"{made?.Name}: {what} apply only while it's on (exported too, when colour layers are baked).");
+	}
+
+	private void SkinColour_Click(ColorLayer layer, bool inIt)
+	{
+		if (_skin is not { } skin) return;
+		EditSkins(inIt ? $"Put {layer.Name} in the skin {skin.Name}" : $"Take {layer.Name} out of the skin {skin.Name}", () =>
+			inIt ? SkinOps.AddColorLayers(_skeleton, skin, new[] { layer }) > 0 : SkinOps.TakeOutColorLayers(skin, new[] { layer }) > 0);
+		BuildSkinsPanel();
 	}
 
 	private void MakeEmptySkin()
@@ -312,10 +345,10 @@ public partial class MainWindow
 			ToolTip = skin.Overlay ? "On: shows over the other skins" : "On: shows instead of the others of its category"
 		};
 		tick.Click += (_, _) => ShowSkin(skin, tick.IsChecked == true);
-		int parts = SkinOps.PartsOf(_skeleton, skin).Count;
+		int parts = SkinOps.PartsOf(_skeleton, skin).Count, colours = skin.ColorLayers.Count;
 		var label = new TextBlock { VerticalAlignment = VerticalAlignment.Center, Foreground = AdjustEditor.LabelBrush, TextTrimming = TextTrimming.CharacterEllipsis };
 		label.Inlines.Add(new System.Windows.Documents.Run(skin.Name));
-		label.Inlines.Add(new System.Windows.Documents.Run($"   {(skin.Overlay ? "overlay · " : "")}{parts} part{(parts == 1 ? "" : "s")}") { Foreground = SkinHeaderBrush });
+		label.Inlines.Add(new System.Windows.Documents.Run($"   {(skin.Overlay ? "overlay · " : "")}{parts} part{(parts == 1 ? "" : "s")}{(colours > 0 ? $" · {colours} colour" : "")}") { Foreground = SkinHeaderBrush });
 		var row = new DockPanel();
 		DockPanel.SetDock(tick, Dock.Left);
 		row.Children.Add(tick);
@@ -368,10 +401,29 @@ public partial class MainWindow
 		SkinOverlay.IsChecked = _skin?.Overlay == true;
 		SkinParts.Text = _skin == null ? "" : SkinOps.PartsOf(_skeleton, _skin) is { Count: > 0 } parts
 			? "Parts: " + string.Join(", ", parts.Select(p => p.Name)) : "No parts yet: pick some, then Add the picked.";
+
+		// The object's colour layers: ticked = in this skin (applying only while it's on)
+		SkinColours.Children.Clear();
+		foreach (var layer in _skeleton.ColorLayers.AsEnumerable().Reverse())
+		{
+			var holder = _skeleton.SkinOf(layer);
+			var box = new CheckBox
+			{
+				Content = holder != null && holder != _skin ? $"{layer.Name}   (in {holder.Name})" : layer.Name,
+				IsChecked = _skin != null && holder == _skin,
+				Foreground = AdjustEditor.LabelBrush,
+				Margin = new Thickness(0, 1, 0, 1),
+				ToolTip = holder != null && holder != _skin ? $"Ticking moves it here, out of {holder.Name}" : null
+			};
+			var target = layer;
+			box.Click += (_, _) => SkinColour_Click(target, box.IsChecked == true);
+			SkinColours.Children.Add(box);
+		}
+		SkinColoursBox.Visibility = _skeleton.ColorLayers.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 		_syncingSkins = false;
 
 		SkinHint.Text = _skeleton.Skins.Count == 0
-			? "Pick parts and + Skin: they show only while their skin is on. A category holds alternatives, one on at a time (a bucket, the bucket dented, wrecked); an overlay shows over whatever else is on."
+			? "Pick parts and + Skin: they show only while their skin is on. A category holds alternatives, one on at a time (a bucket, the bucket dented, wrecked); an overlay shows over whatever else is on. Colour layers can be in a skin too."
 			: "Tick a skin to put it on. Where two that are on have a drawing for the same part, an overlay wins, then the one lower in the list.";
 	}
 }

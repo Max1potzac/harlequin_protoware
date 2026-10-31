@@ -344,6 +344,10 @@
                                             <Button Content="Pick its parts" Margin="2,0,0,0" Click="SkinPickParts_Click" />
                                         </UniformGrid>
                                         <TextBlock x:Name="SkinParts" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" />
+                                        <Expander x:Name="SkinColoursBox" Header="Colour layers" Foreground="White" Margin="0,6,0,0" IsExpanded="True"
+                                                  ToolTip="The object's colour layers in this skin: they apply only while it's on (and are exported with it when colour layers are baked)">
+                                            <StackPanel x:Name="SkinColours" Margin="6,2,0,0" />
+                                        </Expander>
                                     </StackPanel>
                                     <TextBlock x:Name="SkinHint" Foreground="#9AA4B2" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0" />
                                 </StackPanel>

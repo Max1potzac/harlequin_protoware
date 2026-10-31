@@ -195,6 +195,7 @@ public class SkinDto
 	public string Name { get; set; } = "";
 	public string? Category { get; set; }   // (format 11)
 	public bool Overlay { get; set; }
+	public List<string>? ColorLayers { get; set; }   // the object's colour layers in it, by name
 	public List<SkinEntryDto> Entries { get; set; } = new();
 }
 

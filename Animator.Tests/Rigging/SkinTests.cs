@@ -212,4 +212,50 @@ public class SkinTests
 		Assert.Equal(new[] { "Wrecked" }, old.ShownSkins.Select(s => s.Name));
 		Assert.Equal(hidden.Name, old.ShownSkins.Single().Name);
 	}
+
+	[Fact]
+	public void Colour_layers_in_a_skin_apply_only_while_it_is_on_and_go_with_it()
+	{
+		var skeleton = Zombie();
+		var glow = new ColorLayer { Name = "Hurt glow" };
+		var frost = new ColorLayer { Name = "Frost" };
+		var tan = new ColorLayer { Name = "Tan" };
+		skeleton.ColorLayers.AddRange(new[] { glow, frost, tan });
+		var hurt = SkinOps.MakeSkin(skeleton, "Hurt", new[] { S(skeleton, "bandage") }, overlay: true, colorLayers: new[] { glow, frost });
+		Assert.Equal(new[] { glow, frost }, hurt.ColorLayers);
+		Assert.True(skeleton.Applies(glow) && skeleton.Applies(tan));
+
+		SkinOps.Show(skeleton, hurt, on: false);
+		Assert.False(skeleton.Applies(glow) || skeleton.Applies(frost));
+		Assert.True(skeleton.Applies(tan));   // the object's own: always
+		Assert.Equal(new[] { glow, frost, tan }, skeleton.ColorLayers);   // the order they apply in stays
+
+		var cold = SkinOps.MakeSkin(skeleton, "Cold", colorLayers: new[] { frost });   // moved, not shared
+		Assert.Same(cold, skeleton.SkinOf(frost));
+		Assert.Equal(new[] { glow }, hurt.ColorLayers);
+
+		// Saved with the skin
+		var dto = ProjectMapper.ToDto(skeleton, Array.Empty<Animation>(), Fps);
+		var (loaded, _) = ProjectMapper.FromDto(JsonSerializer.Deserialize<ProjectDto>(JsonSerializer.Serialize(dto, ProjectMapper.Json), ProjectMapper.Json)!);
+		Assert.Equal(new[] { "Hurt glow" }, loaded.FindSkin("Hurt")!.ColorLayers.Select(l => l.Name));
+		Assert.Same(loaded.FindSkin("Cold"), loaded.SkinOf(loaded.FindColorLayer("Frost")!));
+		Assert.False(loaded.Applies(loaded.FindColorLayer("Hurt glow")!));
+
+		// Undo puts them back; deleting the skin deletes them, with their keys
+		var pulse = new Animation { Name = "pulse", Duration = 1f };
+		pulse.Timelines.Add(new ColorLayerTimeline("Hurt glow"));
+		var before = StructureSnapshot.Capture(skeleton, new List<Animation> { pulse });
+		SkinOps.Delete(skeleton, new[] { pulse }, hurt);
+		Assert.Equal(new[] { frost, tan }, skeleton.ColorLayers);
+		Assert.Empty(pulse.Timelines);
+		before.Restore();
+		Assert.Contains(hurt, skeleton.Skins);
+		Assert.Equal(new[] { glow }, hurt.ColorLayers);
+		Assert.Equal(new[] { glow, frost, tan }, skeleton.ColorLayers);
+		Assert.Single(pulse.Timelines);
+
+		SkinOps.Dissolve(skeleton, cold);
+		Assert.Null(skeleton.SkinOf(frost));
+		Assert.True(skeleton.Applies(frost));
+	}
 }

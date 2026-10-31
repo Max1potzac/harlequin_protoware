@@ -10,6 +10,9 @@ public class Skin
     public string Name { get; set; } = "";
 	public string Category { get; set; } = "";   // "" = none (an outfit)
 	public bool Overlay { get; set; }
+	// The object's colour layers that apply only while this skin is on (a colour layer is in one
+	// skin at most; it stays in the object's list, which keeps the order they apply in)
+	public List<ColorLayer> ColorLayers { get; } = new();
     private readonly Dictionary<(string Slot, string Attachment), Attachment> _map = new();
 
     public void Set(string slot, Attachment a) => _map[(slot, a.Name)] = a;

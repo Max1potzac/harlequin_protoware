@@ -36,6 +36,12 @@ public class Skeleton
 	public List<ColorLayer> ColorLayers { get; } = new();
 	public ColorLayer? FindColorLayer(string name) => ColorLayers.Find(l => l.Name == name);
 
+	// The skin a colour layer is in (null: none, it's the object's own)
+	public Skin? SkinOf(ColorLayer layer) => Skins.Find(s => s.ColorLayers.Contains(layer));
+
+	// Whether a colour layer applies now: on, and its skin (if it's in one) on
+	public bool Applies(ColorLayer layer) => layer.Visible && (SkinOf(layer) is not { } skin || ShownSkins.Contains(skin));
+
 	// Poses kept by name, to put the rig that way again (the Poses view; see PoseOps)
 	public List<Editing.SavedPose> Poses { get; } = new();
     public Bone? FindBone(string name)
