@@ -185,6 +185,13 @@ public partial class MainWindow : Window
 		if (e.ChangedButton == _tool.SelectButton && (e.ClickCount == 2 || _tool.Tool == ViewTool.Paint) &&
 			(TryOpenPaintAt(pos) || TryEnterOtherObjectAt(pos))) return;
 
+		// The mesh tools (the part panel's Mesh box): its points, or its weights
+		if (MeshMouseDown(pos, e.ChangedButton))
+		{
+			Viewport.CaptureMouse();
+			return;
+		}
+
 		// The Boxes view open: a hitbox or point under the mouse is picked and dragged
 		if (BoxMouseDown(pos, e.ChangedButton))
 		{
@@ -211,10 +218,16 @@ public partial class MainWindow : Window
 			BoxMouseMove(pos);
 			return;
 		}
+		if (_meshDrag != null)
+		{
+			MeshMouseMove(pos);
+			return;
+		}
 		if (!Viewport.IsMouseCaptured)
 		{
 			ShowViewPointer(pos);
 			BoxHoverAt(pos);
+			MeshMouseMove(pos);   // (which point the mouse is over)
 		}
 		if (_objectDrag || _sceneLevel) _objectTool.MouseMove(pos);
 		else _tool.MouseMove(pos);
@@ -233,6 +246,12 @@ public partial class MainWindow : Window
 		if (_boxDrag != null)
 		{
 			BoxMouseUp();
+			Viewport.ReleaseMouseCapture();
+			return;
+		}
+		if (_meshDrag != null)
+		{
+			MeshMouseUp();
 			Viewport.ReleaseMouseCapture();
 			return;
 		}

@@ -20,6 +20,12 @@ public class Slot
 	public bool Locked { get; set; }
     public Slot(string name, Bone bone) { Name = name; Bone = bone; }
 
+	// A clipping mask (see MaskOps): the parts drawn above it, up to MaskUntil (null: all of
+	// them), show only where its picture does. Not drawn itself unless MaskShows.
+	public bool IsMask { get; set; }
+	public Slot? MaskUntil { get; set; }   // (itself: it clips nothing)
+	public bool MaskShows { get; set; }
+
 	// Placement keys (milestone 9.3): the part moved, turned and scaled on its bone, on top of
 	// its drawing's own placement. Animated values, back to "nothing extra" every frame.
 	public Vector2 Offset { get; set; }                   // in the bone's space
@@ -31,6 +37,14 @@ public class Slot
 	public BlendMode Blend { get; set; } = BlendMode.Normal;
 	public Vector3 SetupColor { get; set; } = Vector3.One;   // multiplies red, green, blue (0..1 each)
 	public float SetupOpacity { get; set; } = 1f;
+	// Deform keys: how far each point of a drawing's mesh is pushed now, in its picture's pixels
+	// (null: none); only while the drawing it names shows. Animated, back to none every frame.
+	public DeformKey? Deform { get; set; }
+
+	// The pushes for this drawing now (null: none for it)
+	public Vector2[]? DeformOf(Attachment drawing) =>
+		Deform is { } d && d.Drawing == drawing.Name && drawing.Mesh is { } mesh && d.Offsets.Length == mesh.Points.Length ? d.Offsets : null;
+
 	public Vector3 Color { get; set; } = Vector3.One;        // animated, back to the rest values every frame
 	public float Opacity { get; set; } = 1f;
 
@@ -38,6 +52,7 @@ public class Slot
 	public void ResetToSetup()
 	{
 		ActiveAttachment = SetupAttachment;
+		Deform = null;
 		ResetPlacement();
 		Color = SetupColor;
 		Opacity = SetupOpacity;

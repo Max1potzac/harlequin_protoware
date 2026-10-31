@@ -206,6 +206,7 @@ public partial class MainWindow
 
 		if (part) ShowPartProperties();
 		else ShowBoneProperties();
+		SyncMeshPanel();
 	}
 
 	private void ShowRigHint(string text)

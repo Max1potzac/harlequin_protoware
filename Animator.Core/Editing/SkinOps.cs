@@ -98,7 +98,8 @@ public static class SkinOps
 			Offset = from.Offset,
 			Rotation = from.Rotation,
 			Scale = from.Scale,
-			Pivot = from.Pivot
+			Pivot = from.Pivot,
+			Mesh = from.Mesh
 		};
 		skin.Set(slot.Name, copy);
 		Show(skeleton, skin);

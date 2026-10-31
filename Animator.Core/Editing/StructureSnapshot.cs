@@ -12,11 +12,11 @@ public sealed class StructureSnapshot
 		bool InheritRotation, bool InheritScale, bool Connected);
 
 	private sealed record SlotState(Slot Slot, string Name, Bone Bone, string? SetupAttachment,
-		BlendMode Blend, Vector3 Color, float Opacity);
+		BlendMode Blend, Vector3 Color, float Opacity, bool IsMask, Slot? MaskUntil, bool MaskShows);
 
 	private sealed record AttachmentState(
 		Attachment Attachment, string Name, Guid AssetId,
-		Vector2 Offset, float Rotation, Vector2 Scale, Vector2 Pivot);
+		Vector2 Offset, float Rotation, Vector2 Scale, Vector2 Pivot, Mesh? Mesh);
 
 	private sealed record HitboxState(Hitbox Hitbox, string Name, Bone Bone, HitboxShape Shape, Vector2 Offset, float Rotation,
 		Vector2 Size, string Kind, bool Active);
@@ -56,7 +56,7 @@ public sealed class StructureSnapshot
 			b.InheritRotation, b.InheritScale, b.Connected)).ToList();
 
 		_slots = skeleton.Slots.Select(s => new SlotState(s, s.Name, s.Bone, s.SetupAttachment,
-			s.Blend, s.SetupColor, s.SetupOpacity)).ToList();
+			s.Blend, s.SetupColor, s.SetupOpacity, s.IsMask, s.MaskUntil, s.MaskShows)).ToList();
 		_skins = skeleton.AllSkins().Select(s => (s, s.CopyMap(), s.Name, s.Category, s.Overlay, s.ColorLayers.ToList())).ToList();
 		_skinList = skeleton.Skins.ToList();
 		_shownSkins = skeleton.ShownSkins.ToList();
@@ -64,7 +64,7 @@ public sealed class StructureSnapshot
 		_hitboxes = skeleton.Hitboxes.Select(h => new HitboxState(h, h.Name, h.Bone, h.Shape, h.Offset, h.Rotation, h.Size, h.Kind, h.SetupActive)).ToList();
 		_points = skeleton.Points.Select(p => new PointState(p, p.Name, p.Bone, p.Offset, p.Rotation)).ToList();
 		_attachments = _skins.SelectMany(s => s.Map.Values).Distinct()
-			.Select(a => new AttachmentState(a, a.Name, a.AssetId, a.Offset, a.Rotation, a.Scale, a.Pivot))
+			.Select(a => new AttachmentState(a, a.Name, a.AssetId, a.Offset, a.Rotation, a.Scale, a.Pivot, a.Mesh))
 			.ToList();
 		_assets = skeleton.Assets.ToList();
 		_assetNames = skeleton.Assets.Values.Select(a => (a, a.Name)).ToList();
@@ -110,6 +110,7 @@ public sealed class StructureSnapshot
 			s.Slot.Blend = s.Blend;
 			s.Slot.SetupColor = s.Color;
 			s.Slot.SetupOpacity = s.Opacity;
+			(s.Slot.IsMask, s.Slot.MaskUntil, s.Slot.MaskShows) = (s.IsMask, s.MaskUntil, s.MaskShows);
 			_skeleton.Slots.Add(s.Slot);
 		}
 
@@ -148,6 +149,7 @@ public sealed class StructureSnapshot
 			a.Attachment.Rotation = a.Rotation;
 			a.Attachment.Scale = a.Scale;
 			a.Attachment.Pivot = a.Pivot;
+			a.Attachment.Mesh = a.Mesh;   // (meshes never change in place: the old one is as it was)
 		}
 
 		_skeleton.Assets.Clear();

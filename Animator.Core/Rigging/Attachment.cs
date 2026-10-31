@@ -15,6 +15,9 @@ public class Attachment
     // Normalized pivot: (0.5, 0.5) = center, (0,0) = top-left.
     // Because it's normalized, resizing the image keeps the anchor sensible.
     public Vector2 Pivot { get; set; } = new(0.5f, 0.5f);
+
+	// A mesh over the picture (null: drawn as a flat rectangle). See Mesh and MeshOps.
+	public Mesh? Mesh { get; set; }
 	// Image pixels (y-down, origin top-left) → the bone's space, in the rest placement.
 	public Matrix3x2 LocalMatrix(int width, int height) =>
 		LocalMatrix(width, height, Vector2.Zero, 0f, Vector2.One);

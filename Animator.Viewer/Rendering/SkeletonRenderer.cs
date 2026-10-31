@@ -41,6 +41,9 @@ public class SkeletonRenderer
 
 	// A part outlined, as one the mouse is over in a list (the Colour view's Leave out)
 	public Slot? HoverSlot { get; set; }
+
+	// A faint dashed edge round each clipping mask's picture (while editing; never in exports)
+	public bool MaskOutlines { get; set; } = true;
 	private bool Pickable(Slot slot) => Shown(slot) && !(SkipLocked && slot.Locked);
 
 	public void Draw(SKCanvas canvas, Skeleton skeleton)
@@ -252,31 +255,148 @@ public class SkeletonRenderer
 			PathEffect = dash
 		};
 
+		using var maskEdge = new SKPaint
+		{
+			Color = new SKColor(200, 140, 255, 150),
+			Style = SKPaintStyle.Stroke,
+			StrokeWidth = 1f / Zoom,
+			IsAntialias = true,
+			PathEffect = dash
+		};
+
 		// The object's colour layers: one filter for each set of them a part gets (most get all)
 		var looks = ColorLayers && skeleton.ColorLayers.Any(skeleton.Applies) ? new Dictionary<long, SKColorFilter?>() : null;
+		void DrawOne(Slot slot)
+		{
+			if (!Shown(slot) || Picture(skeleton, slot) is not { } p) return;
+			var look = looks != null ? LookFor(skeleton, slot, looks) : null;
+			if (MeshOf(p.Drawing, p.Bitmap) is { } mesh)
+			{
+				DrawMeshPart(canvas, slot, p.Drawing, mesh, p.Bitmap, look);
+				if (p.Asset == Highlight || slot == HoverSlot) DrawMeshEdges(canvas, slot, p.Drawing, mesh, outline);
+				return;
+			}
+			canvas.Save();
+			canvas.Concat(in p.ToWorld);
+			DrawPart(canvas, slot, p.Bitmap, look);
+			if (p.Asset == Highlight || slot == HoverSlot) canvas.DrawRect(0, 0, p.Bitmap.Width, p.Bitmap.Height, outline);
+			else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, p.Bitmap.Width, p.Bitmap.Height, onBone);
+			canvas.Restore();
+		}
+
 		try
 		{
-			foreach (var slot in skeleton.DrawOrder)   // as it stands now (an animation can key it)
+			var order = skeleton.DrawOrder;   // as it stands now (an animation can key it)
+			for (int i = 0; i < order.Count; i++)
 			{
-				if (!Shown(slot)) continue;
-				var att = skeleton.ResolveAttachment(slot);
-				if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
-				var bmp = _assets.Get(asset, ColorLayers);
-				if (bmp == null) continue;
-
-				var m = ToSk(ImageToWorld(slot, att, bmp.Width, bmp.Height));
-				canvas.Save();
-				canvas.Concat(in m);
-				DrawPart(canvas, slot, bmp, looks != null ? LookFor(skeleton, slot, looks) : null);
-				if (asset == Highlight || slot == HoverSlot) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, outline);
-				else if (PartsOf != null && slot.Bone == PartsOf) canvas.DrawRect(0, 0, bmp.Width, bmp.Height, onBone);
+				var slot = order[i];
+				if (!slot.IsMask)
+				{
+					DrawOne(slot);
+					continue;
+				}
+				// A clipping mask: the parts it clips, drawn on their own, then cut to its picture.
+				// Hidden (its eye) or showing nothing: it clips nothing.
+				var clipped = MaskOps.Clipped(order, slot);
+				var picture = Shown(slot) ? Picture(skeleton, slot) : null;
+				if (picture is not { } mask)
+					continue;   // (the parts it would clip are drawn as they come)
+				if (slot.MaskShows) DrawOne(slot);
+				canvas.SaveLayer();
+				foreach (var part in clipped) DrawOne(part);   // (a mask among them: drawn as a part)
+				using (var cut = new SKPaint { BlendMode = SKBlendMode.DstIn })
+				{
+					canvas.SaveLayer(cut);
+					if (MeshOf(mask.Drawing, mask.Bitmap) is { } maskMesh)
+					{
+						using var plain = new SKPaint();
+						DrawMesh(canvas, slot, mask.Drawing, maskMesh, mask.Bitmap, plain);
+					}
+					else
+					{
+						canvas.Save();
+						canvas.Concat(in mask.ToWorld);
+						canvas.DrawBitmap(mask.Bitmap, 0, 0, Sampling, null);
+						canvas.Restore();
+					}
+					canvas.Restore();   // keeps the clipped parts only where the mask has pixels
+				}
 				canvas.Restore();
+				if (MaskOutlines)
+				{
+					canvas.Save();
+					canvas.Concat(in mask.ToWorld);
+					canvas.DrawRect(0, 0, mask.Bitmap.Width, mask.Bitmap.Height, maskEdge);
+					canvas.Restore();
+				}
+				i += clipped.Count;
 			}
 		}
 		finally
 		{
 			if (looks != null)
 				foreach (var filter in looks.Values) filter?.Dispose();
+		}
+	}
+
+	// A part's picture as it shows now, and its pixels → world (null: it shows nothing)
+	private (Attachment Drawing, Asset Asset, SKBitmap Bitmap, SKMatrix ToWorld)? Picture(Skeleton skeleton, Slot slot)
+	{
+		var att = skeleton.ResolveAttachment(slot);
+		if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return null;
+		var bmp = _assets.Get(asset, ColorLayers);
+		if (bmp == null) return null;
+		return (att, asset, bmp, ToSk(ImageToWorld(slot, att, bmp.Width, bmp.Height)));
+	}
+
+	// The drawing's mesh, when it fits its picture (one made before the canvas was resized: drawn flat)
+	private static Mesh? MeshOf(Attachment drawing, SKBitmap bitmap) =>
+		drawing.Mesh is { } mesh && mesh.Width == bitmap.Width && mesh.Height == bitmap.Height && mesh.Triangles.Length > 0 ? mesh : null;
+
+	// A meshed part: its picture spread over its triangles where its points are now, with its blend
+	// mode, tint and opacity (look: the object's colour layers for it, not disposed here)
+	private void DrawMeshPart(SKCanvas canvas, Slot slot, Attachment drawing, Mesh mesh, SKBitmap bmp, SKColorFilter? look)
+	{
+		bool tinted = slot.Color != Vector3.One;
+		float opacity = Math.Clamp(slot.Opacity, 0f, 1f);
+		using var tint = tinted ? TintFilter(slot.Color) : null;
+		using var both = tint != null && look != null ? SKColorFilter.CreateCompose(look, tint) : null;
+		using var paint = new SKPaint
+		{
+			BlendMode = ToSk(slot.Blend),
+			Color = SKColors.White.WithAlpha((byte)MathF.Round(opacity * 255)),
+			ColorFilter = both ?? tint ?? look
+		};
+		DrawMesh(canvas, slot, drawing, mesh, bmp, paint);
+	}
+
+	private void DrawMesh(SKCanvas canvas, Slot slot, Attachment drawing, Mesh mesh, SKBitmap bmp, SKPaint paint)
+	{
+		var posed = MeshOps.Posed(slot, drawing, mesh);
+		var t = mesh.Triangles;
+		var positions = new SKPoint[t.Length];
+		var texs = new SKPoint[t.Length];
+		for (int i = 0; i < t.Length; i++)
+		{
+			positions[i] = new SKPoint(posed[t[i]].X, posed[t[i]].Y);
+			texs[i] = new SKPoint(mesh.Points[t[i]].X, mesh.Points[t[i]].Y);
+		}
+		using var image = SKImage.FromBitmap(bmp);
+		using var shader = image.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, Sampling);
+		paint.Shader = shader;
+		canvas.DrawVertices(SKVertexMode.Triangles, positions, texs, null, paint);
+		paint.Shader = null;
+	}
+
+	// A meshed part's triangles, outlined where they are now
+	private static void DrawMeshEdges(SKCanvas canvas, Slot slot, Attachment drawing, Mesh mesh, SKPaint paint)
+	{
+		var posed = MeshOps.Posed(slot, drawing, mesh);
+		var t = mesh.Triangles;
+		for (int i = 0; i < t.Length; i += 3)
+		{
+			using var path = ShapePaths.Polyline(new[] { posed[t[i]], posed[t[i + 1]], posed[t[i + 2]] }, closed: true);
+			canvas.DrawPath(path, paint);
 		}
 	}
 
@@ -350,20 +470,34 @@ public class SkeletonRenderer
 		for (int i = order.Count - 1; i >= 0; i--)   // last drawn = on top
 		{
 			var slot = order[i];
-			if (!Pickable(slot)) continue;
-			var att = skeleton.ResolveAttachment(slot);
-			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
-			var img = _assets.Get(asset);
-			if (img == null) continue;
-
-			if (!Matrix3x2.Invert(ImageToWorld(slot, att, img.Width, img.Height), out var toImage)) continue;
-			var p = Vector2.Transform(world, toImage);
-			int x = (int)MathF.Floor(p.X), y = (int)MathF.Floor(p.Y);
-			if (x < 0 || y < 0 || x >= img.Width || y >= img.Height) continue;
-
-			if (img.GetPixel(x, y).Alpha > 10) return (slot, asset);
+			if (!Pickable(slot) || (slot.IsMask && !slot.MaskShows)) continue;   // (a mask that isn't drawn: pick it in the layers)
+			if (OnPixels(skeleton, slot, world) is not { } asset) continue;
+			// Clipped: only where its mask shows it
+			if (MaskOps.MaskOf(skeleton, slot) is { } mask && Shown(mask) && skeleton.ResolveAttachment(mask) != null
+				&& OnPixels(skeleton, mask, world) == null) continue;
+			return (slot, asset);
 		}
 		return null;
+	}
+
+	// The part's pixels under a world point show (its pixels' asset), or null
+	private Asset? OnPixels(Skeleton skeleton, Slot slot, Vector2 world)
+	{
+		var att = skeleton.ResolveAttachment(slot);
+		if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) return null;
+		var img = _assets.Get(asset);
+		if (img == null) return null;
+		Vector2 p;
+		if (MeshOf(att, img) is { } mesh)
+		{
+			if (MeshOps.PixelAt(mesh, MeshOps.Posed(slot, att, mesh), world) is not { } pixel) return null;
+			p = pixel;
+		}
+		else if (Matrix3x2.Invert(ImageToWorld(slot, att, img.Width, img.Height), out var toImage)) p = Vector2.Transform(world, toImage);
+		else return null;
+		int x = (int)MathF.Floor(p.X), y = (int)MathF.Floor(p.Y);
+		if (x < 0 || y < 0 || x >= img.Width || y >= img.Height) return null;
+		return img.GetPixel(x, y).Alpha > 10 ? asset : null;
 	}
 	// Inside any part's rectangle, see-through pixels included (a blank drawing can be grabbed too)
 	public bool InsidePartBox(Skeleton skeleton, Vector2 world)
@@ -385,13 +519,16 @@ public class SkeletonRenderer
 		var highlight = Highlight;
 		var partsOf = PartsOf;
 		var hover = HoverSlot;
+		bool maskEdges = MaskOutlines;
 		Highlight = null;   // just the pictures
 		PartsOf = null;
 		HoverSlot = null;
+		MaskOutlines = false;
 		DrawSlots(canvas, skeleton);
 		Highlight = highlight;
 		PartsOf = partsOf;
 		HoverSlot = hover;
+		MaskOutlines = maskEdges;
 	}
 
 	// One onion-skin ghost: the parts in the skeleton's current pose, tinted and see-through.
@@ -417,10 +554,12 @@ public class SkeletonRenderer
 			var att = skeleton.ResolveAttachment(slot);
 			if (att == null || !skeleton.Assets.TryGetValue(att.AssetId, out var asset)) continue;
 			var m = ImageToWorld(slot, att, asset.Width, asset.Height);
-			foreach (var corner in new[] { new Vector2(0, 0), new Vector2(asset.Width, 0),
-										   new Vector2(asset.Width, asset.Height), new Vector2(0, asset.Height) })
+			var points = att.Mesh is { } mesh && mesh.Width == asset.Width && mesh.Height == asset.Height && mesh.Points.Length > 0
+				? MeshOps.Posed(slot, att, mesh)   // (a mesh can bend past its picture's box)
+				: new[] { new Vector2(0, 0), new Vector2(asset.Width, 0), new Vector2(asset.Width, asset.Height), new Vector2(0, asset.Height) }
+					.Select(corner => Vector2.Transform(corner, m)).ToArray();
+			foreach (var p in points)
 			{
-				var p = Vector2.Transform(corner, m);
 				minX = MathF.Min(minX, p.X);
 				minY = MathF.Min(minY, p.Y);
 				maxX = MathF.Max(maxX, p.X);

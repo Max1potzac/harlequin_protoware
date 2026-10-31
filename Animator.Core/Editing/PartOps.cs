@@ -8,7 +8,7 @@ public static class PartOps
 	// Rows that animate a part (as opposed to a bone; parts and bones can share names)
 	public static bool TargetsPart(Timeline t) =>
 		t is AttachmentTimeline or PartTranslateTimeline or PartRotateTimeline or PartScaleTimeline
-			or PartColorTimeline or PartOpacityTimeline;
+			or PartColorTimeline or PartOpacityTimeline or DeformTimeline;
 
 	public static string UniqueSlotName(Skeleton skeleton, string baseName)
 	{
@@ -43,6 +43,7 @@ public static class PartOps
 
 	public static void DeletePart(Skeleton skeleton, IEnumerable<Animation> animations, Slot slot)
 	{
+		MaskOps.Forget(skeleton, slot);
 		skeleton.Slots.Remove(slot);
 		foreach (var skin in skeleton.AllSkins()) skin.RemoveSlot(slot.Name);
 		foreach (var anim in animations)

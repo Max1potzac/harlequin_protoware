@@ -81,6 +81,7 @@ public static class RigOps
 
 		skeleton.LookConstraints.RemoveAll(c => doomed.Contains(c.Bone) || doomed.Contains(c.Target));
 		HitboxOps.ForgetBones(skeleton, animations, doomed);
+		MeshOps.ForgetBones(skeleton, doomed);
 
 		foreach (var anim in animations)
 			anim.Timelines.RemoveAll(t =>
