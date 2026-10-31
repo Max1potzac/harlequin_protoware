@@ -78,20 +78,20 @@ public sealed class SceneTimelinePanel
 		FollowPlayhead();
 		ClampScroll();
 
-		canvas.Clear(new SKColor(30, 33, 39));
+		canvas.Clear(Themes.Sk("Canvas"));
 
 		using var font = new SKFont { Size = 12 };
 		using var smallFont = new SKFont { Size = 11 };
-		using var text = new SKPaint { Color = new SKColor(200, 200, 200), IsAntialias = true };
-		using var dimText = new SKPaint { Color = new SKColor(200, 200, 200, 110), IsAntialias = true };
-		using var hint = new SKPaint { Color = new SKColor(200, 200, 200, 90), IsAntialias = true };
-		using var tick = new SKPaint { Color = new SKColor(255, 255, 255, 90), StrokeWidth = 1 };
-		using var divider = new SKPaint { Color = new SKColor(255, 255, 255, 30), StrokeWidth = 1 };
+		using var text = new SKPaint { Color = Themes.Sk("CanvasText"), IsAntialias = true };
+		using var dimText = new SKPaint { Color = Themes.SkAlpha("CanvasText", 110), IsAntialias = true };
+		using var hint = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), IsAntialias = true };
+		using var tick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
+		using var divider = new SKPaint { Color = Themes.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
 		using var rowSel = new SKPaint { Color = new SKColor(110, 220, 120, 30) };
 		using var pastEnd = new SKPaint { Color = new SKColor(0, 0, 0, 90) };
-		using var endLine = new SKPaint { Color = new SKColor(255, 255, 255, 120), StrokeWidth = 1.5f };
-		using var playhead = new SKPaint { Color = new SKColor(255, 90, 90), StrokeWidth = 2 };
-		using var scrollbar = new SKPaint { Color = new SKColor(255, 255, 255, 50), IsAntialias = true };
+		using var endLine = new SKPaint { Color = Themes.SkAlpha("CanvasText", 120), StrokeWidth = 1.5f };
+		using var playhead = new SKPaint { Color = Themes.Sk("Playhead"), StrokeWidth = 2 };
+		using var scrollbar = new SKPaint { Color = Themes.SkAlpha("CanvasText", 50), IsAntialias = true };
 
 		// Ruler, with labels far enough apart to read
 		int labelStep = LabelStep(_frameWidth);
@@ -184,13 +184,13 @@ public sealed class SceneTimelinePanel
 			Color = missing ? new SKColor(160, 60, 60, 200) : SKColor.FromHsl(HueOf(clip.Animation.Name), 45, 38).WithAlpha(210)
 		};
 		using var tail = new SKPaint { Color = new SKColor(0, 0, 0, 70) };
-		using var loopTick = new SKPaint { Color = new SKColor(255, 255, 255, 110), StrokeWidth = 1 };
+		using var loopTick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 110), StrokeWidth = 1 };
 		using var outline = new SKPaint
 		{
 			IsAntialias = true,
 			Style = SKPaintStyle.Stroke,
 			StrokeWidth = selected ? 2 : 1,
-			Color = selected ? SKColors.White : new SKColor(255, 255, 255, 60)
+			Color = selected ? SKColors.White : Themes.SkAlpha("CanvasText", 60)
 		};
 		using var label = new SKPaint { Color = new SKColor(245, 245, 245), IsAntialias = true };
 

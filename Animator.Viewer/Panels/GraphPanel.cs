@@ -180,16 +180,16 @@ public sealed class GraphPanel
 		else _range = _manual ?? Fit(channels);
 		if (_focus is { } f && Focused() == null) _focus = null;
 
-		canvas.Clear(new SKColor(30, 33, 39));
+		canvas.Clear(Themes.Sk("Canvas"));
 		using var font = new SKFont { Size = 12 };
 		using var small = new SKFont { Size = 10 };
-		using var text = new SKPaint { Color = new SKColor(200, 200, 200), IsAntialias = true };
-		using var faint = new SKPaint { Color = new SKColor(150, 156, 168), IsAntialias = true };
-		using var tick = new SKPaint { Color = new SKColor(255, 255, 255, 90), StrokeWidth = 1 };
-		using var grid = new SKPaint { Color = new SKColor(255, 255, 255, 18), StrokeWidth = 1 };
-		using var zero = new SKPaint { Color = new SKColor(255, 255, 255, 50), StrokeWidth = 1 };
-		using var divider = new SKPaint { Color = new SKColor(255, 255, 255, 30), StrokeWidth = 1 };
-		using var playhead = new SKPaint { Color = new SKColor(255, 90, 90), StrokeWidth = 2 };
+		using var text = new SKPaint { Color = Themes.Sk("CanvasText"), IsAntialias = true };
+		using var faint = new SKPaint { Color = Themes.SkAlpha("CanvasText", 170), IsAntialias = true };
+		using var tick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
+		using var grid = new SKPaint { Color = Themes.SkAlpha("CanvasText", 18), StrokeWidth = 1 };
+		using var zero = new SKPaint { Color = Themes.SkAlpha("CanvasText", 50), StrokeWidth = 1 };
+		using var divider = new SKPaint { Color = Themes.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
+		using var playhead = new SKPaint { Color = Themes.Sk("Playhead"), StrokeWidth = 2 };
 
 		// The ruler (frames), as in the dopesheet
 		for (int fr = 0; fr <= frames; fr++)
@@ -243,7 +243,7 @@ public sealed class GraphPanel
 		if (Focused() is { } focus)
 		{
 			var keys = focus.Channel.Keys();
-			using var arm = new SKPaint { Color = new SKColor(255, 255, 255, 150), StrokeWidth = 1, IsAntialias = true };
+			using var arm = new SKPaint { Color = Themes.SkAlpha("CanvasText", 150), StrokeWidth = 1, IsAntialias = true };
 			using var knob = new SKPaint { Color = SKColors.White, IsAntialias = true };
 			if (Handles(focus.Channel, focus.Key, keys) is { } outOf)
 			{

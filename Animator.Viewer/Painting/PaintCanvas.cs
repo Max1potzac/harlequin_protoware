@@ -46,7 +46,7 @@ public class PaintCanvas
 
 	public void Draw(SKCanvas c)
 	{
-		c.Clear(new SKColor(36, 39, 46));
+		c.Clear(Themes.Sk("Viewport"));
 		if (_s.Asset is not { } asset || _s.Composite is not { } img) return;
 
 		if (_needsFit && ViewSize.X > 0) { Fit(asset); _needsFit = false; }

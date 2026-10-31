@@ -13,6 +13,7 @@ public sealed class AppSettings
 	public string? ExportFolder { get; set; }    // where the last export went
 	public string? ImportFolder { get; set; }    // where the last imported file came from
 	public bool KeepPartsInPlace { get; set; } = true;   // "Parts stay put when bones move" (rig panel)
+	public string? Theme { get; set; }           // the theme's name (Settings → Appearance; null = Dark)
 
 	// Settings: the shortcuts changed from the defaults (command → its keys, see KeyMap), and which
 	// mouse button picks, which moves things and which moves the view

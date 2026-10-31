@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
         Title="Import an Animate project" Width="1240" Height="840" MinWidth="760" MinHeight="520"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown" Closed="Window_Closed">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown" Closed="Window_Closed" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" MinWidth="280" />
@@ -25,24 +25,24 @@
                                 MouseDown="PreviewView_MouseDown" MouseMove="PreviewView_MouseMove"
                                 MouseUp="PreviewView_MouseUp" MouseWheel="PreviewView_MouseWheel" />
                 <TextBlock x:Name="ViewHint" Text="Click: pick a part   Wheel: zoom   Middle drag: move around   Home: fit   Space: play"
-                           Foreground="#9AA4B2" Margin="8" VerticalAlignment="Bottom" TextWrapping="Wrap" IsHitTestVisible="False" />
+                           Foreground="{DynamicResource TextMutedBrush}" Margin="8" VerticalAlignment="Bottom" TextWrapping="Wrap" IsHitTestVisible="False" />
             </Grid>
         </DockPanel>
 
         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
-                      Background="#D0D0D0" ToolTip="Drag to give the settings or the picture more room" />
+                      Background="{DynamicResource BorderBrush}" ToolTip="Drag to give the settings or the picture more room" />
 
         <!-- ===== Settings ===== -->
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="10">
                 <TextBlock x:Name="FileTitle" FontWeight="Bold" TextWrapping="Wrap" />
-                <TextBlock x:Name="NotesText" Foreground="Gray" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <TextBlock x:Name="NotesText" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                 <!-- Timeline and animations -->
                 <TextBlock Text="Timeline" FontWeight="Bold" Margin="0,12,0,4" />
                 <ComboBox x:Name="TimelineBox" SelectionChanged="Timeline_Changed"
                           ToolTip="A scene, or a symbol with its own animation (a character in a bigger scene, say)" />
-                <TextBlock x:Name="TimelineText" Foreground="Gray" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <TextBlock x:Name="TimelineText" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 <CheckBox x:Name="SplitBox" Margin="0,6,0,0" Click="Split_Click"
                           ToolTip="Each label starts an animation that runs to the next label (idle, walk, attack…). Without it, the whole timeline is one animation.">
                     <TextBlock Text="An animation for each frame label" TextWrapping="Wrap" />
@@ -50,7 +50,7 @@
 
                 <!-- Parts -->
                 <TextBlock Text="Parts" FontWeight="Bold" Margin="0,14,0,4" />
-                <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                <TextBlock Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"
                            Text="Each thing that moves on its own becomes a part (the top one is at the top here). In: bring it in. Rig: use it to work out the rig; untick skins, extras and things shown alongside their alternatives, and they'll ride on the bone they move with. FX: an effect (VFX), such as crumbs, splashes or sparks: left out of the rig, it moves on its own and is hidden at rest. Parts that only show for a moment start as effects." />
                 <CheckBox x:Name="FollowBox" Margin="0,0,0,6" Click="Follow_Click"
                           ToolTip="For projects where a part moves to another layer from one animation to the next, or a layer shows something else for a while (the way converters write PvZ2 animations). Without it, each layer is a part. It starts ticked when the project looks that way.">
@@ -63,10 +63,10 @@
                         <ColumnDefinition Width="26" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="In" FontSize="10" Foreground="Gray" ToolTip="Bring it in" />
-                    <TextBlock Grid.Column="1" Text="Rig" FontSize="10" Foreground="Gray" ToolTip="Use it to work out the rig" />
-                    <TextBlock Grid.Column="2" Text="FX" FontSize="10" Foreground="Gray" ToolTip="An effect (VFX)" />
-                    <TextBlock Grid.Column="3" Text="Part (hover it for the layers it's on)" FontSize="10" Foreground="Gray" />
+                    <TextBlock Grid.Column="0" Text="In" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" ToolTip="Bring it in" />
+                    <TextBlock Grid.Column="1" Text="Rig" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" ToolTip="Use it to work out the rig" />
+                    <TextBlock Grid.Column="2" Text="FX" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" ToolTip="An effect (VFX)" />
+                    <TextBlock Grid.Column="3" Text="Part (hover it for the layers it's on)" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" />
                 </Grid>
                 <ListBox x:Name="PartList" MinHeight="120" MaxHeight="420" SelectionChanged="PartList_Changed"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" />
@@ -83,7 +83,7 @@
                     <TextBlock Text="Suggest a rig from the animation" TextWrapping="Wrap" />
                 </CheckBox>
                 <StackPanel x:Name="RigFields" Margin="0,6,0,0">
-                    <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                    <TextBlock Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"
                                Text="Parts that turn around a point they share get bones jointed there; details lying on another part ride on its bone. Change any of it below; the picture shows it on the rest pose." />
                     <DockPanel Margin="0,0,0,6">
                         <TextBlock Text="Rest pose" VerticalAlignment="Center" Width="70"
@@ -99,7 +99,7 @@
                                    ToolTip="The bone everything else hangs from: usually the body" />
                         <ComboBox x:Name="RootBox" SelectionChanged="Root_Changed" />
                     </DockPanel>
-                    <Border BorderBrush="#A0A0A0" BorderThickness="1" Padding="8" Margin="0,0,0,6">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8" Margin="0,0,0,6">
                         <StackPanel x:Name="PartFields">
                             <TextBlock x:Name="PartTitle" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6" />
                             <RadioButton x:Name="OwnBoneChoice" GroupName="Role" Checked="Role_Changed">
@@ -131,7 +131,7 @@
                 </StackPanel>
 
                 <TextBlock x:Name="Summary" TextWrapping="Wrap" Margin="0,14,0,0" />
-                <TextBlock x:Name="ErrorText" Foreground="#C03030" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <TextBlock x:Name="ErrorText" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                     <Button Content="Import" IsDefault="True" Width="80" Margin="0,0,6,0" Click="Import_Click" />

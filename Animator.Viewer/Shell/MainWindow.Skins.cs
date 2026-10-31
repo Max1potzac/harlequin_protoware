@@ -18,10 +18,10 @@ public partial class MainWindow
 	private Skin? _skin;   // the one selected in the list
 	private bool _syncingSkins;
 
-	private static readonly Brush SkinRowBrush = new SolidColorBrush(Color.FromRgb(0x24, 0x27, 0x2E));
-	private static readonly Brush SkinPickedBrush = new SolidColorBrush(Color.FromRgb(0x2F, 0x4A, 0x6E));
-	private static readonly Brush SkinEditingBrush = new SolidColorBrush(Color.FromRgb(0xC8, 0x7A, 0x2A));
-	private static readonly Brush SkinHeaderBrush = new SolidColorBrush(Color.FromRgb(0x9A, 0xA4, 0xB2));
+	private static Brush SkinRowBrush => Themes.Brush("Panel");
+	private static Brush SkinPickedBrush => Themes.Brush("Selection");
+	private static Brush SkinEditingBrush => Themes.Brush("SkinEditing");
+	private static Brush SkinHeaderBrush => Themes.Brush("TextMuted");
 
 	private void EditSkins(string name, Func<bool> change)
 	{

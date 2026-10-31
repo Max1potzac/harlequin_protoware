@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:skia="clr-namespace:SkiaSharp.Views.WPF;assembly=SkiaSharp.Views.WPF"
         Title="Import a Photoshop file" Width="1180" Height="820" MinWidth="740" MinHeight="520"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" PreviewKeyDown="Window_KeyDown" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" MinWidth="280" />
@@ -16,22 +16,22 @@
             <skia:SKElement x:Name="PreviewView" Focusable="True" PaintSurface="PreviewView_Paint"
                             MouseDown="PreviewView_MouseDown" MouseMove="PreviewView_MouseMove"
                             MouseUp="PreviewView_MouseUp" MouseWheel="PreviewView_MouseWheel" />
-            <TextBlock Text="Click: pick a layer   Wheel: zoom   Middle drag: move around   Home: fit" Foreground="#9AA4B2"
+            <TextBlock Text="Click: pick a layer   Wheel: zoom   Middle drag: move around   Home: fit" Foreground="{DynamicResource TextMutedBrush}"
                        Margin="8" VerticalAlignment="Bottom" TextWrapping="Wrap" IsHitTestVisible="False" />
         </Grid>
 
         <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
-                      Background="#D0D0D0" ToolTip="Drag to give the settings or the picture more room" />
+                      Background="{DynamicResource BorderBrush}" ToolTip="Drag to give the settings or the picture more room" />
 
         <!-- ===== Settings ===== -->
         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="10">
                 <TextBlock x:Name="FileTitle" FontWeight="Bold" TextWrapping="Wrap" />
-                <TextBlock x:Name="NotesText" Foreground="Gray" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <TextBlock x:Name="NotesText" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                 <!-- Layers -->
                 <TextBlock Text="Layers" FontWeight="Bold" Margin="0,12,0,4" />
-                <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                <TextBlock Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"
                            Text="Ticked layers come in as parts, in the file's order (the top layer is at the top here). Click a layer, here or on the picture, to pick it." />
                 <ListBox x:Name="LayerList" MinHeight="120" MaxHeight="420" SelectionChanged="LayerList_Changed"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" />
@@ -47,14 +47,14 @@
                     <TextBlock Text="Suggest a rig: bones where the layers overlap" TextWrapping="Wrap" />
                 </CheckBox>
                 <StackPanel x:Name="RigFields" Margin="0,6,0,0">
-                    <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"
+                    <TextBlock Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"
                                Text="Each layer gets a bone that turns where it overlaps the layer it hangs from. Details lying on another layer (eyes, a belt) ride on that layer's bone instead. Change any of it below; the picture shows the result." />
                     <DockPanel Margin="0,0,0,6">
                         <TextBlock Text="Root" VerticalAlignment="Center" Width="70"
                                    ToolTip="The bone everything else hangs from: usually the body" />
                         <ComboBox x:Name="RootBox" SelectionChanged="Root_Changed" />
                     </DockPanel>
-                    <Border BorderBrush="#A0A0A0" BorderThickness="1" Padding="8" Margin="0,0,0,6">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="8" Margin="0,0,0,6">
                         <StackPanel x:Name="LayerFields">
                             <TextBlock x:Name="LayerTitle" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6" />
                             <RadioButton x:Name="OwnBoneChoice" GroupName="Role" Checked="Role_Changed">
@@ -82,7 +82,7 @@
                 </StackPanel>
 
                 <TextBlock x:Name="Summary" TextWrapping="Wrap" Margin="0,14,0,0" />
-                <TextBlock x:Name="ErrorText" Foreground="#C03030" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <TextBlock x:Name="ErrorText" Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
                     <Button Content="Import" IsDefault="True" Width="80" Margin="0,0,6,0" Click="Import_Click" />

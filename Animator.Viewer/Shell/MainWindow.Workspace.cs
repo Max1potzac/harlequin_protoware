@@ -16,8 +16,8 @@ public partial class MainWindow
 	private GridLength _timelineHeight = new(214);
 	private bool _syncingWorkspace;
 
-	private static readonly Brush BuildFrameBrush = new SolidColorBrush(Color.FromArgb(0xB0, 0x3A, 0x8B, 0xE0));
-	private static readonly Brush AnimateFrameBrush = new SolidColorBrush(Color.FromArgb(0xC0, 0xE0, 0x50, 0x3C));
+	private static Brush BuildFrameBrush => Themes.Brush("BuildFrame");
+	private static Brush AnimateFrameBrush => Themes.Brush("AnimateFrame");
 
 	private void Workspace_Checked(object sender, RoutedEventArgs e)
 	{
@@ -59,6 +59,16 @@ public partial class MainWindow
 		SyncRigMode();   // (what builds the rig shows only while building)
 		if (!scene) RefreshRigPanel();
 		UpdateStatus();
+	}
+
+	// Another theme: panels whose rows were made with the old colours are made again
+	private void ThemeChanged()
+	{
+		_shownAnimating = null;   // (the viewport's frame: again)
+		if (!_sceneLevel) RefreshRigPanel();
+		else RefreshScenePanel();
+		Viewport.InvalidateVisual();
+		TimelineView.InvalidateVisual();
 	}
 
 	private void SyncSkinEditBanner()

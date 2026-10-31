@@ -117,14 +117,14 @@ public class TimelinePanel
         int frames = Math.Max(1, _state.FrameCount);
         _frameWidth = Math.Max(4f, (size.X - LabelWidth - LeftPad * 2) / frames);
 
-        canvas.Clear(new SKColor(30, 33, 39));
+        canvas.Clear(Themes.Sk("Canvas"));
 
         using var font = new SKFont { Size = 12 };
         using var smallFont = new SKFont { Size = 11 };
-        using var text = new SKPaint { Color = new SKColor(200, 200, 200), IsAntialias = true };
+        using var text = new SKPaint { Color = Themes.Sk("CanvasText"), IsAntialias = true };
         using var eventText = new SKPaint { Color = new SKColor(140, 230, 160), IsAntialias = true };
-        using var tick = new SKPaint { Color = new SKColor(255, 255, 255, 90), StrokeWidth = 1 };
-        using var divider = new SKPaint { Color = new SKColor(255, 255, 255, 30), StrokeWidth = 1 };
+        using var tick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
+        using var divider = new SKPaint { Color = Themes.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
         using var segment = new SKPaint { Color = new SKColor(255, 200, 60, 70), StrokeWidth = 2 };
         using var rowSel = new SKPaint { Color = new SKColor(80, 220, 255, 35) };
         using var key = new SKPaint { Color = new SKColor(255, 200, 60), IsAntialias = true };
@@ -134,8 +134,8 @@ public class TimelinePanel
         using var eventKey = new SKPaint { Color = new SKColor(120, 220, 140), IsAntialias = true, StrokeWidth = 1.5f };
         using var orderKey = new SKPaint { Color = new SKColor(90, 210, 220), IsAntialias = true };
         using var orderText = new SKPaint { Color = new SKColor(130, 215, 225), IsAntialias = true };
-        using var playhead = new SKPaint { Color = new SKColor(255, 90, 90), StrokeWidth = 2 };
-        using var scrollbar = new SKPaint { Color = new SKColor(255, 255, 255, 50), IsAntialias = true };
+        using var playhead = new SKPaint { Color = Themes.Sk("Playhead"), StrokeWidth = 2 };
+        using var scrollbar = new SKPaint { Color = Themes.SkAlpha("CanvasText", 50), IsAntialias = true };
 
         DrawWaveform(canvas, size, frames);
 
@@ -253,8 +253,8 @@ public class TimelinePanel
 
         if (_drag == Drag.Box)
         {
-            using var boxFill = new SKPaint { Color = new SKColor(255, 255, 255, 25) };
-            using var boxEdge = new SKPaint { Color = new SKColor(255, 255, 255, 140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
+            using var boxFill = new SKPaint { Color = Themes.SkAlpha("CanvasText", 25) };
+            using var boxEdge = new SKPaint { Color = Themes.SkAlpha("CanvasText", 140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
             var box = BoxRect();
             canvas.DrawRect(box, boxFill);
             canvas.DrawRect(box, boxEdge);
@@ -350,7 +350,7 @@ public class TimelinePanel
         using var fill = new SKPaint { IsAntialias = true };
         using var outline = new SKPaint
         {
-            Color = new SKColor(255, 255, 255, 60), Style = SKPaintStyle.Stroke, StrokeWidth = 1, IsAntialias = true
+            Color = Themes.SkAlpha("CanvasText", 60), Style = SKPaintStyle.Stroke, StrokeWidth = 1, IsAntialias = true
         };
         using var label = new SKPaint { Color = new SKColor(240, 240, 240), IsAntialias = true };
         using var faintLabel = new SKPaint { Color = new SKColor(240, 240, 240, 110), IsAntialias = true };

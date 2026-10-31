@@ -2,19 +2,19 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="New Project" SizeToContent="WidthAndHeight" ResizeMode="NoResize"
-        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="{DynamicResource WindowBrush}" Foreground="{DynamicResource TextBrush}">
     <StackPanel Margin="14" Width="360">
 
         <RadioButton x:Name="CharacterChoice" GroupName="Kind" Content="Character" FontWeight="Bold"
                      IsChecked="True" Checked="Kind_Changed" />
-        <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="20,2,0,4"
+        <TextBlock Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="20,2,0,4"
                    Text="One character (or prop) and its animations, for games. You start inside it, ready to rig and animate." />
         <CheckBox x:Name="DemoBox" Content="Start from the demo character" IsChecked="True" Margin="20,0,0,12"
                   ToolTip="Off: an empty rig with one bone to build on" />
 
         <RadioButton x:Name="AnimationChoice" GroupName="Kind" Content="Animation" FontWeight="Bold"
                      Checked="Kind_Changed" />
-        <TextBlock Foreground="Gray" TextWrapping="Wrap" Margin="20,2,0,6"
+        <TextBlock Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="20,2,0,6"
                    Text="A whole scene played over time on the scene timeline, for a video or GIF. It starts with a blank background the size of the stage." />
         <Grid x:Name="AnimationFields" Margin="20,0,0,0">
             <Grid.ColumnDefinitions>

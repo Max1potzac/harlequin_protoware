@@ -13,6 +13,7 @@ namespace Animator.Tests;
 
 // The windows themselves: they open, run a few frames and commands, and close, without an error.
 // A XAML mistake, or a handler that runs before the window is ready, shows up here first.
+[Collection("Themes")]   // (the theme is the whole program's: not alongside the theme tests)
 public class WindowSmokeTests
 {
 	[Fact]
@@ -156,7 +157,43 @@ public class WindowSmokeTests
 				Pump();
 				((TabItem)settings.FindName("SavingTab")).IsSelected = true;
 				Pump(100);
-				settings.Close();
+				((TabItem)settings.FindName("AppearanceTab")).IsSelected = true;
+				Pump(100);
+				var themeBox = (ComboBox)settings.FindName("ThemeBox");
+				themeBox.SelectedItem = themeBox.Items.Cast<Animator.Viewer.Theming.Theme>().First(t => t.Name == "Light");   // shows at once
+				Pump(100);
+				Assert.Equal("Light", Animator.Viewer.Theming.Themes.Current.Name);
+				settings.Close();   // (cancelled: back to the one before)
+				Pump(40);
+				Assert.Equal("Dark", Animator.Viewer.Theming.Themes.Current.Name);
+
+				// Every theme, with the window and the dialogs open in it: their templates all work
+				foreach (var theme in Animator.Viewer.Theming.Themes.BuiltIn.Reverse())
+				{
+					Animator.Viewer.Theming.Themes.Apply(theme);
+					Pump(60);
+					var scene = (Scene)typeof(MainWindow).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+					foreach (var dialog in new Window[]
+					{
+						new ExportDialog(scene, scene.Objects[0], 30, null, null, false) { Owner = window },
+						new EventDialog(3) { Owner = window },
+						new InputDialog("Test", "A question:", "an answer") { Owner = window },
+						new MixerWindow("test", scene.Objects[0].Animations, new MixPlan(), new MixPreview(), (_, _) => true, _ => { }) { Owner = window },
+						new SoundMapWindow(new Dictionary<string, string> { ["step"] = "step.wav" }, (_, _) => true, s => s, () => new[] { "jump" }) { Owner = window }
+					})
+					{
+						dialog.Show();
+						Pump(60);
+						dialog.Close();
+					}
+					foreach (var menu in new[] { "EditMenu", "ViewMenu" })
+					{
+						var item = (MenuItem)window.FindName(menu);
+						item.IsSubmenuOpen = true;
+						Pump(60);
+						item.IsSubmenuOpen = false;
+					}
+				}
 
 				// As if just saved, so closing doesn't stop to ask
 				state.Undo.MarkSaved();

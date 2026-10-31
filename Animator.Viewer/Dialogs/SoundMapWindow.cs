@@ -27,6 +27,8 @@ public sealed class SoundMapWindow : Window
 		ResizeMode = ResizeMode.NoResize;
 		WindowStartupLocation = WindowStartupLocation.CenterOwner;
 		ShowInTaskbar = false;
+		SetResourceReference(BackgroundProperty, Themes.Key("Window"));
+		SetResourceReference(ForegroundProperty, Themes.Key("Text"));
 
 		var panel = new StackPanel { Margin = new Thickness(14) };
 		panel.Children.Add(new TextBlock

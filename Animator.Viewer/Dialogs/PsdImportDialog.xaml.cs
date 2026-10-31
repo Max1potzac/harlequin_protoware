@@ -50,7 +50,7 @@ public partial class PsdImportDialog : Window
 			var tick = new CheckBox { IsChecked = plan.Parts[i].Include, Tag = i, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 2, 6, 0) };
 			tick.Click += Tick_Click;
 			var name = new TextBlock { TextWrapping = TextWrapping.Wrap };
-			var details = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 11 };
+			var details = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = Themes.Brush("TextMuted"), FontSize = 11 };
 			var text = new StackPanel();
 			text.Children.Add(name);
 			text.Children.Add(details);
