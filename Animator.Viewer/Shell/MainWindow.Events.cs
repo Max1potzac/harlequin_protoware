@@ -93,7 +93,7 @@ public partial class MainWindow
 		else
 		{
 			var current = _timeline.SelectedCurve();
-			foreach (var curve in Enum.GetValues<CurveType>())
+			foreach (var curve in new[] { CurveType.Linear, CurveType.Smooth, CurveType.Stepped })
 			{
 				var item = new MenuItem
 				{
@@ -104,6 +104,7 @@ public partial class MainWindow
 				item.Click += (_, _) => _timeline.SetCurve(curve);
 				menu.Items.Add(item);
 			}
+			AddEasingItems(menu, _timeline.SetBezier);
 			menu.Items.Add(new Separator());
 		}
 		AddKeyTimingItems(menu);
