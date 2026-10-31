@@ -83,6 +83,7 @@ public partial class ExportDialog : Window
 		ScaleBox.Text = s.Scale.ToString("0.###", CultureInfo.CurrentCulture);
 		PixelBox.IsChecked = s.PixelArt;
 		BakeColorBox.IsChecked = s.BakeColorLayers;
+		EventsBox.IsChecked = s.WriteEvents;
 		TransparentBox.IsChecked = s.Background == null;
 		_background = s.Background ?? SKColors.White;
 		RowBox.IsChecked = s.RowPerAnimation;
@@ -215,6 +216,7 @@ public partial class ExportDialog : Window
 			Scale = scale,
 			PixelArt = PixelBox.IsChecked == true,
 			BakeColorLayers = BakeColorBox.IsChecked == true,
+			WriteEvents = EventsBox.IsChecked == true,
 			Background = TransparentBox.IsChecked == true && format != ExportFormat.Video ? null : _background,
 			FrameStep = step,
 			FirstFrame = from,

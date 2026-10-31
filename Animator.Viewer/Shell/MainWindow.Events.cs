@@ -18,7 +18,9 @@ public partial class MainWindow
 
 		var fired = passed.SelectMany(span => events.Between(span.From, span.To));
 
-		var names = fired.Select(e => e.Data == null ? e.Name : $"{e.Name} ({e.Data})").ToList();
+		var list = fired.ToList();
+		foreach (var e in list) PlayEventSound(e);
+		var names = list.Select(e => e.Data == null ? e.Name : $"{e.Name} ({e.Data})").ToList();
 		if (names.Count == 0) return;
 
 		EventFlash.Text = "⚑ " + string.Join("    ⚑ ", names);
@@ -41,10 +43,11 @@ public partial class MainWindow
 
 		var animation = _state.Animation;
 		float time = frame / (float)_state.Fps;
-		var e = new AnimationEvent(dialog.EventName, dialog.EventData);
-		_state.EditStructure(() =>
+		var e = new AnimationEvent(dialog.EventName, dialog.EventData, dialog.Volume, dialog.Pitch);
+		EditStructureAndScene(() =>
 		{
 			animation.GetOrCreateEvents().Add(time, e);   // an event already on this frame is replaced
+			if (dialog.PickedSound is { } sound) _scene.Sounds[e.Name] = StoredSoundPath(sound);
 			return $"Event {e.Name} @ frame {frame}";
 		});
 	}
@@ -57,17 +60,19 @@ public partial class MainWindow
 		if (index < 0) return;
 		var current = events.Track.Keys[index].Value;
 
-		var dialog = new EventDialog(frame, current.Name, current.Data) { Owner = this };
+		var dialog = new EventDialog(frame, current.Name, current.Data, current.Volume, current.Pitch,
+			_scene.Sounds.TryGetValue(current.Name, out var mapped) ? mapped : null) { Owner = this };
 		if (dialog.ShowDialog() != true) return;
 
-		var updated = new AnimationEvent(dialog.EventName, dialog.EventData);
-		if (updated == current) return;
+		var updated = new AnimationEvent(dialog.EventName, dialog.EventData, dialog.Volume, dialog.Pitch);
+		if (updated == current && dialog.PickedSound == null) return;
 
-		_state.EditStructure(() =>
+		EditStructureAndScene(() =>
 		{
 			int i = Find();
 			if (i < 0) return null;
 			events.Track.Keys[i] = events.Track.Keys[i] with { Value = updated };
+			if (dialog.PickedSound is { } sound) _scene.Sounds[updated.Name] = StoredSoundPath(sound);
 			return $"Edit event {updated.Name}";
 		});
 	}

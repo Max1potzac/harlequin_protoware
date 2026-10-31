@@ -280,8 +280,10 @@ public class SpaceTimeline : TrackTimeline<string?>
 	}
 }
 
-// One event marker: a name the game reacts to, plus optional data (a bone name, a sound...)
-public readonly record struct AnimationEvent(string Name, string? Data = null);
+// One event marker: a name the game reacts to (a sample to play, a sound event, "footstep"),
+// optional data (a bone name...), and how loud and how high its sound plays (1 = as recorded).
+// What a name sounds like in the editor: the project's sound map (Scene.Sounds).
+public readonly record struct AnimationEvent(string Name, string? Data = null, float Volume = 1f, float Pitch = 1f);
 
 // Named moments the game reacts to ("footstep", "arm_off", "shoot"). They don't move anything.
 public class EventTimeline : TrackTimeline<AnimationEvent>

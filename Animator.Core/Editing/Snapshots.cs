@@ -12,6 +12,7 @@ public sealed class AnimationSnapshot
 	private readonly string _name;
 	private readonly float _duration;
 	private readonly bool _loop;
+	private readonly SoundTrack? _sound;
 	private readonly List<(Timeline Timeline, string Target, object Keys)> _saved;
 
 	private AnimationSnapshot(Animation animation)
@@ -20,6 +21,7 @@ public sealed class AnimationSnapshot
 		_name = animation.Name;
 		_duration = animation.Duration;
 		_loop = animation.Loop;
+		_sound = animation.Sound;
 		_saved = animation.Timelines.Select(t => (t, t.Target, t.CaptureKeys())).ToList();
 	}
 
@@ -30,6 +32,7 @@ public sealed class AnimationSnapshot
 		_animation.Name = _name;
 		_animation.Duration = _duration;
 		_animation.Loop = _loop;
+		_animation.Sound = _sound;
 		_animation.Timelines.Clear();
 		foreach (var (timeline, target, keys) in _saved)
 		{

@@ -206,6 +206,37 @@ public class ExportTests
 		}
 	}
 
+	// Step 25: an object's export writes its animations' events beside the pictures
+	[Fact]
+	public void An_objects_export_writes_an_events_file_beside_it()
+	{
+		var (scene, obj, store) = RedSquare();
+		obj.Animations[0].GetOrCreateEvents().Add(0.5f, new AnimationEvent("PlaySample", "groan", 0.7f));
+		string folder = TempFolder();
+		try
+		{
+			new Exporter(scene, store, fps: 2, new ExportSettings
+			{
+				Scene = false, Object = obj, Animations = { obj.Animations[0] },
+				Format = ExportFormat.SpriteSheet, Path = Path.Combine(folder, "hero.png")
+			}).Run().ToList();
+			var events = EventsFile.FromJson(File.ReadAllText(Path.Combine(folder, "hero.events.json")));
+			var e = Assert.Single(Assert.Single(events.Animations).Events);
+			Assert.Equal((1, "PlaySample", "groan", 0.7f), (e.Frame!.Value, e.Name, e.Data, e.Volume!.Value));
+
+			new Exporter(scene, store, fps: 2, new ExportSettings
+			{
+				Scene = false, Object = obj, Animations = { obj.Animations[0] }, WriteEvents = false,
+				Format = ExportFormat.SpriteSheet, Path = Path.Combine(folder, "quiet.png")
+			}).Run().ToList();
+			Assert.False(File.Exists(Path.Combine(folder, "quiet.events.json")));
+		}
+		finally
+		{
+			Directory.Delete(folder, recursive: true);
+		}
+	}
+
 	// Milestone 13: a blue square on top of the red one, until a key brings the red one to the
 	// front at 1 second: the exported frames show the order the animation draws them in
 	[Fact]

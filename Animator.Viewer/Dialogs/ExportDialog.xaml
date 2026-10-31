@@ -74,6 +74,8 @@
                 <CheckBox x:Name="PixelBox" Content="Pixel art (crisp, no smoothing)" VerticalAlignment="Center" Margin="12,0,0,0" />
                 <CheckBox x:Name="BakeColorBox" Content="Bake colour correction layers" VerticalAlignment="Center" Margin="12,0,0,0"
                           ToolTip="On: the pictures come out with the colour layers (an object's, and those in its drawings) as the editor shows them. Off: without them." />
+                <CheckBox x:Name="EventsBox" Content="Events file" VerticalAlignment="Center" Margin="12,0,0,0" IsChecked="True"
+                          ToolTip="An object's animations: also name.events.json beside the pictures, with each animation's events (frame, time, name, data, volume, pitch) and sound track" />
             </StackPanel>
 
             <TextBlock Grid.Row="3" Text="Background" VerticalAlignment="Center" Margin="0,0,8,6" />

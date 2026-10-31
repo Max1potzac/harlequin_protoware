@@ -21,6 +21,7 @@ public sealed class SceneSnapshot
 	private readonly bool _loop;
 	private readonly int _stageWidth, _stageHeight;
 	private readonly ProjectKind _kind;
+	private readonly Dictionary<string, string> _sounds;
 
 	private SceneSnapshot(Scene scene)
 	{
@@ -34,6 +35,7 @@ public sealed class SceneSnapshot
 		_stageWidth = scene.StageWidth;
 		_stageHeight = scene.StageHeight;
 		_kind = scene.Kind;
+		_sounds = new Dictionary<string, string>(scene.Sounds);
 	}
 
 	public static SceneSnapshot Capture(Scene scene) => new(scene);
@@ -74,6 +76,8 @@ public sealed class SceneSnapshot
 		_scene.Loop = _loop;
 		_scene.StageWidth = _stageWidth;
 		_scene.StageHeight = _stageHeight;
+		_scene.Sounds.Clear();
+		foreach (var (name, path) in _sounds) _scene.Sounds[name] = path;
 		_scene.Kind = _kind;
 	}
 }

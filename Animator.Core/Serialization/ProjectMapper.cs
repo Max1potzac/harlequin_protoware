@@ -37,7 +37,8 @@ public static class ProjectMapper
 		StageWidth = scene.HasStage ? scene.StageWidth : null,
 		StageHeight = scene.HasStage ? scene.StageHeight : null,
 		GridSize = MathF.Abs(scene.GridSize - 10f) < 1e-6f ? null : scene.GridSize,
-		Guides = scene.Guides.Count > 0 ? scene.Guides.Select(g => new GuideDto { Vertical = g.Vertical, At = g.At }).ToList() : null
+		Guides = scene.Guides.Count > 0 ? scene.Guides.Select(g => new GuideDto { Vertical = g.Vertical, At = g.At }).ToList() : null,
+		Sounds = scene.Sounds.Count > 0 ? new Dictionary<string, string>(scene.Sounds) : null
 	};
 
 	public static ObjectDto ObjectToDto(SceneObject o)
@@ -82,6 +83,8 @@ public static class ProjectMapper
 		};
 		foreach (var g in dto.Guides ?? new List<GuideDto>())
 			scene.Guides.Add(new Guide(g.Vertical, g.At));
+		foreach (var (name, path) in dto.Sounds ?? new Dictionary<string, string>())
+			scene.Sounds[name] = path;
 		if (dto.Objects is not { Count: > 0 } objects)
 		{
 			var (skeleton, animations) = FromDto(dto);
@@ -331,7 +334,8 @@ public static class ProjectMapper
 				Name = anim.Name,
 				Duration = anim.Duration,
 				Loop = anim.Loop,
-				Timelines = anim.Timelines.Select(TimelineToDto).ToList()
+				Timelines = anim.Timelines.Select(TimelineToDto).ToList(),
+				Sound = anim.Sound is { } sound ? new SoundTrackDto { Path = sound.Path, Offset = sound.Offset, Volume = sound.Volume } : null
 			});
 		}
 
@@ -460,7 +464,8 @@ public static class ProjectMapper
 		{
 			Type = "events",
 			Target = ev.Target,
-			Keys = ev.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), Name = k.Value.Name, Data = k.Value.Data }).ToList()
+			Keys = ev.Track.Keys.Select(k => new KeyDto { T = k.Time, Curve = k.Curve, B = HandlesToDto(k.Curve, k.Bezier), Name = k.Value.Name, Data = k.Value.Data,
+				X = k.Value.Volume != 1f ? k.Value.Volume : null, Y = k.Value.Pitch != 1f ? k.Value.Pitch : null }).ToList()
 		},
 		DrawOrderTimeline order => new TimelineDto
 		{
@@ -710,7 +715,11 @@ public static class ProjectMapper
 		var animations = new List<Animation>();
 		foreach (var a in dto.Animations)
 		{
-			var anim = new Animation { Name = a.Name, Duration = a.Duration, Loop = a.Loop };
+			var anim = new Animation
+			{
+				Name = a.Name, Duration = a.Duration, Loop = a.Loop,
+				Sound = a.Sound is { Path.Length: > 0 } sound ? new SoundTrack(sound.Path, sound.Offset, sound.Volume) : null
+			};
 			anim.Timelines.AddRange(a.Timelines.Select(TimelineFromDto));
 			animations.Add(anim);
 		}
@@ -814,7 +823,7 @@ public static class ProjectMapper
 			case "events":
 				{
 					var tl = new EventTimeline();
-					foreach (var k in t.Keys) tl.Add(k.T, new AnimationEvent(k.Name ?? "event", k.Data));
+					foreach (var k in t.Keys) tl.Add(k.T, new AnimationEvent(k.Name ?? "event", k.Data, k.X ?? 1f, k.Y ?? 1f));
 					return tl;
 				}
 			case "colorLayer":
@@ -842,7 +851,7 @@ public static class ProjectMapper
 	// A deep copy (the same trick as saving and re-loading), with a new name
 	public static Animation CloneAnimation(Animation source, string newName)
 	{
-		var copy = new Animation { Name = newName, Duration = source.Duration, Loop = source.Loop };
+		var copy = new Animation { Name = newName, Duration = source.Duration, Loop = source.Loop, Sound = source.Sound };
 		copy.Timelines.AddRange(source.Timelines.Select(TimelineToDto).Select(TimelineFromDto));
 		return copy;
 	}

@@ -14,15 +14,28 @@
             <Grid.RowDefinitions>
                 <RowDefinition />
                 <RowDefinition />
+                <RowDefinition />
+                <RowDefinition />
+                <RowDefinition />
             </Grid.RowDefinitions>
             <TextBlock Text="Name" Margin="0,0,10,6" VerticalAlignment="Center" />
             <TextBox x:Name="NameBox" Grid.Column="1" Margin="0,0,0,6" />
-            <TextBlock Text="Data (optional)" Grid.Row="1" Margin="0,0,10,0" VerticalAlignment="Center" />
-            <TextBox x:Name="DataBox" Grid.Row="1" Grid.Column="1" />
+            <TextBlock Text="Data (optional)" Grid.Row="1" Margin="0,0,10,6" VerticalAlignment="Center" />
+            <TextBox x:Name="DataBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" />
+            <TextBlock Text="Volume %" Grid.Row="2" Margin="0,0,10,6" VerticalAlignment="Center" />
+            <TextBox x:Name="VolumeBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,6" ToolTip="How loud its sound plays: 100 = as recorded" />
+            <TextBlock Text="Pitch" Grid.Row="3" Margin="0,0,10,6" VerticalAlignment="Center" />
+            <TextBox x:Name="PitchBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,6" ToolTip="1 = as recorded; 1.2 = higher (and quicker), 0.8 = lower" />
+            <TextBlock Text="Sounds like" Grid.Row="4" Margin="0,0,10,0" VerticalAlignment="Center" />
+            <DockPanel Grid.Row="4" Grid.Column="1">
+                <Button Content="Pick…" DockPanel.Dock="Right" Padding="6,0" Margin="6,0,0,0" Click="PickSound_Click"
+                        ToolTip="The sound file every event of this name plays in the editor (the project's sound map)" />
+                <TextBlock x:Name="SoundText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="Gray" />
+            </DockPanel>
         </Grid>
 
         <TextBlock Foreground="Gray" TextWrapping="Wrap" MaxWidth="300" Margin="0,10,0,0"
-                   Text="The game reacts to the name, for example footstep, shoot or arm_off. Data can carry extra information, such as which bone or which sound." />
+                   Text="The game reacts to the name, for example footstep, shoot or arm_off, or a sample or sound event it plays. Data can carry extra information, such as which bone. What it sounds like here is the project's sound map: every event of this name plays the same file." />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
             <Button Content="OK" IsDefault="True" Width="75" Margin="0,0,6,0" Click="Ok_Click" />

@@ -9,6 +9,9 @@ public class Animation
     public bool Loop { get; set; }
     public List<Timeline> Timelines { get; } = new();
 
+	// A sound playing along (a voice line, music): to time the animation to, heard while playing
+	public SoundTrack? Sound { get; set; }
+
     public void Apply(Skeleton skeleton, float time)
     {
         // Only wrap when actually outside the range, so the last frame stays the last frame
@@ -70,3 +73,7 @@ public class Animation
         return order;
     }
 }
+
+// A sound file played along an animation: from Offset seconds into the animation (negative:
+// the sound starts before it), at a volume (1 = as recorded). Its path: as the sound map's.
+public sealed record SoundTrack(string Path, float Offset = 0f, float Volume = 1f);
