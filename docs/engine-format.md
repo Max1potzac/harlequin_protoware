@@ -12,6 +12,9 @@ The JSON is camelCase. Fields that equal their default are often left out (`null
 given below. Every name (bones, parts, drawings, skins, constraints, hitboxes, animations) is unique
 within its kind and is how things refer to each other.
 
+**A Godot 4 runtime** that plays all of this is in the repository's `godot/` folder
+(`godot/addons/harlequin`, see its README); its tests are checked against the editor's own results.
+
 **The reference implementation is the editor itself.** Where this document says "see", the C# file
 named is the exact behaviour a runtime should match (paths are under `Animator.Core/`).
 
@@ -44,7 +47,8 @@ named is the exact behaviour a runtime should match (paths are under `Animator.C
 
 * A **picture** (an *asset*) is identified by a GUID. Skin entries (section 5) name the picture a
   drawing shows by that id.
-* Pictures may be **trimmed** of see-through edges. `width × height` is the picture's whole size;
+* Pictures may be **trimmed** of see-through edges (never one a mesh uses: its triangles may reach
+  into them). `width × height` is the picture's whole size;
   everything in the rig (placement, pivot, mesh points) counts pixels of the whole picture. Its pixel
   `(px, py)` is on the page at `(x + px − offsetX, y + py − offsetY)`; the rest of the whole picture
   is transparent.

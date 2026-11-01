@@ -43,3 +43,27 @@ jobs:
             $message = ($result.Output.ErrorInfo.Message -replace "`r?`n", '%0A')
             Write-Output "::error title=$($result.testName)::$message"
           }
+
+  # The Godot plugin (godot/): its tests, headless, in Godot itself. They check the runtime against
+  # tests/expected.json, which the C# tests above check against Harlequin's own code.
+  godot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Godot 4.3
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -q godot.zip -d godot-bin
+          echo "GODOT=$PWD/godot-bin/Godot_v4.3-stable_linux.x86_64" >> $GITHUB_ENV
+
+      - name: Import
+        run: timeout 300 $GODOT --headless --path godot --import || true
+
+      - name: Test
+        run: |
+          timeout 300 $GODOT --headless --path godot -s tests/run_tests.gd 2>&1 | tee godot-tests.log
+          summary=$(grep -E '^[0-9]+ checks' godot-tests.log || echo "no result")
+          echo "::notice title=Godot tests::$summary"
+          grep '^FAILED' godot-tests.log | head -30 | sed 's/^/::error title=Godot::/' || true
+          grep -qE '^[0-9]+ checks, 0 failed' godot-tests.log

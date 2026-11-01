@@ -318,11 +318,14 @@ public sealed class Exporter
 	private IEnumerable<ExportProgress> WriteEngine(SceneObject obj)
 	{
 		var skeleton = obj.Skeleton;
+		// Pictures under a mesh keep their whole size: its triangles may reach into see-through edges,
+		// which mustn't be other pictures on the page
+		var meshed = skeleton.AllAttachments().Where(a => a.Mesh is { Triangles.Length: > 0 }).Select(a => a.AssetId).ToHashSet();
 		var pictures = skeleton.AllAttachments().Select(a => a.AssetId).Distinct()
 			.Where(skeleton.Assets.ContainsKey).Select(id => skeleton.Assets[id])
 			.Select(asset => (Asset: asset, Bitmap: _assets.Get(asset, _settings.BakeColorLayers)))
 			.Where(p => p.Bitmap != null)
-			.Select(p => (p.Asset, Bitmap: p.Bitmap!, Kept: _settings.Trim ? Shows(p.Bitmap!) : new SKRectI(0, 0, p.Bitmap!.Width, p.Bitmap!.Height)))
+			.Select(p => (p.Asset, Bitmap: p.Bitmap!, Kept: _settings.Trim && !meshed.Contains(p.Asset.Id) ? Shows(p.Bitmap!) : new SKRectI(0, 0, p.Bitmap!.Width, p.Bitmap!.Height)))
 			.ToList();
 		int total = pictures.Count + 1;
 		yield return new ExportProgress(0, total, "Packing the atlas");
