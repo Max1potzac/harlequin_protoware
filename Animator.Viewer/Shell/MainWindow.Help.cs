@@ -55,7 +55,7 @@ public partial class MainWindow
 		_historyWindow = new HistoryWindow(_state.Undo, count =>
 		{
 			_state.SelectedKeys.Clear();   // (as undo does: keys picked may not be there after)
-			_state.Undo.GoTo(count);
+			_state.Undo.MoveTo(count);
 		}) { Owner = this };
 		_historyWindow.Closed += (_, _) => _historyWindow = null;
 		_historyWindow.Show();

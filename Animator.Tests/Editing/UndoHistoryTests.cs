@@ -64,16 +64,16 @@ public class UndoHistoryTests
 		var box = new Box();
 		for (int i = 1; i <= 5; i++) Set(undo, box, i, $"Set {i}");
 
-		undo.GoTo(2);
+		undo.MoveTo(2);
 		Assert.Equal(2, box.Value);
 		Assert.Equal(new[] { "Set 1", "Set 2" }, undo.UndoNames);
 		Assert.Equal(new[] { "Set 3", "Set 4", "Set 5" }, undo.RedoNames);
 
-		undo.GoTo(4);
+		undo.MoveTo(4);
 		Assert.Equal(4, box.Value);
-		undo.GoTo(0);
+		undo.MoveTo(0);
 		Assert.Equal(0, box.Value);
-		undo.GoTo(99);
+		undo.MoveTo(99);
 		Assert.Equal(5, box.Value);
 	}
 }

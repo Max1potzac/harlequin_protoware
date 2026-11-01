@@ -123,7 +123,7 @@ public class UndoStack
 
 	// Undo or redo until this many steps can be undone (a click in the history). Steps made
 	// elsewhere take you back there first, as undo does; a step that can't be got to stops it.
-	public void GoTo(int undoCount)
+	public void MoveTo(int undoCount)
 	{
 		undoCount = Math.Clamp(undoCount, 0, _undo.Count + _redo.Count);
 		int stuck = 0;
