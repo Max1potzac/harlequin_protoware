@@ -68,9 +68,11 @@ func _test_curves() -> void:
 # ---------------------------------------------------------------- poses, against expected.json
 
 func _steps() -> Array:
-	var times := []
-	for i in 14:
-		times.append(i * 0.1)
+	# (between frames, not on keys: on a key, float and double can come out either side of it
+	# after a loop wraps round)
+	var times := [0.0]
+	for i in range(1, 14):
+		times.append(i * 0.1 + 0.02)
 	return [
 		{"label": "rest", "skins": ["cone"], "do": "rest"},
 		{"label": "walk", "skins": [], "do": "play", "anim": "walk", "times": times},
