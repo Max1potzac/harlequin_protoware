@@ -67,3 +67,14 @@ jobs:
           echo "::notice title=Godot tests::$summary"
           grep '^FAILED' godot-tests.log | head -30 | sed 's/^/::error title=Godot::/' || true
           grep -qE '^[0-9]+ checks, 0 failed' godot-tests.log
+
+  # The PvZ2 converter (tools/pvz2): its tests, with soundbanks made in the tests themselves
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Test
+        run: |
+          python3 -m unittest discover -s tools/pvz2 -v 2>&1 | tee tools.log
+          echo "::notice title=PvZ2 converter::$(grep -E '^Ran [0-9]+ tests' tools.log) $(tail -1 tools.log)"
+          tail -1 tools.log | grep -q '^OK'
