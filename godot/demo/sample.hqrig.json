@@ -1,0 +1,1906 @@
+{
+ "format": "harlequin-rig",
+ "version": 1,
+ "object": "sample",
+ "fps": 30,
+ "atlas": {
+  "pages": [
+   {
+    "file": "sample.atlas.png",
+    "width": 128,
+    "height": 132
+   }
+  ],
+  "regions": {
+   "00000000-0000-0000-0000-000000000001": {
+    "page": 0,
+    "x": 2,
+    "y": 2,
+    "w": 40,
+    "h": 60,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 40,
+    "height": 60
+   },
+   "00000000-0000-0000-0000-000000000002": {
+    "page": 0,
+    "x": 44,
+    "y": 2,
+    "w": 36,
+    "h": 32,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 36,
+    "height": 32
+   },
+   "00000000-0000-0000-0000-000000000003": {
+    "page": 0,
+    "x": 82,
+    "y": 2,
+    "w": 40,
+    "h": 14,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 40,
+    "height": 14
+   },
+   "00000000-0000-0000-0000-000000000004": {
+    "page": 0,
+    "x": 2,
+    "y": 64,
+    "w": 36,
+    "h": 12,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 36,
+    "height": 12
+   },
+   "00000000-0000-0000-0000-000000000005": {
+    "page": 0,
+    "x": 40,
+    "y": 64,
+    "w": 30,
+    "h": 18,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 30,
+    "height": 18
+   },
+   "00000000-0000-0000-0000-000000000006": {
+    "page": 0,
+    "x": 72,
+    "y": 64,
+    "w": 30,
+    "h": 24,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 30,
+    "height": 24
+   },
+   "00000000-0000-0000-0000-000000000007": {
+    "page": 0,
+    "x": 2,
+    "y": 90,
+    "w": 28,
+    "h": 30,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 28,
+    "height": 30
+   },
+   "00000000-0000-0000-0000-000000000008": {
+    "page": 0,
+    "x": 32,
+    "y": 90,
+    "w": 14,
+    "h": 14,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 14,
+    "height": 14
+   },
+   "00000000-0000-0000-0000-000000000009": {
+    "page": 0,
+    "x": 48,
+    "y": 90,
+    "w": 6,
+    "h": 6,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 6,
+    "height": 6
+   },
+   "00000000-0000-0000-0000-000000000010": {
+    "page": 0,
+    "x": 56,
+    "y": 90,
+    "w": 40,
+    "h": 10,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 40,
+    "height": 10
+   },
+   "00000000-0000-0000-0000-000000000011": {
+    "page": 0,
+    "x": 98,
+    "y": 90,
+    "w": 18,
+    "h": 14,
+    "offsetX": 0,
+    "offsetY": 0,
+    "width": 18,
+    "height": 14
+   },
+   "00000000-0000-0000-0000-000000000012": {
+    "page": 0,
+    "x": 4,
+    "y": 123,
+    "w": 56,
+    "h": 6,
+    "offsetX": 2,
+    "offsetY": 1,
+    "width": 60,
+    "height": 8
+   }
+  }
+ },
+ "rig": {
+  "bones": [
+   {
+    "name": "root",
+    "parent": null,
+    "length": 20,
+    "position": {
+     "x": 0,
+     "y": 0
+    },
+    "rotation": 0.0,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "body",
+    "parent": "root",
+    "length": 60,
+    "position": {
+     "x": 0,
+     "y": 40
+    },
+    "rotation": 1.5707963267948966,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "head",
+    "parent": "body",
+    "length": 30,
+    "position": {
+     "x": 60,
+     "y": 0
+    },
+    "rotation": -0.1,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "eye",
+    "parent": "head",
+    "length": 6,
+    "position": {
+     "x": 14,
+     "y": 6
+    },
+    "rotation": -1.4707963267948965,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "pupil",
+    "parent": "eye",
+    "length": 2,
+    "position": {
+     "x": 0,
+     "y": 0
+    },
+    "rotation": 0,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0,
+    "minOffset": {
+     "x": -3,
+     "y": -3
+    },
+    "maxOffset": {
+     "x": 3,
+     "y": 3
+    }
+   },
+   {
+    "name": "hat",
+    "parent": "head",
+    "length": 20,
+    "position": {
+     "x": 28,
+     "y": 0
+    },
+    "rotation": 0.2,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": false,
+    "inheritScale": false,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "arm_up",
+    "parent": "body",
+    "length": 40,
+    "position": {
+     "x": 50,
+     "y": -6
+    },
+    "rotation": 2.1707963267948966,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "forearm",
+    "parent": "arm_up",
+    "length": 36,
+    "position": {
+     "x": 40,
+     "y": 0
+    },
+    "rotation": -0.4,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "pad",
+    "parent": "body",
+    "length": 10,
+    "position": {
+     "x": 52,
+     "y": 10
+    },
+    "rotation": 1.5707963267948966,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "tail",
+    "parent": "root",
+    "length": 40,
+    "position": {
+     "x": -15,
+     "y": 30
+    },
+    "rotation": 2.8415926535897933,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "sword",
+    "parent": "root",
+    "length": 60,
+    "position": {
+     "x": 50,
+     "y": 10
+    },
+    "rotation": 0.3,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "hand_target",
+    "parent": "root",
+    "length": 5,
+    "position": {
+     "x": -55,
+     "y": 70
+    },
+    "rotation": 0.0,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "look_at",
+    "parent": "root",
+    "length": 5,
+    "position": {
+     "x": 60,
+     "y": 140
+    },
+    "rotation": 0.0,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "c1",
+    "parent": "root",
+    "length": 15,
+    "position": {
+     "x": 30,
+     "y": 0
+    },
+    "rotation": 0.2,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "c2",
+    "parent": "c1",
+    "length": 15,
+    "position": {
+     "x": 15,
+     "y": 0
+    },
+    "rotation": 0.1,
+    "scale": {
+     "x": 1.2,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   },
+   {
+    "name": "c3",
+    "parent": "c2",
+    "length": 15,
+    "position": {
+     "x": 15,
+     "y": 0
+    },
+    "rotation": 0.1,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0.3
+   },
+   {
+    "name": "chain_target",
+    "parent": "root",
+    "length": 5,
+    "position": {
+     "x": 70,
+     "y": 10
+    },
+    "rotation": 0.0,
+    "scale": {
+     "x": 1,
+     "y": 1
+    },
+    "inheritRotation": true,
+    "inheritScale": true,
+    "turn": 0,
+    "tilt": 0
+   }
+  ],
+  "slots": [
+   {
+    "name": "tail",
+    "bone": "tail",
+    "attachment": "tail"
+   },
+   {
+    "name": "body",
+    "bone": "body",
+    "attachment": "body"
+   },
+   {
+    "name": "arm",
+    "bone": "arm_up",
+    "attachment": "arm"
+   },
+   {
+    "name": "forearm",
+    "bone": "forearm",
+    "attachment": "forearm"
+   },
+   {
+    "name": "pad",
+    "bone": "pad",
+    "attachment": "pad",
+    "color": {
+     "r": 1,
+     "g": 0.8,
+     "b": 0.6
+    },
+    "opacity": 0.9
+   },
+   {
+    "name": "head",
+    "bone": "head",
+    "attachment": "head"
+   },
+   {
+    "name": "eye",
+    "bone": "eye",
+    "attachment": "eye",
+    "mask": {
+     "until": "pupil",
+     "shows": true
+    }
+   },
+   {
+    "name": "pupil",
+    "bone": "pupil",
+    "attachment": "pupil"
+   },
+   {
+    "name": "hat",
+    "bone": "hat",
+    "attachment": "hat",
+    "blend": "Add"
+   },
+   {
+    "name": "sword",
+    "bone": "sword",
+    "attachment": "sword",
+    "blend": "Multiply"
+   }
+  ],
+  "assets": [],
+  "skins": [
+   {
+    "name": "default",
+    "overlay": false,
+    "entries": [
+     {
+      "slot": "tail",
+      "name": "tail",
+      "asset": "00000000-0000-0000-0000-000000000010",
+      "offset": {
+       "x": 20,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      },
+      "mesh": {
+       "w": 40,
+       "h": 10,
+       "points": [
+        0,
+        0,
+        40,
+        0,
+        40,
+        10,
+        0,
+        10,
+        20.0,
+        5.0
+       ],
+       "triangles": [
+        0,
+        1,
+        4,
+        1,
+        2,
+        4,
+        2,
+        3,
+        4,
+        3,
+        0,
+        4
+       ]
+      }
+     },
+     {
+      "slot": "body",
+      "name": "body",
+      "asset": "00000000-0000-0000-0000-000000000001",
+      "offset": {
+       "x": 30,
+       "y": 0
+      },
+      "rotation": -1.5707963267948966,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "arm",
+      "name": "arm",
+      "asset": "00000000-0000-0000-0000-000000000003",
+      "offset": {
+       "x": 20,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "forearm",
+      "name": "forearm",
+      "asset": "00000000-0000-0000-0000-000000000004",
+      "offset": {
+       "x": 0,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.0,
+       "y": 0.5
+      },
+      "mesh": {
+       "w": 36,
+       "h": 12,
+       "points": [
+        0,
+        0,
+        12,
+        0,
+        24,
+        0,
+        36,
+        0,
+        0,
+        12,
+        12,
+        12,
+        24,
+        12,
+        36,
+        12
+       ],
+       "triangles": [
+        0,
+        1,
+        4,
+        1,
+        5,
+        4,
+        1,
+        2,
+        5,
+        2,
+        6,
+        5,
+        2,
+        3,
+        6,
+        3,
+        7,
+        6
+       ],
+       "weights": [
+        [
+         {
+          "bone": "arm_up",
+          "w": 1.0
+         }
+        ],
+        [
+         {
+          "bone": "arm_up",
+          "w": 0.6
+         },
+         {
+          "bone": "forearm",
+          "w": 0.4
+         }
+        ],
+        [
+         {
+          "bone": "arm_up",
+          "w": 0.2
+         },
+         {
+          "bone": "forearm",
+          "w": 0.8
+         }
+        ],
+        [
+         {
+          "bone": "forearm",
+          "w": 1.0
+         }
+        ],
+        [
+         {
+          "bone": "arm_up",
+          "w": 1.0
+         }
+        ],
+        [
+         {
+          "bone": "arm_up",
+          "w": 0.6
+         },
+         {
+          "bone": "forearm",
+          "w": 0.4
+         }
+        ],
+        [
+         {
+          "bone": "arm_up",
+          "w": 0.2
+         },
+         {
+          "bone": "forearm",
+          "w": 0.8
+         }
+        ],
+        [
+         {
+          "bone": "forearm",
+          "w": 1.0
+         }
+        ]
+       ],
+       "bind": [
+        -0.9800665778412416,
+        -0.19866933079506122,
+        -0.19866933079506122,
+        0.9800665778412416,
+        -25.82140861161676,
+        61.53390159715113
+       ],
+       "boneBind": {
+        "arm_up": [
+         -0.8253356149096783,
+         0.5646424733950354,
+         -0.5646424733950354,
+         -0.8253356149096783,
+         55.76983629501125,
+         70.89235050150084
+        ],
+        "forearm": [
+         -0.9800665778412416,
+         0.19866933079506122,
+         -0.19866933079506122,
+         -0.9800665778412416,
+         -13.08180052151244,
+         71.43724232859535
+        ]
+       }
+      }
+     },
+     {
+      "slot": "pad",
+      "name": "pad",
+      "asset": "00000000-0000-0000-0000-000000000011",
+      "offset": {
+       "x": 4,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "head",
+      "name": "head",
+      "asset": "00000000-0000-0000-0000-000000000002",
+      "offset": {
+       "x": 14,
+       "y": 0
+      },
+      "rotation": -1.5707963267948966,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "eye",
+      "name": "eye",
+      "asset": "00000000-0000-0000-0000-000000000008",
+      "offset": {
+       "x": 0,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "pupil",
+      "name": "pupil",
+      "asset": "00000000-0000-0000-0000-000000000009",
+      "offset": {
+       "x": 0,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "hat",
+      "name": "hat",
+      "asset": "00000000-0000-0000-0000-000000000005",
+      "offset": {
+       "x": 4,
+       "y": 0
+      },
+      "rotation": -0.2,
+      "scale": {
+       "x": 1.1,
+       "y": 0.9
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "hat",
+      "name": "hat_tilted",
+      "asset": "00000000-0000-0000-0000-000000000005",
+      "offset": {
+       "x": 4,
+       "y": 2
+      },
+      "rotation": 0.3,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     },
+     {
+      "slot": "sword",
+      "name": "sword",
+      "asset": "00000000-0000-0000-0000-000000000012",
+      "offset": {
+       "x": 30,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     }
+    ]
+   },
+   {
+    "name": "bucket",
+    "category": "Hat",
+    "overlay": false,
+    "entries": [
+     {
+      "slot": "hat",
+      "name": "hat",
+      "asset": "00000000-0000-0000-0000-000000000006",
+      "offset": {
+       "x": 6,
+       "y": 0
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     }
+    ]
+   },
+   {
+    "name": "cone",
+    "category": "Hat",
+    "overlay": false,
+    "entries": [
+     {
+      "slot": "hat",
+      "name": "hat",
+      "asset": "00000000-0000-0000-0000-000000000007",
+      "offset": {
+       "x": 8,
+       "y": 0
+      },
+      "rotation": -0.1,
+      "scale": {
+       "x": 1,
+       "y": 1
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     }
+    ]
+   },
+   {
+    "name": "glow",
+    "overlay": true,
+    "colorLayers": [
+     "Glow"
+    ],
+    "entries": [
+     {
+      "slot": "sword",
+      "name": "sword",
+      "asset": "00000000-0000-0000-0000-000000000012",
+      "offset": {
+       "x": 30,
+       "y": 2
+      },
+      "rotation": 0.0,
+      "scale": {
+       "x": 1.2,
+       "y": 1.2
+      },
+      "pivot": {
+       "x": 0.5,
+       "y": 0.5
+      }
+     }
+    ]
+   }
+  ],
+  "shownSkins": [
+   "cone"
+  ],
+  "ikConstraints": [
+   {
+    "name": "arm",
+    "bones": [
+     "arm_up",
+     "forearm"
+    ],
+    "target": "hand_target",
+    "mix": 1,
+    "bend": -1,
+    "iterations": 15
+   },
+   {
+    "name": "chain",
+    "bones": [
+     "c1",
+     "c2",
+     "c3"
+    ],
+    "target": "chain_target",
+    "mix": 0.8,
+    "bend": 1,
+    "iterations": 10
+   }
+  ],
+  "lookConstraints": [
+   {
+    "name": "look",
+    "bone": "pupil",
+    "target": "look_at",
+    "shape": "Ellipse",
+    "radius": {
+     "x": 3,
+     "y": 2
+    },
+    "follow": 0.05,
+    "mix": 1
+   }
+  ],
+  "copyConstraints": [
+   {
+    "name": "pad",
+    "bone": "pad",
+    "source": "arm_up",
+    "local": false,
+    "rotate": 0.7,
+    "move": 0.5,
+    "scale": 0,
+    "rotationOffset": 0.4,
+    "positionOffset": {
+     "x": 4,
+     "y": 6
+    },
+    "scaleOffset": {
+     "x": 1,
+     "y": 1
+    },
+    "mix": 1
+   },
+   {
+    "name": "tail_copy",
+    "bone": "c3",
+    "source": "tail",
+    "local": true,
+    "rotate": 0.5,
+    "move": 1,
+    "scale": 1,
+    "mix": 0.5
+   }
+  ],
+  "jiggleConstraints": [
+   {
+    "name": "tail",
+    "bone": "tail",
+    "stiffness": 60,
+    "damping": 5,
+    "gravity": 200,
+    "mix": 1
+   }
+  ],
+  "mixes": {
+   "default": 0.25,
+   "pairs": [
+    {
+     "from": "walk",
+     "to": "idle",
+     "duration": 0.1
+    }
+   ]
+  },
+  "colorLayers": [
+   {
+    "name": "Green",
+    "visible": true,
+    "adjust": {
+     "kind": "HueSaturation",
+     "values": [
+      1,
+      40,
+      0.3,
+      0.05,
+      0,
+      0,
+      1,
+      0.55,
+      0.2,
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0.2,
+      0.8,
+      0.3,
+      0.15,
+      0.15
+     ]
+    },
+    "leaveOut": [
+     "pupil",
+     "eye"
+    ]
+   },
+   {
+    "name": "Glow",
+    "visible": true,
+    "adjust": {
+     "kind": "Tint",
+     "keepLight": false,
+     "values": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0.9,
+      0.3,
+      0.3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0.2,
+      0.8,
+      0.3,
+      0.15,
+      0.15
+     ]
+    }
+   },
+   {
+    "name": "Balance",
+    "visible": true,
+    "adjust": {
+     "kind": "ColorBalance",
+     "values": [
+      0.5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0.55,
+      0.2,
+      0.5,
+      0.2,
+      0,
+      0,
+      0,
+      0,
+      -0.1,
+      0,
+      0.1,
+      0,
+      1,
+      0,
+      0,
+      0.2,
+      0.8,
+      0.3,
+      0.15,
+      0.15
+     ]
+    }
+   }
+  ],
+  "hitboxes": [
+   {
+    "name": "body",
+    "bone": "body",
+    "shape": "box",
+    "offset": {
+     "x": 30,
+     "y": 0
+    },
+    "rotation": 0.1,
+    "size": {
+     "x": 60,
+     "y": 36
+    },
+    "kind": "hurt",
+    "active": true
+   },
+   {
+    "name": "swipe",
+    "bone": "forearm",
+    "shape": "circle",
+    "offset": {
+     "x": 34,
+     "y": 0
+    },
+    "rotation": 0,
+    "size": {
+     "x": 24,
+     "y": 24
+    },
+    "kind": "hit",
+    "active": false
+   }
+  ],
+  "points": [
+   {
+    "name": "hand",
+    "bone": "forearm",
+    "offset": {
+     "x": 36,
+     "y": 0
+    },
+    "rotation": 0.2
+   }
+  ],
+  "animations": [
+   {
+    "name": "walk",
+    "duration": 1.0,
+    "loop": true,
+    "timelines": [
+     {
+      "type": "events",
+      "target": "events",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Stepped",
+        "name": "step",
+        "data": "left"
+       },
+       {
+        "t": 0.5,
+        "curve": "Stepped",
+        "name": "step",
+        "data": "right",
+        "x": 0.8,
+        "y": 1.2
+       },
+       {
+        "t": 0.75,
+        "curve": "Stepped",
+        "name": "swing"
+       }
+      ]
+     },
+     {
+      "type": "drawOrder",
+      "target": "draw order",
+      "keys": [
+       {
+        "t": 0.4,
+        "curve": "Stepped",
+        "order": [
+         "tail",
+         "body",
+         "forearm",
+         "arm",
+         "pad",
+         "head",
+         "eye",
+         "pupil",
+         "hat",
+         "sword"
+        ]
+       },
+       {
+        "t": 0.8,
+        "curve": "Stepped",
+        "order": [
+         "sword",
+         "tail",
+         "body",
+         "arm",
+         "forearm",
+         "pad",
+         "head",
+         "eye",
+         "pupil",
+         "hat"
+        ]
+       }
+      ]
+     },
+     {
+      "type": "rotate",
+      "target": "body",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Smooth",
+        "x": 0
+       },
+       {
+        "t": 0.5,
+        "curve": "Bezier",
+        "b": [
+         0.34,
+         1.56,
+         0.64,
+         1
+        ],
+        "x": 0.15
+       },
+       {
+        "t": 1,
+        "curve": "Linear",
+        "x": 0
+       }
+      ]
+     },
+     {
+      "type": "translate",
+      "target": "root",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       },
+       {
+        "t": 0.25,
+        "curve": "Smooth",
+        "x": 4,
+        "y": 6
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       },
+       {
+        "t": 0.75,
+        "curve": "Bezier",
+        "b": [
+         0.42,
+         0,
+         0.58,
+         1
+        ],
+        "x": -4,
+        "y": 6
+       },
+       {
+        "t": 1,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       }
+      ]
+     },
+     {
+      "type": "scale",
+      "target": "head",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 1,
+        "y": 1
+       },
+       {
+        "t": 0.5,
+        "curve": "Stepped",
+        "x": 1.1,
+        "y": 0.95
+       },
+       {
+        "t": 0.7,
+        "curve": "Linear",
+        "x": 1,
+        "y": 1
+       }
+      ]
+     },
+     {
+      "type": "depth",
+      "target": "head",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": 0.4,
+        "y": 0.6
+       },
+       {
+        "t": 1,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       }
+      ]
+     },
+     {
+      "type": "rotate",
+      "target": "arm_up",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0.3
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": -0.4
+       },
+       {
+        "t": 1,
+        "curve": "Linear",
+        "x": 0.3
+       }
+      ]
+     },
+     {
+      "type": "translate",
+      "target": "hand_target",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": 20,
+        "y": -15
+       },
+       {
+        "t": 1,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       }
+      ]
+     },
+     {
+      "type": "ikMix",
+      "target": "arm",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 1
+       },
+       {
+        "t": 0.6,
+        "curve": "Linear",
+        "x": 0.3
+       },
+       {
+        "t": 0.9,
+        "curve": "Linear",
+        "x": 1
+       }
+      ]
+     },
+     {
+      "type": "translate",
+      "target": "look_at",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": -120,
+        "y": -60
+       },
+       {
+        "t": 1,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       }
+      ]
+     },
+     {
+      "type": "translate",
+      "target": "chain_target",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": -10,
+        "y": 25
+       }
+      ]
+     },
+     {
+      "type": "rotate",
+      "target": "tail",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0
+       },
+       {
+        "t": 0.3,
+        "curve": "Linear",
+        "x": 0.5
+       },
+       {
+        "t": 0.6,
+        "curve": "Linear",
+        "x": -0.3
+       }
+      ]
+     },
+     {
+      "type": "space",
+      "target": "sword",
+      "keys": [
+       {
+        "t": 0.25,
+        "curve": "Stepped",
+        "name": "forearm"
+       },
+       {
+        "t": 0.75,
+        "curve": "Stepped",
+        "name": ""
+       },
+       {
+        "t": 0.9,
+        "curve": "Stepped",
+        "name": null
+       }
+      ]
+     },
+     {
+      "type": "attachment",
+      "target": "hat",
+      "keys": [
+       {
+        "t": 0.3,
+        "curve": "Stepped",
+        "name": "hat_tilted"
+       },
+       {
+        "t": 0.6,
+        "curve": "Stepped",
+        "name": "hat"
+       },
+       {
+        "t": 0.85,
+        "curve": "Stepped",
+        "name": null
+       }
+      ]
+     },
+     {
+      "type": "partTranslate",
+      "target": "pad",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0,
+        "y": 0
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": 3,
+        "y": -2
+       }
+      ]
+     },
+     {
+      "type": "partRotate",
+      "target": "pad",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0
+       },
+       {
+        "t": 0.5,
+        "curve": "Smooth",
+        "x": 0.5
+       }
+      ]
+     },
+     {
+      "type": "partScale",
+      "target": "pad",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 1,
+        "y": 1
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": 1.3,
+        "y": 0.8
+       }
+      ]
+     },
+     {
+      "type": "partColor",
+      "target": "pad",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 1,
+        "y": 0.8,
+        "z": 0.6
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": 0.4,
+        "y": 1,
+        "z": 1
+       }
+      ]
+     },
+     {
+      "type": "partOpacity",
+      "target": "pad",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0.9
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "x": 0.3
+       }
+      ]
+     },
+     {
+      "type": "deform",
+      "target": "forearm",
+      "keys": [
+       {
+        "t": 0.1,
+        "curve": "Linear",
+        "name": "forearm",
+        "v": [
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0
+        ]
+       },
+       {
+        "t": 0.6,
+        "curve": "Linear",
+        "name": "forearm",
+        "v": [
+         0,
+         0,
+         0,
+         -3,
+         0,
+         -4,
+         2,
+         -2,
+         0,
+         0,
+         0,
+         3,
+         0,
+         4,
+         2,
+         2
+        ]
+       }
+      ]
+     },
+     {
+      "type": "colorLayer",
+      "target": "Green",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "v": [
+         1,
+         40,
+         0.3,
+         0.05,
+         0,
+         0,
+         1,
+         0.55,
+         0.2,
+         0.5,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0.2,
+         0.8,
+         0.3,
+         0.15,
+         0.15
+        ]
+       },
+       {
+        "t": 0.5,
+        "curve": "Linear",
+        "v": [
+         1,
+         -30,
+         -0.2,
+         -0.1,
+         0,
+         0,
+         1,
+         0.55,
+         0.2,
+         0.5,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0.2,
+         0.8,
+         0.3,
+         0.15,
+         0.15
+        ]
+       }
+      ]
+     },
+     {
+      "type": "hitbox",
+      "target": "swipe",
+      "keys": [
+       {
+        "t": 0.4,
+        "curve": "Stepped",
+        "x": 1
+       },
+       {
+        "t": 0.6,
+        "curve": "Stepped",
+        "x": 0
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "idle",
+    "duration": 1.5,
+    "loop": false,
+    "timelines": [
+     {
+      "type": "rotate",
+      "target": "body",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0
+       },
+       {
+        "t": 1.5,
+        "curve": "Smooth",
+        "x": -0.1
+       }
+      ]
+     },
+     {
+      "type": "rotate",
+      "target": "head",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": 0
+       },
+       {
+        "t": 0.75,
+        "curve": "Linear",
+        "x": 0.2
+       },
+       {
+        "t": 1.5,
+        "curve": "Linear",
+        "x": 0
+       }
+      ]
+     },
+     {
+      "type": "translate",
+      "target": "look_at",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Linear",
+        "x": -80,
+        "y": -100
+       }
+      ]
+     },
+     {
+      "type": "attachment",
+      "target": "hat",
+      "keys": [
+       {
+        "t": 0,
+        "curve": "Stepped",
+        "name": "hat_tilted"
+       }
+      ]
+     },
+     {
+      "type": "events",
+      "target": "events",
+      "keys": [
+       {
+        "t": 1.0,
+        "curve": "Stepped",
+        "name": "blink"
+       }
+      ]
+     }
+    ],
+    "sound": {
+     "path": "sounds/idle.wav",
+     "offset": 0.2,
+     "volume": 0.7
+    }
+   }
+  ]
+ },
+ "sounds": {
+  "step": "sounds/step.wav"
+ }
+}

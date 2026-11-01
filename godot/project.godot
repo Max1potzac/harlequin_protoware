@@ -1,0 +1,18 @@
+; The Harlequin Godot plugin's own project: the addon (addons/harlequin), a demo scene and the
+; tests (godot --headless --path godot -s tests/run_tests.gd). Copy addons/harlequin into your game.
+
+config_version=5
+
+[application]
+
+config/name="Harlequin for Godot"
+run/main_scene="res://demo/demo.tscn"
+config/features=PackedStringArray("4.3")
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/harlequin/plugin.cfg")
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
