@@ -1,3 +1,4 @@
+using System.IO;
 namespace Animator.Viewer.Files;
 
 // File → Open recent: the last projects opened or saved, the latest first, each once (the same
