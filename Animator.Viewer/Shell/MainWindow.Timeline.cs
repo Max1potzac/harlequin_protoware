@@ -71,7 +71,7 @@ public partial class MainWindow
 		if (_sceneLevel) return;
 		if (!_state.AnimateMode)
 		{
-			AnimHint.Text = $"Keys are set in Animate mode ({KeyOf("anim.mode")}).";
+			AnimHint.Text = $"Keys are set in Animate ({KeyOf("anim.mode")}).";
 			return;
 		}
 		_state.Playing = false;

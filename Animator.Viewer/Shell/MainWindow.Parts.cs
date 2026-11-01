@@ -56,7 +56,7 @@ public partial class MainWindow
 		PartBack.IsEnabled = index > 0;
 		string drawing = att != null && att.Name != slot.Name ? $", showing \"{att.Name}\"" : "";
 		string size = asset != null ? $", {asset.Width}×{asset.Height} px" : "";
-		string values = pose ? $"Placement at frame {_state.Frame}: typing or dragging sets keys" : "Rest placement (setup)";
+		string values = pose ? $"Placement at frame {_state.Frame}: typing or dragging sets keys" : "Rest placement (Build)";
 		string title = $"Part {index + 1} of {order.Count} in {(pose ? "this frame's" : "the")} draw order{size}{drawing}\n{values}";
 		if (PartTitle.Text != title) PartTitle.Text = title;
 

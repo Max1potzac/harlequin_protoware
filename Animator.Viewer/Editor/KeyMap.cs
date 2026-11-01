@@ -178,6 +178,7 @@ public sealed class KeyMap
 
 		C("edit.undo", "Edit", "Undo", K(Key.Z, Ctrl)),
 		C("edit.redo", "Edit", "Redo", K(Key.Y, Ctrl), K(Key.Z, CtrlShift)),
+		C("edit.history", "Edit", "History: every step, to go back to any of them", K(Key.Z, ModifierKeys.Control | ModifierKeys.Alt)),
 		C("edit.copy", "Edit", "Copy the selected keys", K(Key.C, Ctrl)),
 		C("edit.paste", "Edit", "Paste the keys at the playhead", K(Key.V, Ctrl)),
 		C("edit.delete", "Edit", "Delete: the selected keys (or the picked one's keys here); a clip or an object (scene)", K(Key.Delete)),
@@ -213,13 +214,13 @@ public sealed class KeyMap
 		C("keys.reverse", "Keys", "Reverse the selected keys"),
 		C("time.insert", "Keys", "Insert a frame after the playhead (the keys after it move on)", K(Key.OemPlus, Alt)),
 		C("time.remove", "Keys", "Remove the frame at the playhead (the keys after it move up)", K(Key.OemMinus, Alt)),
-		C("order.forward", "Animation", "Picked parts a step to the front (Animate mode: a key)", K(Key.OemCloseBrackets, Ctrl)),
+		C("order.forward", "Animation", "Picked parts a step to the front (Animate: a key)", K(Key.OemCloseBrackets, Ctrl)),
 		C("order.backward", "Animation", "Picked parts a step to the back", K(Key.OemOpenBrackets, Ctrl)),
 		C("order.front", "Animation", "Picked parts in front of everything", K(Key.OemCloseBrackets, CtrlShift)),
 		C("order.back", "Animation", "Picked parts behind everything", K(Key.OemOpenBrackets, CtrlShift)),
 
 		C("ik.toggle", "IK", "IK / FK", K(Key.I)),
-		C("ik.switch", "IK", "Switch IK / FK at this frame (Animate mode)", K(Key.I, Shift)),
+		C("ik.switch", "IK", "Switch IK / FK at this frame (Animate)", K(Key.I, Shift)),
 		C("ik.snap", "IK", "Snap the IK target to the hand", K(Key.T)),
 		C("ik.bake", "IK", "Bake IK into FK", K(Key.T, Shift)),
 		C("ik.flip", "IK", "Flip the elbow", K(Key.B)),

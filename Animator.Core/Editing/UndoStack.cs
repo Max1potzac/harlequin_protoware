@@ -12,7 +12,13 @@ public interface IMergeableCommand
 	bool TryMerge(IEditCommand next);
 }
 
-public sealed class SnapshotCommand<T> : IEditCommand, IMergeableCommand
+// A step that can take a later one into itself, both as one (see UndoStack.BeginGroup)
+public interface IJoinableCommand
+{
+	IEditCommand? JoinedWith(IEditCommand later);
+}
+
+public sealed class SnapshotCommand<T> : IEditCommand, IMergeableCommand, IJoinableCommand
 {
 	private readonly T _before;
 	private T _after;
@@ -33,6 +39,14 @@ public sealed class SnapshotCommand<T> : IEditCommand, IMergeableCommand
 
 	public void Undo() => _restore(_before);
 	public void Redo() => _restore(_after);
+
+	// Two snapshots of the same thing, one after the other, as one: the first's before, the
+	// second's after (a group of them, like a drag in a number field, then keeps just two). Only
+	// when they restore the same way: null otherwise.
+	public IEditCommand? JoinedWith(IEditCommand later) =>
+		later is SnapshotCommand<T> other && ReferenceEquals(_restore, other._restore)
+			? new SnapshotCommand<T>(other.Name, _before, other._after, _restore, MergeKey)
+			: null;
 
 	public bool TryMerge(IEditCommand next)
 	{
@@ -56,6 +70,8 @@ public sealed class CompositeCommand : IEditCommand
 		Name = name;
 		_parts = parts;
 	}
+
+	public IReadOnlyList<IEditCommand> Parts => _parts;
 
 	public void Undo()
 	{
@@ -82,6 +98,44 @@ public class UndoStack
 	public event Action? Changed;
 	public string? NextUndoName => _undo.Last?.Value.Command.Name;
 
+	// The history (Edit → History): what can be undone, oldest first, and what can be redone,
+	// the next one first
+	public IReadOnlyList<string> UndoNames => _undo.Select(s => s.Command.Name).ToList();
+	public IReadOnlyList<string> RedoNames => _redo.Select(s => s.Command.Name).ToList();
+	public int UndoCount => _undo.Count;
+	public int RedoCount => _redo.Count;
+
+	// A group: the steps pushed until EndGroup become one (a drag in a number field: every
+	// value it went through, one undo). Snapshots of the same thing are joined as they come,
+	// so a long drag keeps two, not hundreds.
+	private List<IEditCommand>? _group;
+	public bool InGroup => _group != null;
+
+	public void BeginGroup() => _group ??= new List<IEditCommand>();
+
+	public void EndGroup()
+	{
+		var group = _group;
+		_group = null;
+		if (group is not { Count: > 0 }) return;
+		Push(group.Count == 1 ? group[0] : new CompositeCommand(group[^1].Name, group.ToArray()));
+	}
+
+	// Undo or redo until this many steps can be undone (a click in the history). Steps made
+	// elsewhere take you back there first, as undo does; a step that can't be got to stops it.
+	public void GoTo(int undoCount)
+	{
+		undoCount = Math.Clamp(undoCount, 0, _undo.Count + _redo.Count);
+		int stuck = 0;
+		while (_undo.Count != undoCount && stuck < 2)
+		{
+			int before = _undo.Count;
+			if (_undo.Count > undoCount) Undo();
+			else Redo();
+			stuck = _undo.Count == before ? stuck + 1 : 0;   // (once: it went back to a place first)
+		}
+	}
+
 	// Where you are in the program (which object, animation, mode… the program says what that
 	// is), and how to go back to such a place. Every step remembers where it was made; undo and
 	// redo first take you back there, as a step of their own, when you've moved on since. So an
@@ -99,6 +153,15 @@ public class UndoStack
 
 	public void Push(IEditCommand cmd)
 	{
+		if (_group != null)
+		{
+			_redo.Clear();
+			if (_group.Count > 0 && _group[^1] is IJoinableCommand last && last.JoinedWith(cmd) is { } joined) _group[^1] = joined;
+			else _group.Add(cmd);
+			Changed?.Invoke();
+			return;
+		}
+
 		bool hadRedo = _redo.Count > 0;
 		_redo.Clear();
 
@@ -116,6 +179,7 @@ public class UndoStack
 
 	public void Undo()
 	{
+		if (_group != null) EndGroup();   // (a drag still going: it's a step of its own first)
 		if (_undo.Last is not { } node) return;
 		if (WentBack(node.Value.Place))
 		{
@@ -131,6 +195,7 @@ public class UndoStack
 
 	public void Redo()
 	{
+		if (_group != null) EndGroup();
 		if (_redo.Count == 0) return;
 		if (WentBack(_redo.Peek().Place))
 		{

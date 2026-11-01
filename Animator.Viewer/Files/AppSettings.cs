@@ -14,6 +14,7 @@ public sealed class AppSettings
 	public string? ImportFolder { get; set; }    // where the last imported file came from
 	public bool KeepPartsInPlace { get; set; } = true;   // "Parts stay put when bones move" (rig panel)
 	public string? Theme { get; set; }           // the theme's name (Settings → Appearance; null = Dark)
+	public double UiScale { get; set; } = 1.0;   // how big the panels and dialogs are (Settings → Appearance)
 
 	// The window as it was left (MainWindow.Layout): where, how big, the panels and the timeline
 	public double? WindowLeft { get; set; }

@@ -40,6 +40,7 @@ public partial class MainWindow
 		if (!scene && !animate && _state.Playing) _state.Playing = false;   // building: nothing plays
 		SyncSkinEditBanner();
 		SyncPlayButton();
+		SyncMenuButtons();
 		if (_shownAnimating == animate && _shownSceneLevel == scene) return;
 		_shownAnimating = animate;
 		_shownSceneLevel = scene;

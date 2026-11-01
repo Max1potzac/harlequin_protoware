@@ -264,7 +264,7 @@ public partial class MainWindow
 	{
 		int count = _timeline.SelectKeysOf(_state.PickedBones, _state.PickedSlots);
 		ShowRigHint(count > 0
-			? $"{count} key(s) selected. Drag what's picked in the viewport (Animate mode), and they all move alike."
+			? $"{count} key(s) selected. Drag what's picked in the viewport (Animate), and they all move alike."
 			: "What's picked has no keys in this animation.");
 	}
 

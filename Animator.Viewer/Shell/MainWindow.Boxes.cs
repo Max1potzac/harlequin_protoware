@@ -128,7 +128,7 @@ public partial class MainWindow
 		if (_boxItem is not Hitbox hitbox) return;
 		if (_state.SelectedSlot is not { } part)
 		{
-			BoxHint.Text = "Pick the part to fit it round (in the viewport, or the Bones or Layers view): the Boxes view keeps its hitbox selected.";
+			BoxHint.Text = "Pick the part to fit it round (in the viewport, or the Bones or Order view): the Boxes view keeps its hitbox selected.";
 			return;
 		}
 		bool fitted = false;

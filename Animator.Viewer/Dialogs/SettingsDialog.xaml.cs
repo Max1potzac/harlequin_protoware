@@ -77,6 +77,8 @@ public partial class SettingsDialog : Window
 	public string ThemeName { get; private set; } = Themes.Current.Name;
 
 	private readonly Theme _themeBefore = Themes.Current;   // (Cancel: back to it)
+	private readonly double _scaleBefore = UiScale.Current;
+	public double Scale { get; private set; } = UiScale.Current;
 	private bool _themeChosen;
 
 	public SettingsDialog(KeyMap keys, MouseButton select, MouseButton transform, MouseButton pan,
@@ -94,9 +96,11 @@ public partial class SettingsDialog : Window
 		ShowSaving(autosaveMinutes, backupCount);
 		ShowCommand();
 		ShowThemes();
+		ShowScales();
 		Closed += (_, _) =>
 		{
 			if (!_themeChosen && Themes.Current != _themeBefore) Themes.Apply(_themeBefore);
+			if (!_themeChosen && UiScale.Current != _scaleBefore) UiScale.Apply(_scaleBefore);
 		};
 		DialogLayout.FitToScreen(this);
 	}
@@ -114,6 +118,21 @@ public partial class SettingsDialog : Window
 		ThemeBox.SelectedItem = all.FirstOrDefault(t => t.Name == Themes.Current.Name) ?? all[0];
 		_showingThemes = false;
 		ThemeProblems.Text = problems.Count == 0 ? "" : "Themes that can't be read:\n" + string.Join("\n", problems);
+	}
+
+	private void ShowScales()
+	{
+		_showingThemes = true;
+		ScaleBox.ItemsSource = UiScale.Choices.Select(UiScale.Name).ToList();
+		int at = Array.FindIndex(UiScale.Choices, c => Math.Abs(c - UiScale.Current) < 0.01);
+		ScaleBox.SelectedIndex = at >= 0 ? at : Array.IndexOf(UiScale.Choices, 1.0);
+		_showingThemes = false;
+	}
+
+	private void Scale_Changed(object sender, SelectionChangedEventArgs e)
+	{
+		if (_showingThemes || ScaleBox.SelectedIndex < 0) return;
+		UiScale.Apply(UiScale.Choices[ScaleBox.SelectedIndex]);   // shows at once, like the theme
 	}
 
 	private void Theme_Changed(object sender, SelectionChangedEventArgs e)
@@ -274,6 +293,7 @@ public partial class SettingsDialog : Window
 		AutosaveMinutes = ValueIn(AutosaveBox);
 		BackupCount = ValueIn(BackupBox);
 		ThemeName = Themes.Current.Name;
+		Scale = UiScale.Current;
 		_themeChosen = true;
 		DialogResult = true;
 	}

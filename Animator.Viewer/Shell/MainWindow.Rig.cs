@@ -295,7 +295,7 @@ public partial class MainWindow
 
 		PropsTitle.Text = bone == null ? "No bone selected"
 			: pose ? (_state.AutoKey ? $"Pose at frame {_state.Frame}: typing sets keys" : $"Pose at frame {_state.Frame}: typing poses it ({KeyOf("anim.key")} keys it)")
-			: "Rest pose (setup)";
+			: "Rest pose (Build)";
 
 		foreach (var box in new[] { BoneX, BoneY, BoneRotation, BoneLength, BoneScaleX, BoneScaleY,
 									BoneTurn, BoneTilt, LookFollow, LookRangeX, LookRangeY })

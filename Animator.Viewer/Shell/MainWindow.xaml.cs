@@ -15,7 +15,7 @@ using SkiaSharp.Views.Desktop;
 
 namespace Animator.Viewer;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, IScalesItsParts
 {
 	private Skeleton _skeleton = new();   // the rig of the object being edited (see MainWindow.Scene.cs)
 	private readonly AssetStore _assets = new();
@@ -37,6 +37,7 @@ public partial class MainWindow : Window
 		Themes.Apply(Themes.Find(_appSettings.Theme));   // (before the window's parts take its colours)
 		InitializeComponent();
 		RestoreLayout();   // the window and its panels as they were left
+		UiScale.Apply(_appSettings.UiScale);
 		Themes.Changed += ThemeChanged;
 		Closed += (_, _) => Themes.Changed -= ThemeChanged;
 		_renderer = new SkeletonRenderer(_assets);
@@ -60,6 +61,7 @@ public partial class MainWindow : Window
 		InitViewAids();   // rulers, grid, guides and snapping
 		InitAutosave();
 		InitTimelineTools();   // auto key, the rows shown, playback
+		InitScrub();   // number fields that can be dragged
 
 		UpdateStatus();
 		CompositionTarget.Rendering += OnFrame;
@@ -472,6 +474,7 @@ public partial class MainWindow : Window
 				$"Viewport: {pick}-click an object = select, double-click (or {K("scene.open")}) = edit it.   {move}-drag an object = move, a corner = scale (Shift: keep proportions), the round handle = turn (Shift: 15° steps)\n" +
 				$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
 				$"{ViewAidsHelp()}\n" +
+				$"Number fields: drag left or right to change them (Shift: faster, Ctrl: finer), click to type.   Keys ▾ (the timeline bar) = what right-clicking the timeline does.   {K("edit.history")} = the history: every step, to go back to any of them\n" +
 				"Scene timeline: right-click a row = add a clip, drag a clip = move, drag its edges = length / trim, double-click = edit it in place\n" +
 				"Objects without clips loop their preview animation.   Wheel / Shift+wheel / Ctrl+wheel = scroll / scroll in time / zoom\n" +
 				$"{K("play.toggle")}: play/pause   {K("play.restart")}: restart   {K("play.back")} / {K("play.on")}: step   {K("edit.delete")}: delete clip (or object)   {K("edit.undo")} / {K("edit.redo")}: undo/redo   " +
@@ -492,18 +495,19 @@ public partial class MainWindow : Window
 			$"Object: {_active?.Name ?? "-"}    Picked: {picked}    Last edit: {_state.Undo.NextUndoName ?? "-"}{UndoHint()}\n" +
 			$"Tool: {_tool?.Tool.ToString() ?? "Select"} ({K("tool.select")} select, {K("tool.move")} move, {K("tool.rotate")} rotate, {K("tool.paint")} paint: the buttons at the viewport's left).   " +
 			$"Viewport: {pick}-click = pick (Ctrl: toggle, Shift: add), {pick}-drag = pick in a box (Shift: add, Ctrl: let go), double-click a part = paint it.   " +
-			$"{move}-drag: a joint = move, a bone = turn (Shift: 15° steps), a part = move (its corners / round handle / pivot), anything picked = all that's picked; Ctrl+{move}-drag = new bone, Alt+{move}-click a part = put it on the selected bone, the ring at a bone's end = where it ends (Setup mode).   " +
+			$"{move}-drag: a joint = move, a bone = turn (Shift: 15° steps), a part = move (its corners / round handle / pivot), anything picked = all that's picked; Ctrl+{move}-drag = new bone, Alt+{move}-click a part = put it on the selected bone, the ring at a bone's end = where it ends (Build).   " +
 			$"{pan}-drag (or {move} on empty space) = move the view, wheel = zoom, {K("view.reset")} = reset view\n" +
 			$"{ViewAidsHelp()}\n" +
+				$"Number fields: drag left or right to change them (Shift: faster, Ctrl: finer), click to type.   Keys ▾ (the timeline bar) = what right-clicking the timeline does.   {K("edit.history")} = the history: every step, to go back to any of them\n" +
 			$"Rig panel: Ctrl+click = pick several, Shift+click = every row from the selected one, {K("pick.all")} = everything shown, ● = hide / show ({K("pick.hide")}: hide the picked, {K("pick.hideOthers")}: hide the others, {K("pick.showAll")}: show all), " +
 			$"padlock = lock / unlock: no clicking or dragging it in the viewport ({K("pick.lock")}: lock the picked, {K("pick.lockOthers")}: lock the others, {K("pick.unlockAll")}: unlock all)\n" +
 			"Sets (under the list): + Set = a set of the picked; click a set = pick it again (Ctrl: picked or not, Shift: add), right-click = change it.   The square in the bone panel = the colour of the picked bones.   " +
-			"Colour (beside Bones / Layers) = colour layers on the whole object (parts can be left out); in the paint editor, + Colour layer = one for that drawing. Keyed in Animate mode; exports bake them in when asked\n" +
+			"Colour (beside Bones / Order) = colour layers on the whole object (parts can be left out); in the paint editor, + Colour layer = one for that drawing. Keyed in Animate; exports bake them in when asked\n" +
 			$"Timeline: click key = select, Shift+click = add, Ctrl+drag = a box of keys, Alt+click = every key at that frame, drag = move, right-click = curve, stretch, reverse, {K("keys.earlier")} / {K("keys.later")} = a frame earlier / later, {K("edit.copy")} / {K("edit.paste")} = copy / paste at playhead, {K("pick.keys")} = every key of the picked, drag across empty frames = pick them (right-click: split into an animation sequence; play loops them)\n" +
 			$"Poses (beside Colour): keep a pose by name, put it on (partly, mirrored).   {K("pose.mirror")} = mirror the pose, {K("pose.copy")} / {K("pose.paste")} = copy / paste the pose, {K("pose.pasteMirrored")} = paste it mirrored (sides from names: arm_L / arm_R).   " +
 			$"Curves ({K("anim.graph")}): the keys' numbers as curves; click / Shift+click a key, drag it (Shift: one way), drag its square handles to ease it (Bézier), wheel = zoom, middle-drag = move, double-click = fit, click a name = hide it.   " +
 			$"Frames: {K("time.insert")} = insert one after the playhead, {K("time.remove")} = remove the one at it, {K("play.prevKey")} / {K("play.nextKey")} = to the key before / after, {K("anim.key")} = key the pose (the unkeyed changes, or the picked)\n" +
-			$"IK: {K("ik.snap")} = snap target to hand, {K("ik.bake")} = bake IK into FK, {K("ik.switch")} = switch IK/FK at this frame (Animate mode).   Detach / attach: \"Follows\" in the bone panel (Animate mode), Throw / fall below it.   " +
+			$"IK: {K("ik.snap")} = snap target to hand, {K("ik.bake")} = bake IK into FK, {K("ik.switch")} = switch IK/FK at this frame (Animate).   Detach / attach: \"Follows\" in the bone panel (Animate), Throw / fall below it.   " +
 			$"Events: {K("anim.event")} = add at playhead, right-click timeline = add here, double-click a flag = edit\n" +
 			$"Frame by frame (select a part): {K("frames.new")} = new drawing, {K("frames.copy")} = copy drawing, {K("frames.longer")} / {K("frames.shorter")} = hold longer / shorter, {K("edit.delete")} = its key here.   {K("view.onion")} = onion skin\n" +
 			$"Paint: double-click a part (on another object: edit that object). Over the canvas: {PaintKeys()}; Shift+click / Shift+drag = line, Alt+click = pick a colour\n" +

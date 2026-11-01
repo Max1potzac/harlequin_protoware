@@ -475,7 +475,7 @@ public partial class MainWindow
 	private void AddBlankDrawnObject()
 	{
 		var dialog = new NewPartDialog("New Drawn Object", "drawing",
-			"A drawn object has no bones: just parts (layers) you paint, frame by frame if you like. " +
+			"A drawn object has no bones: just parts you paint, frame by frame if you like. " +
 			"It starts with one empty part this size; add more parts inside it.", 256, 256) { Owner = this };
 		if (dialog.ShowDialog() != true) return;
 		AddDrawnObject(dialog.PartName, null, dialog.PartWidth, dialog.PartHeight, paint: true);

@@ -52,7 +52,7 @@ public partial class MainWindow
 		Add($"The picked parts, as one skin{picked}", parts.Count > 0,
 			"Their drawings go into a new skin: they show while it's on (a hat, a bucket and its handle…)", () => MakeSkinFromParts(parts));
 		Add($"Each picked part a skin, in a category…{picked}", parts.Count > 1,
-			"Layers drawn as alternatives (the bucket, the dented bucket, the wrecked one): each becomes a skin, one on at a time", () => MakeCategoryFromParts(parts));
+			"Parts drawn as alternatives (the bucket, the dented bucket, the wrecked one): each becomes a skin, one on at a time", () => MakeCategoryFromParts(parts));
 		var one = _state.SelectedSlot;
 		int drawings = one != null ? DrawingOps.DrawingNames(_skeleton, one).Count(n => _skeleton.DefaultSkin.Get(one.Name, n) != null) : 0;
 		Add(one != null ? $"{one.Name}'s drawings, each a skin, in a category…" : "A part's drawings, each a skin, in a category…", drawings > 1,
@@ -287,7 +287,7 @@ public partial class MainWindow
 		var parts = PickedOwnParts();
 		if (parts.Count == 0)
 		{
-			SkinHint.Text = "Pick the parts to put in it (in the viewport, or in the Bones or Layers view): parts with drawings of their own, outside any skin.";
+			SkinHint.Text = "Pick the parts to put in it (in the viewport, or in the Bones or Order view): parts with drawings of their own, outside any skin.";
 			return;
 		}
 		EditSkins($"Put {Describe(parts)} in the skin {skin.Name}", () => SkinOps.AddParts(_skeleton, skin, parts) > 0);
