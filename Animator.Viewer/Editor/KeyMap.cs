@@ -170,6 +170,7 @@ public sealed class KeyMap
 	{
 		C("file.new", "File", "New project…", K(Key.N, Ctrl)),
 		C("file.open", "File", "Open…", K(Key.O, Ctrl)),
+		C("file.reopen", "File", "Reopen: back to the last save"),
 		C("file.save", "File", "Save", K(Key.S, Ctrl)),
 		C("file.saveAs", "File", "Save as…", K(Key.S, CtrlShift)),
 		C("file.import", "File", "Import…", K(Key.I, Ctrl)),

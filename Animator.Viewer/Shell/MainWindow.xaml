@@ -8,9 +8,14 @@
         <DockPanel>
             <!-- A menu item's Tag is its command in the key map: its key is filled in from there -->
             <Menu x:Name="MainMenu" DockPanel.Dock="Top">
-                <MenuItem Header="_File">
+                <MenuItem x:Name="FileMenu" Header="_File" SubmenuOpened="FileMenu_Opened">
                     <MenuItem Header="_New…" Tag="file.new" InputGestureText="Ctrl+N" Click="New_Click" />
                     <MenuItem Header="_Open…" Tag="file.open" InputGestureText="Ctrl+O" Click="Open_Click" />
+                    <MenuItem x:Name="RecentMenu" Header="Open _recent">
+                        <MenuItem Header="(none yet)" IsEnabled="False" />
+                    </MenuItem>
+                    <MenuItem x:Name="ReopenItem" Header="Re_open (back to the last save)" Tag="file.reopen" Click="Reopen_Click"
+                              ToolTip="The project as it was last saved: the changes since then are thrown away" />
                     <Separator />
                     <MenuItem Header="_Save" Tag="file.save" InputGestureText="Ctrl+S" Click="Save_Click" />
                     <MenuItem Header="Save _As…" Tag="file.saveAs" InputGestureText="Ctrl+Shift+S" Click="SaveAs_Click" />

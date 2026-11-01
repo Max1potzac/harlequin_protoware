@@ -170,6 +170,7 @@ public partial class MainWindow
 		{
 			case "file.new": NewProject(); return true;
 			case "file.open": OpenProject(); return true;
+			case "file.reopen": Reopen(); return true;
 			case "file.save": SaveProject(); return true;
 			case "file.saveAs": SaveProjectAs(); return true;
 			case "file.import": ImportFile(); return true;

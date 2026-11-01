@@ -16,6 +16,9 @@
             <DockPanel DockPanel.Dock="Bottom" Margin="8,4,8,8">
                 <Button x:Name="PlayButton" DockPanel.Dock="Left" Content="▶" Width="32" Margin="0,0,8,0" Click="Play_Click"
                         ToolTip="Play the timeline (Space)" />
+                <CheckBox x:Name="GhostsBox" DockPanel.Dock="Left" Content="Show left-out parts" IsChecked="True" VerticalAlignment="Center"
+                          Margin="0,0,10,0" Click="Ghosts_Click"
+                          ToolTip="The parts that won't be brought in (In unticked), drawn faintly. Untick to see just what you'll get." />
                 <TextBlock x:Name="FrameText" DockPanel.Dock="Right" Width="150" VerticalAlignment="Center" Margin="8,0,0,0" />
                 <Slider x:Name="FrameSlider" Minimum="0" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1"
                         VerticalAlignment="Center" ValueChanged="FrameSlider_Changed" />
