@@ -25,6 +25,7 @@ public sealed class AppSettings
 	public double? LeftPanelWidth { get; set; }
 	public double? RightPanelWidth { get; set; }
 	public double? TimelineHeight { get; set; }
+	public List<string>? RecentFiles { get; set; }   // File → Open recent: the latest first
 	public string? RigTab { get; set; }          // bones, layers, colour, poses, skins, boxes
 
 	// Settings: the shortcuts changed from the defaults (command → its keys, see KeyMap), and which

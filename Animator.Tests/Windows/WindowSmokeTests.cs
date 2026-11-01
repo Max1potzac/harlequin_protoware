@@ -190,7 +190,7 @@ public class WindowSmokeTests
 						Pump(60);
 						dialog.Close();
 					}
-					foreach (var menu in new[] { "EditMenu", "ViewMenu", "AnimationMenu" })
+					foreach (var menu in new[] { "FileMenu", "EditMenu", "ViewMenu", "AnimationMenu" })
 					{
 						var item = (MenuItem)window.FindName(menu);
 						item.IsSubmenuOpen = true;

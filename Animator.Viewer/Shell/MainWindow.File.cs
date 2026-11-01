@@ -108,7 +108,7 @@ public partial class MainWindow
 
 	// Opens a project file. `savesTo`: where Save puts it (a recovered copy saves over the project
 	// it's a copy of; null: it asks). false: it couldn't be read, and nothing changed.
-	private bool OpenFile(string path, string? savesTo)
+	private bool OpenFile(string path, string? savesTo, string? failNote = null)
 	{
 		ProjectFile.LoadedProject loaded;
 		try
@@ -118,7 +118,7 @@ public partial class MainWindow
 		catch (Exception ex)
 		{
 			// Nothing was replaced yet: the current project is untouched
-			MessageBox.Show(this, $"Couldn't open the project:\n\n{ex.Message}", "Open failed",
+			MessageBox.Show(this, $"Couldn't open {Path.GetFileName(path)}:\n\n{ex.Message}{(failNote != null ? "\n\n" + failNote : "")}", "Open failed",
 							MessageBoxButton.OK, MessageBoxImage.Error);
 			return false;
 		}
@@ -135,6 +135,7 @@ public partial class MainWindow
 
 		_projectPath = savesTo;
 		ResetEditorState();
+		if (savesTo != null) RememberRecent(savesTo);
 		return true;
 	}
 
@@ -188,6 +189,7 @@ public partial class MainWindow
 			}
 			ProjectFile.Save(path, _scene, _assets, thumbnail);
 			_projectPath = path;
+			RememberRecent(path);
 			ForgetRecoveryCopy();
 			_state.Undo.MarkSaved();   // fires Undo.Changed, which refreshes the title
 			return true;

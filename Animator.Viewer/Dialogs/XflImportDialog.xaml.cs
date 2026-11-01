@@ -39,6 +39,7 @@ public partial class XflImportDialog : Window
 	public XflImportDialog(XflImportPlan plan)
 	{
 		InitializeComponent();
+		GhostsBox.IsChecked = _showGhosts;
 		DialogLayout.FitToScreen(this);
 		_plan = plan;
 		ScaleBox.Text = "100";
@@ -569,6 +570,7 @@ public partial class XflImportDialog : Window
 		canvas.Scale(_zoom);
 		for (int i = 0; i < _plan.Parts.Count; i++)
 		{
+			if (!_plan.Parts[i].Include && !ShowGhosts) continue;
 			if (_plan.Placement(i, _frame) is not { } p) continue;
 			var color = p.Color;
 			if (!_plan.Parts[i].Include) color = color with { Multiply = color.Multiply * new Vector4(1, 1, 1, 0.15f) };
@@ -717,7 +719,17 @@ public partial class XflImportDialog : Window
 			return -1;
 		}
 		int hit = Hit(true);
-		Pick(hit >= 0 ? hit : Hit(false));
+		Pick(hit >= 0 || !ShowGhosts ? hit : Hit(false));
+	}
+
+	// The left-out parts, faintly, or not at all (kept for the next import, while the program runs)
+	private static bool _showGhosts = true;
+	private bool ShowGhosts => GhostsBox.IsChecked == true;
+
+	private void Ghosts_Click(object sender, RoutedEventArgs e)
+	{
+		_showGhosts = ShowGhosts;
+		PreviewView.InvalidateVisual();
 	}
 
 	private void PreviewView_MouseMove(object sender, MouseEventArgs e)
