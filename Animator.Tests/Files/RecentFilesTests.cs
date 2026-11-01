@@ -1,3 +1,4 @@
+using System.IO;
 using Animator.Viewer.Files;
 
 namespace Animator.Tests;
