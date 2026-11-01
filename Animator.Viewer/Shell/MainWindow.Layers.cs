@@ -111,7 +111,7 @@ public partial class MainWindow
 		if (_state.AnimateMode) return $"Animate: dragging a part up or down keys the order at frame {_state.Frame}.";
 		return _skeleton.DrawOrder.SequenceEqual(_skeleton.Slots)
 			? "Drag a part up or down to change the order (the top one is in front)."
-			: "The rest order. This animation draws them in another order here: Animate mode (K) shows and keys that one.";
+			: "The rest order. This animation draws them in another order here: Animate (K) shows and keys that one.";
 	}
 
 	// Every frame: the list follows the order as it changes (playing past a key, switching mode),

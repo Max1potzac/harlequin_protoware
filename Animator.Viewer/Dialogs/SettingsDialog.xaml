@@ -86,7 +86,7 @@
                             <TextBlock Grid.Row="1" Text="Move" VerticalAlignment="Top" Margin="0,3,8,12" FontWeight="Bold" />
                             <ComboBox x:Name="TransformButtonBox" Grid.Row="1" Grid.Column="1" VerticalAlignment="Top" Margin="0,0,12,12" />
                             <TextBlock Grid.Row="1" Grid.Column="2" TextWrapping="Wrap" Margin="0,3,0,12"
-                                       Text="Drag a joint to move its bone, the bone itself to turn it, a part to move it (its corners scale it, its round handle turns it, its pivot in Setup mode). Dragging something picked takes everything picked along. Ctrl+drag draws a new bone; Alt+click a part to put it on the selected bone. On empty space it moves the view. In the scene: drag an object, its corners or its round handle." />
+                                       Text="Drag a joint to move its bone, the bone itself to turn it, a part to move it (its corners scale it, its round handle turns it, its pivot in Build). Dragging something picked takes everything picked along. Ctrl+drag draws a new bone; Alt+click a part to put it on the selected bone. On empty space it moves the view. In the scene: drag an object, its corners or its round handle." />
 
                             <TextBlock Grid.Row="2" Text="View" VerticalAlignment="Top" Margin="0,3,8,0" FontWeight="Bold" />
                             <ComboBox x:Name="PanButtonBox" Grid.Row="2" Grid.Column="1" VerticalAlignment="Top" Margin="0,0,12,0" />
@@ -106,6 +106,11 @@
                             <TextBlock Text="Theme" FontWeight="Bold" Width="110" VerticalAlignment="Center" />
                             <ComboBox x:Name="ThemeBox" Width="220" HorizontalAlignment="Left" DisplayMemberPath="Name" SelectionChanged="Theme_Changed"
                                       ToolTip="Shows at once; Cancel goes back to the one before" />
+                        </DockPanel>
+                        <DockPanel Margin="0,0,0,10">
+                            <TextBlock Text="Size" FontWeight="Bold" Width="110" VerticalAlignment="Center" />
+                            <ComboBox x:Name="ScaleBox" Width="100" HorizontalAlignment="Left" SelectionChanged="Scale_Changed"
+                                      ToolTip="How big the panels, menus and dialogs are, on top of Windows' own display scaling (the viewport and the timeline stay as they are)" />
                         </DockPanel>
                         <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,10"
                                    Text="Your own themes are JSON files in the themes folder: a name, the built-in theme it starts from, and the colours it changes (#RRGGBB or #AARRGGBB). The folder has an example listing every colour and what it's for: copy it, change it, then look again." />

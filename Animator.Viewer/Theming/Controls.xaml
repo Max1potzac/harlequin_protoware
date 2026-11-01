@@ -44,6 +44,20 @@
     <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F2F4F7" />
     <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#6A7280" />
 
+    <!-- Where the keyboard is (Tab, the arrow keys): a ring in the accent colour round it. Only
+         keyboard moves show it, not clicks. -->
+    <Style x:Key="FocusRing">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="-2" RadiusX="3" RadiusY="3" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2"
+                               SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="{x:Static SystemParameters.FocusVisualStyleKey}" BasedOn="{StaticResource FocusRing}" />
+
     <!-- ======================= buttons ======================= -->
 
     <Style x:Key="BaseButton" TargetType="ButtonBase">
@@ -54,7 +68,7 @@
         <Setter Property="Padding" Value="6,2" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
@@ -75,9 +89,6 @@
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Shade" Property="Background" Value="{DynamicResource ControlPressedBrush}" />
                             <Setter TargetName="Shade" Property="Opacity" Value="1" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Foreground" Value="{DynamicResource TextDisabledBrush}" />
@@ -107,7 +118,7 @@
 
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
@@ -144,7 +155,7 @@
 
     <Style TargetType="RadioButton">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
@@ -243,7 +254,7 @@
     <Style TargetType="ListBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="Padding" Value="4,2" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
@@ -326,7 +337,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         <Setter Property="Background" Value="{DynamicResource ControlBrush}" />
         <Setter Property="MinHeight" Value="22" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
@@ -504,6 +515,7 @@
     </Style>
 
     <Style TargetType="TabItem">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
         <Setter Property="Template">
             <Setter.Value>
@@ -526,6 +538,7 @@
     </Style>
 
     <Style x:Key="ExpanderHeader" TargetType="ToggleButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
@@ -614,7 +627,7 @@
 
     <Style TargetType="Slider">
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}" />
         <Setter Property="MinHeight" Value="16" />
         <Setter Property="Template">
             <Setter.Value>

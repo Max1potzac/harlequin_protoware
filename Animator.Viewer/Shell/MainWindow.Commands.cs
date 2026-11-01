@@ -37,6 +37,7 @@ public partial class MainWindow
 		_appSettings.AutosaveMinutes = dialog.AutosaveMinutes;   // the next autosave tick goes by it
 		_appSettings.BackupCount = dialog.BackupCount;
 		_appSettings.Theme = dialog.ThemeName == Themes.Dark.Name ? null : dialog.ThemeName;
+		_appSettings.UiScale = dialog.Scale;
 		_appSettings.Save();
 		ApplyMouseButtons();
 		ApplyKeyMap();
@@ -53,7 +54,7 @@ public partial class MainWindow
 		_tool.PanButton = _objectTool.PanButton = pan;
 
 		// The hints that name the button
-		SnapJointsBox.ToolTip = $"Setup mode: a new bone started near the selected bone's end (Ctrl+{MoveDrag}), or a joint dragged near its parent's end, snaps exactly onto it and stays there (\"On parent's end\" in the bone panel). Pull it further away to free it.";
+		SnapJointsBox.ToolTip = $"Build: a new bone started near the selected bone's end (Ctrl+{MoveDrag}), or a joint dragged near its parent's end, snaps exactly onto it and stays there (\"On parent's end\" in the bone panel). Pull it further away to free it.";
 		GiveBonesButton.ToolTip = $"Makes this drawn object a rigged one: a root bone you draw the rest from (Ctrl+{MoveDrag}), or bones suggested from its parts' shapes. The parts stay where they are.";
 		AddBoneButton.ToolTip = $"Adds a child of the selected bone (or a root bone). Tip: Ctrl+{MoveDrag} in the viewport draws one.";
 	}
@@ -76,21 +77,21 @@ public partial class MainWindow
 			button.Content = key.Length > 0 ? $"{tool} ({key})" : tool;
 		}
 
-		PartFront.ToolTip = $"Draw the picked parts in front of one more part ({KeyOf("order.forward")}; {KeyOf("order.front")}: in front of all). In Animate mode, that keys the order.";
-		PartBack.ToolTip = $"Draw the picked parts behind one more part ({KeyOf("order.backward")}; {KeyOf("order.back")}: behind all). In Animate mode, that keys the order.";
+		PartFront.ToolTip = $"Draw the picked parts in front of one more part ({KeyOf("order.forward")}; {KeyOf("order.front")}: in front of all). In Animate, that keys the order.";
+		PartBack.ToolTip = $"Draw the picked parts behind one more part ({KeyOf("order.backward")}; {KeyOf("order.back")}: behind all). In Animate, that keys the order.";
 		NewDrawingButton.Content = WithKey("New", "frames.new");
 		CopyDrawingButton.Content = WithKey("Copy", "frames.copy");
-		ShorterButton.ToolTip = $"{KeyOf("frames.shorter")}: this drawing stays one frame less; the part's later drawings move one frame earlier (Animate mode)";
-		LongerButton.ToolTip = $"{KeyOf("frames.longer")}: this drawing stays one frame more; the part's later drawings move one frame later (Animate mode)";
+		ShorterButton.ToolTip = $"{KeyOf("frames.shorter")}: this drawing stays one frame less; the part's later drawings move one frame earlier (Animate)";
+		LongerButton.ToolTip = $"{KeyOf("frames.longer")}: this drawing stays one frame more; the part's later drawings move one frame later (Animate)";
 		SwapColorsButton.ToolTip = $"Swap colors ({KeyOf("paint.swap")})";
 		InvertSelectionButton.ToolTip = $"Select everything that isn't selected ({KeyOf("paint.invert")})";
 		DeselectButton.ToolTip = $"Drop the selection, so tools work everywhere again ({KeyOf("paint.deselect")})";
-		LayersViewChoice.ToolTip = $"Every part in the order it's drawn, the top one in front, whatever bone it's on. Drag one up or down to change the order (picked ones go together); right-click for more ({KeyOf("order.forward")} / {KeyOf("order.backward")} a step, {KeyOf("order.front")} / {KeyOf("order.back")} all the way). In Animate mode, that keys the order at the playhead.";
+		LayersViewChoice.ToolTip = $"Every part in the order it's drawn, the top one in front, whatever bone it's on. Drag one up or down to change the order (picked ones go together); right-click for more ({KeyOf("order.forward")} / {KeyOf("order.backward")} a step, {KeyOf("order.front")} / {KeyOf("order.back")} all the way). In Animate, that keys the order at the playhead.";
 		ClosePaintButton.Content = WithKey("Close", "edit.back");
 		KeyPoseButton.Content = WithKey("Key", "anim.key");
 		AutoKeyBox.Content = WithKey("Auto key", "anim.autoKey");
 		GraphBox.Content = WithKey("Curves", "anim.graph");
-		MirrorPoseButton.ToolTip = WithKey("Left and right swapped: the picked bones and parts (or everything) take their other side's pose, flipped. Animate mode: keys here; Setup: the rest pose", "pose.mirror");
+		MirrorPoseButton.ToolTip = WithKey("Left and right swapped: the picked bones and parts (or everything) take their other side's pose, flipped. Animate: keys here; Setup: the rest pose", "pose.mirror");
 		CopyPoseButton.ToolTip = WithKey("The pose of the picked bones and parts (or everything), to paste at another frame or in another animation", "pose.copy");
 		PastePoseButton.ToolTip = WithKey("The copied pose, here", "pose.paste");
 		PasteMirroredButton.ToolTip = WithKey("The copied pose on the other side, flipped (a left step pasted as a right one)", "pose.pasteMirrored");
@@ -157,7 +158,7 @@ public partial class MainWindow
 		UpdateStatus();
 	}
 
-	private static bool SafeWhilePainting(string id) => id is "help.keys" or "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides" or "view.rulers";
+	private static bool SafeWhilePainting(string id) => id is "help.keys" or "edit.history" or "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides" or "view.rulers";
 	private static bool SafeWhileDragging(string id) => id is "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides"
 		or "view.snapGrid" or "view.snapGuides" or "file.save" or "file.saveAs";
 
@@ -184,6 +185,7 @@ public partial class MainWindow
 				return true;
 			case "play.toggle": TogglePlaying(); return true;
 			case "help.keys": ShowHelp(); return true;
+			case "edit.history": ShowHistory(); return true;
 			case "view.images": _renderer.ShowImages = !_renderer.ShowImages; return true;
 			case "view.pixels": _renderer.PixelArt = !_renderer.PixelArt; return true;
 			case "view.reset": ResetView(); return true;

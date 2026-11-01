@@ -181,7 +181,7 @@ public partial class MainWindow
 		}
 		if (!_state.AnimateMode)
 		{
-			PartHint.Text = "Holds are part of the animation: switch to Animate mode first (K).";
+			PartHint.Text = "Holds are part of the animation: switch to Animate first (K).";
 			return;
 		}
 

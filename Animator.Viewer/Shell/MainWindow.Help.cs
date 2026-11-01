@@ -41,6 +41,26 @@ public partial class MainWindow
 
 	private void HelpKeys_Click(object sender, RoutedEventArgs e) => ShowHelp();
 
+	// Edit → History
+	private HistoryWindow? _historyWindow;
+
+	private void ShowHistory()
+	{
+		if (_historyWindow != null)
+		{
+			if (_historyWindow.WindowState == WindowState.Minimized) _historyWindow.WindowState = WindowState.Normal;
+			_historyWindow.Activate();
+			return;
+		}
+		_historyWindow = new HistoryWindow(_state.Undo, count =>
+		{
+			_state.SelectedKeys.Clear();   // (as undo does: keys picked may not be there after)
+			_state.Undo.MoveTo(count);
+		}) { Owner = this };
+		_historyWindow.Closed += (_, _) => _historyWindow = null;
+		_historyWindow.Show();
+	}
+
 	private void HelpFormat_Click(object sender, RoutedEventArgs e) => OpenLink(EngineFormatUrl);
 
 	private void OpenLink(string url)

@@ -163,9 +163,14 @@ public class WindowSmokeTests
 				themeBox.SelectedItem = themeBox.Items.Cast<Animator.Viewer.Theming.Theme>().First(t => t.Name == "Light");   // shows at once
 				Pump(100);
 				Assert.Equal("Light", Animator.Viewer.Theming.Themes.Current.Name);
+				var scaleBox = (ComboBox)settings.FindName("ScaleBox");
+				scaleBox.SelectedIndex = Array.IndexOf(Animator.Viewer.Theming.UiScale.Choices, 1.5);   // shows at once too
+				Pump(100);
+				Assert.Equal(1.5, Animator.Viewer.Theming.UiScale.Current);
 				settings.Close();   // (cancelled: back to the one before)
 				Pump(40);
 				Assert.Equal("Dark", Animator.Viewer.Theming.Themes.Current.Name);
+				Assert.Equal(1.0, Animator.Viewer.Theming.UiScale.Current);
 
 				// Every theme, with the window and the dialogs open in it: their templates all work
 				foreach (var theme in Animator.Viewer.Theming.Themes.BuiltIn.Reverse())
@@ -203,6 +208,24 @@ public class WindowSmokeTests
 				Assert.True(help.IsVisible);
 				help.Close();
 				Pump(20);
+				// The history: every step, and going back to one of them
+				Run(window, "edit.history");
+				Pump(60);
+				var history = (Window)Field(window, "_historyWindow");
+				Assert.True(history.IsVisible);
+				int steps = state.Undo.UndoCount;
+				Assert.True(steps > 0);
+				var list = (ListBox)((DockPanel)history.Content).Children.OfType<ListBox>().Single();
+				Assert.Equal(steps + 1 + state.Undo.RedoCount, list.Items.Count);
+				list.SelectedIndex = steps - 1;   // one back
+				Pump(40);
+				Assert.Equal(steps - 1, state.Undo.UndoCount);
+				list.SelectedIndex = steps;       // and on again
+				Pump(40);
+				Assert.Equal(steps, state.Undo.UndoCount);
+				history.Close();
+				Pump(20);
+
 				var play = (Button)window.FindName("PlayButton");
 				Run(window, "anim.mode");
 				Pump(20);

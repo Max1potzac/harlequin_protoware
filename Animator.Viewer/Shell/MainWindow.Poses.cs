@@ -149,7 +149,7 @@ public partial class MainWindow
 		if (_sceneLevel) return;
 		if (_state.AnimateMode)
 		{
-			PoseHint.Text = $"Symmetrizing changes the rig itself: in Setup mode ({KeyOf("anim.mode")}).";
+			PoseHint.Text = $"Symmetrizing changes the rig itself: in Build ({KeyOf("anim.mode")}).";
 			return;
 		}
 		var bones = PickedBonesOrNull() ?? _skeleton.AllBones().ToList();

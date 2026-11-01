@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Media;
 
 namespace Animator.Viewer;
 
@@ -8,6 +9,14 @@ namespace Animator.Viewer;
 public partial class MainWindow
 {
 	private GridLength _propertiesWidth = new(300);
+
+	// The UI scale (UiScale): the panels, menus and bars, not what draws itself
+	public void ScaleParts(Transform transform)
+	{
+		foreach (var part in new FrameworkElement[] { MainMenu, LeftPanel, PropertiesPanel, PaintPanel, TimelineBar, StatusBar,
+													  WorkspaceBar, ViewToolBar, SkinEditBanner })
+			part.LayoutTransform = transform;
+	}
 
 	private void RestoreLayout()
 	{
