@@ -8,8 +8,8 @@ throughout.
 | Step | What | Status |
 |---|---|---|
 | 1 | **Animator.Engine**: everything that isn't a window (drawing, painting, imports, exports, the project file, the editing state) moved out of Animator.Viewer into a plain .NET library, built on Linux by CI | done |
-| 2 | **A command-line Harlequin** (`harlequin`) on the engine: open and save projects, import Animate / Photoshop / sprite sheets, bring in from other objects and projects, export, render a frame to a picture. CI builds it for Linux and Windows and publishes it as a release download. | next |
-| 3 | **Editing logic out of the window code**: the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | |
+| 2 | **A command-line Harlequin** (`harlequin`, see [cli.md](cli.md)) on the engine: open and save projects, import Animate and Photoshop files, bring heads (or other parts) in from other Animate projects as skins, render a frame or a sheet of skins to a picture, export. CI builds it for Linux and Windows and publishes it as a release download. | done |
+| 3 | **Editing logic out of the window code** (next): the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | |
 | 4 | **An Avalonia editor** (Animator.Desktop) on the engine, built panel by panel next to the WPF one, with headless UI tests | |
 | 5 | **Parity**, then the Avalonia editor becomes the one released (for Windows too), and the WPF one is retired | |
 

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- harlequin: Harlequin on the command line, for any system .NET runs on (Linux first). It
+       opens and saves the same .hqnap projects as the editor, through Animator.Engine: import
+       Animate and Photoshop files, bring heads (or any parts) in from other characters as skins,
+       render pictures to check them, export. See docs/cli.md. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>harlequin</AssemblyName>
+    <RootNamespace>Animator.Cli</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+    <!-- No ICU needed (names and numbers are read the same everywhere) -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Skia's native library for Linux with nothing else to install (no fontconfig) -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Animator.Engine\Animator.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

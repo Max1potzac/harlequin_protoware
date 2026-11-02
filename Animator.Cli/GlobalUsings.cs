@@ -1,0 +1,13 @@
+global using System.Numerics;
+global using Animator.Core.Assets;
+global using Animator.Core.Editing;
+global using Animator.Core.Import;
+global using Animator.Core.Keyframing;
+global using Animator.Core.Rigging;
+global using Animator.Core.Scenes;
+global using Animator.Viewer;
+global using Animator.Viewer.Export;
+global using Animator.Viewer.Files;
+global using Animator.Viewer.Import;
+global using Animator.Viewer.Rendering;
+global using SkiaSharp;

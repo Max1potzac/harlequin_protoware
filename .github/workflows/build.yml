@@ -69,9 +69,13 @@ jobs:
           grep -qE '^[0-9]+ checks, 0 failed' godot-tests.log
 
   # The cross-platform half of Harlequin (Animator.Core and Animator.Engine) built on Linux, so
-  # nothing Windows-only creeps into it: the ground a Linux build stands on
+  # nothing Windows-only creeps into it, and the command-line Harlequin (Animator.Cli) built for
+  # Linux and Windows, tried out on a test file, and put up as a download on the Releases page:
+  # "cli-latest" from master, "cli-preview" from any other branch.
   linux:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-dotnet@v5
@@ -80,3 +84,44 @@ jobs:
           dotnet-version: 8.0.x
       - name: Build the engine on Linux
         run: dotnet build Animator.Engine/Animator.Engine.csproj --configuration Release
+
+      - name: Build the command line
+        run: |
+          for rid in linux-x64 win-x64; do
+            dotnet publish Animator.Cli/Animator.Cli.csproj -c Release -r $rid --self-contained \
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o out/$rid
+          done
+          ls -l out/*
+
+      # A run-through on a test file: a new project, an import, the info, a picture, an export
+      - name: Try it
+        run: |
+          set -e
+          hq=out/linux-x64/harlequin
+          $hq version
+          $hq import try/test.hqnap Animator.Tests/Files/imagemagick-layers.psd
+          $hq info try/test.hqnap --tree
+          $hq render try/test.hqnap --out try/rest.png --scale 0.5
+          obj=$($hq info try/test.hqnap | sed -n '3p' | cut -d' ' -f1)
+          $hq rename try/test.hqnap --object "$obj" --to layers
+          $hq info try/test.hqnap --object layers
+          test -s try/rest.png
+          if $hq render try/test.hqnap --object nobody --out try/x.png; then echo "a missing object should fail"; exit 1; fi
+
+      - name: Put it on the Releases page
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          if [ "$GITHUB_REF_NAME" = "master" ]; then tag=cli-latest; title="Command-line Harlequin"; pre=""; else tag=cli-preview; title="Command-line Harlequin (preview)"; pre="--prerelease"; fi
+          tar -czf harlequin-linux-x64.tar.gz -C out/linux-x64 harlequin
+          (cd out/win-x64 && zip -q ../../harlequin-win-x64.zip harlequin.exe)
+          notes="Built from $GITHUB_REF_NAME at $GITHUB_SHA. Unpack and run: ./harlequin help (docs/cli.md says more)."
+          git tag -f $tag && git push -f origin $tag
+          if gh release view $tag > /dev/null 2>&1; then
+            gh release edit $tag --notes "$notes" --title "$title"
+          else
+            gh release create $tag --title "$title" --notes "$notes" $pre
+          fi
+          gh release upload $tag harlequin-linux-x64.tar.gz harlequin-win-x64.zip --clobber
