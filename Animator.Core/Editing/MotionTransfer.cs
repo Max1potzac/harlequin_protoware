@@ -85,6 +85,7 @@ public sealed class MotionTransfer
 			if (PartOf(bone.Parent) is not { } pt) continue;
 			var ps = _source.FindSlot(_sourceOf[pt.Name])!;
 			if (ours.Joint(pt, t) is not { } upT || theirs.Joint(ps, s) is not { } upS) continue;
+			if (Vector2.Distance(upS.Child, upT.Child) > 16) continue;   // (that far apart: not the same joint, really)
 			var turn = Matrix3x2.CreateTranslation(upS.Child - upT.Child);   // its joint on theirs
 			Vector2 along = Vector2.UnitX;
 			float stretch = 1f;
@@ -134,12 +135,14 @@ public sealed class MotionTransfer
 			int used = 0;
 			Vector2? prior = null;
 			float least = float.MaxValue, most = float.MinValue, last = 0;
+			var pairs = new List<(Matrix3x2 P, Matrix3x2 C)>();
 			foreach (var (animation, time) in _frames)
 			{
 				_skeleton.SetToSetupPose();
 				animation.Apply(_skeleton, time);
 				_skeleton.UpdatePose();
 				if (_owner.SymbolSpace(_skeleton, parent) is not { } p || _owner.SymbolSpace(_skeleton, child) is not { } c) continue;
+				pairs.Add((p, c));
 				if (prior == null && Matrix3x2.Invert(p, out var intoParent)) prior = Vector2.Transform(c.Translation, intoParent);
 				float turn = MathF.Atan2(c.M12, c.M11) - MathF.Atan2(p.M12, p.M11);
 				if (used > 0) turn = last + MathF.IEEERemainder(turn - last, 2 * MathF.PI);
@@ -163,7 +166,15 @@ public sealed class MotionTransfer
 					a[i, i] += ridge;
 					b[i] += ridge * x0[i];
 				}
-				if (Solve(a, b) is { } x) joint = (new Vector2((float)x[0], (float)x[1]), new Vector2((float)x[2], (float)x[3]));
+				if (Solve(a, b) is { } x)
+				{
+					var j = new Vector2((float)x[0], (float)x[1]);
+					var k = new Vector2((float)x[2], (float)x[3]);
+					// Only a joint they really turn about: the two points stay together on every
+					// frame (parts that slide against each other have none)
+					double miss = pairs.Average(f => Vector2.DistanceSquared(Vector2.Transform(j, f.P), Vector2.Transform(k, f.C)));
+					if (Math.Sqrt(miss) < 2.0) joint = (j, k);
+				}
 			}
 			_found[(parent, child)] = joint;
 			return joint;
