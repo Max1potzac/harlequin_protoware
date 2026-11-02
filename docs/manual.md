@@ -510,6 +510,14 @@ skin, every character's animations.
    as they did even where the two rigs rest differently. **Keys as they are** copies the changes
    from the rest pose.
 
+**Many at once: Edit → Bring in from Animate projects…** Pick the head bone (or whichever bones
+the parts come from) in the rig panel, then add any number of Animate projects. Each is imported
+aside, not into the project. The parts on the picked bones become a skin named after the file
+(`zombie_egypt_basic` → `egypt`), in one category, along with what rides on them (hats, hair).
+Their animations can come too. **Line them up as they show** places each drawing exactly where it
+shows in its own animation, lined up at the start of an animation both have (idle first). That's
+the right choice for characters that share their animations.
+
 The new skin is turned on at the end. Click ✎ on it in the Skins view to line its drawings up on
 the bones; they come in placed on their bones as they were placed in the other object. Animations
 key drawing names, not pictures, so a drawing swap (the head's hurt drawing) shows whichever
