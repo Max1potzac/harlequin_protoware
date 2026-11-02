@@ -6,7 +6,8 @@ namespace Animator.Viewer;
 // editor's Edit → Bring in from Animate projects…, and the command line's bring-in): the project
 // is imported aside (into a scene of its own, not the target's), matched to the target by name,
 // and the parts on the chosen bones, with what rides on them, become a skin named after the file.
-// Except: parts left out whose names have any of these words in them (armor, ink…). Map: source
+// Except: parts left out whose names have any of these words in them (armor, ink…), or, written
+// "=name", that whole name. Map: source
 // part → part here, for the ones whose names don't say (a head Animate left called "symbol_105x74")
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
@@ -58,7 +59,10 @@ public static class AnimateBringIn
 		var (matched, extra) = ObjectMerge.PartsOn(source.Skeleton, target, merge, options.Bones);
 		if (options.Except is { Count: > 0 } except)
 		{
-			bool Left(string part) => except.Any(word => part.Contains(word, StringComparison.OrdinalIgnoreCase));
+			// (a word starting "=" is a whole name: =flag leaves out "flag" but not "flag_stick")
+			bool Left(string part) => except.Any(word => word.StartsWith('=')
+				? part.Equals(word[1..], StringComparison.OrdinalIgnoreCase)
+				: part.Contains(word, StringComparison.OrdinalIgnoreCase));
 			matched.RemoveAll(Left);
 			extra.RemoveAll(Left);
 		}

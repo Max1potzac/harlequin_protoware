@@ -23,7 +23,7 @@ namespace Animator.Cli
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
-			      with these words in their names stay out (armor,ink…). --map: their part goes on ours, for
+			      with these words in their names stay out (armor,ink…; =name: just that name). --map: their part goes on ours, for
 			      parts whose names don't match (zombie_summernights_105x74=zombie_skull).
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
