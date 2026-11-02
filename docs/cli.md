@@ -27,7 +27,7 @@ that change a project save it in place (written beside it first, so a failed sav
 | `show <project> --object NAME [--skins A,B] [--hide A,B] [--none]` | Which skins are on, as the project opens (and exports). |
 | `skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on] [--from SKIN]` | A skin of those parts' own drawings: the parts then show only while it's on (a cone, a bucket). Made off unless `--on`. `--from`: their drawings taken out of that skin first (a hat out of a head skin, into a skin of its own). |
 | `order <project> --object NAME --parts P,... (--behind Q \| --in-front-of Q)` | Parts moved in the draw order. |
-| `rename <project> --object NAME [--skin SKIN] --to NEW` | The object, or (with `--skin`) one of its skins. |
+| `rename <project> --object NAME [--skin SKIN \| --animation A] --to NEW` | The object, or one of its skins or animations. |
 | `remove <project> --object NAME [--animations A,B] [--skins A,B] [--parts P,Q]` | Takes out animations, skins or parts; with none of those, the object. |
 | `render <project> --out FILE.png [--object NAME] [--animation A] [--frame N \| --time T] [--skins A,B] [--scale S] [--background RRGGBB]` | A picture of an object: at rest, or a frame of an animation, with those skins on. |
 | `render ... --sheet CATEGORY [--columns N]` | One picture of every skin in the category (or `all`) side by side, posed alike, each named: a quick look at every head. |

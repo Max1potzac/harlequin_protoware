@@ -200,8 +200,19 @@ public static class Commands
 		var obj = p.Object(a.Need("object"));
 		string to = a.Need("to").Trim();
 		var skin = a.Get("skin") is { } skinName ? p.Skin(obj, skinName) : null;
+		var animation = a.Get("animation") is { } animationName
+			? obj.FindAnimation(animationName) ?? throw new UsageException($"{obj.Name} has no animation \"{animationName}\".") : null;
 		a.NothingElse();
 		if (to.Length == 0) throw new UsageException("--to is empty.");
+		if (animation != null)
+		{
+			if (obj.FindAnimation(to) != null) throw new UsageException($"{obj.Name} has an animation called \"{to}\" already.");
+			if (obj.PreviewAnimation == animation.Name) obj.PreviewAnimation = to;
+			Console.WriteLine($"The animation {animation.Name} is {to} now.");
+			animation.Name = to;
+			p.Save();
+			return 0;
+		}
 		if (skin != null)
 		{
 			string old = skin.Name;

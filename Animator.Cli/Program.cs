@@ -40,8 +40,8 @@ namespace Animator.Cli
 			  harlequin show <project> --object NAME [--skins A,B] [--hide A,B] [--none]
 			      Which skins are on (as the project opens, and in exports).
 
-			  harlequin rename <project> --object NAME [--skin SKIN] --to NEW
-			      The object, or one of its skins.
+			  harlequin rename <project> --object NAME [--skin SKIN | --animation A] --to NEW
+			      The object, or one of its skins or animations.
 			  harlequin remove <project> --object NAME [--animations A,B] [--skins A,B] [--parts P,Q]
 			      Without any of those, the whole object goes.
 
