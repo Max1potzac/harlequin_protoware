@@ -6,8 +6,9 @@ namespace Animator.Viewer;
 // editor's Edit → Bring in from Animate projects…, and the command line's bring-in): the project
 // is imported aside (into a scene of its own, not the target's), matched to the target by name,
 // and the parts on the chosen bones, with what rides on them, become a skin named after the file.
+// Except: parts left out whose names have any of these words in them (armor, ink…)
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
-	bool AsPlaced = true, bool Accessories = true);
+	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null);
 
 public sealed record BroughtIn(string Name, MergeResult? Result, MergePlan Plan, string? Problem);
 
@@ -46,6 +47,12 @@ public static class AnimateBringIn
 		merge.SkinCategory = options.Category;
 		merge.Suffix = "_" + word;
 		var (matched, extra) = ObjectMerge.PartsOn(source.Skeleton, target, merge, options.Bones);
+		if (options.Except is { Count: > 0 } except)
+		{
+			bool Left(string part) => except.Any(word => part.Contains(word, StringComparison.OrdinalIgnoreCase));
+			matched.RemoveAll(Left);
+			extra.RemoveAll(Left);
+		}
 		merge.SkinParts.UnionWith(matched);
 		if (options.Accessories)
 		{

@@ -104,7 +104,7 @@ public static class Commands
 		foreach (string name in a.List("bones"))
 			bones.Add(target.Skeleton.FindBone(name) ?? throw new UsageException($"{target.Name} has no bone \"{name}\" (harlequin info --tree shows them)."));
 		if (bones.Count == 0) throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads).");
-		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"));
+		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"), a.List("except"));
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
 		int brought = 0;
@@ -146,6 +146,25 @@ public static class Commands
 		return 0;
 	}
 
+	// A new skin from parts' own drawings: those parts then show only while it's on
+	public static int Skin(Args a)
+	{
+		var p = Project.Open(a.At(0, "project"));
+		var obj = p.Object(a.Need("object"));
+		string name = a.Need("name");
+		var parts = a.List("parts").Select(n => obj.Skeleton.FindSlot(n) ?? throw new UsageException($"{obj.Name} has no part \"{n}\".")).ToList();
+		string category = a.Get("category") ?? "";
+		bool overlay = a.Has("overlay");
+		bool on = a.Has("on");
+		a.NothingElse();
+		if (parts.Count == 0) throw new UsageException("--parts is needed: the parts whose drawings make the skin.");
+		var skin = SkinOps.MakeSkin(obj.Skeleton, name, parts, category, overlay);
+		if (!on) SkinOps.Show(obj.Skeleton, skin, false);
+		Console.WriteLine($"{skin.Name}: {parts.Count} part(s)" + (category.Length > 0 ? $", in {category}" : "") + (overlay ? ", an overlay" : "") + (on ? ", on" : ""));
+		p.Save();
+		return 0;
+	}
+
 	public static int Rename(Args a)
 	{
 		var p = Project.Open(a.At(0, "project"));
@@ -165,8 +184,9 @@ public static class Commands
 		var obj = p.Object(a.Need("object"));
 		var animations = a.List("animations").Select(n => obj.FindAnimation(n) ?? throw new UsageException($"{obj.Name} has no animation \"{n}\".")).ToList();
 		var skins = a.List("skins").Select(n => p.Skin(obj, n)).ToList();
+		var parts = a.List("parts").Select(n => obj.Skeleton.FindSlot(n) ?? throw new UsageException($"{obj.Name} has no part \"{n}\".")).ToList();
 		a.NothingElse();
-		if (animations.Count == 0 && skins.Count == 0)
+		if (animations.Count == 0 && skins.Count == 0 && parts.Count == 0)
 		{
 			if (!SceneOps.DeleteObject(p.Scene, obj)) throw new UsageException("A project keeps at least one object.");
 			Console.WriteLine($"Removed {obj.Name}.");
@@ -177,6 +197,11 @@ public static class Commands
 			obj.Clips.RemoveAll(c => c.Animation == anim);
 			if (obj.PreviewAnimation == anim.Name) obj.PreviewAnimation = null;
 			Console.WriteLine($"Removed the animation {anim.Name}.");
+		}
+		foreach (var part in parts)
+		{
+			PartOps.DeletePart(obj.Skeleton, obj.Animations, part);
+			Console.WriteLine($"Removed the part {part.Name}.");
 		}
 		foreach (var skin in skins)
 		{

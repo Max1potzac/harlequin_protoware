@@ -18,17 +18,21 @@ namespace Animator.Cli
 			      files (.psd) in as objects. Makes the project if it isn't there.
 
 			  harlequin bring-in <project> --object NAME --bones B[,B...] <animate file>... [--category Head]
-			      [--animations] [--loose] [--no-accessories]
+			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
-			      not as they show in their animations. --animations: their animations too.
+			      not as they show in their animations. --animations: their animations too. --except: parts
+			      with these words in their names stay out (armor,ink…).
+
+			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
+			      A skin of those parts' drawings (the parts then show only while it's on). Made off, unless --on.
 
 			  harlequin show <project> --object NAME [--skins A,B] [--hide A,B] [--none]
 			      Which skins are on (as the project opens, and in exports).
 
 			  harlequin rename <project> --object NAME --to NEW
-			  harlequin remove <project> --object NAME [--animations A,B] [--skins A,B]
-			      Without --animations or --skins, the whole object goes.
+			  harlequin remove <project> --object NAME [--animations A,B] [--skins A,B] [--parts P,Q]
+			      Without any of those, the whole object goes.
 
 			  harlequin render <project> --out FILE.png [--object NAME] [--animation A] [--frame N | --time T]
 			      [--skins A,B] [--scale S] [--background RRGGBB] [--sheet CATEGORY|all] [--columns N]
@@ -60,6 +64,7 @@ namespace Animator.Cli
 					"import" => Commands.Import(new Args(rest, "no-rig", "no-split")),
 					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories")),
 					"show" => Commands.Show(new Args(rest, "none")),
+					"skin" => Commands.Skin(new Args(rest, "overlay", "on")),
 					"rename" => Commands.Rename(new Args(rest)),
 					"remove" => Commands.Remove(new Args(rest)),
 					"render" => Commands.Render(new Args(rest)),
