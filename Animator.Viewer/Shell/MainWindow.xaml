@@ -72,6 +72,8 @@
                     <MenuItem x:Name="ClearGuidesItem" Header="_Clear the guides" Click="ClearGuides_Click" />
                     <Separator />
                     <MenuItem Header="_Pictures" Tag="view.images" Click="MenuCommand_Click" />
+                    <MenuItem Header="_Bones" Tag="view.bones" Click="MenuCommand_Click"
+                              ToolTip="The open object's armature: hidden, its bones can't be picked or dragged in the viewport (the rig panel still picks them)" />
                     <MenuItem Header="Pi_xel filtering" Tag="view.pixels" Click="MenuCommand_Click" />
                     <MenuItem Header="_Onion skin" Tag="view.onion" Click="MenuCommand_Click" />
                     <MenuItem Header="_Hitboxes and points" Tag="view.hitboxes" Click="MenuCommand_Click" />

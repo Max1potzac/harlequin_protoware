@@ -393,6 +393,79 @@ public sealed class XflImportPlan : IDisposable
 
 	private static float AngleOf(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
 
+	// A bone for every part (but effects, and parts never shown), at its symbol's own origin and
+	// turned as the symbol is, so each bone is the space its part's pictures are drawn in (the
+	// way characters converted from games are made: their parts turn about their symbol's
+	// origin). Which bone hangs from which comes from the rules: (part, parent) pairs of names
+	// with * standing for anything ("*hand_inner*", "*arm_inner_lower"), the first rule a part
+	// matches deciding; a parent of null or "" (or none found) is the object's own bone.
+	public RigSuggestion RigByNames(IReadOnlyList<(string Part, string? Parent)> rules)
+	{
+		var used = Enumerable.Range(0, Parts.Count)
+			.Where(i => Parts[i].Include && !Parts[i].Effect && Data.Tracks[Parts[i].Track].Shown.Any()).ToList();
+		var regexes = rules.Select(r => (Glob(r.Part), string.IsNullOrEmpty(r.Parent) ? null : Glob(r.Parent!))).ToList();
+		int? ParentOf(int part)
+		{
+			foreach (var (self, parent) in regexes)
+			{
+				if (!self.IsMatch(Parts[part].Name)) continue;
+				if (parent == null) return null;
+				int found = used.FirstOrDefault(i => i != part && parent.IsMatch(Parts[i].Name), -1);
+				return found >= 0 ? found : null;
+			}
+			return null;
+		}
+		var parentOf = used.ToDictionary(i => i, ParentOf);
+		// (a loop in the rules: cut where it closes)
+		foreach (int part in used)
+		{
+			var seen = new HashSet<int> { part };
+			for (int? p = parentOf[part]; p is { } q; p = parentOf[q])
+				if (!seen.Add(q)) { parentOf[part] = null; break; }
+		}
+
+		var order = new List<int>();   // parents first
+		var placed = new HashSet<int>();
+		void Place(int part)
+		{
+			if (placed.Contains(part)) return;
+			if (parentOf[part] is { } parent) Place(parent);
+			if (placed.Add(part)) order.Add(part);
+		}
+		foreach (int part in used) Place(part);
+
+		var bones = new List<SuggestedBone>();
+		var index = new Dictionary<int, int>();
+		foreach (int part in order)
+		{
+			var track = Data.Tracks[Parts[part].Track];
+			int frame = track.Frames[SetupFrame] != null ? SetupFrame : track.Shown.First();
+			var m = PartToObject(part, frame)!.Value;
+			var head = m.Translation;
+			var along = new Vector2(m.M11, m.M12);
+			along = along.LengthSquared() > 1e-12f ? Vector2.Normalize(along) : Vector2.UnitX;
+			var box = Painter.Bounds(track.Frames[frame]!.Value.Drawing);
+			float length = MathF.Max(8f, box.IsEmpty ? 20f : MathF.Max(box.Width, box.Height) * 0.5f * Scale);
+			index[part] = bones.Count;
+			bones.Add(new SuggestedBone
+			{
+				Layer = part,
+				Parent = parentOf[part] is { } p && index.TryGetValue(p, out int pi) ? pi : -1,
+				Head = ObjectToCanvas(head),
+				Tip = ObjectToCanvas(head + along * length)
+			});
+		}
+		var boneOf = Enumerable.Repeat(-1, Parts.Count).ToArray();
+		foreach (var (part, b) in index) boneOf[part] = b;
+		var rig = new RigSuggestion { BoneOf = boneOf, RootLayer = -1 };
+		rig.Bones.AddRange(bones);
+		return rig;
+	}
+
+	private static System.Text.RegularExpressions.Regex Glob(string pattern) =>
+		new("^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$",
+			System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
 	// Roles as the shapes and the motion suggest, choices cleared
 	public void SuggestRoles()
 	{
@@ -405,9 +478,12 @@ public sealed class XflImportPlan : IDisposable
 		Root = -1;
 	}
 
+	// A rig given by names instead of worked out (null: worked out): see RigByNames
+	public IReadOnlyList<(string Part, string? Parent)>? NamedRig { get; set; }
+
 	// The rig as the parts' roles say now (parts left out of it, or not shown at the rest pose,
-	// are put on the bone they move with when it's made)
-	public RigSuggestion Suggest() => RigSuggester.Suggest(Masks,
+	// are put on the bone they move with when it's made); or, with NamedRig, the one it names
+	public RigSuggestion Suggest() => NamedRig is { } named ? RigByNames(named) : RigSuggester.Suggest(Masks,
 		Enumerable.Range(0, Parts.Count).Select(i => UsedForRig(i) ? Parts[i].Role : RigRole.LeaveOut).ToList(),
 		Parts.Select(p => p.Target).ToList(), Root, new MotionAdapter(this));
 }

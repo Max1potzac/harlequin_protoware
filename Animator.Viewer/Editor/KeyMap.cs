@@ -232,6 +232,7 @@ public sealed class KeyMap
 		C("frames.shorter", "Frame by frame", "Drawing a frame shorter", K(Key.F5, Shift)),
 
 		C("view.images", "View", "Pictures on / off", K(Key.G)),
+		C("view.bones", "View", "Bones on / off (hidden, they can't be picked or dragged in the viewport)", K(Key.G, Shift)),
 		C("view.pixels", "View", "Pixel filtering on / off", K(Key.P)),
 		C("view.reset", "View", "Reset the view", K(Key.F)),
 		C("help.keys", "Help", "Keyboard and mouse: what everything does here", K(Key.F1)),

@@ -38,6 +38,7 @@ public sealed class AppSettings
 	// The viewport's editing aids (View menu): rulers, grid and guides, and what drags snap to.
 	// The grid's size and the guides themselves belong to each project.
 	public bool ShowRulers { get; set; } = true;
+	public bool ShowBones { get; set; } = true;   // the open object's armature (View → Bones)
 	public bool ShowGrid { get; set; }
 	public bool ShowGuides { get; set; } = true;
 	public bool SnapToGrid { get; set; }

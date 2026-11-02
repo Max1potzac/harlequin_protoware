@@ -60,6 +60,7 @@ public static class Commands
 		bool rig = !a.Has("no-rig");
 		bool split = !a.Has("no-split");
 		float scale = a.Float("scale", 1f);
+		var named = a.Get("rig") is { } rigFile ? RigFile(rigFile) : null;
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the files to import after the project.");
 		var p = Project.OpenOrNew(path);
@@ -79,7 +80,8 @@ public static class Commands
 			else
 			{
 				using var plan = XflImportPlan.Load(AnimateBringIn.AnimateFile(file), AnimateBringIn.ProjectName(file));
-				plan.SuggestRig = rig;
+				plan.SuggestRig = rig || named != null;
+				plan.NamedRig = named;
 				plan.SplitAtLabels = split;
 				plan.Scale = scale;
 				if (first) p.Scene.Fps = Math.Max(1, (int)MathF.Round(plan.Data.FrameRate));
@@ -107,7 +109,9 @@ public static class Commands
 		if (bones.Count == 0 && include.Count == 0 && !a.Has("animations"))
 			throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads), or --include, or --animations.");
 		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"),
-			a.List("except"), Pairs(a.List("map")), include, !a.Has("by-bones"), p.Scene.Fps);
+			a.List("except"), Pairs(a.List("map")), include, !a.Has("by-bones"), p.Scene.Fps,
+			a.Get("imported-from"), a.Get("rig") is { } rigFile ? RigFile(rigFile) : null, a.List("copy-missing"), new BringInContext());
+		bool verbose = a.Has("verbose");
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
 		int brought = 0;
@@ -118,6 +122,9 @@ public static class Commands
 			{
 				var b = AnimateBringIn.FromAnimate(file, target.Skeleton, target.Animations, p.Assets, options);
 				Console.WriteLine(AnimateBringIn.Describe(b));
+				if (verbose)
+					foreach (var (theirs, ours) in b.Plan.Parts.OrderBy(x => x.Key))
+						Console.WriteLine($"    {theirs} → {(ours != null && target.Skeleton.FindSlot(ours) != null ? ours : b.Plan.NewParts.Contains(theirs) ? "(new)" : "-")}");
 				if (b.Result == null) continue;
 				brought++;
 				foreach (string note in b.Result.Notes) notes.Add(note);
@@ -344,6 +351,23 @@ public static class Commands
 			}
 		Console.WriteLine($"Exported to {settings.Path}.");
 		return 0;
+	}
+
+	// A rig file: a list of [part, parent] name pairs, * standing for anything (see XflImportPlan.RigByNames)
+	private static List<(string Part, string? Parent)> RigFile(string path)
+	{
+		try
+		{
+			var rules = System.Text.Json.JsonSerializer.Deserialize<List<List<string?>>>(File.ReadAllText(path),
+				new System.Text.Json.JsonSerializerOptions { ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip, AllowTrailingCommas = true })
+				?? throw new UsageException($"{path} is empty.");
+			return rules.Select(r => r.Count is 1 or 2 && r[0] is { } part ? (part, r.Count > 1 ? r[1] : null)
+				: throw new UsageException($"{path}: each rule is [part, parent].")).ToList();
+		}
+		catch (System.Text.Json.JsonException ex)
+		{
+			throw new UsageException($"{path} isn't a rig file ({ex.Message}).");
+		}
 	}
 
 	// "a=b" pairs (--map head_105x74=zombie_skull)

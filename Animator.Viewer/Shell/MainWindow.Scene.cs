@@ -66,7 +66,7 @@ public partial class MainWindow
 		_session.Open(obj);
 		_skeleton = obj.Skeleton;
 		if (_paint is not null) _paint.Skeleton = obj.Skeleton;
-		if (_tool is not null) _tool.BonesEnabled = obj.Kind != ObjectKind.Drawn;   // a drawn object's bone is hidden
+		if (_tool is not null) _tool.BonesEnabled = BonesUsable(obj);   // a drawn object's bone is hidden (and View → Bones)
 		UpdateCameraSpace();
 	}
 
