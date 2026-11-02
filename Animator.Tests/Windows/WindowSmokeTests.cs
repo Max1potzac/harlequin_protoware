@@ -46,7 +46,7 @@ public class WindowSmokeTests
 				}
 
 				// The rig panel: a click on a row's eye hides that bone, a click on the row picks just it
-				var state = (EditorState)typeof(MainWindow).GetField("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+				var state = (EditorState)typeof(MainWindow).GetProperty("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
 				var tree = (TreeView)window.FindName("BoneTree");
 				var row = tree.Items.OfType<TreeViewItem>().First();
 				var bone = (Bone)row.Tag;
