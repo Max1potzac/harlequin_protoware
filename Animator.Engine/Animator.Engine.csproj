@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Everything of Harlequin that isn't a window: drawing rigs (Skia), pictures and their layers,
+       painting, the Animate / Photoshop / sprite sheet imports, the exports, the project file, the
+       editing state. Plain .NET: it runs on Windows, Linux and macOS, so the Windows editor and
+       the command-line tool (and, later, a cross-platform editor) share it. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Animator.Core\Animator.Core.csproj" />
+  </ItemGroup>
+
+</Project>

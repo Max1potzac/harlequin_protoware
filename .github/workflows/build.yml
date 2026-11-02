@@ -67,3 +67,16 @@ jobs:
           echo "::notice title=Godot tests::$summary"
           grep '^FAILED' godot-tests.log | head -30 | sed 's/^/::error title=Godot::/' || true
           grep -qE '^[0-9]+ checks, 0 failed' godot-tests.log
+
+  # The cross-platform half of Harlequin (Animator.Core and Animator.Engine) built on Linux, so
+  # nothing Windows-only creeps into it: the ground a Linux build stands on
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        continue-on-error: true
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the engine on Linux
+        run: dotnet build Animator.Engine/Animator.Engine.csproj --configuration Release

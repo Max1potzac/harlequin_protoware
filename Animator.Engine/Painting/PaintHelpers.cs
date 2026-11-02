@@ -5,7 +5,7 @@ namespace Animator.Viewer.Painting;
 
 // Shared by every tool that draws its shape into a mask first:
 // the layer becomes "original pixels + mask(s) applied once".
-internal static class MaskCompositor
+public static class MaskCompositor
 {
 	// One mask, in the primary color (or as an eraser)
 	public static void Apply(PaintSession s, SKBitmap layer, PixelBuffer before, SKBitmap mask, bool erase)
