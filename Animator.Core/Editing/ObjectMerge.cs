@@ -29,6 +29,11 @@ public sealed class MergePlan
 	// up at the start of an animation both have, idle if they have it, else at rest)
 	public bool AsPlaced { get; set; }
 
+	// The animations by where the parts show, frame by frame (MotionTransfer), not by bone: for
+	// rigs that don't match bone for bone. Needs AsPlaced (the two lined up).
+	public bool ByParts { get; set; }
+	public int Fps { get; set; } = 30;                           // ByParts: keys on every frame of this rate
+
 	public string? SkinName { get; set; }                        // null: no skin
 	public string SkinCategory { get; set; } = "";
 	public bool SkinOverlay { get; set; }
@@ -205,6 +210,8 @@ public static class ObjectMerge
 		bool meshesDropped = false;
 		var gap = plan.AsPlaced ? LineUp(source, sourceAnimations, target, targetAnimations, plan, parts, notes) : Vector2.Zero;
 		var companions = skin != null && plan.AsPlaced ? Companions(source, target, plan, parts, added) : new Dictionary<Slot, Slot>();
+		var transfer = plan.ByParts && plan.AsPlaced && plan.Animations.Count > 0
+			? new MotionTransfer(source, target, parts, DrawingName, gap) : null;   // (posed alike now)
 		foreach (var s in source.Slots)
 		{
 			if (parts.GetValueOrDefault(s.Name) is not { } targetPart) continue;
@@ -262,6 +269,7 @@ public static class ObjectMerge
 				Loop = animation.Loop,
 				Sound = animation.Sound
 			};
+			int keysBefore = keys;
 			foreach (var t in ProjectMapper.TimelinesOf(animation))
 			{
 				if (t.Type == "deform") deformsDropped = true;
@@ -271,6 +279,11 @@ public static class ObjectMerge
 					keys += moved.Keys.Count;
 				}
 				else dropped++;
+			}
+			if (transfer != null)
+			{
+				transfer.Bake(animation, copy, plan.Fps);
+				keys = keysBefore + copy.Timelines.Sum(t => t.KeyTimes.Count());
 			}
 			targetAnimations.Add(copy);
 			count++;

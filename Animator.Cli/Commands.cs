@@ -104,8 +104,10 @@ public static class Commands
 		foreach (string name in a.List("bones"))
 			bones.Add(target.Skeleton.FindBone(name) ?? throw new UsageException($"{target.Name} has no bone \"{name}\" (harlequin info --tree shows them)."));
 		var include = a.List("include");
-		if (bones.Count == 0 && include.Count == 0) throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads), or --include.");
-		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"), a.List("except"), Pairs(a.List("map")), include);
+		if (bones.Count == 0 && include.Count == 0 && !a.Has("animations"))
+			throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads), or --include, or --animations.");
+		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"),
+			a.List("except"), Pairs(a.List("map")), include, !a.Has("by-bones"), p.Scene.Fps);
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
 		int brought = 0;
@@ -157,11 +159,37 @@ public static class Commands
 		string category = a.Get("category") ?? "";
 		bool overlay = a.Has("overlay");
 		bool on = a.Has("on");
+		var from = a.Get("from") is { } fromName ? p.Skin(obj, fromName) : null;
 		a.NothingElse();
 		if (parts.Count == 0) throw new UsageException("--parts is needed: the parts whose drawings make the skin.");
+		if (from != null && SkinOps.TakeOutParts(obj.Skeleton, from, parts) == 0)
+			throw new UsageException($"The skin {from.Name} has no drawings of those parts.");
 		var skin = SkinOps.MakeSkin(obj.Skeleton, name, parts, category, overlay);
 		if (!on) SkinOps.Show(obj.Skeleton, skin, false);
 		Console.WriteLine($"{skin.Name}: {parts.Count} part(s)" + (category.Length > 0 ? $", in {category}" : "") + (overlay ? ", an overlay" : "") + (on ? ", on" : ""));
+		p.Save();
+		return 0;
+	}
+
+	// A part moved in the draw order: just behind another, or just in front of it
+	public static int Order(Args a)
+	{
+		var p = Project.Open(a.At(0, "project"));
+		var obj = p.Object(a.Need("object"));
+		var sk = obj.Skeleton;
+		Slot Part(string name) => sk.FindSlot(name) ?? throw new UsageException($"{obj.Name} has no part \"{name}\".");
+		var moving = a.List("parts").Select(Part).ToList();
+		string? behind = a.Get("behind"), front = a.Get("in-front-of");
+		a.NothingElse();
+		if (moving.Count == 0) throw new UsageException("--parts is needed: the parts to move.");
+		if ((behind == null) == (front == null)) throw new UsageException("Say where: --behind PART or --in-front-of PART.");
+		var other = Part(behind ?? front!);
+		if (moving.Contains(other)) throw new UsageException("A part can't go behind or in front of itself.");
+		var order = sk.Slots.Where(s => !moving.Contains(s)).ToList();
+		int at = order.IndexOf(other) + (front != null ? 1 : 0);
+		order.InsertRange(at, sk.Slots.Where(moving.Contains));   // (keeping their own order)
+		DrawOrderOps.SetSetupOrder(sk, order);
+		Console.WriteLine($"{string.Join(", ", moving.Select(s => s.Name))}: {(behind != null ? "behind" : "in front of")} {other.Name}.");
 		p.Save();
 		return 0;
 	}
