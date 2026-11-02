@@ -131,6 +131,7 @@ public partial class MainWindow
 		foreach (var item in MenuItems(EditMenu.Items))
 			if (item.Tag is string id && id.StartsWith("pick.", StringComparison.Ordinal))
 				item.IsEnabled = !_sceneLevel;
+		BringInItem.IsEnabled = !_sceneLevel;
 	}
 
 	// ======================= keys =======================

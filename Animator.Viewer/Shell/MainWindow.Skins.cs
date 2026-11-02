@@ -57,6 +57,8 @@ public partial class MainWindow
 		int drawings = one != null ? DrawingOps.DrawingNames(_skeleton, one).Count(n => _skeleton.DefaultSkin.Get(one.Name, n) != null) : 0;
 		Add(one != null ? $"{one.Name}'s drawings, each a skin, in a category…" : "A part's drawings, each a skin, in a category…", drawings > 1,
 			"A part that swaps between drawings (frame by frame): each drawing becomes a skin of one category, and the skin on says which it shows", () => MakeCategoryFromDrawings(one!));
+		Add("From another object…", _scene.Objects.Count > 1,
+			"Another object's drawings (a head, an outfit) as a skin here, matched to these parts by name; its animations can come too", BringIn);
 		// Colour layers: one, or all of them, as a skin (more go in with the skin's Colour layers list)
 		var colours = new MenuItem { Header = "A colour layer, as a skin", IsEnabled = _skeleton.ColorLayers.Count > 0,
 			ToolTip = "It applies only while the skin is on (a red glow while hurt, say). Tick more in the skin's Colour layers list." };

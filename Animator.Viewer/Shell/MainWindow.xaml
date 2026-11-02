@@ -32,6 +32,8 @@
                     <MenuItem Header="_Redo" Tag="edit.redo" Click="MenuCommand_Click" />
                     <MenuItem Header="_History…" Tag="edit.history" Click="MenuCommand_Click"
                               ToolTip="Every step you can undo, to go back to any of them at once" />
+                    <MenuItem x:Name="BringInItem" Header="_Bring in from another object…" Click="BringIn_Click"
+                              ToolTip="Another object's animations onto this object's bones, and its drawings (a head, an outfit) as a skin here: matched by name" />
                     <Separator />
                     <MenuItem Header="_Pick every bone and part shown" Tag="pick.all" Click="MenuCommand_Click"
                               ToolTip="Hidden and locked ones stay as they are" />

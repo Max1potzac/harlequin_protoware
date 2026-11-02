@@ -487,6 +487,35 @@ In the skin's settings:
 
 **Deleting a skin** either takes its drawings with it, or gives them back to the object.
 
+### Bringing in another object (one zombie's head on another's body)
+
+**Edit → Bring in from another object…** (also **+ Skin ▾ → From another object…**) takes
+another object in the same project and brings its animations and drawings into the one that's
+open. Use it to build one shared rig for several similar characters: one body, every head as a
+skin, every character's animations.
+
+1. Import each character (File → Import… its Animate project), then open the one to keep as the
+   shared rig.
+2. **Bring in from another object…** and pick the other one. Bones, parts and drawings are
+   matched by name. What each object's names start with is set aside, so `zombie_egypt_jaw`
+   matches `zombie_pirate_basic_jaw`; a number at the end may differ too (`toe_01` ↔ `toe`).
+   Change any match in the lists.
+3. **Parts**: tick the ones whose drawings go into the skin. For a head: pick the head bone in the
+   rig panel first, then **Tick those on the picked bones**. A part with no match can be **added
+   as a new part**, shown only while the skin is on (a flag, a bandage flap).
+4. **Skin**: its name and category. Give every head the same category (`Head`), so only one is on
+   at a time.
+5. **Animations**: tick the ones to bring, and what their names end with here (`walk_egypt`).
+   **Poses as they look** works each key out again from this object's rest pose, so poses look
+   as they did even where the two rigs rest differently. **Keys as they are** copies the changes
+   from the rest pose.
+
+The new skin is turned on at the end. Click ✎ on it in the Skins view to line its drawings up on
+the bones; they come in placed on their bones as they were placed in the other object. Animations
+key drawing names, not pictures, so a drawing swap (the head's hurt drawing) shows whichever
+head's version is on. Meshes and their deform keys don't come along. The other object stays as it
+was: delete it once everything's in.
+
 ---
 
 ## 8. Meshes
