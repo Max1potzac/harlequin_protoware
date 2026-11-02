@@ -17,11 +17,12 @@ namespace Animator.Viewer;
 // get this rig (see XflImportPlan.RigByNames). CopyMissing: with Animations, the source's parts
 // and drawings with these words in their names that the target has nothing like (hands) are
 // copied over for them, hidden at rest. Context: shared by the files of one bring-in.
+// FitByJoints: parts with these words in their names (limbs) fitted by their joints.
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
 	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null,
 	bool ByParts = true, int Fps = 30, string? ImportedFrom = null, IReadOnlyList<(string Part, string? Parent)>? Rig = null,
-	IReadOnlyCollection<string>? CopyMissing = null, BringInContext? Context = null);
+	IReadOnlyCollection<string>? CopyMissing = null, BringInContext? Context = null, IReadOnlyCollection<string>? FitByJoints = null);
 
 // What the files of one bring-in share: every drawing's symbol (theirs, as each is imported, and
 // the target's, from the project it was imported from)
@@ -143,6 +144,8 @@ public static class AnimateBringIn
 				}
 		}
 		merge.ByParts = options.ByParts;
+		if (options.FitByJoints is { Count: > 0 } limbs)
+			merge.FitByJoints = part => limbs.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
 		merge.Fps = options.Fps;
 		if (merge.SkinParts.Count == 0) merge.SkinName = null;   // just its animations
 		if (merge.SkinParts.Count == 0 && merge.Animations.Count == 0)

@@ -26,6 +26,7 @@ public sealed class MotionTransfer
 	// along itself about its joint (which way, in its symbol's space; how far): see FitLimbs
 	private readonly Dictionary<Slot, (Matrix3x2 Turn, Vector2 Joint, Vector2 Along, float Stretch)> _fit = new();
 	private readonly IReadOnlyList<Animation> _sourceAnimations, _targetAnimations;
+	private readonly Func<string, bool>? _fits;   // the parts (here) fitted by their joints: limbs
 	private bool _fitted;
 
 	// sourceAnimations, targetAnimations: each one's own (where their joints are is worked out
@@ -33,8 +34,10 @@ public sealed class MotionTransfer
 	public MotionTransfer(Skeleton source, Skeleton target, IReadOnlyDictionary<string, string?> parts,
 		Func<string, string, string> drawingName, Matrix3x2 space,
 		IDictionary<Attachment, Matrix3x2>? symbols = null, Func<Slot, Slot, Attachment, Attachment?>? supply = null,
-		IReadOnlyList<Animation>? sourceAnimations = null, IReadOnlyList<Animation>? targetAnimations = null)
+		IReadOnlyList<Animation>? sourceAnimations = null, IReadOnlyList<Animation>? targetAnimations = null,
+		Func<string, bool>? fits = null)
 	{
+		_fits = fits;
 		_sourceAnimations = sourceAnimations ?? Array.Empty<Animation>();
 		_targetAnimations = targetAnimations?.ToList() ?? new List<Animation>();
 		_source = source;
@@ -69,7 +72,7 @@ public sealed class MotionTransfer
 	private void FitLimbs()
 	{
 		_fitted = true;
-		if (_symbols == null) return;
+		if (_symbols == null || _fits == null) return;
 		var bones = _target.AllBones().ToList();
 		Slot? PartOf(Bone bone) => _target.Slots.FirstOrDefault(s => s.Bone == bone && s.Name == bone.Name && _sourceOf.ContainsKey(s.Name))
 			?? _target.Slots.FirstOrDefault(s => s.Bone == bone && _sourceOf.ContainsKey(s.Name));
@@ -77,7 +80,7 @@ public sealed class MotionTransfer
 		var theirs = new JointFinder(_source, _sourceAnimations, this);
 		foreach (var bone in bones)
 		{
-			if (bone.Parent == null || PartOf(bone) is not { } t) continue;
+			if (bone.Parent == null || PartOf(bone) is not { } t || !_fits(t.Name)) continue;
 			var s = _source.FindSlot(_sourceOf[t.Name])!;
 			if (PartOf(bone.Parent) is not { } pt) continue;
 			var ps = _source.FindSlot(_sourceOf[pt.Name])!;
@@ -85,7 +88,7 @@ public sealed class MotionTransfer
 			var turn = Matrix3x2.CreateTranslation(upS.Child - upT.Child);   // its joint on theirs
 			Vector2 along = Vector2.UnitX;
 			float stretch = 1f;
-			var next = bones.Where(b => b.Parent == bone).Select(PartOf).OfType<Slot>().ToList();
+			var next = bones.Where(b => b.Parent == bone).Select(PartOf).OfType<Slot>().Where(c => _fits(c.Name)).ToList();
 			if (next.Count == 1 && ours.Joint(t, next[0]) is { } downT
 				&& theirs.Joint(s, _source.FindSlot(_sourceOf[next[0].Name])!) is { } downS)
 			{
@@ -117,7 +120,7 @@ public sealed class MotionTransfer
 		{
 			_skeleton = skeleton;
 			_owner = owner;
-			foreach (var animation in animations)
+			foreach (var animation in animations.Where(a => !a.Name.StartsWith("die", StringComparison.OrdinalIgnoreCase)))   // (parts come apart)
 				for (float time = 0; time <= animation.Duration + 1e-4f; time += 3f / 30)
 					_frames.Add((animation, MathF.Min(time, animation.Duration)));
 		}
@@ -130,6 +133,7 @@ public sealed class MotionTransfer
 			var b = new double[4];
 			int used = 0;
 			Vector2? prior = null;
+			float least = float.MaxValue, most = float.MinValue, last = 0;
 			foreach (var (animation, time) in _frames)
 			{
 				_skeleton.SetToSetupPose();
@@ -137,6 +141,11 @@ public sealed class MotionTransfer
 				_skeleton.UpdatePose();
 				if (_owner.SymbolSpace(_skeleton, parent) is not { } p || _owner.SymbolSpace(_skeleton, child) is not { } c) continue;
 				if (prior == null && Matrix3x2.Invert(p, out var intoParent)) prior = Vector2.Transform(c.Translation, intoParent);
+				float turn = MathF.Atan2(c.M12, c.M11) - MathF.Atan2(p.M12, p.M11);
+				if (used > 0) turn = last + MathF.IEEERemainder(turn - last, 2 * MathF.PI);
+				last = turn;
+				least = MathF.Min(least, turn);
+				most = MathF.Max(most, turn);
 				// j·P + p₀ = k·C + c₀, for the unknowns (jx, jy, kx, ky)
 				Add(new double[] { p.M11, p.M21, -c.M11, -c.M21 }, c.M31 - p.M31);
 				Add(new double[] { p.M12, p.M22, -c.M12, -c.M22 }, c.M32 - p.M32);
@@ -145,7 +154,7 @@ public sealed class MotionTransfer
 			_skeleton.SetToSetupPose();
 			_skeleton.UpdatePose();
 			(Vector2, Vector2)? joint = null;
-			if (used >= 2 && prior is { } start)
+			if (used >= 2 && prior is { } start && most - least > 20 * MathF.PI / 180)   // (a joint only shows where they turn against each other)
 			{
 				double ridge = 1e-3 * used;   // towards the child's origin
 				var x0 = new[] { start.X, start.Y, 0.0, 0.0 };
