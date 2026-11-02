@@ -170,8 +170,17 @@ public static class Commands
 		var p = Project.Open(a.At(0, "project"));
 		var obj = p.Object(a.Need("object"));
 		string to = a.Need("to").Trim();
+		var skin = a.Get("skin") is { } skinName ? p.Skin(obj, skinName) : null;
 		a.NothingElse();
 		if (to.Length == 0) throw new UsageException("--to is empty.");
+		if (skin != null)
+		{
+			string old = skin.Name;
+			if (!SkinOps.Rename(obj.Skeleton, skin, to)) throw new UsageException($"{obj.Name} has a skin called \"{to}\" already.");
+			p.Save();
+			Console.WriteLine($"The skin {old} is {to} now.");
+			return 0;
+		}
 		if (!SceneOps.RenameObject(p.Scene, obj, to)) throw new UsageException($"There's an object called \"{to}\" already.");
 		p.Save();
 		Console.WriteLine($"Renamed to {to}.");
