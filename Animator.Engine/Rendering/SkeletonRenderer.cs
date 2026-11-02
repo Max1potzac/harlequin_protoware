@@ -574,7 +574,7 @@ public class SkeletonRenderer
 	}
 
 	// Matrix3x2 (row-vector) -> SKMatrix. Same numbers, different names.
-	internal static SKMatrix ToSk(Matrix3x2 m) => new()
+	public static SKMatrix ToSk(Matrix3x2 m) => new()
     {
         ScaleX = m.M11,
         SkewX = m.M21,

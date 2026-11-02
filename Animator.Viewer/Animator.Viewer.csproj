@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Animator.Core\Animator.Core.csproj" />
+    <ProjectReference Include="..\Animator.Engine\Animator.Engine.csproj" />
   </ItemGroup>
 
   <!-- Shows MainWindow's partial files folded under MainWindow.xaml in Solution Explorer -->

@@ -11,12 +11,18 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Sandbox", "Animato
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Tests", "Animator.Tests\Animator.Tests.csproj", "{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Engine", "Animator.Engine\Animator.Engine.csproj", "{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}.Release|Any CPU.Build.0 = Release|Any CPU
 		{38533406-13AD-433D-86B5-E2F668F9C538}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{38533406-13AD-433D-86B5-E2F668F9C538}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{38533406-13AD-433D-86B5-E2F668F9C538}.Release|Any CPU.ActiveCfg = Release|Any CPU

@@ -48,8 +48,8 @@ public static class ProjectFile
 	// later, on another thread, while the project goes on changing (the autosave does that).
 	public sealed class Snapshot : IDisposable
 	{
-		internal ProjectDto Dto { get; init; } = new();
-		internal List<(string Name, SKBitmap Pixels, bool Own)> Pictures { get; } = new();
+		public ProjectDto Dto { get; init; } = new();
+		public List<(string Name, SKBitmap Pixels, bool Own)> Pictures { get; } = new();
 
 		public void Dispose()
 		{
