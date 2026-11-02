@@ -244,12 +244,34 @@ public sealed class XflFiles
 		{
 			string full = Path.GetFullPath(Path.Combine(_folder, path));
 			if (!full.StartsWith(Path.GetFullPath(_folder), StringComparison.OrdinalIgnoreCase)) return null;   // stays inside the project
-			return File.Exists(full) ? File.ReadAllBytes(full) : null;
+			if (File.Exists(full)) return File.ReadAllBytes(full);
+			return Unfold(path) is { } found ? File.ReadAllBytes(found) : null;
 		}
 		catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
 		{
 			return null;
 		}
+	}
+
+	// Projects name their files without minding case (LIBRARY/ for library/, Animate's way on
+	// Windows and macOS); on Linux the names must match, so a file not found as written is looked
+	// for a folder at a time, ignoring case. Null = not there.
+	private readonly Dictionary<string, string[]> _listings = new(StringComparer.Ordinal);
+
+	private string? Unfold(string path)
+	{
+		string at = Path.GetFullPath(_folder!);
+		foreach (string step in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
+		{
+			if (step == ".") continue;
+			if (step == "..") return null;
+			if (!_listings.TryGetValue(at, out var names))
+				_listings[at] = names = Directory.Exists(at) ? Directory.GetFileSystemEntries(at).Select(Path.GetFileName).OfType<string>().ToArray() : Array.Empty<string>();
+			string? name = names.FirstOrDefault(n => n == step) ?? names.FirstOrDefault(n => string.Equals(n, step, StringComparison.OrdinalIgnoreCase));
+			if (name == null) return null;
+			at = Path.Combine(at, name);
+		}
+		return File.Exists(at) ? at : null;
 	}
 
 	// A zip's entries under `root` (the folder holding DOMDocument.xml inside it), by normalised path

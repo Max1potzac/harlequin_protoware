@@ -84,6 +84,7 @@ public static class Commands
 				plan.Scale = scale;
 				if (first) p.Scene.Fps = Math.Max(1, (int)MathF.Round(plan.Data.FrameRate));
 				made = XflImporter.IntoScene(p.Scene, p.Assets, plan, Vector2.Zero);
+				foreach (string note in plan.Notes) Console.WriteLine("  note: " + note);
 			}
 			first = false;
 			Console.WriteLine($"{made.Name}: {made.Skeleton.AllBones().Count()} bone(s), {made.Skeleton.Slots.Count} part(s), {made.Animations.Count} animation(s)");
