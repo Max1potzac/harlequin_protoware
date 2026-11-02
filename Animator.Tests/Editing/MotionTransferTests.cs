@@ -91,4 +91,26 @@ public class MotionTransferTests
 		Assert.Equal(2f, scale.X, 4);
 		Assert.Equal(-0.5f, scale.Y, 4);
 	}
+
+	[Fact]
+	public void A_part_that_would_swing_round_between_frames_is_held_there()
+	{
+		// A bone half-turning from one frame to the next, its part far from it: each frame is
+		// right, but half way between them the part would be swung out of its way
+		var s = new Skeleton();
+		var bone = new Bone { Name = "b", Length = 10 };
+		s.Roots.Add(bone);
+		Part(s, "arm", bone, new Vector2(40, 0));
+		var spin = new Animation { Name = "spin", Duration = 3 / 30f };
+		var turn = new RotateTimeline("b");
+		turn.Track.Add(0, 0f);
+		turn.Track.Add(1 / 30f, 0f);
+		turn.Track.Add(2 / 30f, MathF.PI);
+		turn.Track.Add(3 / 30f, MathF.PI);
+		spin.Timelines.Add(turn);
+
+		Assert.Equal(1, JumpHolds.Hold(s, spin, 30));
+		Assert.Equal(CurveType.Stepped, turn.Track.Keys[1].Curve);
+		Assert.Equal(CurveType.Linear, turn.Track.Keys[0].Curve);
+	}
 }

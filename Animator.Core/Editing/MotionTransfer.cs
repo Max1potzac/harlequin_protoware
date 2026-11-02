@@ -368,6 +368,7 @@ public sealed class MotionTransfer
 			else row.Add(0, null);
 			copy.Timelines.Add(row);
 		}
+		JumpHolds.Hold(_target, copy, fps);   // (where a part would swing round between frames: hold it)
 	}
 
 	// ======================= drawings =======================

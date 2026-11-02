@@ -740,6 +740,8 @@ public static class XflImporter
 				}
 			}
 		}
+		// (where a part would swing round or fly off between frames as it plays: held until the next)
+		foreach (var animation in obj.Animations) JumpHolds.Hold(skeleton, animation, (int)MathF.Round(fps));
 		obj.PreviewAnimation = obj.Animations.FirstOrDefault()?.Name;   // (the skew dropped is the parts' own: the plan's notes say how much)
 
 		skeleton.SetToSetupPose();
