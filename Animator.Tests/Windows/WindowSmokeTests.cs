@@ -46,7 +46,7 @@ public class WindowSmokeTests
 				}
 
 				// The rig panel: a click on a row's eye hides that bone, a click on the row picks just it
-				var state = (EditorState)typeof(MainWindow).GetField("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
+				var state = (EditorState)typeof(MainWindow).GetProperty("_state", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window)!;
 				var tree = (TreeView)window.FindName("BoneTree");
 				var row = tree.Items.OfType<TreeViewItem>().First();
 				var bone = (Bone)row.Tag;
@@ -261,9 +261,11 @@ public class WindowSmokeTests
 		if (failure != null) Assert.Fail(failure.ToString());
 	}
 
+	// A field of the window, or a property standing in for one (the session's, see EditorSession)
 	private static object Field(MainWindow window, string name) =>
-		(typeof(MainWindow).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)
-			?? throw new InvalidOperationException($"MainWindow.{name} is gone")).GetValue(window)!;
+		(typeof(MainWindow).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(window)
+		 ?? typeof(MainWindow).GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(window)
+		 ?? throw new InvalidOperationException($"MainWindow.{name} is gone"))!;
 
 	private static void Call(MainWindow window, string method, params object[] args)
 	{

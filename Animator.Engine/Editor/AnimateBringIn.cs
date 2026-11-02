@@ -10,10 +10,12 @@ namespace Animator.Viewer;
 // "=name", that whole name. Map: source
 // part → part here, for the ones whose names don't say (a head Animate left called "symbol_105x74").
 // Include: source parts that come too, wherever their bones are (a hairflap hung off the torso;
-// a whole body, with no bones picked)
+// a whole body, with no bones picked). ByParts: animations by where the parts show, frame by
+// frame at Fps (imports each get their own rig, so bone for bone rarely fits)
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
-	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null);
+	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null,
+	bool ByParts = true, int Fps = 30);
 
 public sealed record BroughtIn(string Name, MergeResult? Result, MergePlan Plan, string? Problem);
 
@@ -81,6 +83,9 @@ public static class AnimateBringIn
 			merge.SkinParts.UnionWith(extra);
 		}
 		if (!options.Animations) merge.Animations.Clear();
+		merge.ByParts = options.ByParts;
+		merge.Fps = options.Fps;
+		if (merge.SkinParts.Count == 0) merge.SkinName = null;   // just its animations
 		if (merge.SkinParts.Count == 0 && merge.Animations.Count == 0)
 			return new BroughtIn(word, null, merge, "none of its parts match the ones on the chosen bones");
 		var result = ObjectMerge.Merge(source.Skeleton, source.Animations, target, targetAnimations, merge);

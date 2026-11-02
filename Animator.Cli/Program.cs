@@ -19,22 +19,29 @@ namespace Animator.Cli
 
 			  harlequin bring-in <project> --object NAME --bones B[,B...] <animate file>... [--category Head]
 			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
-			      [--map THEIRS=OURS,...] [--include PART,...]
+			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
 			      with these words in their names stay out (armor,ink…; =name: just that name). --map: their part goes on ours, for
 			      parts whose names don't match (zombie_summernights_105x74=zombie_skull). --include: their parts
 			      that come too wherever their bones are (or, without --bones, the only ones: a body skin).
+			      --animations copies theirs by where their parts show, frame by frame (any rig; with no bones
+			      or parts named, just the animations); --by-bones: bone for bone instead (for matching rigs).
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
+			      [--from SKIN]
 			      A skin of those parts' drawings (the parts then show only while it's on). Made off, unless --on.
+			      --from: their drawings taken out of that skin (a hat out of a head skin, into a skin of its own).
+
+			  harlequin order <project> --object NAME --parts P,... (--behind Q | --in-front-of Q)
+			      Parts moved in the draw order.
 
 			  harlequin show <project> --object NAME [--skins A,B] [--hide A,B] [--none]
 			      Which skins are on (as the project opens, and in exports).
 
-			  harlequin rename <project> --object NAME [--skin SKIN] --to NEW
-			      The object, or one of its skins.
+			  harlequin rename <project> --object NAME [--skin SKIN | --animation A] --to NEW
+			      The object, or one of its skins or animations.
 			  harlequin remove <project> --object NAME [--animations A,B] [--skins A,B] [--parts P,Q]
 			      Without any of those, the whole object goes.
 
@@ -66,10 +73,11 @@ namespace Animator.Cli
 					"version" or "--version" => Version(),
 					"info" => Commands.Info(new Args(rest, "tree")),
 					"import" => Commands.Import(new Args(rest, "no-rig", "no-split")),
-					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories")),
+					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones")),
 					"show" => Commands.Show(new Args(rest, "none")),
 					"skin" => Commands.Skin(new Args(rest, "overlay", "on")),
 					"rename" => Commands.Rename(new Args(rest)),
+					"order" => Commands.Order(new Args(rest)),
 					"remove" => Commands.Remove(new Args(rest)),
 					"render" => Commands.Render(new Args(rest)),
 					"export" => Commands.Export(new Args(rest, "bake", "pixel-art", "no-events")),

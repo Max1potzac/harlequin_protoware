@@ -9,10 +9,10 @@ namespace Animator.Viewer;
 
 public partial class MainWindow
 {
-	private string? _projectPath;   // null = never saved
+	// Where Save puts the project (null = never saved): the session's
+	private string? _projectPath { get => _session.ProjectPath; set => _session.ProjectPath = value; }
 
-	private string DocumentName =>
-		_projectPath == null ? "Untitled" : Path.GetFileNameWithoutExtension(_projectPath);
+	private string DocumentName => _session.DocumentName;
 
 	private void UpdateTitle() =>
 		Title = $"{DocumentName}{(Unsaved ? " *" : "")} — Harlequin";
@@ -44,14 +44,11 @@ public partial class MainWindow
 		ClosePaintEditor();
 		_assets.Clear();
 		_state.Fps = dialog.Fps;
-		_scene = dialog.Kind == ProjectKind.Animation
+		var scene = dialog.Kind == ProjectKind.Animation
 			? AnimationTemplate(dialog.StageWidth, dialog.StageHeight, dialog.LengthFrames)
 			: CharacterTemplate(dialog.UseDemo);
-		_active = null;
-		_sceneLevel = _scene.Kind == ProjectKind.Animation;   // an animation starts at the scene
+		_session.Replace(scene, null, null, sceneLevel: scene.Kind == ProjectKind.Animation);   // an animation starts at the scene
 		EditObject(_scene.Objects[0]);
-
-		_projectPath = null;
 		ResetEditorState();
 	}
 
@@ -124,16 +121,10 @@ public partial class MainWindow
 		}
 
 		ClosePaintEditor();
-		_scene = loaded.Scene;
-		_assets.ReplaceWith(loaded.Store);
-		_state.Fps = _scene.Fps;
-		_active = null;
-		EditObject(_scene.Objects[0]);
 		// A lone character opens ready to edit; an animation, or a scene of several objects,
 		// opens at scene level
-		_sceneLevel = _scene.Objects.Count > 1 || _scene.Kind == ProjectKind.Animation;
-
-		_projectPath = savesTo;
+		_session.Replace(loaded.Scene, loaded.Store, savesTo);
+		EditObject(_scene.Objects[0]);
 		ResetEditorState();
 		if (savesTo != null) RememberRecent(savesTo);
 		return true;
@@ -142,17 +133,8 @@ public partial class MainWindow
 	private void ResetEditorState()
 	{
 		ForgetRecoveryCopy();   // the old document's copy isn't needed any more
-		_state.Selected = null;
-		_state.SelectedSlot = null;
-		_state.SelectedKeys.Clear();
-		_state.Time = 0;
-		_sceneState.Time = 0;
-		_sceneTimeAtZero = 0;
-		_objectTool.Selected = null;   // and the selected clip
-		_state.Playing = false;
+		_session.Restart();     // nothing selected, playheads at 0, no history, nothing unsaved
 		ResetView();   // an animation's stage fits the view
-		_state.Undo.Clear();       // the history belongs to the previous document
-		_state.Undo.MarkSaved();   // a freshly opened document has no unsaved changes
 		UpdateStatus();
 	}
 
@@ -178,7 +160,6 @@ public partial class MainWindow
 		try
 		{
 			using var thumbnail = RenderThumbnail(256);
-			_scene.Fps = _state.Fps;
 			try
 			{
 				ProjectFile.KeepBackup(path, _appSettings.BackupCount);   // the version being replaced
@@ -187,11 +168,10 @@ public partial class MainWindow
 			{
 				// No backup (a full disk, a read-only folder): the save itself still goes ahead
 			}
-			ProjectFile.Save(path, _scene, _assets, thumbnail);
-			_projectPath = path;
+			_session.Save(path, thumbnail);
 			RememberRecent(path);
 			ForgetRecoveryCopy();
-			_state.Undo.MarkSaved();   // fires Undo.Changed, which refreshes the title
+			_state.Undo.MarkSaved();   // (again, now the recovery copy is gone: fires Undo.Changed, which refreshes the title)
 			return true;
 		}
 		catch (Exception ex)
