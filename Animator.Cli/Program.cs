@@ -55,6 +55,9 @@ namespace Animator.Cli
 			      A picture of an object (at rest, or a frame of an animation). --sheet: one picture of every
 			      skin in the category side by side, named.
 
+			  harlequin pose <project> [--object NAME] [--animation A] [--frame N | --time T] [--skins A,B]
+			      Every part shown then, front last: its drawing, its picture's middle, turn and size.
+
 			  harlequin export <project> --format engine|png|gif|sheet --out PATH [--object NAME]
 			      [--animations A,B] [--scale S] [--bake] [--pixel-art] [--no-events] [--background RRGGBB]
 			      As the editor's File → Export. With --object, that object's animations; else the scene.
@@ -85,6 +88,7 @@ namespace Animator.Cli
 					"order" => Commands.Order(new Args(rest)),
 					"remove" => Commands.Remove(new Args(rest)),
 					"render" => Commands.Render(new Args(rest)),
+					"pose" => Commands.Pose(new Args(rest)),
 					"export" => Commands.Export(new Args(rest, "bake", "pixel-art", "no-events")),
 					_ => throw new UsageException($"There's no command \"{args[0]}\".")
 				};

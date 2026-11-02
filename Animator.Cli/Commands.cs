@@ -308,6 +308,35 @@ public static class Commands
 		return 0;
 	}
 
+	// ======================= pose =======================
+
+	// Where every part shows at a moment (for checking an animation against another): its
+	// drawing, where its picture's middle is (object space, y up), its turn and its size
+	public static int Pose(Args a)
+	{
+		var p = Project.Open(a.At(0, "project"));
+		var obj = a.Get("object") is { } name ? p.Object(name)
+			: p.Scene.Objects.FirstOrDefault() ?? throw new UsageException("The project has no objects.");
+		var anim = a.Get("animation") is { } an ? obj.FindAnimation(an) ?? throw new UsageException($"{obj.Name} has no animation \"{an}\".") : null;
+		float time = a.Get("time") != null ? a.Float("time", 0f) : a.Int("frame", 0) / (float)p.Scene.Fps;
+		foreach (string s in a.List("skins")) SkinOps.Show(obj.Skeleton, p.Skin(obj, s));
+		a.NothingElse();
+		var sk = obj.Skeleton;
+		sk.SetToSetupPose();
+		anim?.Apply(sk, time);
+		sk.UpdatePose();
+		var ci = System.Globalization.CultureInfo.InvariantCulture;
+		foreach (var slot in sk.DrawOrder)
+		{
+			if (sk.ResolveAttachment(slot) is not { } d || !sk.Assets.TryGetValue(d.AssetId, out var asset)) continue;
+			var m = d.LocalMatrix(asset.Width, asset.Height, slot.Offset, slot.Rotation, slot.Scale) * slot.Bone.World;
+			var middle = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), m);
+			float turn = MathF.Atan2(m.M12, m.M11) * 180 / MathF.PI;
+			Console.WriteLine(string.Format(ci, "{0}\t{1}\t{2:0.0}\t{3:0.0}\t{4:0.0}\t{5}x{6}", slot.Name, d.Name, middle.X, middle.Y, turn, asset.Width, asset.Height));
+		}
+		return 0;
+	}
+
 	// ======================= export =======================
 
 	public static int Export(Args a)
