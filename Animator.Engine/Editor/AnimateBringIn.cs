@@ -6,9 +6,11 @@ namespace Animator.Viewer;
 // editor's Edit → Bring in from Animate projects…, and the command line's bring-in): the project
 // is imported aside (into a scene of its own, not the target's), matched to the target by name,
 // and the parts on the chosen bones, with what rides on them, become a skin named after the file.
-// Except: parts left out whose names have any of these words in them (armor, ink…)
+// Except: parts left out whose names have any of these words in them (armor, ink…). Map: source
+// part → part here, for the ones whose names don't say (a head Animate left called "symbol_105x74")
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
-	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null);
+	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
+	IReadOnlyDictionary<string, string>? Map = null);
 
 public sealed record BroughtIn(string Name, MergeResult? Result, MergePlan Plan, string? Problem);
 
@@ -46,6 +48,13 @@ public static class AnimateBringIn
 		merge.SkinName = word;
 		merge.SkinCategory = options.Category;
 		merge.Suffix = "_" + word;
+		foreach (var (from, to) in options.Map ?? new Dictionary<string, string>())
+		{
+			if (source.Skeleton.FindSlot(from) == null) continue;   // (a map for many files: this one hasn't it)
+			if (target.FindSlot(to) == null) throw new InvalidOperationException($"There's no part \"{to}\" here to put {from} on.");
+			foreach (var other in merge.Parts.Where(p => p.Value == to).Select(p => p.Key).ToList()) merge.Parts[other] = null;
+			merge.Parts[from] = to;
+		}
 		var (matched, extra) = ObjectMerge.PartsOn(source.Skeleton, target, merge, options.Bones);
 		if (options.Except is { Count: > 0 } except)
 		{

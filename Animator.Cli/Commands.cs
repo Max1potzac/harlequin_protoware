@@ -104,7 +104,7 @@ public static class Commands
 		foreach (string name in a.List("bones"))
 			bones.Add(target.Skeleton.FindBone(name) ?? throw new UsageException($"{target.Name} has no bone \"{name}\" (harlequin info --tree shows them)."));
 		if (bones.Count == 0) throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads).");
-		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"), a.List("except"));
+		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"), a.List("except"), Pairs(a.List("map")));
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
 		int brought = 0;
@@ -295,6 +295,19 @@ public static class Commands
 			}
 		Console.WriteLine($"Exported to {settings.Path}.");
 		return 0;
+	}
+
+	// "a=b" pairs (--map head_105x74=zombie_skull)
+	private static Dictionary<string, string> Pairs(List<string> items)
+	{
+		var pairs = new Dictionary<string, string>();
+		foreach (string item in items)
+		{
+			int eq = item.IndexOf('=');
+			if (eq <= 0 || eq == item.Length - 1) throw new UsageException($"\"{item}\": pairs are written theirs=ours.");
+			pairs[item[..eq].Trim()] = item[(eq + 1)..].Trim();
+		}
+		return pairs;
 	}
 
 	private static SKColor? Color(string? text)
