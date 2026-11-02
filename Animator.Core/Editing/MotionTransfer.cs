@@ -22,6 +22,9 @@ public sealed class MotionTransfer
 	private readonly IDictionary<Attachment, Matrix3x2>? _symbols;   // a drawing's pixels → its symbol's space
 	private readonly Func<Slot, Slot, Attachment, Attachment?>? _supply;   // (part here, source part, source drawing) → a copy here
 	private readonly Dictionary<(string Ours, string Theirs), Matrix3x2> _registration = new();
+	// A limb here turned to theirs (in its symbol's space) and stretched along itself (how far, and
+	// which way, in its symbol's space): see FitLimbs
+	private readonly Dictionary<Slot, (Matrix3x2 Turn, Vector2 Along, float Stretch)> _fit = new();
 
 	public MotionTransfer(Skeleton source, Skeleton target, IReadOnlyDictionary<string, string?> parts,
 		Func<string, string, string> drawingName, Matrix3x2 space,
@@ -47,6 +50,39 @@ public sealed class MotionTransfer
 				!Matrix3x2.Invert(ms * _space, out var inv)) continue;
 			_registration[(td.Name, sd.Name)] = mt * inv;
 		}
+		if (_symbols != null) FitLimbs();
+	}
+
+	// Limbs drawn longer or shorter than theirs: each is turned and stretched along itself so it
+	// reaches from its own joint to where theirs holds the next part (a shin from the knee to
+	// the foot), or the next part would show apart from it. Measured as both are posed now, in
+	// each part's symbol space: the joint of the one part it leads to (its bone's only child here
+	// with a match, shown in both).
+	private void FitLimbs()
+	{
+		Matrix3x2? Symbol(Skeleton skeleton, Slot slot)
+		{
+			var drawing = skeleton == _target ? (slot.ActiveAttachment is { } name ? Drawing(slot, name) : null) : skeleton.ResolveAttachment(slot);
+			if (drawing == null || !_symbols!.TryGetValue(drawing, out var toSymbol) || ImageToWorld(skeleton, slot, drawing) is not { } world
+				|| !Matrix3x2.Invert(toSymbol, out var fromPixels)) return null;
+			return fromPixels * world;   // symbol → world
+		}
+		foreach (var (ours, theirs) in _sourceOf)
+		{
+			var t = _target.FindSlot(ours)!;
+			var s = _source.FindSlot(theirs)!;
+			var next = _target.Slots.Where(c => c != t && c.Bone.Parent == t.Bone && _sourceOf.ContainsKey(c.Name)
+				&& Symbol(_target, c) != null && Symbol(_source, _source.FindSlot(_sourceOf[c.Name])!) != null).ToList();
+			if (next.Count != 1 || Symbol(_target, t) is not { } tSpace || Symbol(_source, s) is not { } sSpace
+				|| !Matrix3x2.Invert(tSpace, out var intoT) || !Matrix3x2.Invert(sSpace, out var intoS)) continue;
+			var c = next[0];
+			var reachT = Vector2.Transform(Symbol(_target, c)!.Value.Translation, intoT);
+			var reachS = Vector2.Transform(Symbol(_source, _source.FindSlot(_sourceOf[c.Name])!)!.Value.Translation, intoS);
+			if (reachT.Length() < 2 || reachS.Length() < 2) continue;
+			float stretch = Math.Clamp(reachS.Length() / reachT.Length(), 0.6f, 1.6f);
+			_fit[t] = (Matrix3x2.CreateRotation(MathF.Atan2(reachS.Y, reachS.X) - MathF.Atan2(reachT.Y, reachT.X)),
+				Vector2.Normalize(reachT), stretch);
+		}
 	}
 
 	// The keys that make `copy` (already holding the source's other rows, renamed for here) play
@@ -61,20 +97,22 @@ public sealed class MotionTransfer
 		var times = Enumerable.Range(0, frames + 1).Select(i => MathF.Min(i / (float)fps, animation.Duration)).Distinct().ToList();
 
 		// Where each matched drawing here should show, frame by frame (missing: the source hides it)
-		var shown = new List<Dictionary<Slot, (Attachment Drawing, Matrix3x2 World)>>();
+		// (World: where it goes; Plain: the same, not stretched: what its bone follows)
+		var shown = new List<Dictionary<Slot, (Attachment Drawing, Matrix3x2 Plain, Matrix3x2 World)>>();
 		foreach (float time in times)
 		{
 			_source.SetToSetupPose();
 			animation.Apply(_source, time);
 			_source.UpdatePose();
-			var frame = new Dictionary<Slot, (Attachment, Matrix3x2)>();
+			var frame = new Dictionary<Slot, (Attachment, Matrix3x2, Matrix3x2)>();
 			foreach (var (ours, theirs) in _sourceOf)
 			{
 				var s = _source.FindSlot(theirs)!;
 				var t = _target.FindSlot(ours)!;
 				if (_source.ResolveAttachment(s) is not { } sd || DrawingFor(t, s, sd) is not { } td) continue;
 				if (ImageToWorld(_source, s, sd) is not { } ms || Size(_target, td) is not { } size) continue;
-				frame[t] = (td, Registration(td, size, sd) * ms * _space);
+				var plain = Registration(t, td, size, sd) * ms * _space;
+				frame[t] = (td, plain, Stretch(t, td, size) * plain);
 			}
 			shown.Add(frame);
 		}
@@ -106,7 +144,7 @@ public sealed class MotionTransfer
 				if (leader.TryGetValue(bone, out var lead) && frame.TryGetValue(lead, out var at) && Size(_target, at.Drawing) is { } size
 					&& Matrix3x2.Invert(at.Drawing.LocalMatrix(size.X, size.Y), out var toBone)
 					&& Matrix3x2.Invert(parent, out var fromParent))
-					local[bone] = toBone * at.World * fromParent;   // (else as it was the frame before, on its parent)
+					local[bone] = toBone * at.Plain * fromParent;   // (else as it was the frame before, on its parent)
 				world[bone] = local[bone] * parent;
 				var (position, rotation, scale) = Decompose(local[bone]);
 				var keys = boneKeys[bone];
@@ -116,7 +154,7 @@ public sealed class MotionTransfer
 			}
 			foreach (var slot in _target.Slots.Where(s => _sourceOf.ContainsKey(s.Name)))
 			{
-				if (leader.GetValueOrDefault(slot.Bone) == slot) continue;   // its bone puts it there
+				if (leader.GetValueOrDefault(slot.Bone) == slot && !_fit.ContainsKey(slot)) continue;   // its bone puts it there
 				if (frame.TryGetValue(slot, out var at) && Size(_target, at.Drawing) is { } size
 					&& Matrix3x2.Invert(world[slot.Bone], out var fromBone))
 					placement[slot] = Placement(at.Drawing, size, at.World * fromBone);
@@ -188,13 +226,25 @@ public sealed class MotionTransfer
 
 	// Our drawing's pixels → theirs: through their symbols (exact), else as they showed posed
 	// alike, else their middles on each other
-	private Matrix3x2 Registration(Attachment ours, (int X, int Y) size, Attachment theirs)
+	private Matrix3x2 Registration(Slot slot, Attachment ours, (int X, int Y) size, Attachment theirs)
 	{
 		if (_symbols != null && _symbols.TryGetValue(ours, out var mine) && _symbols.TryGetValue(theirs, out var other)
 			&& Matrix3x2.Invert(other, out var fromOther))
-			return mine * fromOther;
+			return mine * (_fit.TryGetValue(slot, out var fit) ? fit.Turn : Matrix3x2.Identity) * fromOther;
 		if (_registration.TryGetValue((ours.Name, theirs.Name), out var seen)) return seen;
 		return Centred(ours, size, theirs);
+	}
+
+	// A fitted limb's picture stretched along itself, about its joint (in its pixels: along the
+	// picture's own side nearest the limb's length, so a drawing's own scale can carry it)
+	private Matrix3x2 Stretch(Slot slot, Attachment ours, (int X, int Y) size)
+	{
+		if (!_fit.TryGetValue(slot, out var fit) || MathF.Abs(fit.Stretch - 1) < 1e-3f || _symbols == null
+			|| !_symbols.TryGetValue(ours, out var toSymbol) || !Matrix3x2.Invert(toSymbol, out var fromSymbol)) return Matrix3x2.Identity;
+		var joint = Vector2.Transform(Vector2.Zero, fromSymbol);
+		var along = Vector2.TransformNormal(fit.Along, fromSymbol);
+		var scale = MathF.Abs(along.Y) >= MathF.Abs(along.X) ? new Vector2(1, fit.Stretch) : new Vector2(fit.Stretch, 1);
+		return Matrix3x2.CreateTranslation(-joint) * Matrix3x2.CreateScale(scale) * Matrix3x2.CreateTranslation(joint);
 	}
 
 	// Two drawings never seen together: their middles on each other, each at its own pixel size
