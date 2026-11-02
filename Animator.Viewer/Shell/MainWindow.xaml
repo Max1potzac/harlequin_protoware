@@ -87,6 +87,8 @@
                 </MenuItem>
                 <MenuItem Header="_Help">
                     <MenuItem Header="_Keyboard and mouse" InputGestureText="F1" Click="HelpKeys_Click" />
+                    <MenuItem Header="The _user manual" Click="HelpManual_Click"
+                              ToolTip="Everything Harlequin does, from the first project to exporting (opens in your browser)" />
                     <MenuItem Header="The _engine format (for game engines)" Click="HelpFormat_Click" />
                     <Separator />
                     <MenuItem Header="_About Harlequin" Click="About_Click" />

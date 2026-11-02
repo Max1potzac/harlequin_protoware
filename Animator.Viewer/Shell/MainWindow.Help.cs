@@ -63,6 +63,10 @@ public partial class MainWindow
 
 	private void HelpFormat_Click(object sender, RoutedEventArgs e) => OpenLink(EngineFormatUrl);
 
+	private const string ManualUrl = "https://github.com/Max1potzac/harlequin_protoware/blob/master/docs/manual.md";
+
+	private void HelpManual_Click(object sender, RoutedEventArgs e) => OpenLink(ManualUrl);
+
 	private void OpenLink(string url)
 	{
 		try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
@@ -77,7 +81,7 @@ public partial class MainWindow
 		var version = Assembly.GetExecutingAssembly().GetName().Version;
 		MessageBox.Show(this,
 			$"Harlequin {version?.ToString(3) ?? ""}\n\n2D skeletal and frame-by-frame animation for game assets.\n\n" +
-			"Themes: Settings → Appearance (your own go in the themes folder).\nKeys and mouse buttons: Settings → Shortcuts; what they do: Help → Keyboard and mouse (F1).",
+			"Themes: Settings → Appearance (your own go in the themes folder).\nKeys and mouse buttons: Settings → Keyboard and Mouse; what they do: Help → Keyboard and mouse (F1).\nEverything else: Help → The user manual.",
 			"About Harlequin", MessageBoxButton.OK, MessageBoxImage.Information);
 	}
 
