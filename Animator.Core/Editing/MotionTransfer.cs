@@ -234,7 +234,7 @@ public sealed class MotionTransfer
 		if (!_fitted) FitLimbs();
 		copy.Timelines.RemoveAll(t => t is RotateTimeline or TranslateTimeline or ScaleTimeline or DepthTimeline or SpaceTimeline
 			or IkMixTimeline or PartTranslateTimeline or PartRotateTimeline or PartScaleTimeline
-			|| t is AttachmentTimeline a && _sourceOf.ContainsKey(a.Target));
+			|| t is AttachmentTimeline a && _sourceOf.ContainsKey(a.Target) || t is DrawOrderTimeline);
 
 		int frames = Math.Max(1, (int)MathF.Round(animation.Duration * Math.Max(1, fps)));
 		var times = Enumerable.Range(0, frames + 1).Select(i => MathF.Min(i / (float)fps, animation.Duration)).Distinct().ToList();
@@ -242,11 +242,14 @@ public sealed class MotionTransfer
 		// Where each matched drawing here should show, frame by frame (missing: the source hides it)
 		// (World: where it goes; Plain: the same, not stretched: what its bone follows)
 		var shown = new List<Dictionary<Slot, (Attachment Drawing, Matrix3x2 Plain, Matrix3x2 World)>>();
+		var ourName = _sourceOf.ToDictionary(p => p.Value, p => p.Key);
+		var orders = new List<string[]>();   // the source's stacking, frame by frame (in our names)
 		foreach (float time in times)
 		{
 			_source.SetToSetupPose();
 			animation.Apply(_source, time);
 			_source.UpdatePose();
+			orders.Add(_source.DrawOrder.Select(s => ourName.GetValueOrDefault(s.Name)).OfType<string>().ToArray());
 			var frame = new Dictionary<Slot, (Attachment, Matrix3x2, Matrix3x2)>();
 			foreach (var (ours, theirs) in _sourceOf)
 			{
@@ -336,6 +339,18 @@ public sealed class MotionTransfer
 			}
 			copy.Timelines.Add(row);
 		}
+
+		// The stacking: as the source stacks its parts, frame by frame (ours it hasn't go where
+		// they are in the rest order, just in front of the part before them there)
+		var stacking = new DrawOrderTimeline();
+		string[]? stacked = null;
+		for (int f = 0; f < times.Count; f++)
+		{
+			if (stacked != null && orders[f].SequenceEqual(stacked)) continue;
+			stacking.Add(times[f], orders[f]);
+			stacked = orders[f];
+		}
+		copy.Timelines.Add(stacking);
 
 		// Parts here the source hasn't: the ones only in skins (a hat, a hairflap) show and hide
 		// with the part their bone follows; the others stay hidden (the source shows nothing there)
