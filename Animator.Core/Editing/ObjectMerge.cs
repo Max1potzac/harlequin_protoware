@@ -62,18 +62,34 @@ public static class ObjectMerge
 			? targetPrefix + name[sourcePrefix.Length..]
 			: name;
 
-	// Each source name's match among these (the same name; else the same once the prefixes are set aside)
+	// Each source name's match among these: the same name; else the same once the prefixes are set
+	// aside; else the same but for a number at the end (foot_toe_01 ↔ foot_toe), when that's the
+	// only one on each side
 	public static Dictionary<string, string?> Match(IEnumerable<string> source, IEnumerable<string> target, string sourcePrefix, string targetPrefix)
 	{
 		var names = target.Distinct().ToList();
+		var sources = source.Distinct().ToList();
+		static string Bare(string core) => System.Text.RegularExpressions.Regex.Replace(core, @"_?\d+$", "").ToLowerInvariant();
+		var bareTargets = names.GroupBy(n => Bare(Core(n, targetPrefix))).Where(g => g.Count() == 1).ToDictionary(g => g.Key, g => g.First());
+		var bareSources = sources.GroupBy(n => Bare(Core(n, sourcePrefix))).Where(g => g.Count() == 1).Select(g => g.Key).ToHashSet();
 		var exact = names.GroupBy(n => n, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 		var byCore = names.GroupBy(n => Core(n, targetPrefix), StringComparer.OrdinalIgnoreCase)
 			.ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 		var result = new Dictionary<string, string?>();
-		foreach (string s in source.Distinct())
+		foreach (string s in sources)
+		{
+			string bare = Bare(Core(s, sourcePrefix));
 			result[s] = exact.TryGetValue(s, out var same) ? same
 				: byCore.TryGetValue(Core(s, sourcePrefix), out var core) ? core
+				: bare.Length > 0 && bareSources.Contains(bare) && bareTargets.TryGetValue(bare, out var near) ? near
 				: null;
+		}
+		// (a name taken by an earlier, exact match isn't given out again to a near one)
+		var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (string s in sources)
+			if (result[s] is { } t && (exact.ContainsKey(s) || byCore.ContainsKey(Core(s, sourcePrefix)))) taken.Add(t);
+		foreach (string s in sources)
+			if (result[s] is { } t && !exact.ContainsKey(s) && !byCore.ContainsKey(Core(s, sourcePrefix)) && taken.Contains(t)) result[s] = null;
 		return result;
 	}
 

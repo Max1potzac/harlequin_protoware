@@ -34,7 +34,6 @@ public sealed class BringInWindow : Window
 	private readonly List<(string Source, ComboBox To)> _boneRows = new();
 	private readonly List<(string Source, CheckBox Skin, ComboBox To)> _partRows = new();
 	private readonly List<(string Name, CheckBox Box)> _animationRows = new();
-	private bool _filling;
 
 	public SceneObject? Source => _from.SelectedItem as SceneObject;
 	public MergePlan Plan { get; private set; } = new();
@@ -149,7 +148,6 @@ public sealed class BringInWindow : Window
 	private void Suggest(bool keepPrefixes = false)
 	{
 		if (Source is not { } source) return;
-		_filling = true;
 		var plan = ObjectMerge.Suggest(source.Skeleton, source.Animations, _target);
 		if (keepPrefixes)
 		{
@@ -216,7 +214,6 @@ public sealed class BringInWindow : Window
 		_suffix.Text = "_" + word;
 		_skinName.Text = word;
 		_summary.Text = $"{plan.Parts.Values.Count(v => v != null)} of {plan.Parts.Count} parts and {matchedBones} of {plan.Bones.Count} bones match by name.";
-		_filling = false;
 	}
 
 	private static void Row(Grid grid, string name, CheckBox? tick, ComboBox to)

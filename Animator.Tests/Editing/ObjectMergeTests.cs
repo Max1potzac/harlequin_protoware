@@ -66,6 +66,13 @@ public class ObjectMergeTests
 		Assert.Equal("ink", m["ink"]);
 		Assert.Null(m["zombie_egypt_flag"]);
 		Assert.Equal("zombie_pirate_basic_flag", ObjectMerge.Renamed("zombie_egypt_flag", "zombie_egypt_", "zombie_pirate_basic_"));
+
+		// A number at the end set aside, when it's the only such name on each side
+		var near = ObjectMerge.Match(new[] { "zombie_egypt_foot_toe_01", "zombie_egypt_hand_01", "zombie_egypt_hand_02" },
+			new[] { "zombie_pirate_basic_foot_toe", "zombie_pirate_basic_hand_01" }, "zombie_egypt_", "zombie_pirate_basic_");
+		Assert.Equal("zombie_pirate_basic_foot_toe", near["zombie_egypt_foot_toe_01"]);
+		Assert.Equal("zombie_pirate_basic_hand_01", near["zombie_egypt_hand_01"]);
+		Assert.Null(near["zombie_egypt_hand_02"]);
 	}
 
 	[Fact]
