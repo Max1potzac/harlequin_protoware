@@ -81,10 +81,14 @@ public sealed class MotionTransfer
 		_source.SetToSetupPose();
 		_source.UpdatePose();
 
-		// Each bone follows one of its matched parts: the one shown the most (then the biggest)
+		// Each bone follows one of its matched parts: the one named after it (a rig with a bone per
+		// part), else the one shown the most, then the biggest. Never the object's own bone: it
+		// stays put, and what's on it gets placement keys (a root following a part would carry the
+		// whole rig along, everything else pulling back against it between frames).
 		var leader = new Dictionary<Bone, Slot>();
-		foreach (var group in _target.Slots.Where(s => _sourceOf.ContainsKey(s.Name)).GroupBy(s => s.Bone))
-			leader[group.Key] = group.OrderByDescending(s => shown.Count(f => f.ContainsKey(s)))
+		foreach (var group in _target.Slots.Where(s => _sourceOf.ContainsKey(s.Name) && s.Bone.Parent != null).GroupBy(s => s.Bone))
+			leader[group.Key] = group.OrderByDescending(s => s.Name == group.Key.Name)
+				.ThenByDescending(s => shown.Count(f => f.ContainsKey(s)))
 				.ThenByDescending(s => Area(s)).First();
 
 		var bones = _target.AllBones().ToList();   // (parents first)
