@@ -24,6 +24,11 @@ public sealed class MergePlan
 	public string Suffix { get; set; } = "";                     // added to their names ("walk" + "_mummy")
 	public bool Absolute { get; set; } = true;                   // poses as they look (else as offsets from rest)
 
+	// Where the drawings land: placed on their bones as they were on the other object's (false), or
+	// where they show in the other object (true: right for characters that share animations; lined
+	// up at the start of an animation both have, idle if they have it, else at rest)
+	public bool AsPlaced { get; set; }
+
 	public string? SkinName { get; set; }                        // null: no skin
 	public string SkinCategory { get; set; } = "";
 	public bool SkinOverlay { get; set; }
@@ -107,6 +112,40 @@ public static class ObjectMerge
 		return plan;
 	}
 
+	// The source parts that would go on these bones here (or the bones under them): the matched
+	// ones (their match is on one), and the ones with no match whose bone, or a bone above it,
+	// matches one. A head: pick the head bone, and these are its parts and its accessories.
+	public static (List<string> Matched, List<string> New) PartsOn(Skeleton source, Skeleton target, MergePlan plan, IReadOnlyCollection<Bone> bones)
+	{
+		bool Under(Bone? b) => b != null && bones.Any(p => b == p || b.IsDescendantOf(p));
+		var matched = new List<string>();
+		var made = new List<string>();
+		foreach (var slot in source.Slots)
+		{
+			if (plan.Parts.GetValueOrDefault(slot.Name) is { } name && target.FindSlot(name) is { } here)
+			{
+				if (Under(here.Bone)) matched.Add(slot.Name);
+				continue;
+			}
+			Bone? bone = null;
+			for (var b = slot.Bone; b != null && bone == null; b = b.Parent)
+				if (plan.Bones.GetValueOrDefault(b.Name) is { } n) bone = target.FindBone(n);
+			if (Under(bone)) made.Add(slot.Name);
+		}
+		return (matched, made);
+	}
+
+	// A name for what a file brings: "zombie_egypt_basic.pam.xfl" → "egypt"
+	public static string ShortName(string name)
+	{
+		string n = name;
+		foreach (string end in new[] { ".xfl", ".fla", ".zip", ".pam", ".json" })
+			if (n.EndsWith(end, StringComparison.OrdinalIgnoreCase)) n = n[..^end.Length];
+		if (n.StartsWith("zombie_", StringComparison.OrdinalIgnoreCase) && n.Length > 7) n = n[7..];
+		n = n.Replace("_basic", "", StringComparison.OrdinalIgnoreCase);
+		return n.Trim('_').Length > 0 ? n.Trim('_') : name;
+	}
+
 	// ======================= bringing it in =======================
 
 	public static MergeResult Merge(Skeleton source, IReadOnlyList<Animation> sourceAnimations, Skeleton target, List<Animation> targetAnimations, MergePlan plan)
@@ -164,6 +203,7 @@ public static class ObjectMerge
 		}
 		var copies = new Dictionary<Guid, Asset>();
 		bool meshesDropped = false;
+		if (plan.AsPlaced) LineUp(source, sourceAnimations, target, targetAnimations, notes);
 		foreach (var s in source.Slots)
 		{
 			if (parts.GetValueOrDefault(s.Name) is not { } targetPart) continue;
@@ -177,7 +217,7 @@ public static class ObjectMerge
 				if (!copies.TryGetValue(asset.Id, out var copy))
 					copies[asset.Id] = copy = CopyAsset(asset, target, layerSources);
 				meshesDropped |= drawing.Mesh != null;
-				into.Set(targetPart, new Attachment
+				var made = new Attachment
 				{
 					Name = DrawingName(s.Name, drawing.Name),
 					AssetId = copy.Id,
@@ -185,7 +225,9 @@ public static class ObjectMerge
 					Rotation = drawing.Rotation,
 					Scale = drawing.Scale,
 					Pivot = drawing.Pivot
-				});
+				};
+				if (plan.AsPlaced && target.FindSlot(targetPart) is { } here) PlaceAsShown(made, drawing, s, here);
+				into.Set(targetPart, made);
 			}
 		}
 		foreach (var slot in added)
@@ -193,6 +235,13 @@ public static class ObjectMerge
 			var s = source.Slots.First(x => parts.GetValueOrDefault(x.Name) == slot.Name);
 			slot.SetupAttachment = s.SetupAttachment is { } rest ? DrawingName(s.Name, rest) : null;
 			slot.ResetToSetup();
+		}
+		if (plan.AsPlaced)
+		{
+			source.SetToSetupPose();
+			target.SetToSetupPose();
+			source.UpdateWorld();
+			target.UpdateWorld();
 		}
 		if (meshesDropped) notes.Add("Meshes weren't brought along: the drawings are flat here (make their meshes again).");
 
@@ -227,6 +276,36 @@ public static class ObjectMerge
 		if (deformsDropped) notes.Add("Mesh deform keys weren't brought along (the meshes aren't).");
 		if (dropped > 0) notes.Add($"{dropped} row(s) of keys were left out: for bones, parts, colour layers or hitboxes this object hasn't.");
 		return new MergeResult(count, keys, dropped, skin, added, layerSources, notes);
+	}
+
+	// Both posed alike for lining drawings up: the start of an animation both have (idle first), or rest
+	private static void LineUp(Skeleton source, IReadOnlyList<Animation> sourceAnimations, Skeleton target, List<Animation> targetAnimations, List<string> notes)
+	{
+		var names = targetAnimations.Select(a => a.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+		var common = sourceAnimations.Where(a => names.Contains(a.Name)).OrderBy(a => a.Name.Equals("idle", StringComparison.OrdinalIgnoreCase) ? 0 : 1).FirstOrDefault();
+		source.SetToSetupPose();
+		target.SetToSetupPose();
+		if (common != null)
+		{
+			common.Apply(source, 0);
+			targetAnimations.First(a => a.Name.Equals(common.Name, StringComparison.OrdinalIgnoreCase)).Apply(target, 0);
+			notes.Add($"Drawings lined up as they show at the start of {common.Name}.");
+		}
+		else notes.Add("No animation has the same name in both: drawings lined up at rest.");
+		source.UpdatePose();
+		target.UpdatePose();
+	}
+
+	// A drawing placed on this part so it shows where the source drawing shows now (both posed by
+	// LineUp), this part's own placement keys taken into account
+	private static void PlaceAsShown(Attachment made, Attachment drawing, Slot sourceSlot, Slot here)
+	{
+		var shown = Matrix3x2.CreateScale(drawing.Scale * sourceSlot.Scale) * Matrix3x2.CreateRotation(drawing.Rotation + sourceSlot.Rotation)
+			* Matrix3x2.CreateTranslation(drawing.Offset + sourceSlot.Offset) * sourceSlot.Bone.World;
+		PartOps.PlaceFrame(made, shown, here.Bone.World);
+		made.Offset -= here.Offset;
+		made.Rotation -= here.Rotation;
+		made.Scale = new Vector2(Ratio(made.Scale.X, here.Scale.X, made.Scale.X), Ratio(made.Scale.Y, here.Scale.Y, made.Scale.Y));
 	}
 
 	// The bone a source bone's things go on: its match, or the match of the bone it hangs from

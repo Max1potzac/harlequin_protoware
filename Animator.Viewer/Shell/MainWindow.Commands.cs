@@ -132,6 +132,7 @@ public partial class MainWindow
 			if (item.Tag is string id && id.StartsWith("pick.", StringComparison.Ordinal))
 				item.IsEnabled = !_sceneLevel;
 		BringInItem.IsEnabled = !_sceneLevel;
+		BatchBringInItem.IsEnabled = !_sceneLevel;
 	}
 
 	// ======================= keys =======================
