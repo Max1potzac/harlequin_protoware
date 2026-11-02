@@ -320,19 +320,27 @@ public static class Commands
 		var anim = a.Get("animation") is { } an ? obj.FindAnimation(an) ?? throw new UsageException($"{obj.Name} has no animation \"{an}\".") : null;
 		float time = a.Get("time") != null ? a.Float("time", 0f) : a.Int("frame", 0) / (float)p.Scene.Fps;
 		foreach (string s in a.List("skins")) SkinOps.Show(obj.Skeleton, p.Skin(obj, s));
+		int sweep = a.Int("sweep", 0);   // every 1/sweep of a frame through the whole animation, each line led by its time
 		a.NothingElse();
 		var sk = obj.Skeleton;
-		sk.SetToSetupPose();
-		anim?.Apply(sk, time);
-		sk.UpdatePose();
 		var ci = System.Globalization.CultureInfo.InvariantCulture;
-		foreach (var slot in sk.DrawOrder)
+		var times = sweep > 0 && anim != null
+			? Enumerable.Range(0, (int)MathF.Floor(anim.Duration * p.Scene.Fps * sweep) + 1).Select(i => i / (float)(p.Scene.Fps * sweep)).ToList()
+			: new List<float> { time };
+		foreach (float at in times)
 		{
-			if (sk.ResolveAttachment(slot) is not { } d || !sk.Assets.TryGetValue(d.AssetId, out var asset)) continue;
-			var m = d.LocalMatrix(asset.Width, asset.Height, slot.Offset, slot.Rotation, slot.Scale) * slot.Bone.World;
-			var middle = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), m);
-			float turn = MathF.Atan2(m.M12, m.M11) * 180 / MathF.PI;
-			Console.WriteLine(string.Format(ci, "{0}\t{1}\t{2:0.0}\t{3:0.0}\t{4:0.0}\t{5}x{6}", slot.Name, d.Name, middle.X, middle.Y, turn, asset.Width, asset.Height));
+			sk.SetToSetupPose();
+			anim?.Apply(sk, at);
+			sk.UpdatePose();
+			foreach (var slot in sk.DrawOrder)
+			{
+				if (sk.ResolveAttachment(slot) is not { } d || !sk.Assets.TryGetValue(d.AssetId, out var asset)) continue;
+				var m = d.LocalMatrix(asset.Width, asset.Height, slot.Offset, slot.Rotation, slot.Scale) * slot.Bone.World;
+				var middle = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), m);
+				float turn = MathF.Atan2(m.M12, m.M11) * 180 / MathF.PI;
+				string line = string.Format(ci, "{0}\t{1}\t{2:0.0}\t{3:0.0}\t{4:0.0}\t{5}x{6}", slot.Name, d.Name, middle.X, middle.Y, turn, asset.Width, asset.Height);
+				Console.WriteLine(sweep > 0 ? string.Format(ci, "{0:0.0000}\t", at) + line : line);
+			}
 		}
 		return 0;
 	}
