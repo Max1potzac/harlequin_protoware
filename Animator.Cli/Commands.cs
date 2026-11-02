@@ -103,8 +103,9 @@ public static class Commands
 		var bones = new List<Bone>();
 		foreach (string name in a.List("bones"))
 			bones.Add(target.Skeleton.FindBone(name) ?? throw new UsageException($"{target.Name} has no bone \"{name}\" (harlequin info --tree shows them)."));
-		if (bones.Count == 0) throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads).");
-		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"), a.List("except"), Pairs(a.List("map")));
+		var include = a.List("include");
+		if (bones.Count == 0 && include.Count == 0) throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads), or --include.");
+		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"), a.List("except"), Pairs(a.List("map")), include);
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
 		int brought = 0;

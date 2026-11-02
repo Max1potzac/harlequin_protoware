@@ -19,12 +19,13 @@ namespace Animator.Cli
 
 			  harlequin bring-in <project> --object NAME --bones B[,B...] <animate file>... [--category Head]
 			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
-			      [--map THEIRS=OURS,...]
+			      [--map THEIRS=OURS,...] [--include PART,...]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
 			      with these words in their names stay out (armor,ink…; =name: just that name). --map: their part goes on ours, for
-			      parts whose names don't match (zombie_summernights_105x74=zombie_skull).
+			      parts whose names don't match (zombie_summernights_105x74=zombie_skull). --include: their parts
+			      that come too wherever their bones are (or, without --bones, the only ones: a body skin).
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
 			      A skin of those parts' drawings (the parts then show only while it's on). Made off, unless --on.

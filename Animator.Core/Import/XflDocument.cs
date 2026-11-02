@@ -261,10 +261,16 @@ public sealed class XflFiles
 	private string? Unfold(string path)
 	{
 		string at = Path.GetFullPath(_folder!);
+		var steps = new List<string>();   // "media/../x" → "x" (converters write such paths), never above the project
 		foreach (string step in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
 		{
 			if (step == ".") continue;
-			if (step == "..") return null;
+			if (step != "..") steps.Add(step);
+			else if (steps.Count > 0) steps.RemoveAt(steps.Count - 1);
+			else return null;
+		}
+		foreach (string step in steps)
+		{
 			if (!_listings.TryGetValue(at, out var names))
 				_listings[at] = names = Directory.Exists(at) ? Directory.GetFileSystemEntries(at).Select(Path.GetFileName).OfType<string>().ToArray() : Array.Empty<string>();
 			string? name = names.FirstOrDefault(n => n == step) ?? names.FirstOrDefault(n => string.Equals(n, step, StringComparison.OrdinalIgnoreCase));

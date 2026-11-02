@@ -8,10 +8,12 @@ namespace Animator.Viewer;
 // and the parts on the chosen bones, with what rides on them, become a skin named after the file.
 // Except: parts left out whose names have any of these words in them (armor, ink…), or, written
 // "=name", that whole name. Map: source
-// part → part here, for the ones whose names don't say (a head Animate left called "symbol_105x74")
+// part → part here, for the ones whose names don't say (a head Animate left called "symbol_105x74").
+// Include: source parts that come too, wherever their bones are (a hairflap hung off the torso;
+// a whole body, with no bones picked)
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
-	IReadOnlyDictionary<string, string>? Map = null);
+	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null);
 
 public sealed record BroughtIn(string Name, MergeResult? Result, MergePlan Plan, string? Problem);
 
@@ -57,6 +59,12 @@ public static class AnimateBringIn
 			merge.Parts[from] = to;
 		}
 		var (matched, extra) = ObjectMerge.PartsOn(source.Skeleton, target, merge, options.Bones);
+		foreach (string name in options.Include ?? Array.Empty<string>())
+		{
+			if (source.Skeleton.FindSlot(name) == null || matched.Contains(name) || extra.Contains(name)) continue;
+			if (merge.Parts.GetValueOrDefault(name) is { } here && target.FindSlot(here) != null) matched.Add(name);
+			else extra.Add(name);
+		}
 		if (options.Except is { Count: > 0 } except)
 		{
 			// (a word starting "=" is a whole name: =flag leaves out "flag" but not "flag_stick")
