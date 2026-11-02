@@ -83,46 +83,23 @@ public partial class MainWindow
 		{
 			_state.EditStructure(() =>
 			{
+				var options = new BringInOptions(picked, dialog.Category, dialog.Animations, dialog.AsPlaced, dialog.Accessories);
 				foreach (string file in dialog.Files)
 				{
-					string name = Path.GetExtension(file).ToLowerInvariant() is ".fla" or ".zip"
-						? Path.GetFileNameWithoutExtension(file)
-						: new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(file))!).Name;
-					string word = ObjectMerge.ShortName(name);
 					try
 					{
-						using var plan = XflImportPlan.Load(file, name);
-						plan.SuggestRig = true;
-						var source = XflImporter.IntoScene(new Scene(), _assets, plan, Vector2.Zero);   // (aside: not into this project)
-						var merge = ObjectMerge.Suggest(source.Skeleton, source.Animations, _skeleton);
-						merge.AsPlaced = dialog.AsPlaced;
-						merge.SkinName = word;
-						merge.SkinCategory = dialog.Category;
-						merge.Suffix = "_" + word;
-						var (matched, extra) = ObjectMerge.PartsOn(source.Skeleton, _skeleton, merge, picked);
-						merge.SkinParts.UnionWith(matched);
-						if (dialog.Accessories)
+						var b = AnimateBringIn.FromAnimate(file, _skeleton, _state.Animations, _assets, options);
+						if (b.Problem != null)
 						{
-							merge.NewParts.UnionWith(extra);
-							merge.SkinParts.UnionWith(extra);
-						}
-						if (!dialog.Animations) merge.Animations.Clear();
-						if (merge.SkinParts.Count == 0 && merge.Animations.Count == 0)
-						{
-							problems.Add($"{word}: none of its parts match the ones on the picked bones.");
+							problems.Add(AnimateBringIn.Describe(b));
 							continue;
 						}
-						var result = ObjectMerge.Merge(source.Skeleton, source.Animations, _skeleton, _state.Animations, merge);
-						foreach (var (newLayer, oldLayer) in result.LayerSources) _assets.CopyPixels(oldLayer, newLayer);
-						brought.Add(result.Skin is { } skin
-							? $"{skin.Name}: {merge.SkinParts.Count} part(s){(result.NewParts.Count > 0 ? $" (new: {string.Join(", ", result.NewParts.Select(p => p.Name))})" : "")}" +
-							  (result.Animations > 0 ? $", {result.Animations} animation(s)" : "")
-							: $"{word}: {result.Animations} animation(s)");
-						foreach (string note in result.Notes.Where(n => !n.StartsWith("Drawings lined up", StringComparison.Ordinal))) notes.Add(note);
+						brought.Add(AnimateBringIn.Describe(b));
+						foreach (string note in b.Result!.Notes.Where(n => !n.StartsWith("Drawings lined up", StringComparison.Ordinal))) notes.Add(note);
 					}
 					catch (Exception ex) when (ex is NotSupportedException or InvalidDataException or IOException or System.Xml.XmlException or InvalidOperationException)
 					{
-						problems.Add($"{Path.GetFileName(Path.GetDirectoryName(file) ?? file)}: {ex.Message}");
+						problems.Add($"{AnimateBringIn.ProjectName(file)}: {ex.Message}");
 					}
 				}
 				return brought.Count > 0 ? $"Bring in {brought.Count} skin(s)" : null;

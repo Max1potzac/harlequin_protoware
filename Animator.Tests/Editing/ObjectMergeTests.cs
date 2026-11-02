@@ -173,6 +173,65 @@ public class ObjectMergeTests
 	}
 
 	[Fact]
+	public void As_placed_a_head_goes_on_the_body_when_the_two_stand_apart()
+	{
+		// The mummy imported standing 100 right and 50 up of where the pirate stands (another origin)
+		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: false);
+		mummy.Roots[0].SetupPosition = new Vector2(100, 50);
+		mummy.SetToSetupPose();
+		mummy.UpdateWorld();
+		var (pirate, pirateAnimations) = Zombie("pirate_", 0.2f, hat: false);
+		var plan = ObjectMerge.Suggest(mummy, walks, pirate);
+		plan.AsPlaced = true;
+		plan.SkinName = "mummy";
+		plan.SkinParts.Add("egypt_head");
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(mummy, walks, pirate, pirateAnimations, plan);
+		Assert.Contains(result.Notes, n => n.Contains("apart"));
+
+		// The head shows on the pirate's neck, where the pirate's own head does (same rig, same pose)
+		Matrix3x2 Shown(Slot slot, Attachment d) => d.LocalMatrix(20, 20, slot.Offset, slot.Rotation, slot.Scale) * slot.Bone.World;
+		pirate.SetToSetupPose();
+		pirateAnimations[0].Apply(pirate, 0);
+		pirate.UpdatePose();
+		var slot = pirate.FindSlot("pirate_head")!;
+		var own = Shown(slot, pirate.DefaultSkin.Get("pirate_head", "pirate_head")!);
+		var brought = Shown(slot, result.Skin!.Get("pirate_head", "pirate_head")!);
+		Assert.Equal(own.Translation.X, brought.Translation.X, 3);
+		Assert.Equal(own.Translation.Y, brought.Translation.Y, 3);
+	}
+
+	[Fact]
+	public void A_skins_new_part_rides_on_its_nearest_part_and_hides_with_it()
+	{
+		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: true);
+		var (pirate, pirateAnimations) = Zombie("pirate_", 0.1f, hat: false);
+		var drop = new AttachmentTimeline("pirate_head");   // the pirate's own die: the head comes off at 0.5
+		drop.Add(0, "pirate_head");
+		drop.Add(0.5f, null);
+		var die = new Animation { Name = "die", Duration = 1 };
+		die.Timelines.Add(drop);
+		pirateAnimations.Add(die);
+		var plan = ObjectMerge.Suggest(mummy, walks, pirate);
+		plan.AsPlaced = true;
+		plan.SkinName = "mummy";
+		plan.SkinParts.UnionWith(new[] { "egypt_head", "egypt_hat" });
+		plan.NewParts.Add("egypt_hat");
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(mummy, walks, pirate, pirateAnimations, plan);
+
+		var hat = Assert.Single(result.NewParts);
+		Assert.Equal("pirate_head", hat.Bone.Name);
+		var keys = die.Find<AttachmentTimeline>(hat.Name)!.Track.Keys;
+		Assert.Equal(new[] { hat.SetupAttachment, null }, keys.Select(k => k.Value));
+		Assert.Equal(new[] { 0f, 0.5f }, keys.Select(k => k.Time));
+		SkinOps.Show(pirate, result.Skin!);
+		pirate.SetToSetupPose();
+		die.Apply(pirate, 0.75f);
+		Assert.Null(pirate.ResolveAttachment(hat));
+	}
+
+	[Fact]
 	public void The_parts_on_a_bone_are_found_with_their_accessories()
 	{
 		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: true);

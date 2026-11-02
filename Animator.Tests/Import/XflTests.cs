@@ -899,4 +899,25 @@ public class XflTests
 		Assert.True(worstMatrix < 0.01f && worstPosition < 0.2f && worstColour < 0.02f, $"{csv}: {said}");
 		return said;
 	}
+
+	[Fact]
+	public void Project_files_are_found_by_paths_going_up_and_in_any_case()
+	{
+		string folder = Path.Combine(Path.GetTempPath(), "hq-xflfiles-" + Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(Path.Combine(folder, "library", "zombie_basic"));
+		File.WriteAllBytes(Path.Combine(folder, "library", "zombie_basic", "pupil.png"), new byte[] { 1, 2, 3 });
+		try
+		{
+			var files = new XflFiles(folder);
+			// (converters write "media/../other_folder/…"; Animate writes LIBRARY for library)
+			Assert.Equal(new byte[] { 1, 2, 3 }, files.Read("LIBRARY/media/../zombie_basic/pupil.png"));
+			Assert.Equal(new byte[] { 1, 2, 3 }, files.Read("library/zombie_basic/pupil.png"));
+			Assert.Null(files.Read("../outside.png"));
+			Assert.Null(files.Read("LIBRARY/zombie_basic/nothing.png"));
+		}
+		finally
+		{
+			Directory.Delete(folder, true);
+		}
+	}
 }

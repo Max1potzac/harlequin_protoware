@@ -1206,6 +1206,10 @@ ones.
 To move Harlequin to another computer with all your preferences, copy `settings.json` and the
 `themes` folder.
 
+Batch work (importing many files, bringing every variant's head in as a skin, rendering a sheet
+of skins, exporting) can also be done without the window, with the command-line `harlequin` from
+the Releases page, on Linux or Windows: see [cli.md](cli.md).
+
 ---
 
 ## 24. Troubleshooting

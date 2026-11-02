@@ -219,44 +219,5 @@ public partial class MainWindow
 	}
 
 	// A small picture of the scene as it is now, framed around every visible object
-	private SKBitmap RenderThumbnail(int size)
-	{
-		var bmp = new SKBitmap(size, size);
-		using var canvas = new SKCanvas(bmp);
-		canvas.Clear(new SKColor(40, 44, 52));
-
-		var shown = _scene.Objects.Where(o => o.Visible).ToList();
-		var points = new List<Vector2>();
-		foreach (var obj in shown)
-		{
-			var box = ObjectGizmo.LocalBounds(obj, _renderer);   // its parts and bones
-			var toScene = _scene.WorldTransform(obj);
-			foreach (var corner in new[] { new Vector2(box.Left, box.Top), new Vector2(box.Right, box.Top),
-										   new Vector2(box.Right, box.Bottom), new Vector2(box.Left, box.Bottom) })
-				points.Add(Vector2.Transform(corner, toScene));
-		}
-		if (points.Count == 0) return bmp;
-
-		var min = points.Aggregate(Vector2.Min);
-		var max = points.Aggregate(Vector2.Max);
-		var center = (min + max) / 2;
-		float extent = MathF.Max(max.X - min.X, max.Y - min.Y) + 40;   // a little margin
-		float scale = size / extent;
-
-		canvas.Translate(size / 2f, size / 2f);
-		canvas.Scale(scale, -scale);   // y-up, like the viewport
-		canvas.Translate(-center.X, -center.Y);
-		bool hiding = _renderer.HideHidden;
-		_renderer.HideHidden = false;   // parts hidden while editing are still in the picture
-		foreach (var obj in shown)
-		{
-			var m = SkeletonRenderer.ToSk(_scene.WorldTransform(obj));
-			canvas.Save();
-			canvas.Concat(in m);
-			_renderer.DrawImages(canvas, obj.Skeleton);
-			canvas.Restore();
-		}
-		_renderer.HideHidden = hiding;
-		return bmp;
-	}
+	private SKBitmap RenderThumbnail(int size) => Snapshots.Thumbnail(_scene, _renderer, size);
 }
