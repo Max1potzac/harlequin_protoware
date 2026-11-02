@@ -87,9 +87,9 @@ public static class AnimateBringIn
 		var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
 		var source = XflImporter.IntoScene(new Scene(), assets, plan, Vector2.Zero, pictures);   // (aside: not into the target's scene)
 		var merge = ObjectMerge.Suggest(source.Skeleton, source.Animations, target);
-		if (options.ImportedFrom is { } from)
+		if (options.ImportedFrom is { } targetProject)
 		{
-			context.Read(from, target);
+			context.Read(targetProject, target);
 			foreach (var (drawing, picture) in pictures) context.Symbols[drawing] = picture.PixelToDrawing;
 			merge.Symbols = context.Symbols;
 			if (context.TargetSpace is { } space && Matrix3x2.Invert(plan.TimelineToObject, out var toTimeline))
