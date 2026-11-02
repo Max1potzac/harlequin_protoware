@@ -361,11 +361,24 @@ public sealed class XflImportPlan : IDisposable
 		var joint = Vector2.Transform(head, fromPart);   // in the part's own space
 		float turned = angle - AngleOf(setup);
 		int first = -1;
+		float? before = null;
 		for (int f = 0; f < frames; f++)
 		{
 			if (PartToObject(part, f) is { } m)
 			{
-				motion[f] = Matrix3x2.CreateRotation(AngleOf(m) + turned) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m));
+				// A part flipped over (mirrored) on a frame shows the same turned a half turn and
+				// mirrored the other way: the bone takes whichever turn is nearer the frame
+				// before, so it doesn't spin round between the frames as it plays (the part's
+				// own keys take the mirroring)
+				float turn = AngleOf(m) + turned;
+				if (before is { } last)
+				{
+					turn = last + MathF.IEEERemainder(turn - last, 2 * MathF.PI);
+					float other = last + MathF.IEEERemainder(turn + MathF.PI - last, 2 * MathF.PI);
+					if (Determinant(m) < 0 && MathF.Abs(other - last) < MathF.Abs(turn - last)) turn = other;
+				}
+				before = turn;
+				motion[f] = Matrix3x2.CreateRotation(turn) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m));
 				if (first < 0) first = f;
 			}
 			else if (first >= 0) motion[f] = motion[f - 1];
@@ -392,6 +405,8 @@ public sealed class XflImportPlan : IDisposable
 	}
 
 	private static float AngleOf(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
+
+	private static float Determinant(Matrix3x2 m) => m.M11 * m.M22 - m.M12 * m.M21;
 
 	// A bone for every part (but effects, and parts never shown), at its symbol's own origin and
 	// turned as the symbol is, so each bone is the space its part's pictures are drawn in (the
@@ -687,9 +702,18 @@ public static class XflImporter
 					var (o, r, s) = Placement(PictureToBone(plan, part, f, d.Picture, d.Drawing, BoneAt(bone, f)));
 					float turn = r - d.Drawing.Rotation;
 					turn = previous + XflMath.Mod(turn - previous + MathF.PI, Turn) - MathF.PI;
+					var scale = new Vector2(s.X / NonZero(d.Drawing.Scale.X), s.Y / NonZero(d.Drawing.Scale.Y));
+					// (the same placement a half turn round with both scales negated, where that's
+					// nearer the frame before: a part flipping over then shrinks through flat
+					// between the frames instead of spinning round)
+					float flipped = previous + XflMath.Mod(turn + MathF.PI - previous + MathF.PI, Turn) - MathF.PI;
+					if (f > start && MathF.Abs(flipped - previous) < MathF.Abs(turn - previous))
+					{
+						turn = flipped;
+						scale = -scale;
+					}
 					previous = turn;
-					placements[f - start] = (o - d.Drawing.Offset, turn,
-						new Vector2(s.X / NonZero(d.Drawing.Scale.X), s.Y / NonZero(d.Drawing.Scale.Y)));
+					placements[f - start] = (o - d.Drawing.Offset, turn, scale);
 				}
 				var held = Held(placements);
 				if (held != null)
