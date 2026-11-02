@@ -203,7 +203,7 @@ public static class ObjectMerge
 		}
 		var copies = new Dictionary<Guid, Asset>();
 		bool meshesDropped = false;
-		if (plan.AsPlaced) LineUp(source, sourceAnimations, target, targetAnimations, notes);
+		var gap = plan.AsPlaced ? LineUp(source, sourceAnimations, target, targetAnimations, plan, parts, notes) : Vector2.Zero;
 		foreach (var s in source.Slots)
 		{
 			if (parts.GetValueOrDefault(s.Name) is not { } targetPart) continue;
@@ -226,7 +226,7 @@ public static class ObjectMerge
 					Scale = drawing.Scale,
 					Pivot = drawing.Pivot
 				};
-				if (plan.AsPlaced && target.FindSlot(targetPart) is { } here) PlaceAsShown(made, drawing, s, here);
+				if (plan.AsPlaced && target.FindSlot(targetPart) is { } here) PlaceAsShown(made, drawing, s, here, gap);
 				into.Set(targetPart, made);
 			}
 		}
@@ -278,8 +278,12 @@ public static class ObjectMerge
 		return new MergeResult(count, keys, dropped, skin, added, layerSources, notes);
 	}
 
-	// Both posed alike for lining drawings up: the start of an animation both have (idle first), or rest
-	private static void LineUp(Skeleton source, IReadOnlyList<Animation> sourceAnimations, Skeleton target, List<Animation> targetAnimations, List<string> notes)
+	// Both posed alike for lining drawings up: the start of an animation both have (idle first), or
+	// rest. Returns how far the source's space sits from this one's: two imports can stand their
+	// characters at different origins, so the parts both have that stay as they are (the body, when
+	// a head comes in) say where the source's drawings go here (the middle of their gaps).
+	private static Vector2 LineUp(Skeleton source, IReadOnlyList<Animation> sourceAnimations, Skeleton target, List<Animation> targetAnimations,
+		MergePlan plan, Dictionary<string, string?> parts, List<string> notes)
 	{
 		var names = targetAnimations.Select(a => a.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 		var common = sourceAnimations.Where(a => names.Contains(a.Name)).OrderBy(a => a.Name.Equals("idle", StringComparison.OrdinalIgnoreCase) ? 0 : 1).FirstOrDefault();
@@ -294,14 +298,43 @@ public static class ObjectMerge
 		else notes.Add("No animation has the same name in both: drawings lined up at rest.");
 		source.UpdatePose();
 		target.UpdatePose();
+
+		var xs = new List<float>();
+		var ys = new List<float>();
+		foreach (var (s, t) in parts)
+		{
+			if (t == null || plan.SkinParts.Contains(s) || plan.NewParts.Contains(s)) continue;
+			if (source.FindSlot(s) is not { } theirs || target.FindSlot(t) is not { } ours) continue;
+			if (Middle(source, theirs) is not { } a || Middle(target, ours) is not { } b) continue;
+			xs.Add(b.X - a.X);
+			ys.Add(b.Y - a.Y);
+		}
+		if (xs.Count == 0) return Vector2.Zero;
+		var gap = new Vector2(Median(xs), Median(ys));
+		if (gap.Length() > 0.5f) notes.Add($"The two stand {gap.Length():0} apart: the drawings were moved to match ({xs.Count} part(s) both have said where).");
+		return gap;
+	}
+
+	// Where the drawing a part shows now has its middle, in the object's space (null: none shows)
+	private static Vector2? Middle(Skeleton skeleton, Slot slot)
+	{
+		if (skeleton.ResolveAttachment(slot) is not { } drawing || !skeleton.Assets.TryGetValue(drawing.AssetId, out var asset)) return null;
+		return Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), slot.ImageToBone(drawing, asset.Width, asset.Height) * slot.Bone.World);
+	}
+
+	private static float Median(List<float> values)
+	{
+		values.Sort();
+		int n = values.Count;
+		return n % 2 == 1 ? values[n / 2] : (values[n / 2 - 1] + values[n / 2]) / 2f;
 	}
 
 	// A drawing placed on this part so it shows where the source drawing shows now (both posed by
 	// LineUp), this part's own placement keys taken into account
-	private static void PlaceAsShown(Attachment made, Attachment drawing, Slot sourceSlot, Slot here)
+	private static void PlaceAsShown(Attachment made, Attachment drawing, Slot sourceSlot, Slot here, Vector2 gap)
 	{
 		var shown = Matrix3x2.CreateScale(drawing.Scale * sourceSlot.Scale) * Matrix3x2.CreateRotation(drawing.Rotation + sourceSlot.Rotation)
-			* Matrix3x2.CreateTranslation(drawing.Offset + sourceSlot.Offset) * sourceSlot.Bone.World;
+			* Matrix3x2.CreateTranslation(drawing.Offset + sourceSlot.Offset) * sourceSlot.Bone.World * Matrix3x2.CreateTranslation(gap);
 		PartOps.PlaceFrame(made, shown, here.Bone.World);
 		made.Offset -= here.Offset;
 		made.Rotation -= here.Rotation;
