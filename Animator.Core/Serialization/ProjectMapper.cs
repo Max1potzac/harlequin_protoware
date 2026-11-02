@@ -848,6 +848,10 @@ public static class ProjectMapper
 				throw new InvalidDataException($"Unknown timeline type '{t.Type}'.");
 		}
 	}
+	// An animation's timelines as saved, and one back (to copy them about, changing names on the way)
+	public static List<TimelineDto> TimelinesOf(Animation animation) => animation.Timelines.Select(TimelineToDto).ToList();
+	public static Timeline TimelineOf(TimelineDto dto) => TimelineFromDto(dto);
+
 	// A deep copy (the same trick as saving and re-loading), with a new name
 	public static Animation CloneAnimation(Animation source, string newName)
 	{

@@ -183,7 +183,8 @@ public class WindowSmokeTests
 						new EventDialog(3) { Owner = window },
 						new InputDialog("Test", "A question:", "an answer") { Owner = window },
 						new MixerWindow("test", scene.Objects[0].Animations, new MixPlan(), new MixPreview(), (_, _) => true, _ => { }) { Owner = window },
-						new SoundMapWindow(new Dictionary<string, string> { ["step"] = "step.wav" }, (_, _) => true, s => s, () => new[] { "jump" }) { Owner = window }
+						new SoundMapWindow(new Dictionary<string, string> { ["step"] = "step.wav" }, (_, _) => true, s => s, () => new[] { "jump" }) { Owner = window },
+						new BringInWindow("test", scene.Objects[0].Skeleton, scene.Objects, new[] { "Hat" }, () => Array.Empty<Bone>()) { Owner = window }
 					})
 					{
 						dialog.Show();

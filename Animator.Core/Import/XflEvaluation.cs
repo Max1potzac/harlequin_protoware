@@ -322,21 +322,36 @@ public sealed class XflEvaluator
 			case XflDrawingKind.Bitmap:
 				return Plain(key.Name);
 			case XflDrawingKind.Symbol:
+				// A symbol holding just one thing (a picture, or another symbol holding one…): the
+				// first name on the way down that means something. "sprite/zombie_jaw" holding
+				// "image/zombie_28x33" holding the bitmap is the jaw; "Symbol 12" holding "arm.png"
+				// is the arm. (Names that are just a size or a number say nothing.)
+				var chain = new List<string> { key.Name };
 				string? name = key.Name;
 				for (int depth = 0; depth < 8 && name != null; depth++)
 				{
 					var only = _doc.Symbol(name)?.Timeline.Layers.SelectMany(l => l.Frames).SelectMany(f => f.Elements).ToList();
 					if (only is not { Count: 1 }) break;
-					if (only[0] is XflBitmapInstance b) return Plain(b.Library);
+					if (only[0] is XflBitmapInstance b)
+					{
+						chain.Add(b.Library);
+						break;
+					}
 					name = (only[0] as XflInstance)?.Library;
+					if (name != null) chain.Add(name);
 				}
-				return Plain(key.Name);
+				return chain.Select(Plain).FirstOrDefault(n => !SaysNothing(n)) ?? Plain(chain[^1]);
 			default:
 				var timeline = Timeline(key.Name);
 				string layer = timeline != null && key.Layer >= 0 && key.Layer < timeline.Layers.Count ? timeline.Layers[key.Layer].Name : "";
 				return layer.Length > 0 ? layer : "shape";
 		}
 	}
+
+	// "Symbol 12", "zombie_pirate_basic_28x33", "image_7": names a program gave, not a person
+	public static bool SaysNothing(string name) =>
+		System.Text.RegularExpressions.Regex.IsMatch(name.Trim(),
+			@"^(symbol|graphic|bitmap|image|shape|tween)?[ _]*\d+$|(^|_)\d+x\d+(_\d+)?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
 	private static string Plain(string libraryName)
 	{
