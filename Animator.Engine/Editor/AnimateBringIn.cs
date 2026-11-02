@@ -59,11 +59,11 @@ public static class AnimateBringIn
 			merge.Parts[from] = to;
 		}
 		var (matched, extra) = ObjectMerge.PartsOn(source.Skeleton, target, merge, options.Bones);
-		foreach (string name in options.Include ?? Array.Empty<string>())
+		foreach (string part in options.Include ?? Array.Empty<string>())
 		{
-			if (source.Skeleton.FindSlot(name) == null || matched.Contains(name) || extra.Contains(name)) continue;
-			if (merge.Parts.GetValueOrDefault(name) is { } here && target.FindSlot(here) != null) matched.Add(name);
-			else extra.Add(name);
+			if (source.Skeleton.FindSlot(part) == null || matched.Contains(part) || extra.Contains(part)) continue;
+			if (merge.Parts.GetValueOrDefault(part) is { } here && target.FindSlot(here) != null) matched.Add(part);
+			else extra.Add(part);
 		}
 		if (options.Except is { Count: > 0 } except)
 		{
