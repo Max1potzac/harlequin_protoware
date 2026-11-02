@@ -204,6 +204,7 @@ public static class ObjectMerge
 		var copies = new Dictionary<Guid, Asset>();
 		bool meshesDropped = false;
 		var gap = plan.AsPlaced ? LineUp(source, sourceAnimations, target, targetAnimations, plan, parts, notes) : Vector2.Zero;
+		var companions = skin != null && plan.AsPlaced ? Companions(source, target, plan, parts, added) : new Dictionary<Slot, Slot>();
 		foreach (var s in source.Slots)
 		{
 			if (parts.GetValueOrDefault(s.Name) is not { } targetPart) continue;
@@ -244,6 +245,7 @@ public static class ObjectMerge
 			target.UpdateWorld();
 		}
 		if (meshesDropped) notes.Add("Meshes weren't brought along: the drawings are flat here (make their meshes again).");
+		foreach (var (accessory, companion) in companions) ShowWith(accessory, companion, targetAnimations);
 
 		// ----- animations -----
 		var oldToNew = layerSources.ToDictionary(p => p.Value.ToString("N"), p => p.Key.ToString("N"));
@@ -313,6 +315,49 @@ public static class ObjectMerge
 		var gap = new Vector2(Median(xs), Median(ys));
 		if (gap.Length() > 0.5f) notes.Add($"The two stand {gap.Length():0} apart: the drawings were moved to match ({xs.Count} part(s) both have said where).");
 		return gap;
+	}
+
+	// A skin's new parts (a hat, a hairflap, gum) ride on the part of the skin they sit nearest as
+	// lined up (the skull, the jaw): on its bone, so they move as it moves in this object's own
+	// animations. Called posed by LineUp, before the drawings are placed (they're placed on these bones).
+	private static Dictionary<Slot, Slot> Companions(Skeleton source, Skeleton target, MergePlan plan, Dictionary<string, string?> parts, List<Slot> added)
+	{
+		var result = new Dictionary<Slot, Slot>();
+		var riders = new List<(Slot Here, Vector2 At)>();
+		var held = new List<(Slot Here, Vector2 At)>();
+		foreach (var s in source.Slots)
+		{
+			if (!plan.SkinParts.Contains(s.Name) || parts.GetValueOrDefault(s.Name) is not { } name || target.FindSlot(name) is not { } here) continue;
+			if (Middle(source, s) is not { } at)
+			{
+				if (source.DefaultSkin.AttachmentsFor(s.Name).FirstOrDefault() is { } first && source.Assets.TryGetValue(first.AssetId, out var asset))
+					at = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), s.ImageToBone(first, asset.Width, asset.Height) * s.Bone.World);
+				else continue;
+			}
+			(added.Contains(here) ? riders : held).Add((here, at));
+		}
+		if (held.Count == 0) return result;
+		foreach (var (rider, at) in riders)
+		{
+			var nearest = held.MinBy(h => Vector2.DistanceSquared(h.At, at)).Here;
+			rider.Bone = nearest.Bone;
+			result[rider] = nearest;
+		}
+		return result;
+	}
+
+	// A new part shows while its companion shows, and hides when it hides (a head falling off in
+	// die): the companion's drawing keys, copied, in every animation it has them
+	private static void ShowWith(Slot accessory, Slot companion, List<Animation> animations)
+	{
+		foreach (var animation in animations)
+		{
+			if (animation.Timelines.OfType<AttachmentTimeline>().FirstOrDefault(x => x.Target == companion.Name) is not { } keys) continue;
+			if (animation.Timelines.OfType<AttachmentTimeline>().Any(x => x.Target == accessory.Name)) continue;
+			var copy = new AttachmentTimeline(accessory.Name);
+			foreach (var key in keys.Track.Keys) copy.Add(key.Time, key.Value == null ? null : accessory.SetupAttachment);
+			animation.Timelines.Add(copy);
+		}
 	}
 
 	// Where the drawing a part shows now has its middle, in the object's space (null: none shows)

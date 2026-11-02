@@ -202,6 +202,36 @@ public class ObjectMergeTests
 	}
 
 	[Fact]
+	public void A_skins_new_part_rides_on_its_nearest_part_and_hides_with_it()
+	{
+		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: true);
+		var (pirate, pirateAnimations) = Zombie("pirate_", 0.1f, hat: false);
+		var drop = new AttachmentTimeline("pirate_head");   // the pirate's own die: the head comes off at 0.5
+		drop.Add(0, "pirate_head");
+		drop.Add(0.5f, null);
+		var die = new Animation { Name = "die", Duration = 1 };
+		die.Timelines.Add(drop);
+		pirateAnimations.Add(die);
+		var plan = ObjectMerge.Suggest(mummy, walks, pirate);
+		plan.AsPlaced = true;
+		plan.SkinName = "mummy";
+		plan.SkinParts.UnionWith(new[] { "egypt_head", "egypt_hat" });
+		plan.NewParts.Add("egypt_hat");
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(mummy, walks, pirate, pirateAnimations, plan);
+
+		var hat = Assert.Single(result.NewParts);
+		Assert.Equal("pirate_head", hat.Bone.Name);
+		var keys = die.Find<AttachmentTimeline>(hat.Name)!.Track.Keys;
+		Assert.Equal(new[] { hat.SetupAttachment, null }, keys.Select(k => k.Value));
+		Assert.Equal(new[] { 0f, 0.5f }, keys.Select(k => k.Time));
+		SkinOps.Show(pirate, result.Skin!);
+		pirate.SetToSetupPose();
+		die.Apply(pirate, 0.75f);
+		Assert.Null(pirate.ResolveAttachment(hat));
+	}
+
+	[Fact]
 	public void The_parts_on_a_bone_are_found_with_their_accessories()
 	{
 		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: true);
