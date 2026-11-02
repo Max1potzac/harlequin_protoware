@@ -94,9 +94,9 @@ public sealed class MotionTransfer
 			{
 				var reachT = downT.Parent - upT.Child;
 				var reachS = downS.Parent - upS.Child;
-				if (reachT.Length() > 2 && reachS.Length() > 2)
+				float angle = MathF.IEEERemainder(MathF.Atan2(reachS.Y, reachS.X) - MathF.Atan2(reachT.Y, reachT.X), 2 * MathF.PI);
+				if (reachT.Length() > 2 && reachS.Length() > 2 && MathF.Abs(angle) < 35 * MathF.PI / 180)   // (more: not the same limb, really)
 				{
-					float angle = MathF.Atan2(reachS.Y, reachS.X) - MathF.Atan2(reachT.Y, reachT.X);
 					turn = Matrix3x2.CreateTranslation(-upT.Child) * Matrix3x2.CreateRotation(angle) * Matrix3x2.CreateTranslation(upS.Child);
 					along = Vector2.Normalize(reachT);
 					stretch = Math.Clamp(reachS.Length() / reachT.Length(), 0.6f, 1.6f);
