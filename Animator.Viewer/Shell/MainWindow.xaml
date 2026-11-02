@@ -34,6 +34,8 @@
                               ToolTip="Every step you can undo, to go back to any of them at once" />
                     <MenuItem x:Name="BringInItem" Header="_Bring in from another object…" Click="BringIn_Click"
                               ToolTip="Another object's animations onto this object's bones, and its drawings (a head, an outfit) as a skin here: matched by name" />
+                    <MenuItem x:Name="BatchBringInItem" Header="Bring in from _Animate projects…" Click="BatchBringIn_Click"
+                              ToolTip="Many characters' heads (the parts on the picked bones) as skins here at once, straight from their Animate projects" />
                     <Separator />
                     <MenuItem Header="_Pick every bone and part shown" Tag="pick.all" Click="MenuCommand_Click"
                               ToolTip="Hidden and locked ones stay as they are" />

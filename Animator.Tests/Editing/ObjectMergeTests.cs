@@ -143,6 +143,50 @@ public class ObjectMergeTests
 	}
 
 	[Fact]
+	public void As_placed_a_drawing_shows_where_it_showed_in_the_other_object()
+	{
+		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: false);
+		var (pirate, pirateAnimations) = Zombie("pirate_", -0.3f, hat: false);   // (its head rests turned the other way)
+		var plan = ObjectMerge.Suggest(mummy, walks, pirate);
+		plan.AsPlaced = true;
+		plan.SkinName = "mummy";
+		plan.SkinParts.Add("egypt_head");
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(mummy, walks, pirate, pirateAnimations, plan);
+		Assert.Contains(result.Notes, n => n.Contains("walk"));
+
+		// Posed alike (the start of walk), the two drawings are in the same place
+		Matrix3x2 Shown(Skeleton s, Slot slot, Attachment d) =>
+			d.LocalMatrix(20, 20, slot.Offset, slot.Rotation, slot.Scale) * slot.Bone.World;
+		mummy.SetToSetupPose();
+		walks[0].Apply(mummy, 0);
+		mummy.UpdatePose();
+		pirate.SetToSetupPose();
+		pirateAnimations[0].Apply(pirate, 0);
+		pirate.UpdatePose();
+		var theirs = Shown(mummy, mummy.FindSlot("egypt_head")!, mummy.DefaultSkin.Get("egypt_head", "egypt_head")!);
+		var ours = Shown(pirate, pirate.FindSlot("pirate_head")!, result.Skin!.Get("pirate_head", "pirate_head")!);
+		Assert.Equal(theirs.Translation.X, ours.Translation.X, 3);
+		Assert.Equal(theirs.Translation.Y, ours.Translation.Y, 3);
+		Assert.Equal(theirs.M11, ours.M11, 3);
+		Assert.Equal(theirs.M12, ours.M12, 3);
+	}
+
+	[Fact]
+	public void The_parts_on_a_bone_are_found_with_their_accessories()
+	{
+		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: true);
+		var (pirate, _) = Zombie("pirate_", 0.1f, hat: false);
+		var plan = ObjectMerge.Suggest(mummy, walks, pirate);
+		var (matched, added) = ObjectMerge.PartsOn(mummy, pirate, plan, new[] { pirate.FindBone("pirate_head")! });
+		Assert.Equal(new[] { "egypt_head" }, matched);
+		Assert.Equal(new[] { "egypt_hat" }, added);   // (its bone isn't here; the head it hangs from is)
+		Assert.Equal("egypt", ObjectMerge.ShortName("zombie_egypt_basic.pam.xfl"));
+		Assert.Equal("pirate_fem", ObjectMerge.ShortName("zombie_pirate_basic_fem.pam.xfl"));
+		Assert.Equal("camp", ObjectMerge.ShortName("zombie_camp.pam.xfl"));
+	}
+
+	[Fact]
 	public void As_offsets_the_keys_stay_as_they_are()
 	{
 		var (mummy, walks) = Zombie("egypt_", 0.2f, hat: false);
