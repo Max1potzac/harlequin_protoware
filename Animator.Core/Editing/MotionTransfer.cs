@@ -22,14 +22,21 @@ public sealed class MotionTransfer
 	private readonly IDictionary<Attachment, Matrix3x2>? _symbols;   // a drawing's pixels → its symbol's space
 	private readonly Func<Slot, Slot, Attachment, Attachment?>? _supply;   // (part here, source part, source drawing) → a copy here
 	private readonly Dictionary<(string Ours, string Theirs), Matrix3x2> _registration = new();
-	// A limb here turned to theirs (in its symbol's space) and stretched along itself (how far, and
-	// which way, in its symbol's space): see FitLimbs
-	private readonly Dictionary<Slot, (Matrix3x2 Turn, Vector2 Along, float Stretch)> _fit = new();
+	// A part here moved (and a limb turned) onto theirs in its symbol's space, and a limb stretched
+	// along itself about its joint (which way, in its symbol's space; how far): see FitLimbs
+	private readonly Dictionary<Slot, (Matrix3x2 Turn, Vector2 Joint, Vector2 Along, float Stretch)> _fit = new();
+	private readonly IReadOnlyList<Animation> _sourceAnimations, _targetAnimations;
+	private bool _fitted;
 
+	// sourceAnimations, targetAnimations: each one's own (where their joints are is worked out
+	// from how their parts move in them)
 	public MotionTransfer(Skeleton source, Skeleton target, IReadOnlyDictionary<string, string?> parts,
 		Func<string, string, string> drawingName, Matrix3x2 space,
-		IDictionary<Attachment, Matrix3x2>? symbols = null, Func<Slot, Slot, Attachment, Attachment?>? supply = null)
+		IDictionary<Attachment, Matrix3x2>? symbols = null, Func<Slot, Slot, Attachment, Attachment?>? supply = null,
+		IReadOnlyList<Animation>? sourceAnimations = null, IReadOnlyList<Animation>? targetAnimations = null)
 	{
+		_sourceAnimations = sourceAnimations ?? Array.Empty<Animation>();
+		_targetAnimations = targetAnimations?.ToList() ?? new List<Animation>();
 		_source = source;
 		_target = target;
 		_drawingName = drawingName;
@@ -50,45 +57,161 @@ public sealed class MotionTransfer
 				!Matrix3x2.Invert(ms * _space, out var inv)) continue;
 			_registration[(td.Name, sd.Name)] = mt * inv;
 		}
-		if (_symbols != null) FitLimbs();
 	}
 
-	// Limbs drawn longer or shorter than theirs: each is turned and stretched along itself so it
-	// reaches from its own joint to where theirs holds the next part (a shin from the knee to
-	// the foot), or the next part would show apart from it. Measured as both are posed now, in
-	// each part's symbol space: the joint of the one part it leads to (its bone's only child here
-	// with a match, shown in both).
+	// Parts drawn otherwise than theirs (another character's art: a longer shin, a symbol whose
+	// origin sits elsewhere in its picture) fitted by their joints: each part here is moved so its
+	// joint with the part it hangs from lands on theirs, and a limb turned and stretched along
+	// itself so it reaches theirs at the next joint too (a shin from the knee to the foot), or
+	// the parts would show apart. The joints are worked out from how the parts move against each
+	// other in each one's own animations (the point that stays put in both: see Joint). Parts
+	// with nothing to measure keep to their symbols.
 	private void FitLimbs()
 	{
-		Matrix3x2? Symbol(Skeleton skeleton, Slot slot)
+		_fitted = true;
+		if (_symbols == null) return;
+		var bones = _target.AllBones().ToList();
+		Slot? PartOf(Bone bone) => _target.Slots.FirstOrDefault(s => s.Bone == bone && s.Name == bone.Name && _sourceOf.ContainsKey(s.Name))
+			?? _target.Slots.FirstOrDefault(s => s.Bone == bone && _sourceOf.ContainsKey(s.Name));
+		var ours = new JointFinder(_target, _targetAnimations, this);
+		var theirs = new JointFinder(_source, _sourceAnimations, this);
+		foreach (var bone in bones)
 		{
-			var drawing = skeleton == _target ? (slot.ActiveAttachment is { } name ? Drawing(slot, name) : null) : skeleton.ResolveAttachment(slot);
-			if (drawing == null || !_symbols!.TryGetValue(drawing, out var toSymbol) || ImageToWorld(skeleton, slot, drawing) is not { } world
-				|| !Matrix3x2.Invert(toSymbol, out var fromPixels)) return null;
-			return fromPixels * world;   // symbol → world
+			if (bone.Parent == null || PartOf(bone) is not { } t) continue;
+			var s = _source.FindSlot(_sourceOf[t.Name])!;
+			if (PartOf(bone.Parent) is not { } pt) continue;
+			var ps = _source.FindSlot(_sourceOf[pt.Name])!;
+			if (ours.Joint(pt, t) is not { } upT || theirs.Joint(ps, s) is not { } upS) continue;
+			var turn = Matrix3x2.CreateTranslation(upS.Child - upT.Child);   // its joint on theirs
+			Vector2 along = Vector2.UnitX;
+			float stretch = 1f;
+			var next = bones.Where(b => b.Parent == bone).Select(PartOf).OfType<Slot>().ToList();
+			if (next.Count == 1 && ours.Joint(t, next[0]) is { } downT
+				&& theirs.Joint(s, _source.FindSlot(_sourceOf[next[0].Name])!) is { } downS)
+			{
+				var reachT = downT.Parent - upT.Child;
+				var reachS = downS.Parent - upS.Child;
+				if (reachT.Length() > 2 && reachS.Length() > 2)
+				{
+					float angle = MathF.Atan2(reachS.Y, reachS.X) - MathF.Atan2(reachT.Y, reachT.X);
+					turn = Matrix3x2.CreateTranslation(-upT.Child) * Matrix3x2.CreateRotation(angle) * Matrix3x2.CreateTranslation(upS.Child);
+					along = Vector2.Normalize(reachT);
+					stretch = Math.Clamp(reachS.Length() / reachT.Length(), 0.6f, 1.6f);
+				}
+			}
+			_fit[t] = (turn, upT.Child, along, stretch);
 		}
-		foreach (var (ours, theirs) in _sourceOf)
+	}
+
+	// Where two parts join, from their motion: the point that's the same in both their symbols'
+	// spaces on every frame both show (least squares; nudged towards the child's own origin, so
+	// two parts that never turn against each other get a joint there)
+	private sealed class JointFinder
+	{
+		private readonly Skeleton _skeleton;
+		private readonly List<(Animation Animation, float Time)> _frames = new();
+		private readonly MotionTransfer _owner;
+		private readonly Dictionary<(Slot, Slot), (Vector2 Parent, Vector2 Child)?> _found = new();
+
+		public JointFinder(Skeleton skeleton, IReadOnlyList<Animation> animations, MotionTransfer owner)
 		{
-			var t = _target.FindSlot(ours)!;
-			var s = _source.FindSlot(theirs)!;
-			var next = _target.Slots.Where(c => c != t && c.Bone.Parent == t.Bone && _sourceOf.ContainsKey(c.Name)
-				&& Symbol(_target, c) != null && Symbol(_source, _source.FindSlot(_sourceOf[c.Name])!) != null).ToList();
-			if (next.Count != 1 || Symbol(_target, t) is not { } tSpace || Symbol(_source, s) is not { } sSpace
-				|| !Matrix3x2.Invert(tSpace, out var intoT) || !Matrix3x2.Invert(sSpace, out var intoS)) continue;
-			var c = next[0];
-			var reachT = Vector2.Transform(Symbol(_target, c)!.Value.Translation, intoT);
-			var reachS = Vector2.Transform(Symbol(_source, _source.FindSlot(_sourceOf[c.Name])!)!.Value.Translation, intoS);
-			if (reachT.Length() < 2 || reachS.Length() < 2) continue;
-			float stretch = Math.Clamp(reachS.Length() / reachT.Length(), 0.6f, 1.6f);
-			_fit[t] = (Matrix3x2.CreateRotation(MathF.Atan2(reachS.Y, reachS.X) - MathF.Atan2(reachT.Y, reachT.X)),
-				Vector2.Normalize(reachT), stretch);
+			_skeleton = skeleton;
+			_owner = owner;
+			foreach (var animation in animations)
+				for (float time = 0; time <= animation.Duration + 1e-4f; time += 3f / 30)
+					_frames.Add((animation, MathF.Min(time, animation.Duration)));
 		}
+
+		// (the joint in the parent's symbol space, and in the child's)
+		public (Vector2 Parent, Vector2 Child)? Joint(Slot parent, Slot child)
+		{
+			if (_found.TryGetValue((parent, child), out var known)) return known;
+			var a = new double[4, 4];
+			var b = new double[4];
+			int used = 0;
+			Vector2? prior = null;
+			foreach (var (animation, time) in _frames)
+			{
+				_skeleton.SetToSetupPose();
+				animation.Apply(_skeleton, time);
+				_skeleton.UpdatePose();
+				if (_owner.SymbolSpace(_skeleton, parent) is not { } p || _owner.SymbolSpace(_skeleton, child) is not { } c) continue;
+				if (prior == null && Matrix3x2.Invert(p, out var intoParent)) prior = Vector2.Transform(c.Translation, intoParent);
+				// j·P + p₀ = k·C + c₀, for the unknowns (jx, jy, kx, ky)
+				Add(new double[] { p.M11, p.M21, -c.M11, -c.M21 }, c.M31 - p.M31);
+				Add(new double[] { p.M12, p.M22, -c.M12, -c.M22 }, c.M32 - p.M32);
+				used++;
+			}
+			_skeleton.SetToSetupPose();
+			_skeleton.UpdatePose();
+			(Vector2, Vector2)? joint = null;
+			if (used >= 2 && prior is { } start)
+			{
+				double ridge = 1e-3 * used;   // towards the child's origin
+				var x0 = new[] { start.X, start.Y, 0.0, 0.0 };
+				for (int i = 0; i < 4; i++)
+				{
+					a[i, i] += ridge;
+					b[i] += ridge * x0[i];
+				}
+				if (Solve(a, b) is { } x) joint = (new Vector2((float)x[0], (float)x[1]), new Vector2((float)x[2], (float)x[3]));
+			}
+			_found[(parent, child)] = joint;
+			return joint;
+
+			void Add(double[] row, double rhs)
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					for (int j = 0; j < 4; j++) a[i, j] += row[i] * row[j];
+					b[i] += row[i] * rhs;
+				}
+			}
+		}
+
+		private static double[]? Solve(double[,] a, double[] b)
+		{
+			int n = b.Length;
+			var m = new double[n, n + 1];
+			for (int i = 0; i < n; i++)
+			{
+				for (int j = 0; j < n; j++) m[i, j] = a[i, j];
+				m[i, n] = b[i];
+			}
+			for (int col = 0; col < n; col++)
+			{
+				int pivot = col;
+				for (int r = col + 1; r < n; r++) if (Math.Abs(m[r, col]) > Math.Abs(m[pivot, col])) pivot = r;
+				if (Math.Abs(m[pivot, col]) < 1e-12) return null;
+				for (int j = 0; j <= n; j++) (m[col, j], m[pivot, j]) = (m[pivot, j], m[col, j]);
+				for (int r = 0; r < n; r++)
+				{
+					if (r == col) continue;
+					double f = m[r, col] / m[col, col];
+					for (int j = col; j <= n; j++) m[r, j] -= f * m[col, j];
+				}
+			}
+			var x = new double[n];
+			for (int i = 0; i < n; i++) x[i] = m[i, n] / m[i, i];
+			return x;
+		}
+	}
+
+	// A part's symbol's space → the object, as it's posed now (null: it shows nothing, or its
+	// drawing's symbol isn't known)
+	private Matrix3x2? SymbolSpace(Skeleton skeleton, Slot slot)
+	{
+		var drawing = skeleton == _target ? (slot.ActiveAttachment is { } name ? Drawing(slot, name) : null) : skeleton.ResolveAttachment(slot);
+		if (drawing == null || _symbols == null || !_symbols.TryGetValue(drawing, out var toSymbol) || ImageToWorld(skeleton, slot, drawing) is not { } world
+			|| !Matrix3x2.Invert(toSymbol, out var fromPixels)) return null;
+		return fromPixels * world;
 	}
 
 	// The keys that make `copy` (already holding the source's other rows, renamed for here) play
 	// `animation` as the source shows it: its bone, part-placement and drawing rows are replaced
 	public void Bake(Animation animation, Animation copy, int fps)
 	{
+		if (!_fitted) FitLimbs();
 		copy.Timelines.RemoveAll(t => t is RotateTimeline or TranslateTimeline or ScaleTimeline or DepthTimeline or SpaceTimeline
 			or IkMixTimeline or PartTranslateTimeline or PartRotateTimeline or PartScaleTimeline
 			|| t is AttachmentTimeline a && _sourceOf.ContainsKey(a.Target));
@@ -241,7 +364,7 @@ public sealed class MotionTransfer
 	{
 		if (!_fit.TryGetValue(slot, out var fit) || MathF.Abs(fit.Stretch - 1) < 1e-3f || _symbols == null
 			|| !_symbols.TryGetValue(ours, out var toSymbol) || !Matrix3x2.Invert(toSymbol, out var fromSymbol)) return Matrix3x2.Identity;
-		var joint = Vector2.Transform(Vector2.Zero, fromSymbol);
+		var joint = Vector2.Transform(fit.Joint, fromSymbol);
 		var along = Vector2.TransformNormal(fit.Along, fromSymbol);
 		var scale = MathF.Abs(along.Y) >= MathF.Abs(along.X) ? new Vector2(1, fit.Stretch) : new Vector2(fit.Stretch, 1);
 		return Matrix3x2.CreateTranslation(-joint) * Matrix3x2.CreateScale(scale) * Matrix3x2.CreateTranslation(joint);

@@ -222,7 +222,8 @@ public static class ObjectMerge
 		var gap = plan.AsPlaced ? LineUp(source, sourceAnimations, target, targetAnimations, plan, parts, notes) : Matrix3x2.Identity;
 		var companions = skin != null && plan.AsPlaced ? Companions(source, target, plan, parts, added) : new Dictionary<Slot, Slot>();
 		var transfer = plan.ByParts && plan.AsPlaced && plan.Animations.Count > 0
-			? new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, plan.CopyMissing != null ? Supply : null) : null;   // (posed alike now)
+			? new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, plan.CopyMissing != null ? Supply : null,
+				sourceAnimations, targetAnimations.ToList()) : null;   // (posed alike now)
 		// A drawing placed through its symbol (see MergePlan.Symbols): measured against the part
 		// here it lands on, or the one it rides on (its companion), as Animate draws it there.
 		// False: there's nothing to measure it against that way.
