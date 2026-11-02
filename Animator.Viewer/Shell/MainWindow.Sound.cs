@@ -16,7 +16,7 @@ public partial class MainWindow
 	private readonly Dictionary<string, (float Duration, float[] Peaks)?> _waveforms = new();
 	private SoundMapWindow? _soundMap;
 
-	private string? ProjectFolder => _projectPath != null ? Path.GetDirectoryName(_projectPath) : null;
+	private string? ProjectFolder => _session.ProjectFolder;
 
 	// A path the sound map (or a sound track) keeps → the file
 	private string ResolveSound(string stored) =>

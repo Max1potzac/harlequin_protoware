@@ -87,13 +87,7 @@ public partial class MainWindow
 	}
 
 	// The whole pose pipeline at one time: rest pose, the animation's keys, then constraints
-	private void PoseAt(float time)
-	{
-		_skeleton.SetToSetupPose();
-		_state.Animation.Apply(_skeleton, time);
-		_state.Hold.Apply(_skeleton, _state.Animation, (int)MathF.Round(time * _state.Fps));   // unkeyed changes, at their frame
-		_skeleton.UpdatePose();
-	}
+	private void PoseAt(float time) => _state.PoseAt(time);
 
 	// ======================= paint editor (light table) =======================
 

@@ -9,7 +9,7 @@ throughout.
 |---|---|---|
 | 1 | **Animator.Engine**: everything that isn't a window (drawing, painting, imports, exports, the project file, the editing state) moved out of Animator.Viewer into a plain .NET library, built on Linux by CI | done |
 | 2 | **A command-line Harlequin** (`harlequin`, see [cli.md](cli.md)) on the engine: open and save projects, import Animate and Photoshop files, bring heads (or other parts) in from other Animate projects as skins, render a frame or a sheet of skins to a picture, export. CI builds it for Linux and Windows and publishes it as a release download. | done |
-| 3 | **Editing logic out of the window code** (next): the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | |
+| 3 | **Editing logic out of the window code** (in progress: the session, see below): the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | |
 | 4 | **An Avalonia editor** (Animator.Desktop) on the engine, built panel by panel next to the WPF one, with headless UI tests | |
 | 5 | **Parity**, then the Avalonia editor becomes the one released (for Windows too), and the WPF one is retired | |
 
@@ -30,3 +30,10 @@ throughout.
   (the command-line tool, the Avalonia editor), not in the engine itself.
 - Sound in the editor uses Windows' MediaPlayer today; the Avalonia editor needs a cross-platform
   player (OpenAL, LibVLC or similar).
+
+## Step 3, piece by piece
+
+1. **EditorSession** (Animator.Engine/Editor): the project as it's being edited — the scene and
+   its pictures, the open object or scene level, both playheads, posing everything at a moment,
+   and the file (new, open, save). MainWindow keeps one and shows it.
+

@@ -17,11 +17,11 @@ namespace Animator.Viewer;
 // scene timeline: every object plays its clips there (one with no clips loops its preview).
 public partial class MainWindow
 {
-	private Scene _scene = new();
-	private readonly SceneState _sceneState = new();   // the scene playhead, selected object and clip
-	private SceneObject? _active;          // the object open for editing (at scene level: the last one open)
-	private bool _sceneLevel;              // true = working on whole objects
-	private float _sceneTimeAtZero;        // inside an object: the scene time its timeline's 0 stands for
+	// (the session's, see EditorSession)
+	private Scene _scene { get => _session.Scene; set => _session.Scene = value; }
+	private SceneState _sceneState => _session.SceneState;   // the scene playhead, selected object and clip
+	private SceneObject? _active => _session.Active;         // the object open for editing (at scene level: the last one open)
+	private bool _sceneLevel { get => _session.SceneLevel; set => _session.SceneLevel = value; }
 	private ObjectTool _objectTool = null!;
 	private SceneTimelinePanel _sceneTimeline = null!;
 	private bool _objectDrag;              // the current viewport press went to the object tool
@@ -30,20 +30,11 @@ public partial class MainWindow
 	private SceneClip? _shownClip;         // the clip the properties show
 	private const float FadedOpacity = 0.35f;
 
-	private bool Editing => !_sceneLevel && _active != null;
-
-	// The time the panels and tools work at: the timeline's inside an object, the scene playhead outside
-	private float ClockTime => _sceneLevel ? _sceneState.Time : _state.Time;
-
-	// The scene time everything else is shown at. Inside an object it follows the object's
-	// timeline, so the rest of the scene plays along in context.
-	private float SceneTimeNow => _sceneLevel ? _sceneState.Time : _sceneTimeAtZero + _state.Time;
-
-	// One frame, in seconds
-	private float FrameTime => 1f / Math.Max(1, _state.Fps);
-
-	// The object the panel's buttons work on: the selected one at scene level, else the open one
-	private SceneObject? CurrentObject => _sceneLevel ? _objectTool.Selected : _active;
+	private bool Editing => _session.Editing;
+	private float ClockTime => _session.ClockTime;
+	private float SceneTimeNow => _session.SceneTimeNow;
+	private float FrameTime => _session.FrameTime;
+	private SceneObject? CurrentObject => _session.CurrentObject;
 
 	private void InitScene()
 	{
@@ -71,27 +62,9 @@ public partial class MainWindow
 	// Points the editor at this object's rig and animations
 	private void EditObject(SceneObject obj)
 	{
-		if (obj.Animations.Count == 0)
-			obj.Animations.Add(new Animation { Name = "animation", Duration = 2f, Loop = true });
-
-		bool switching = _active != obj;
-		if (switching)
-		{
-			if (_paint is not null) ClosePaintEditor();   // its drawing belongs to the old object
-			_state.Selected = null;
-			_state.SelectedSlot = null;
-			_state.SelectedKeys.Clear();
-		}
-
-		_active = obj;
+		if (_active != obj && _paint is not null) ClosePaintEditor();   // its drawing belongs to the old object
+		_session.Open(obj);
 		_skeleton = obj.Skeleton;
-		_state.Skeleton = obj.Skeleton;
-		_state.Animations = obj.Animations;
-		if (switching || !obj.Animations.Contains(_state.Animation))
-		{
-			_state.Animation = PreviewOf(obj) ?? obj.Animations[0];
-			_state.SetFrame(_state.Frame);   // keeps the playhead inside the animation
-		}
 		if (_paint is not null) _paint.Skeleton = obj.Skeleton;
 		if (_tool is not null) _tool.BonesEnabled = obj.Kind != ObjectKind.Drawn;   // a drawn object's bone is hidden
 		UpdateCameraSpace();
@@ -104,20 +77,9 @@ public partial class MainWindow
 	// keeps playing along with its timeline.
 	private void EnterObject(SceneObject obj, SceneClip? via)
 	{
-		float sceneTime = SceneTimeNow;
-		if (via != null && !via.Covers(sceneTime)) sceneTime = via.Start;   // opened away from the playhead
-		var clip = via ?? (obj.ClipAt(sceneTime) is { } playing && playing.Covers(sceneTime) ? playing : null);
-
-		_sceneLevel = false;
-		EditObject(obj);
-		if (clip != null && obj.Animations.Contains(clip.Animation))
-		{
-			_state.Animation = clip.Animation;
-			_state.Time = MathF.Round(clip.AnimationTime(sceneTime) * _state.Fps) / _state.Fps;
-			_state.SelectedKeys.Clear();
-		}
-		_sceneTimeAtZero = sceneTime - _state.Time;
-		_objectTool.Selected = obj;
+		if (_active != obj && _paint is not null) ClosePaintEditor();
+		_session.Enter(obj, via);
+		EditObject(obj);   // (the window's side: the paint editor, the tools, the camera)
 		PoseScene(ClockTime);   // the panels show the pose you're about to edit
 		UpdateCameraSpace();
 		RefreshEverything();
@@ -127,11 +89,7 @@ public partial class MainWindow
 	{
 		if (_sceneLevel) return;
 		ClosePaintEditor();
-		_sceneState.Time = WrapSceneTime(SceneTimeNow);   // the scene goes on from where the timeline was
-		_sceneLevel = true;
-		_objectTool.Selected = _active;
-		_state.Selected = null;
-		_state.SelectedSlot = null;
+		_session.Leave();   // the scene goes on from where the timeline was
 		UpdateCameraSpace();
 		RefreshEverything();
 	}
@@ -152,42 +110,9 @@ public partial class MainWindow
 
 	// Every object at one time (ClockTime's kind): the open one with the animation being edited,
 	// the others (at scene level, all of them) as the scene timeline has them then
-	private void PoseScene(float time)
-	{
-		float sceneTime = Editing ? _sceneTimeAtZero + time : time;
-		foreach (var obj in _scene.Objects)
-		{
-			if (Editing && obj == _active)
-			{
-				if (PoseMix()) continue;   // the mixer playing
-				PoseAt(time);
-				if (_state.AnimateMode) _skeleton.StepPhysics(time);   // jiggles swing as time goes by
-				else _skeleton.ResetPhysics();
-			}
-			else ScenePlayer.Pose(obj, sceneTime);   // its clip there, or its preview animation looping
-		}
-	}
-
-	// Scene time kept inside the scene: wrapped when it loops, held at the end when it doesn't
-	private float WrapSceneTime(float t)
-	{
-		float d = _scene.Duration;
-		if (d <= 0) return 0;
-		if (t >= 0 && t <= d) return t;
-		return _scene.Loop ? ((t % d) + d) % d : Math.Clamp(t, 0, d);
-	}
-
-	// Playing at scene level: the scene playhead runs, and loops or stops at the scene's end
-	private void AdvanceScene(float dt)
-	{
-		float t = _sceneState.Time + dt;
-		if (t > _scene.Duration && !_scene.Loop)
-		{
-			t = _scene.Duration;
-			_state.Playing = false;
-		}
-		_sceneState.Time = WrapSceneTime(t);
-	}
+	private void PoseScene(float time) => _session.PoseScene(time, PoseMix);   // (the mixer playing poses the open object)
+	private float WrapSceneTime(float t) => _session.WrapSceneTime(t);
+	private void AdvanceScene(float dt) => _session.AdvanceScene(dt);
 
 	private static Animation? PreviewOf(SceneObject obj) => ScenePlayer.Preview(obj);
 
@@ -306,13 +231,7 @@ public partial class MainWindow
 		return true;
 	}
 
-	private void StepScene(int frames)
-	{
-		_state.Playing = false;
-		int last = (int)MathF.Round(_scene.Duration * _state.Fps);
-		int frame = (int)MathF.Round(_sceneState.Time * _state.Fps) + frames;
-		_sceneState.Time = Math.Clamp(frame, 0, last) / (float)_state.Fps;
-	}
+	private void StepScene(int frames) => _session.StepScene(frames);
 
 	// ======================= Objects panel =======================
 
@@ -320,9 +239,7 @@ public partial class MainWindow
 	{
 		// An undo may have removed the open object, or the selected one
 		if (_active == null || !_scene.Objects.Contains(_active)) EditObject(_scene.Objects[0]);
-		if (_objectTool.Selected != null && !_scene.Objects.Contains(_objectTool.Selected)) _objectTool.Selected = null;
-		if (_sceneState.SelectedClip is { } picked && _objectTool.Selected?.Clips.Contains(picked) != true)
-			_sceneState.SelectedClip = null;   // undone, or its object isn't selected any more
+		_session.KeepToWhatExists();   // the selected object and clip too
 
 		// The list is only rebuilt when something in it changed, so picking with the arrow keys keeps working
 		_syncingScene = true;

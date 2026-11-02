@@ -19,9 +19,12 @@ public partial class MainWindow : Window, IScalesItsParts
 {
 	private Skeleton _skeleton = new();   // the rig of the object being edited (see MainWindow.Scene.cs)
 	private readonly AssetStore _assets = new();
+	// The project as it's being edited (the scene, the open object, the playheads, the file):
+	// the window shows it and turns clicks into changes to it
+	private readonly EditorSession _session;
 	private readonly SkeletonRenderer _renderer;
 	private readonly Camera _camera = new();
-	private readonly EditorState _state;
+	private EditorState _state => _session.State;
 	private readonly BoneTool _tool;
 	private readonly TimelinePanel _timeline;
 
@@ -44,7 +47,7 @@ public partial class MainWindow : Window, IScalesItsParts
 		BuildDemoRig();
 		BuildDemoAnimation();
 
-		_state = new EditorState(_skeleton, _anim);
+		_session = new EditorSession(_assets, new EditorState(_skeleton, _anim));
 		_scene = SingleObjectScene();
 		EditObject(_scene.Objects[0]);
 		InitScene();   // before the other panels: an undo can change which object is open

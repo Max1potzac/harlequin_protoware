@@ -255,4 +255,14 @@ public class EditorState
 		else spans.Add((from, Time));
 		return spans;
 	}
+
+	// The whole pose pipeline at one time: rest pose, the animation's keys, the unkeyed changes
+	// held at their frame, then constraints
+	public void PoseAt(float time)
+	{
+		Skeleton.SetToSetupPose();
+		Animation.Apply(Skeleton, time);
+		Hold.Apply(Skeleton, Animation, (int)MathF.Round(time * Fps));
+		Skeleton.UpdatePose();
+	}
 }
