@@ -13,6 +13,7 @@ public sealed class AppSettings
 	public string? ExportFolder { get; set; }    // where the last export went
 	public string? ImportFolder { get; set; }    // where the last imported file came from
 	public bool KeepPartsInPlace { get; set; } = true;   // "Parts stay put when bones move" (rig panel)
+	public bool KeepAnimations { get; set; } = true;     // "Animations stay as they were" (rig panel)
 	public string? Theme { get; set; }           // the theme's name (Settings → Appearance; null = Dark)
 	public double UiScale { get; set; } = 1.0;   // how big the panels and dialogs are (Settings → Appearance)
 

@@ -20,6 +20,21 @@ public partial class MainWindow
 		_appSettings.Save();
 	}
 
+	private void KeepAnimations_Click(object sender, RoutedEventArgs e)
+	{
+		_state.KeepAnimations = KeepAnimationsBox.IsChecked == true;
+		_appSettings.KeepAnimations = _state.KeepAnimations;
+		_appSettings.Save();
+	}
+
+	// A bone takes over a part's motion: the part goes on it, the bone gets keys that move it as
+	// the part moved in every animation (for tracing a rig over animated art)
+	private void BoneFollowsPart(Bone bone, Slot slot)
+	{
+		if (_state.BoneFollowsPart(bone, slot))
+			ShowRigHint($"{bone.Name} now carries {slot.Name}, moving as it moved in every animation.");
+	}
+
 	// ======================= a drawn object gets bones =======================
 
 	private void GiveBones_Click(object sender, RoutedEventArgs e)
@@ -87,6 +102,14 @@ public partial class MainWindow
 			() => PartsToNearestBones(onRoots, "the parts on the root"));
 		if (_state.SelectedSlot is { } selected)
 			Item($"\"{selected.Name}\" onto its nearest bone", bones, () => PartsToNearestBones(new List<Slot> { selected }, selected.Name));
+
+		// Pick a bone and a part together (Ctrl+click): the bone takes over the part's motion
+		var pickedBones = _state.PickedBones.ToList();
+		var pickedParts = _state.PickedSlots.ToList();
+		bool pair = pickedBones.Count == 1 && pickedParts.Count == 1;
+		Item(pair ? $"\"{pickedBones[0].Name}\" follows \"{pickedParts[0].Name}\": carries it, moving as it moved in every animation"
+				  : "A bone follows a part (pick the two together): carries it, moving as it moved in every animation",
+			pair, () => BoneFollowsPart(pickedBones[0], pickedParts[0]));
 
 		menu.Items.Add(new Separator());
 		string bone = _state.Selected is { } b && _state.SelectedSlot == null ? $"\"{b.Name}\"" : "the selected bone";

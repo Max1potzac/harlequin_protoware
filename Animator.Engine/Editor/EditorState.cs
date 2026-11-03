@@ -158,11 +158,42 @@ public class EditorState
 	// Runs a structural rig edit as one undo step.
 	// The change returns the step's name, or null if it ended up changing nothing.
 
-	public StructureSnapshot CaptureStructure() => StructureSnapshot.Capture(Skeleton, Animations);
+	// "Animations stay as they were": a rig edit (bones moved at rest or given another parent,
+	// parts put on other bones) puts the animations' keys right again after it, so they show as
+	// before (see MotionKeeper). Off: keys stay as they are, measured from the new rest pose.
+	public bool KeepAnimations { get; set; } = true;
+	private readonly System.Runtime.CompilerServices.ConditionalWeakTable<StructureSnapshot, MotionKeeper> _keepers = new();
 
-	// For edits spread over time (like a drag): capture at the start, push at the end
-	public void PushStructure(StructureSnapshot before, string name) =>
-		Undo.Push(new SnapshotCommand<StructureSnapshot>(name, before, CaptureStructure(), s => s.Restore()));
+	public StructureSnapshot CaptureStructure()
+	{
+		var snapshot = StructureSnapshot.Capture(Skeleton, Animations);
+		if (KeepAnimations && MotionKeeper.Capture(Skeleton, Animations, Fps) is { } keeper) _keepers.AddOrUpdate(snapshot, keeper);
+		return snapshot;
+	}
+
+	// For edits spread over time (like a drag): capture at the start, push at the end (the
+	// animations put right first, when the capture kept them)
+	public void PushStructure(StructureSnapshot before, string name)
+	{
+		if (_keepers.TryGetValue(before, out var keeper))
+		{
+			_keepers.Remove(before);
+			keeper.Apply();
+		}
+		Undo.Push(new SnapshotCommand<StructureSnapshot>(name, before, StructureSnapshot.Capture(Skeleton, Animations), s => s.Restore()));
+	}
+
+	// A bone made to carry a part through every animation: the part goes on it (staying where it
+	// is at rest), and the bone gets keys that move it as the part moved, everything else as before
+	public bool BoneFollowsPart(Bone bone, Slot slot)
+	{
+		var before = StructureSnapshot.Capture(Skeleton, Animations);
+		var keeper = MotionKeeper.Capture(Skeleton, Animations, Fps);
+		if (slot.Bone != bone && !PartOps.MoveToBone(Skeleton, slot, bone)) return false;
+		keeper?.FollowPart(bone, slot);
+		Undo.Push(new SnapshotCommand<StructureSnapshot>($"{bone.Name} follows {slot.Name}", before, StructureSnapshot.Capture(Skeleton, Animations), s => s.Restore()));
+		return true;
+	}
 
 	// One-shot structural edit. The change returns the step's name, or null if nothing changed.
 	public bool EditStructure(Func<string?> change)

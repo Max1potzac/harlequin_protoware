@@ -36,9 +36,10 @@ public class BoneTool
 	// A box being dragged with the select button: its corners in the world, for drawing
 	public Vector2[]? SelectionBox { get; private set; }
 
-	// The viewport's tools (the toolbar over it): Select picks with the select button (the
-	// transform button moves what it's on); Move and Rotate take what's under the select button
-	// that way; Paint opens a part to paint with one click
+	// The viewport's tools (the toolbar over it): Select only picks (and drags the selected part's
+	// handles, or the ring at a bone's end); Move and Rotate take what's under either button that
+	// way. With any tool, the transform button draws new bones (Ctrl) and puts parts on the
+	// selected bone (Alt); with Select, it pans otherwise. Paint opens a part to paint with one click.
 	public ViewTool Tool { get; set; } = ViewTool.Select;
 
 	// Snapping to the grid and guides (joints, bone ends, new bones, parts, several at once)
@@ -98,6 +99,7 @@ public class BoneTool
 	private FrozenRest? _frozen;                  // where everything was when the drag started
 	private StructureSnapshot? _rigBefore;        // for undo: the drag changes more than the one bone
 	private Vector2 _pressWorld;
+	private bool _jointOnly;                      // a joint dragged on its own (Shift): the bone's end stayed
 
 	// The ring at the selected bone's end (Setup mode, when no child sits on that end, and it's the
 	// only thing picked): dragging it says where the bone ends
@@ -196,16 +198,35 @@ public class BoneTool
 				Transform(screen, Tool == ViewTool.Move ? Gesture.Move : Gesture.Turn);
 				return;
 			}
+			// Select: the selected part's handles, and the ring at the selected bone's end, still drag
+			if (Tool == ViewTool.Select && TryHandles(_camera.ScreenToWorld(screen))) return;
 			_drag = Drag.Select;
 			return;
 		}
 		if (button != TransformButton) return;
-		Transform(screen, null);
+		if (Tool == ViewTool.Select) Transform(screen, null, moves: false);   // (new bones and binding only)
+		else Transform(screen, Tool == ViewTool.Rotate ? Gesture.Turn : Gesture.Move);
+	}
+
+	// The selected part's handles, or the ring at the selected bone's end, under the mouse: that drag begun
+	private bool TryHandles(Vector2 world)
+	{
+		bool setup = !_state.AnimateMode;
+		bool many = _state.Picked.Count > 1;
+		if (!setup && !_state.AutoKey) BeginHolding();
+		if (_state.SelectedSlot is { } selected && TryPartHandle(selected, world, many)) return true;
+		if (!many && TipHandle is { } ending && Vector2.Distance(world, ending.TipWorld) <= HandlePickPx / _camera.EditZoom)
+		{
+			BeginTipDrag(ending, world);
+			return true;
+		}
+		EndHolding();
+		return false;
 	}
 
 	// A drag with the transform button (only: what it does depends on where it starts), or with
 	// the Move / Rotate tool (only: that way, whatever's grabbed)
-	private void Transform(Vector2 screen, Gesture? only)
+	private void Transform(Vector2 screen, Gesture? only, bool moves = true)
 	{
 		var world = _camera.ScreenToWorld(screen);
 		bool setup = !_state.AnimateMode;
@@ -230,6 +251,14 @@ public class BoneTool
 			_state.EditStructure(() =>
 				PartOps.MoveToBone(_state.Skeleton, slot, holder) ? $"Put part {slot.Name} on {holder.Name}" : null);
 			_drag = Drag.None;
+			return;
+		}
+
+		// The Select tool's transform button: only those two (and the handles); else it pans
+		if (!moves)
+		{
+			if (TryHandles(world)) return;
+			_drag = Drag.Pan;
 			return;
 		}
 
@@ -320,9 +349,11 @@ public class BoneTool
 				break;
 
 			case Drag.Move when bone != null && _frozen != null:
-				// Parts stay put: the joint goes where the mouse took it, nothing else moves
+				// Parts stay put: the bone goes where the mouse took it, as long as it was (with
+				// Shift: just its joint, its end staying where it is), nothing else moves
+				_jointOnly |= Held(ModifierKeys.Shift);
 				RestEdits.MoveJoint(_frozen, bone, Snapped(_frozen.HeadOf(bone) + (world - _pressWorld)),
-					SnapJoints ? SnapPx / _camera.EditZoom : 0f);
+					SnapJoints ? SnapPx / _camera.EditZoom : 0f, keepLength: !Held(ModifierKeys.Shift));
 				_changed = true;
 				break;
 
@@ -516,12 +547,16 @@ public class BoneTool
 		// where it is, so it's undone as a change of the whole rig
 		_frozen = null;
 		_rigBefore = null;
-		if (!_state.AnimateMode && KeepPartsInPlace)
+		_jointOnly = false;
+		if (!_state.AnimateMode)
 		{
-			_rigBefore = _state.CaptureStructure();
-			_pressWorld = world;
-			_frozen = FrozenRest.Capture(_state.Skeleton);   // puts the rig in its rest pose
-			_lastAngle = AngleFrom(bone, world);             // measured from the rest joint, then
+			_rigBefore = _state.CaptureStructure();   // (a rig change: the animations are put right after it)
+			if (KeepPartsInPlace)
+			{
+				_pressWorld = world;
+				_frozen = FrozenRest.Capture(_state.Skeleton);   // puts the rig in its rest pose
+				_lastAngle = AngleFrom(bone, world);             // measured from the rest joint, then
+			}
 		}
 	}
 
@@ -532,7 +567,7 @@ public class BoneTool
 			string verb = _drag == Drag.Move ? "Move" : "Rotate";
 			if (_rigBefore != null)
 			{
-				_state.PushStructure(_rigBefore, $"{verb} {bone.Name} (parts stay put)");
+				_state.PushStructure(_rigBefore, $"{verb} {bone.Name}" + (_jointOnly ? " (its joint)" : "") + (_frozen != null ? " (parts stay put)" : ""));
 			}
 			else if (_before != null)
 			{
