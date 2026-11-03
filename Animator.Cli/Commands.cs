@@ -179,6 +179,26 @@ public static class Commands
 		return 0;
 	}
 
+	// Parts put on another bone, staying where they are at rest; the animations show them where
+	// they showed before (MotionKeeper)
+	public static int Attach(Args a)
+	{
+		var p = Project.Open(a.At(0, "project"));
+		var obj = p.Object(a.Need("object"));
+		var sk = obj.Skeleton;
+		var parts = a.List("parts").Select(n => sk.FindSlot(n) ?? throw new UsageException($"{obj.Name} has no part \"{n}\".")).ToList();
+		string boneName = a.Need("bone");
+		var bone = sk.FindBone(boneName) ?? throw new UsageException($"{obj.Name} has no bone \"{boneName}\" (harlequin info --tree shows them).");
+		a.NothingElse();
+		if (parts.Count == 0) throw new UsageException("--parts is needed: the parts to put on the bone.");
+		var keeper = MotionKeeper.Capture(sk, obj.Animations, p.Scene.Fps);
+		int moved = parts.Count(slot => PartOps.MoveToBone(sk, slot, bone));
+		keeper?.Apply();
+		Console.WriteLine($"{moved} part(s) now on {bone.Name}.");
+		p.Save();
+		return 0;
+	}
+
 	// Parts that show nothing while a skin is on (an outfit covering them), or (--not) again
 	public static int Hides(Args a)
 	{
