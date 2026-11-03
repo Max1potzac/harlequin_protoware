@@ -61,4 +61,39 @@ public class ViewToolTests
 		Assert.Equal(3, rig.State.Picked.Count);   // the arm's joints and the hand
 		Assert.Equal(new Vector2(60, 0), rig.Lower.SetupPosition);   // nothing moved
 	}
+
+	[Fact]
+	public void The_Select_tool_only_selects_its_other_button_pans()
+	{
+		var rig = new Rig();
+		rig.Tool.SelectTransforms = false;   // (as in the editor)
+		var pan = rig.Camera.Pan;
+		rig.Drag(30, 100, 30, 140, MouseButton.Right);   // the upper arm's body
+		rig.Pose();
+		AssertNear(new Vector2(0, 100), rig.Upper.World.Translation);
+		Assert.Equal(0f, rig.Upper.SetupRotation, 4);
+		Assert.NotEqual(pan, rig.Camera.Pan);
+	}
+
+	[Fact]
+	public void A_joint_dragged_with_the_parts_staying_put_takes_its_whole_bone_along_and_Shift_just_the_joint()
+	{
+		var rig = new Rig();
+		rig.Tool.KeepPartsInPlace = true;
+		rig.Tool.Tool = ViewTool.Move;
+		rig.Drag(60, 100, 60, 120, MouseButton.Left);   // the forearm's joint
+		rig.Pose();
+		AssertNear(new Vector2(60, 120), rig.Lower.World.Translation);
+		Assert.Equal(40f, rig.Lower.Length, 2);
+		Assert.Equal(0f, rig.Lower.WorldRotation, 3);
+
+		var other = new Rig();
+		other.Tool.KeepPartsInPlace = true;
+		other.Tool.Tool = ViewTool.Move;
+		other.Held = ModifierKeys.Shift;
+		other.Drag(60, 100, 60, 120, MouseButton.Left);
+		other.Pose();
+		AssertNear(new Vector2(100, 100), other.Lower.TipWorld, 0.05f);   // its end stayed
+		Assert.Equal(MathF.Sqrt(40 * 40 + 20 * 20), other.Lower.Length, 1);
+	}
 }

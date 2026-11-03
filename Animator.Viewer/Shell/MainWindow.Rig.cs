@@ -33,6 +33,7 @@ public partial class MainWindow
 	{
 		LookShapeBox.ItemsSource = Enum.GetValues<LookShape>();
 		KeepPartsBox.IsChecked = _tool.KeepPartsInPlace = _appSettings.KeepPartsInPlace;
+		KeepAnimationsBox.IsChecked = _state.KeepAnimations = _appSettings.KeepAnimations;
 		_state.Undo.Changed += RefreshRigPanel;
 		RefreshRigPanel();
 	}
@@ -88,6 +89,7 @@ public partial class MainWindow
 		AddBoneButton.IsEnabled = BindButton.IsEnabled = !drawn;
 		RigBuildButtons.Visibility = building ? Visibility.Visible : Visibility.Collapsed;
 		SnapJointsBox.Visibility = KeepPartsBox.Visibility = drawn || !building ? Visibility.Collapsed : Visibility.Visible;
+		KeepAnimationsBox.Visibility = building ? Visibility.Visible : Visibility.Collapsed;
 		GiveBonesButton.Visibility = drawn && building ? Visibility.Visible : Visibility.Collapsed;
 		PartBoneLabel.Visibility = PartBone.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
 		if (_tool is not null) _tool.BonesEnabled = !drawn && _appSettings.ShowBones;   // also after undoing "Give it bones" (and View → Bones)

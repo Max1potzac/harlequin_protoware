@@ -307,13 +307,16 @@
                             </DockPanel>
 
                             <!-- Rigging: for a rigged object, how bones move over the art; a drawn object can get bones -->
-                            <Grid Grid.Row="1" Margin="8,0,6,6">
+                            <StackPanel Grid.Row="1" Margin="8,0,6,6">
                                 <CheckBox x:Name="KeepPartsBox" Content="Parts stay put when bones move" Foreground="{DynamicResource TextBrush}"
                           VerticalAlignment="Center" Click="KeepParts_Click"
                           ToolTip="Build: dragging a joint or turning a bone leaves every part, and every other joint, where it is: for fitting bones to finished art. Off: the parts on a bone move with it." />
-                                <Button x:Name="GiveBonesButton" Content="Give it bones ▾" Click="GiveBones_Click" Visibility="Collapsed"
+                                <CheckBox x:Name="KeepAnimationsBox" Content="Animations stay as they were" Foreground="{DynamicResource TextBrush}"
+                          VerticalAlignment="Center" Click="KeepAnimations_Click" Margin="0,2,0,0"
+                          ToolTip="Build: changing the rig (moving or turning bones at rest, hanging them elsewhere, putting parts on other bones, drawing new bones) puts the animations' keys right again, so every animation still shows as it did. Off: the keys stay as they are, measured from the new rest pose." />
+                                <Button x:Name="GiveBonesButton" Content="Give it bones ▾" Click="GiveBones_Click" Visibility="Collapsed" Margin="0,4,0,0"
                         ToolTip="Makes this drawn object a rigged one: a root bone you draw the rest from (Ctrl+drag), or bones suggested from its parts' shapes. The parts stay where they are." />
-                            </Grid>
+                            </StackPanel>
                             <UniformGrid x:Name="RigBuildButtons" Grid.Row="2" Columns="4" Margin="6,0,6,6">
                                 <Button x:Name="AddBoneButton" Content="+ Bone" Margin="0,0,2,0" Click="AddBone_Click"
                             ToolTip="Adds a child of the selected bone (or a root bone). Tip: Ctrl+drag in the viewport draws one." />

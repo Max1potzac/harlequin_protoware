@@ -103,7 +103,9 @@ public static class RestEdits
 	// `frozen` was captured is that end too (an elbow): the parent turns and stretches to it. The
 	// bone itself turns and stretches so its own end stays where it was. `snapTo`: a free joint
 	// glues on to its parent's end when it's that near, and lets go again when pulled away.
-	public static void MoveJoint(FrozenRest frozen, Bone bone, Vector2 target, float snapTo = 0f)
+	// keepLength: the bone moves whole (its end along with its joint, same length and angle);
+	// else its end stays where it is and it turns and stretches to reach it
+	public static void MoveJoint(FrozenRest frozen, Bone bone, Vector2 target, float snapTo = 0f, bool keepLength = false)
 	{
 		var moved = new List<Bone> { bone };
 		var parent = bone.Parent;
@@ -130,7 +132,8 @@ public static class RestEdits
 		bone.ResetToSetup();   // on its parent's end, its place follows the parent's new length
 		top.UpdateWorld();
 		if (Vector2.Distance(frozen.HeadOf(bone), frozen.TipOf(bone)) > 1e-3f)   // a bone with no length just moves
-			FrozenRest.Aim(bone, bone.World.Translation, frozen.TipOf(bone));
+			FrozenRest.Aim(bone, bone.World.Translation,
+				keepLength ? bone.World.Translation + (frozen.TipOf(bone) - frozen.HeadOf(bone)) : frozen.TipOf(bone));
 		frozen.Restore(moved);
 	}
 

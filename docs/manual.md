@@ -155,22 +155,24 @@ part.
 
 ### The viewport
 
-Out of the box, the left mouse button **picks**, the right button **moves things**, and the
-middle button **moves the view**. You can reassign all three in
-[Settings → Mouse](#mouse).
+Out of the box, the left mouse button **picks**, the right button **moves things** (with the
+Move and Rotate tools), and the middle button **moves the view**. You can reassign all three in
+[Settings → Mouse](#mouse). With the **Select** tool, nothing moves by accident: the right
+button only draws new bones (Ctrl), puts parts on bones (Alt) and pans; the selected part's
+handles, and the ring at a bone's end, still drag with either button.
 
 | Do this | To |
 |---|---|
 | Click | Pick a bone or part. Ctrl+click toggles it in the selection; Shift+click adds it. |
 | Drag on empty space | Pick everything in a box. Shift adds to the selection; Ctrl lets go of what's in the box. |
-| Right-drag a joint | Move it. |
-| Right-drag a bone | Turn it. Shift turns in 15° steps. |
-| Right-drag a part | Move it. Drag its corners to scale it, its round handle to turn it, and its pivot (in Build) to move the pivot. |
-| Right-drag anything picked | Move everything that's picked. |
+| Right-drag a joint (Move tool) | Move the bone: joint and end together, its length and angle kept. Shift+drag moves just the joint (its end stays, the bone stretches to it). |
+| Right-drag a bone (Move tool) | Turn it. Shift turns in 15° steps. |
+| Right-drag a part (Move tool) | Move it. Drag its corners to scale it, its round handle to turn it, and its pivot (in Build) to move the pivot. |
+| Right-drag anything picked (Move tool) | Move everything that's picked. |
 | Ctrl+right-drag | Draw a new bone (Build). |
 | Alt+right-click a part | Put it on the selected bone (Build). |
 | Double-click a part | Open it in the paint editor. |
-| Middle-drag, or right-drag on empty space | Move the view. |
+| Middle-drag, or right-drag on empty space (or anywhere, with Select) | Move the view. |
 | Wheel | Zoom where the mouse is. |
 | F | Reset the view. |
 
@@ -178,7 +180,7 @@ middle button **moves the view**. You can reassign all three in
 
 | Tool | Keys | What dragging does |
 |---|---|---|
-| **Select** | 1 or Q | Picks (a box over several). The move button still moves things. |
+| **Select** | 1 or Q | Picks (a box over several). Nothing else moves, but the selected part's handles. |
 | **Move** | 2 or W | Moves the bone or part you drag. On empty space, draws a box. |
 | **Rotate** | 3 | Turns the bone or part you drag. |
 | **Paint** | 4 | One click on a part opens it in the paint editor. |
@@ -283,6 +285,16 @@ Everything in this section happens in **Build**.
 - **Parts stay put when bones move**: while this is on, dragging a joint or turning a bone leaves
   every part (and every other joint) where it is. Use it to fit bones to finished art. Turn it
   off when you want parts to follow their bones.
+- **Animations stay as they were**: while this is on (it is unless you untick it), changing the
+  rig of an object that's already animated puts its keys right again afterwards, so every
+  animation still shows as it did: bones moved or turned at rest, hung from other bones, parts
+  put on other bones (Alt+right-click, dragging in the list, the part's **Bone**), new bones
+  drawn over the art. Off: the keys stay as they are, measured from the new rest pose.
+- **Tracing a rig over an animated object** (an imported one whose parts move on their own):
+  draw a bone over a part, pick the two together (Ctrl+click), then **Bind ▾ → … follows …**.
+  The part goes on the bone and the bone takes over its motion in every animation; the part's
+  own placement keys go. Work from the body outwards (torso, then upper arm, then forearm…), so
+  each bone's parent already moves as it should.
 - In the **Bones** view, drag a bone onto another bone to hang it there.
 
 **Bone properties:**
