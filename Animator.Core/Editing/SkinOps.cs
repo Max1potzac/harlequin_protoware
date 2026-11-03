@@ -68,6 +68,15 @@ public static class SkinOps
 		return skeleton.Slots.Where(s => names.Contains(s.Name)).ToList();
 	}
 
+	// Parts that show nothing while the skin is on (hide: true), or show again (false). How many
+	// changed.
+	public static int Hide(Skin skin, IEnumerable<Slot> parts, bool hide = true) =>
+		parts.Count(p => hide ? skin.Hides.Add(p.Name) : skin.Hides.Remove(p.Name));
+
+	// The parts a skin hides, in draw order
+	public static List<Slot> HiddenBy(Skeleton skeleton, Skin skin) =>
+		skeleton.Slots.Where(s => skin.Hides.Contains(s.Name)).ToList();
+
 	// The skins that have drawings for a part
 	public static List<Skin> SkinsWith(Skeleton skeleton, Slot slot) =>
 		skeleton.Skins.Where(s => s.AttachmentsFor(slot.Name).Any()).ToList();

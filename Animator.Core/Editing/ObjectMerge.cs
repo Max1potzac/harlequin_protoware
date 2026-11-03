@@ -46,8 +46,8 @@ public sealed class MergePlan
 	// ByParts, with Symbols: the parts here fitted to the source's by their joints (limbs drawn
 	// longer or shorter than theirs, see MotionTransfer.FitLimbs); null: none
 	public Func<string, bool>? FitByJoints { get; set; }
-	// ByParts: the parts here placed as they show next to the source's posed alike (at the start
-	// of idle), not through their symbols: another character's own art, drawn elsewhere in its
+	// The parts here placed as they show next to the source's posed alike (at the start of idle),
+	// not through their symbols, both in a skin and (ByParts) in the animations: another character's own art, drawn elsewhere in its
 	// symbols (a pirate's boots, a cowboy's sleeves). A drawing either swaps to is placed from
 	// that, through the two drawings' symbols. Null: none
 	public Func<string, bool>? ByPose { get; set; }
@@ -309,7 +309,9 @@ public static class ObjectMerge
 					Scale = drawing.Scale,
 					Pivot = drawing.Pivot
 				};
-				if (plan.AsPlaced && target.FindSlot(targetPart) is { } here && !OnSymbol(made, drawing, s, here))
+				// (ByPose: as the two show posed alike, not through the symbols: see MergePlan.ByPose)
+				if (plan.AsPlaced && target.FindSlot(targetPart) is { } here
+					&& (plan.ByPose?.Invoke(here.Name) == true || !OnSymbol(made, drawing, s, here)))
 					PlaceAsShown(made, drawing, s, here, gap);
 				if (plan.Symbols != null && plan.Symbols.TryGetValue(drawing, out var symbol)) plan.Symbols[made] = symbol;
 				into.Set(targetPart, made);

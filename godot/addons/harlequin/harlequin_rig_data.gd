@@ -34,7 +34,8 @@ var bone_index := {}
 var slots: Array[Dictionary] = []
 var slot_index := {}
 
-## Skins: [0] is "default". { name, category, overlay, color_layers (names),
+## Skins: [0] is "default". { name, category, overlay, color_layers (names), hides (parts that
+## show nothing while it's on: { name: true }),
 ## entries: { part name: { drawing name: drawing } } }; a drawing: { name, asset, offset, rotation,
 ## scale, pivot, mesh }; a mesh: { w, h, points, triangles, weights, bind, bone_bind }
 var skins: Array[Dictionary] = []
@@ -190,8 +191,11 @@ func _read_rig(rig: Dictionary) -> void:
 			"category": str(k.get("category", "") if k.get("category") != null else "").strip_edges(),
 			"overlay": _bool(k.get("overlay"), false),
 			"color_layers": _strings(k.get("colorLayers")),
+			"hides": {},
 			"entries": {},
 		}
+		for h in _strings(k.get("hides")):
+			skin.hides[h] = true
 		for e in _list(k.get("entries")):
 			var drawing := {
 				"name": str(e.get("name", "")),
@@ -209,7 +213,7 @@ func _read_rig(rig: Dictionary) -> void:
 		skin_index[skin.name] = skins.size()
 		skins.append(skin)
 	if skins.is_empty() or skins[0].name != "default":
-		var own := {"name": "default", "category": "", "overlay": false, "color_layers": [], "entries": {}}
+		var own := {"name": "default", "category": "", "overlay": false, "color_layers": [], "hides": {}, "entries": {}}
 		if skin_index.has("default"):
 			own = skins[skin_index["default"]]
 			skins.erase(own)
