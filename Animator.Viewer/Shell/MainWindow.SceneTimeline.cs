@@ -10,8 +10,8 @@ namespace Animator.Viewer;
 // drawn and dragged by SceneTimelinePanel.
 public partial class MainWindow
 {
-	private int ToFrames(float seconds) => (int)MathF.Round(seconds * _state.Fps);
-	private float ToSeconds(int frames) => frames / (float)Math.Max(1, _state.Fps);
+	private int ToFrames(float seconds) => _session.ToFrames(seconds);
+	private float ToSeconds(int frames) => _session.ToSeconds(frames);
 
 	// ======================= scene settings =======================
 
@@ -45,59 +45,24 @@ public partial class MainWindow
 			return;
 		}
 
-		EditScene(() =>
-		{
-			switch (field)
-			{
-				case "SLength" when v != ToFrames(_scene.Duration):
-					_scene.Duration = ToSeconds(v);
-					return $"Scene length: {v} frames";
-				case "SWidth" when v != _scene.StageWidth:
-					_scene.StageWidth = v;
-					return $"Stage: {v} × {_scene.StageHeight}";
-				case "SHeight" when v != _scene.StageHeight:
-					_scene.StageHeight = v;
-					return $"Stage: {_scene.StageWidth} × {v}";
-				default:
-					return null;
-			}
-		});
-		_sceneState.Time = Math.Min(_sceneState.Time, _scene.Duration);   // the playhead stays inside
+		if (length) SetSceneLength(v);
+		else if (field == "SWidth") _session.SetStage(v, _scene.StageHeight);
+		else _session.SetStage(_scene.StageWidth, v);
 	}
 
-	private void SceneLoop_Click(object sender, RoutedEventArgs e)
-	{
-		bool loop = SceneLoopBox.IsChecked == true;
-		EditScene(() =>
-		{
-			if (_scene.Loop == loop) return null;
-			_scene.Loop = loop;
-			return loop ? "Scene loops" : "Scene plays once";
-		});
-	}
+	private void SceneLoop_Click(object sender, RoutedEventArgs e) => _session.SetSceneLoop(SceneLoopBox.IsChecked == true);
 
 	private void FitSceneToClips_Click(object sender, RoutedEventArgs e)
 	{
-		float end = SceneOps.LastClipEnd(_scene);
-		if (end <= 0)
+		if (SceneOps.LastClipEnd(_scene) <= 0)
 		{
 			AnimHint.Text = "There are no clips yet: right-click an object's row in the scene timeline to add one.";
 			return;
 		}
-		SetSceneLength(ToFrames(end));
+		_session.FitSceneToClips();
 	}
 
-	private void SetSceneLength(int frames)
-	{
-		frames = Math.Max(1, frames);
-		EditScene(() =>
-		{
-			if (frames == ToFrames(_scene.Duration)) return null;
-			_scene.Duration = ToSeconds(frames);
-			return $"Scene length: {frames} frames";
-		});
-		_sceneState.Time = Math.Min(_sceneState.Time, _scene.Duration);
-	}
+	private void SetSceneLength(int frames) => _session.SetSceneLength(frames);
 
 	// ======================= the selected clip =======================
 
@@ -151,29 +116,14 @@ public partial class MainWindow
 			return;
 		}
 
-		EditScene(() =>
+		switch (field)
 		{
-			var before = (clip.Start, clip.Length, clip.Offset, clip.MixIn);
-			switch (field)
-			{
-				case "CStart":
-					SceneOps.MoveClip(obj, clip, ToSeconds(v));
-					break;
-				case "CLength":
-					SceneOps.SetClipEnd(obj, clip, clip.Start + ToSeconds(Math.Max(1, v)), FrameTime);
-					break;
-				case "COffset":
-					clip.Offset = Math.Clamp(ToSeconds(v), 0f, MathF.Max(0f, clip.Animation.Duration - FrameTime));
-					break;
-				case "CMixIn":
-					clip.MixIn = Math.Clamp(ToSeconds(v), 0f, clip.Length);
-					break;
-				default:
-					return null;
-			}
-			return (clip.Start, clip.Length, clip.Offset, clip.MixIn) == before ? null : $"Clip {clip.Animation.Name} of {obj.Name}: {field[1..]}";
-		});
-		if (field is "CStart" or "CLength" && ToFrames(field == "CStart" ? clip.Start : clip.Length) != v)
+			case "CStart": _session.SetClipTiming(obj, clip, start: v); break;
+			case "CLength": _session.SetClipTiming(obj, clip, length: v); break;
+			case "COffset": _session.SetClipTiming(obj, clip, offset: v); break;
+			case "CMixIn": _session.SetClipTiming(obj, clip, mixIn: v); break;
+		}
+		if (field is "CStart" or "CLength" && ToFrames(field == "CStart" ? clip.Start : clip.Length) != Math.Max(field == "CLength" ? 1 : 0, v))
 			ClipHint.Text = "It only goes as far as the clips next to it allow.";
 	}
 
@@ -186,13 +136,7 @@ public partial class MainWindow
 			ClipHint.Text = "No clip before it to fade in from.";
 			return;
 		}
-		float mix = obj.Skeleton.Mixes.Duration(before.Animation.Name, clip.Animation.Name);
-		EditScene(() =>
-		{
-			float was = clip.MixIn;
-			clip.MixIn = Math.Clamp(mix, 0f, clip.Length);
-			return clip.MixIn == was ? null : $"Clip {clip.Animation.Name} of {obj.Name}: fade in as mixed";
-		});
+		_session.MixClipFromPlan(obj, clip);
 	}
 
 	private void ClipAnimation_Changed(object sender, SelectionChangedEventArgs e)
@@ -219,47 +163,16 @@ public partial class MainWindow
 	// A clip of `animation` on the object's track at a scene frame, one full play long
 	private void AddClip(SceneObject obj, Animation animation, int frame)
 	{
-		SceneClip? added = null;
-		bool done = EditScene(() =>
-		{
-			added = SceneOps.AddClip(obj, animation, ToSeconds(frame), FrameTime);
-			return added != null ? $"Add clip {animation.Name} to {obj.Name}" : null;
-		});
-		if (!done)
-		{
+		if (_session.AddClip(obj, animation, frame) == null)
 			AnimHint.Text = "No room there: the next clip starts right away.";
-			return;
-		}
-		_objectTool.Selected = obj;
-		_sceneState.SelectedClip = added;
 	}
 
-	private void SetClipAnimation(SceneClip clip, Animation animation)
-	{
-		EditScene(() =>
-		{
-			if (clip.Animation == animation) return null;
-			clip.Animation = animation;
-			clip.Offset = Math.Min(clip.Offset, MathF.Max(0f, animation.Duration - FrameTime));
-			return $"Clip plays {animation.Name}";
-		});
-	}
-
-	private void SetClipLoop(SceneClip clip, bool loop)
-	{
-		EditScene(() =>
-		{
-			if (clip.Loop == loop) return null;
-			clip.Loop = loop;
-			return loop ? $"Clip {clip.Animation.Name} loops" : $"Clip {clip.Animation.Name} holds its last frame";
-		});
-	}
+	private void SetClipAnimation(SceneClip clip, Animation animation) => _session.SetClipAnimation(clip, animation);
+	private void SetClipLoop(SceneClip clip, bool loop) => _session.SetClipLoop(clip, loop);
 
 	private void DeleteSelectedClip()
 	{
-		if (_objectTool.Selected is not { } obj || _sceneState.SelectedClip is not { } clip) return;
-		EditScene(() => obj.Clips.Remove(clip) ? $"Delete clip {clip.Animation.Name} of {obj.Name}" : null);
-		_sceneState.SelectedClip = null;
+		if (_objectTool.Selected is { } obj && _sceneState.SelectedClip is { } clip) _session.DeleteClip(obj, clip);
 	}
 
 	private void AddClipAtPlayhead_Click(object sender, RoutedEventArgs e)
@@ -298,7 +211,7 @@ public partial class MainWindow
 			menu.Items.Add(loop);
 
 			var fit = new MenuItem { Header = "One play long" };
-			fit.Click += (_, _) => EditScene(() => SceneOps.FitClip(obj, clip, FrameTime) ? $"Clip {clip.Animation.Name}: one play long" : null);
+			fit.Click += (_, _) => _session.FitClip(obj, clip);
 			menu.Items.Add(fit);
 
 			var edit = new MenuItem { Header = "Edit in place ▸" };

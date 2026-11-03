@@ -117,4 +117,147 @@ public class EditorSessionTests
 			File.Delete(path);
 		}
 	}
+
+	// ======================= editing the scene =======================
+
+	[Fact]
+	public void Objects_are_added_copied_and_deleted_as_undo_steps()
+	{
+		var (session, hero, _) = TwoObjects();
+		var made = session.AddRiggedObject(new System.Numerics.Vector2(10, 20));
+		Assert.Equal(3, session.Scene.Objects.Count);
+		Assert.Equal(new System.Numerics.Vector2(10, 20), made.Position);
+
+		var copy = session.CopyObject(hero);
+		Assert.Equal(4, session.Scene.Objects.Count);
+		Assert.Equal(hero.Position + new System.Numerics.Vector2(30, -30), copy.Position);
+		Assert.NotEqual(hero.Name, copy.Name);
+
+		session.State.Undo.Undo();
+		session.State.Undo.Undo();
+		Assert.Equal(2, session.Scene.Objects.Count);
+
+		// The open one deleted: the first one left opens
+		session.Enter(hero);
+		Assert.True(session.DeleteObject(hero));
+		Assert.DoesNotContain(hero, session.Scene.Objects);
+		Assert.Same(session.Scene.Objects[0], session.Active);
+		Assert.Same(session.Active!.Skeleton, session.State.Skeleton);
+		Assert.False(session.DeleteObject(session.Scene.Objects[0]));   // (not the last one)
+	}
+
+	[Fact]
+	public void Object_names_placement_and_settings_change_only_when_they_do()
+	{
+		var (session, hero, _) = TwoObjects();
+		var prop = session.Scene.Objects[1];
+		Assert.False(session.RenameObject(hero, "prop"));      // another object's
+		Assert.False(session.RenameObject(hero, "  "));
+		Assert.True(session.RenameObject(hero, " star "));
+		Assert.Equal("star", hero.Name);
+
+		Assert.True(session.PlaceObject(hero, position: new System.Numerics.Vector2(5, 6), rotation: 0.5f));
+		Assert.False(session.PlaceObject(hero, position: new System.Numerics.Vector2(5, 6)));   // there already
+		Assert.True(session.SetObjectFlags(hero, visible: false, locked: true, export: true, onion: false));
+		Assert.False(hero.Visible);
+
+		// It can hang on the prop's bone, not on its own, and not on what it carries
+		var choices = session.AttachChoices(hero);
+		Assert.Null(choices[0].Holder);
+		Assert.DoesNotContain(choices, c => c.Holder == hero);
+		Assert.True(session.AttachObject(hero, choices.First(c => c.Holder == prop)));
+		Assert.DoesNotContain(session.AttachChoices(prop), c => c.Holder == hero);
+
+		Assert.False(session.SetPreview(hero, "no such animation"));
+		Assert.False(session.SetPreview(hero, "walk"));   // it previews that already
+	}
+
+	[Fact]
+	public void The_scene_and_its_clips_are_edited_as_undo_steps()
+	{
+		var (session, hero, walk) = TwoObjects();
+		session.SceneState.Time = 4f;
+		Assert.True(session.SetSceneLength(60));   // 2 s: the playhead comes inside
+		Assert.Equal(2f, session.Scene.Duration, 4);
+		Assert.Equal(2f, session.SceneState.Time, 4);
+		Assert.True(session.SetSceneLoop(true));
+		Assert.False(session.SetSceneLoop(true));
+		Assert.True(session.SetStage(800, 600));
+
+		var clip = session.AddClip(hero, walk, 0)!;
+		Assert.Same(clip, session.SceneState.SelectedClip);
+		Assert.Same(hero, session.SceneState.Selected);
+		Assert.Equal(1f, clip.Length, 4);                       // one play long
+		var next = session.AddClip(hero, walk, 0)!;             // taken there: it goes after
+		Assert.Equal(1f, next.Start, 4);
+		Assert.True(session.DeleteClip(hero, next));
+		Assert.True(session.SetClipTiming(hero, clip, start: 15, length: 45));
+		Assert.Equal(0.5f, clip.Start, 4);
+		Assert.Equal(1.5f, clip.Length, 4);
+		Assert.True(session.SetSceneLength(90));
+		Assert.True(session.FitSceneToClips());
+		Assert.Equal(2f, session.Scene.Duration, 4);
+		Assert.True(session.SetClipLoop(clip, !clip.Loop));
+
+		Assert.True(session.DeleteClip(hero, clip));
+		Assert.Null(session.SceneState.SelectedClip);
+		Assert.Empty(hero.Clips);
+		session.State.Undo.Undo();
+		Assert.Single(hero.Clips);
+	}
+
+	// ======================= the open object's animations =======================
+
+	[Fact]
+	public void Animations_are_added_copied_renamed_and_deleted_as_undo_steps()
+	{
+		var (session, hero, walk) = TwoObjects();
+		session.Enter(hero);
+		var made = session.NewAnimation();
+		Assert.Equal("animation", made.Name);
+		Assert.Same(made, session.State.Animation);
+		Assert.Equal("animation2", session.NewAnimation().Name);
+
+		session.SwitchAnimation(walk);
+		var copy = session.DuplicateAnimation();
+		Assert.Equal("walk_copy", copy.Name);
+		Assert.Equal(hero.Animations.IndexOf(walk) + 1, hero.Animations.IndexOf(copy));
+
+		// Renamed: the preview that named it follows; a name taken or empty is refused
+		session.SwitchAnimation(walk);
+		hero.PreviewAnimation = "walk";
+		Assert.False(session.RenameAnimation("walk_copy"));
+		Assert.False(session.RenameAnimation(" "));
+		Assert.True(session.RenameAnimation("stroll"));
+		Assert.Equal("stroll", hero.PreviewAnimation);
+		session.State.Undo.Undo();
+		Assert.Equal("walk", walk.Name);
+		Assert.Equal("walk", hero.PreviewAnimation);
+
+		Assert.True(session.SetAnimationLength(45));
+		Assert.Equal(1.5f, walk.Duration, 4);
+		Assert.False(session.SetAnimationLength(45));
+		Assert.True(session.SetAnimationLoop(false));
+		Assert.True(session.SetFps(24));
+		Assert.Equal(24, session.State.Fps);
+		session.State.Undo.Undo();
+		Assert.Equal(30, session.State.Fps);
+
+		while (hero.Animations.Count > 1) Assert.True(session.DeleteAnimation());
+		Assert.False(session.DeleteAnimation());   // one always stays
+	}
+
+	[Fact]
+	public void Picked_frames_become_an_animation_sequence_of_their_own()
+	{
+		var (session, hero, walk) = TwoObjects();
+		session.Enter(hero);
+		session.SwitchAnimation(walk);
+		var piece = session.MakeSequence(10, 19, "step", split: true)!;
+		Assert.Equal(hero.Animations.IndexOf(walk) + 1, hero.Animations.IndexOf(piece));
+		Assert.Same(walk, session.State.Animation);   // still on the one it came from
+		Assert.Equal(10, session.State.Frame);         // where they were
+		Assert.True(walk.Duration < 1f);               // they left it
+		Assert.NotNull(session.MakeSequence(0, 4, "start", split: false));
+	}
 }
