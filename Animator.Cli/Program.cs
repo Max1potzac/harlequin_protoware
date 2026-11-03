@@ -21,7 +21,8 @@ namespace Animator.Cli
 			  harlequin bring-in <project> --object NAME --bones B[,B...] <animate file>... [--category Head]
 			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
 			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones] [--imported-from FILE]
-			      [--rig FILE] [--copy-missing WORD,...] [--fit WORD,...] [--verbose]
+			      [--rig FILE] [--copy-missing WORD,...] [--fit WORD,...] [--by-pose WORD,...]
+			      [--own WORD,...] [--verbose]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
@@ -34,6 +35,10 @@ namespace Animator.Cli
 			      through the symbols. --copy-missing hand: their parts and drawings with those words that
 			      the object has nothing like, copied for the animations. --fit arm,leg: those parts (limbs)
 			      fitted by their joints, where theirs are drawn longer or shorter (with --imported-from).
+			      --by-pose arm,leg,foot: those parts placed as the two show at the start of idle, not
+			      through the symbols (their own art, drawn elsewhere in its symbols: a pirate's boots).
+			      --own hand: the animations show their own drawings on those parts (copied as name_WORD),
+			      even where the object has drawings by those names (hands posed otherwise).
 			      --verbose: which part went where.
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
