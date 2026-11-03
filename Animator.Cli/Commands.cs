@@ -178,7 +178,9 @@ public static class Commands
 		return 0;
 	}
 
-	// A part moved in the draw order: just behind another, or just in front of it
+	// A part moved in the draw order: just behind another, or just in front of it. In the rest
+	// order (and every animation's keys that drew them as the rest order did), or with
+	// --animation, in that animation, all through it
 	public static int Order(Args a)
 	{
 		var p = Project.Open(a.At(0, "project"));
@@ -187,16 +189,52 @@ public static class Commands
 		Slot Part(string name) => sk.FindSlot(name) ?? throw new UsageException($"{obj.Name} has no part \"{name}\".");
 		var moving = a.List("parts").Select(Part).ToList();
 		string? behind = a.Get("behind"), front = a.Get("in-front-of");
+		var animation = a.Get("animation") is { } animationName
+			? obj.Animations.FirstOrDefault(x => x.Name == animationName) ?? throw new UsageException($"{obj.Name} has no animation \"{animationName}\".")
+			: null;
 		a.NothingElse();
 		if (moving.Count == 0) throw new UsageException("--parts is needed: the parts to move.");
 		if ((behind == null) == (front == null)) throw new UsageException("Say where: --behind PART or --in-front-of PART.");
 		var other = Part(behind ?? front!);
 		if (moving.Contains(other)) throw new UsageException("A part can't go behind or in front of itself.");
-		var order = sk.Slots.Where(s => !moving.Contains(s)).ToList();
-		int at = order.IndexOf(other) + (front != null ? 1 : 0);
-		order.InsertRange(at, sk.Slots.Where(moving.Contains));   // (keeping their own order)
-		DrawOrderOps.SetSetupOrder(sk, order);
-		Console.WriteLine($"{string.Join(", ", moving.Select(s => s.Name))}: {(behind != null ? "behind" : "in front of")} {other.Name}.");
+		List<Slot> Placed(IReadOnlyList<Slot> from)
+		{
+			var order = from.Where(s => !moving.Contains(s)).ToList();
+			int at = order.IndexOf(other) + (front != null ? 1 : 0);
+			order.InsertRange(at, from.Where(moving.Contains));   // (keeping their own order)
+			return order;
+		}
+		string where = $"{string.Join(", ", moving.Select(s => s.Name))}: {(behind != null ? "behind" : "in front of")} {other.Name}";
+		if (animation != null)
+		{
+			// Every key of it (or one at its start, if it keys none)
+			int changed = 0;
+			if (animation.DrawOrder is not { Track.Keys.Count: > 0 })
+				changed += DrawOrderOps.Key(animation, 0, Placed(sk.Slots), sk.Slots) ? 1 : 0;
+			else
+			{
+				var keys = animation.DrawOrder.Track.Keys;
+				for (int i = 0; i < keys.Count; i++)
+				{
+					var slots = keys[i].Value.Select(sk.FindSlot).OfType<Slot>().ToList();
+					if (!slots.Contains(other) || !moving.Any(slots.Contains)) continue;
+					var names = Placed(slots).Select(s => s.Name).ToArray();
+					if (names.SequenceEqual(keys[i].Value)) continue;
+					keys[i] = keys[i] with { Value = names };
+					changed++;
+				}
+			}
+			Console.WriteLine($"{where} in {animation.Name} ({changed} key(s) changed).");
+		}
+		else
+		{
+			var before = sk.Slots.ToList();
+			var order = Placed(before);
+			DrawOrderOps.SetSetupOrder(sk, order);
+			var passed = DrawOrderOps.Passed(before, order, moving);
+			int carried = obj.Animations.Count(x => DrawOrderOps.CarryToKeys(x, passed, 0, all: true));
+			Console.WriteLine($"{where}." + (carried > 0 ? $" (Also in {carried} animation(s) that key the order.)" : ""));
+		}
 		p.Save();
 		return 0;
 	}

@@ -41,8 +41,9 @@ namespace Animator.Cli
 			      A skin of those parts' drawings (the parts then show only while it's on). Made off, unless --on.
 			      --from: their drawings taken out of that skin (a hat out of a head skin, into a skin of its own).
 
-			  harlequin order <project> --object NAME --parts P,... (--behind Q | --in-front-of Q)
-			      Parts moved in the draw order.
+			  harlequin order <project> --object NAME --parts P,... (--behind Q | --in-front-of Q) [--animation A]
+			      Parts moved in the draw order: at rest (and in the animations' keys that drew them as
+			      the rest order did), or with --animation, all through that animation.
 
 			  harlequin show <project> --object NAME [--skins A,B] [--hide A,B] [--none]
 			      Which skins are on (as the project opens, and in exports).

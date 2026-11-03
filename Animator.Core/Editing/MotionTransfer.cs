@@ -340,6 +340,34 @@ public sealed class MotionTransfer
 			copy.Timelines.Add(row);
 		}
 
+		// A part and the one it hangs from (a hand and its forearm, a forearm and the upper arm):
+		// which is in front is how our art has it at rest (a hand under its sleeve), turned round
+		// only where the source turns them round against its own rest order. (Their art may stack
+		// them the other way all through: a glove over a bone of a forearm.)
+		var restHere = _target.Slots.Select((s, i) => (s.Name, i)).ToDictionary(p => p.Name, p => p.i);
+		var restThere = _source.Slots.Select((s, i) => (s.Name, i)).ToDictionary(p => p.Name, p => p.i);
+		var hung = new List<(string Child, string Parent, bool OursInFront, bool TheirsInFront)>();
+		foreach (var (bone, lead) in leader)
+			if (bone.Parent is { } up && leader.TryGetValue(up, out var upper))
+				hung.Add((lead.Name, upper.Name, restHere[lead.Name] > restHere[upper.Name],
+					restThere[_sourceOf[lead.Name]] > restThere[_sourceOf[upper.Name]]));
+		for (int f = 0; f < orders.Count; f++)
+		{
+			var list = orders[f].ToList();
+			foreach (var (child, parent, oursInFront, theirsInFront) in hung)
+			{
+				int c = list.IndexOf(child), p = list.IndexOf(parent);
+				if (c < 0 || p < 0) continue;
+				bool now = c > p;
+				bool wanted = oursInFront ^ (now != theirsInFront);
+				if (now == wanted) continue;
+				list.RemoveAt(c);
+				p = list.IndexOf(parent);
+				list.Insert(wanted ? p + 1 : p, child);
+			}
+			orders[f] = list.ToArray();
+		}
+
 		// The stacking: as the source stacks its parts, frame by frame (ours it hasn't go where
 		// they are in the rest order, just in front of the part before them there)
 		var stacking = new DrawOrderTimeline();

@@ -119,4 +119,44 @@ public class DrawOrderTests
 		for (int f = 15; f < 20; f++)
 			Assert.Equal(OrderAt(skeleton, original, f + 10), OrderAt(skeleton, attack, f));
 	}
+
+	[Fact]
+	public void A_step_passes_the_nearest_part_that_shows()
+	{
+		var (skeleton, a1, b1, a2, b2) = Rig();
+		var order = skeleton.Slots.ToList();
+		bool Shows(Slot s) => s != b1;   // (b1 hidden: a step past it alone would change nothing to see)
+		Assert.Equal("b1 a2 a1 b2", Names(DrawOrderOps.Stepped(order, new[] { a1 }, +1, Shows)));
+		Assert.Equal("a2 a1 b1 b2", Names(DrawOrderOps.Stepped(order, new[] { a2 }, -1, Shows)));
+		Assert.Equal("a1 b1 b2 a2", Names(DrawOrderOps.Stepped(order, new[] { b2 }, -1, Shows)));
+		Assert.Equal("a1 b1 b2 a2", Names(DrawOrderOps.Stepped(order, new[] { b2 }, -1, _ => false)));   // none shows: the nearest
+	}
+
+	[Fact]
+	public void A_change_of_order_carries_on_through_the_keys_that_agreed()
+	{
+		var (skeleton, a1, b1, a2, b2) = Rig();
+		var setup = skeleton.Slots.ToList();
+		var walk = new Animation { Name = "walk", Duration = 30f / Fps };
+		DrawOrderOps.Key(walk, 0, new[] { b1, a1, a2, b2 }, setup);
+		DrawOrderOps.Key(walk, 10f / Fps, new[] { b1, a2, a1, b2 }, setup);
+		DrawOrderOps.Key(walk, 20f / Fps, new[] { a2, a1, b1, b2 }, setup);   // (a1 behind b1 here already)
+		DrawOrderOps.Key(walk, 25f / Fps, new[] { b1, a1, a2, b2 }, setup);
+
+		// At frame 0, a1 goes behind b1: so it does in the keys after, up to one that drew them otherwise
+		var before = new[] { b1, a1, a2, b2 };
+		var after = new[] { a1, b1, a2, b2 };
+		var passed = DrawOrderOps.Passed(before, after, new[] { a1 });
+		Assert.Equal(new[] { ("a1", "b1", false) }, passed);
+		Assert.True(DrawOrderOps.Key(walk, 0, after, setup));
+		Assert.True(DrawOrderOps.CarryToKeys(walk, passed, 0, all: false));
+		Assert.Equal("a1 b1 a2 b2", OrderAt(skeleton, walk, 0));
+		Assert.Equal("a1 b1 a2 b2", OrderAt(skeleton, walk, 10));
+		Assert.Equal("a2 a1 b1 b2", OrderAt(skeleton, walk, 20));
+		Assert.Equal("b1 a1 a2 b2", OrderAt(skeleton, walk, 25));   // (after the one that disagreed: as it was)
+
+		// All the keys (a change at rest): the ones that agreed, wherever they are
+		Assert.True(DrawOrderOps.CarryToKeys(walk, passed, 0, all: true));
+		Assert.Equal("a1 b1 a2 b2", OrderAt(skeleton, walk, 25));
+	}
 }
