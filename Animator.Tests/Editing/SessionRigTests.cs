@@ -100,8 +100,9 @@ public class SessionRigTests
 		var skin = session.MakeSkinFromParts(new[] { hat })!;
 		Assert.Equal("hat", skin.Name);
 		Assert.Contains(hat, SkinOps.PartsOf(session.State.Skeleton, skin));
+		Assert.False(session.ShowSkin(skin, true));   // a new skin is on already
+		Assert.True(session.ShowSkin(skin, false));
 		Assert.True(session.ShowSkin(skin, true));
-		Assert.False(session.ShowSkin(skin, true));   // on already
 		Assert.True(session.SetSkinKind(skin, "Head", overlay: false));
 		Assert.True(session.RenameCategory("Head", "Hats"));
 		Assert.Equal("Hats", skin.Category);
