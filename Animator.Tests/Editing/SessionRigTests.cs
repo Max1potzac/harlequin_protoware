@@ -154,7 +154,9 @@ public class SessionRigTests
 		Assert.NotEqual(PoseChange.None, session.PastePose(mirrored: false));
 
 		Assert.True(session.RenamePose(bent, "bent"));
-		Assert.False(session.RenamePose(bent, "BENT"));   // (unchanged, whatever the case)
+		var other = session.KeepPose()!;
+		Assert.False(session.RenamePose(other, "BENT"));   // another pose's name, whatever the case
+		Assert.True(session.DeletePose(other));
 		var fresh = session.UpdatePose(bent);
 		Assert.Same(fresh, state.Skeleton.Poses[0]);
 		Assert.True(session.DeletePose(fresh));
