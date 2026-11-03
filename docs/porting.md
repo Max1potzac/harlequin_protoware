@@ -59,4 +59,8 @@ throughout.
 7. **Poses and events** (EditorSession.Poses.cs): saved poses put on (partly, mirrored, on the
    picked), the pose mirrored, copied and pasted, a rig made symmetric; the list of poses kept,
    updated, renamed and deleted; events added and changed, with their sounds.
+8. **Parts, drawings and colour** (EditorSession.Parts.cs, .Colour.cs): parts made, renamed,
+   placed at rest or keyed, put on another bone, deleted; drawings shown, made (blank or copied),
+   renamed, deleted, held longer or shorter; colour layers added, deleted, moved, renamed, shown,
+   leaving parts out, their numbers set at rest or keyed (a drawing's colour layers too).
 

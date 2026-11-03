@@ -98,8 +98,7 @@ public partial class MainWindow
 		{
 			string newName = box.Text.Trim();
 			if (newName == slot.Name) return;
-			bool renamed = _state.EditStructure(() =>
-				PartOps.RenamePart(_skeleton, _state.Animations, slot, newName) ? $"Rename part to {newName}" : null);
+			bool renamed = _session.RenamePart(slot, newName);
 			if (!renamed)
 			{
 				PartHint.Text = $"Can't rename to \"{newName}\": part names must be unique and not empty.";
@@ -126,33 +125,11 @@ public partial class MainWindow
 			KeyPartField(slot, att, field, v);
 			return;
 		}
-
-		_state.EditStructure(() =>
-		{
-			att = _state.EditableDrawing(slot) ?? att;   // editing a skin: its own copy
-			switch (field)
-			{
-				case "PX": att.Offset = new Vector2(v, att.Offset.Y); break;
-				case "PY": att.Offset = new Vector2(att.Offset.X, v); break;
-				case "PRotation": att.Rotation = Rad(v); break;
-				case "PScaleX": att.Scale = new Vector2(v, att.Scale.Y); break;
-				case "PScaleY": att.Scale = new Vector2(att.Scale.X, v); break;
-				case "PPivotX" when asset != null:
-					PartOps.SetPivotKeepingPlace(att, asset.Width, asset.Height,
-						new Vector2(v, att.Pivot.Y * asset.Height));
-					break;
-				case "PPivotY" when asset != null:
-					PartOps.SetPivotKeepingPlace(att, asset.Width, asset.Height,
-						new Vector2(att.Pivot.X * asset.Width, v));
-					break;
-				default: return null;
-			}
-			return $"Set part {slot.Name} {field[1..]}";   // [1..] drops the "P" prefix
-		});
+		if (Enum.TryParse<PartField>(field[1..], out var which))   // [1..] drops the "P" prefix
+			_session.SetPartRest(slot, which, field == "PRotation" ? Rad(v) : v);
 	}
 
-	// Animate mode: a typed number becomes a placement key at this frame. Keys hold what's
-	// added on top of the drawing's own placement, so the part ends up exactly where you typed.
+	// Animate mode: a typed number becomes a placement key at this frame (see EditorSession.KeyPart)
 	private void KeyPartField(Slot slot, Attachment att, string field, float v)
 	{
 		// Auto key off: the placement changes, no key yet
@@ -167,53 +144,13 @@ public partial class MainWindow
 				case "PScaleY": slot.Scale = new Vector2(slot.Scale.X, Ratio(v, att.Scale.Y)); break;
 			}
 		})) return;
-
-		_state.Playing = false;
-		_state.SetFrame(_state.Frame);
-		var anim = _state.Animation;
-		float t = _state.Time;
-		int frame = _state.Frame;
-
-		_state.EditStructure(() =>
-		{
-			switch (field)
-			{
-				case "PX":
-					anim.GetOrCreate(slot.Name, n => new PartTranslateTimeline(n))
-						.Track.Add(t, new Vector2(v - att.Offset.X, slot.Offset.Y));
-					break;
-				case "PY":
-					anim.GetOrCreate(slot.Name, n => new PartTranslateTimeline(n))
-						.Track.Add(t, new Vector2(slot.Offset.X, v - att.Offset.Y));
-					break;
-				case "PRotation":
-					anim.GetOrCreate(slot.Name, n => new PartRotateTimeline(n))
-						.Track.Add(t, Rad(v) - att.Rotation);
-					break;
-				case "PScaleX":
-					anim.GetOrCreate(slot.Name, n => new PartScaleTimeline(n))
-						.Track.Add(t, new Vector2(Ratio(v, att.Scale.X), slot.Scale.Y));
-					break;
-				case "PScaleY":
-					anim.GetOrCreate(slot.Name, n => new PartScaleTimeline(n))
-						.Track.Add(t, new Vector2(slot.Scale.X, Ratio(v, att.Scale.Y)));
-					break;
-				default:
-					return null;
-			}
-			return $"Key part {slot.Name} {field[1..]} @ frame {frame}";
-		});
+		if (Enum.TryParse<PartField>(field[1..], out var which)) _session.KeyPart(slot, which, field == "PRotation" ? Rad(v) : v);
 	}
 
 	private void PartBone_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingRig || _shownSlot is not { } slot || PartBone.SelectedItem is not BoneChoice { Bone: { } bone }) return;
-		_state.EditStructure(() =>
-		{
-			if (!PartOps.MoveToBone(_skeleton, slot, bone)) return null;
-			_state.Selected = bone;
-			return $"Move part {slot.Name} to {bone.Name}";
-		});
+		_session.MovePartToBone(slot, bone);
 	}
 
 	private void PartFront_Click(object sender, RoutedEventArgs e) => MovePartInOrder(+1);
@@ -291,34 +228,12 @@ public partial class MainWindow
 		return (Path.GetFileNameWithoutExtension(dialog.FileName), bitmap);
 	}
 
-	private void CreatePart(Bone bone, string name, SKBitmap? pixels, int width, int height)
-	{
-		_state.EditStructure(() =>
-		{
-			var asset = new Asset { Name = name, Width = width, Height = height };
-			_assets.AddLayer(asset, "Base", pixels);   // null pixels = a blank layer
-
-			// Halfway along the bone, turned so it looks upright on screen right now
-			var offset = new Vector2(bone.Length / 2, 0);
-			float rotation = -bone.WorldRotation;
-			var slot = PartOps.CreatePart(_skeleton, bone, asset, name, offset, rotation);
-			if (_state.EditSkin is { } skin) SkinOps.AddParts(_skeleton, skin, new[] { slot });   // a part of the skin being edited (a hat)
-
-			_state.SelectedSlot = slot;
-			_state.Selected = bone;
-			return $"Create part {slot.Name}";
-		});
-	}
+	private void CreatePart(Bone bone, string name, SKBitmap? pixels, int width, int height) =>
+		_session.CreatePart(bone, name, pixels, width, height);
 
 	private void DeletePart(Slot slot)
 	{
 		ClosePaintEditor();
-		_state.SelectedKeys.Clear();
-		_state.EditStructure(() =>
-		{
-			PartOps.DeletePart(_skeleton, _state.Animations, slot);
-			_state.SelectedSlot = null;
-			return $"Delete part {slot.Name}";
-		});
+		_session.DeletePart(slot);
 	}
 }
