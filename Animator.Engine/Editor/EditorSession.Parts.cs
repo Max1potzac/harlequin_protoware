@@ -134,7 +134,7 @@ public sealed partial class EditorSession
 		State.AnimateMode ? DrawingOps.DrawingAt(State.Animation, slot, State.Time) : slot.SetupAttachment;
 
 	// Stops playback, the playhead exactly on its frame (when keying); the frame
-	private int SnapToFrame(bool key)
+	public int SnapToFrame(bool key)
 	{
 		if (key)
 		{

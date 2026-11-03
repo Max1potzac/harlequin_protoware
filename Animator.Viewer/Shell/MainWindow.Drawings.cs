@@ -99,6 +99,9 @@ public partial class MainWindow
 
 	// ======================= F5 / F6 / F7 =======================
 
+	// Stops playback and puts the playhead exactly on a frame (only needed when keying)
+	private int SnapToFrame(bool key) => _session.SnapToFrame(key);
+
 	// F7 (blank) / F6 (copy of the current drawing): a new drawing for the selected part.
 	// Animate mode: shown from the playhead on. Setup mode: it becomes the rest drawing.
 	private void NewDrawing(bool copy)
