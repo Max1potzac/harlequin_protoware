@@ -36,4 +36,9 @@ throughout.
 1. **EditorSession** (Animator.Engine/Editor): the project as it's being edited — the scene and
    its pictures, the open object or scene level, both playheads, posing everything at a moment,
    and the file (new, open, save). MainWindow keeps one and shows it.
+2. **Scene editing** (EditorSession.Scene.cs): objects added (rigged, drawn), copied, deleted and
+   reordered; their name, placement, settings, what they hang on and the animation they preview;
+   the scene's length, loop and stage; clips added, timed, changed, fitted and deleted. Each edit
+   is one undo step and says whether it changed anything. The Objects panel, the object
+   properties and the scene timeline call these.
 
