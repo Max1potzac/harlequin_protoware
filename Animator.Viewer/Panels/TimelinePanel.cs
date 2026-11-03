@@ -40,8 +40,8 @@ public class TimelinePanel
     private AnimationSnapshot? _dragBefore;
     private List<(Timeline Tl, int Frame)> _dragKeys = new();
 
-    // Copy/paste: frames are stored relative to the earliest copied key
-    private readonly List<(Timeline Tl, int RelFrame, object Key)> _clipboard = new();
+    // The key edits (copy/paste, curves, nudging…): the engine's, for the rows shown here
+    public KeyEditor Keys { get; }
 
     // A run of frames picked by dragging across the keys, as in a video editor (the playhead goes
     // along): right-click it to split it off, or copy it, into an animation sequence of its own
@@ -51,7 +51,11 @@ public class TimelinePanel
 
     public void ClearRange() => Range = null;
 
-    public TimelinePanel(EditorState state) => _state = state;
+    public TimelinePanel(EditorState state)
+    {
+        _state = state;
+        Keys = new KeyEditor(state);
+    }
 
     // The rows shown, top to bottom
     private IReadOnlyList<Timeline> Rows()
@@ -523,20 +527,7 @@ public class TimelinePanel
     };
 
     // Every key of these bones and parts (a part: its own rows) becomes the selection; how many
-    public int SelectKeysOf(IEnumerable<Bone> bones, IEnumerable<Slot> parts)
-    {
-        var boneNames = bones.Select(b => b.Name).ToHashSet();
-        var partNames = parts.Select(s => s.Name).ToHashSet();
-        Sel.Clear();
-        foreach (var tl in _state.Animation.Timelines)
-        {
-            bool mine = (RigOps.TargetsBone(tl) && boneNames.Contains(tl.Target)) ||
-                        (PartOps.TargetsPart(tl) && partNames.Contains(tl.Target));
-            if (!mine) continue;
-            foreach (var time in tl.KeyTimes) Sel.Add((tl, TimeToFrame(time)));
-        }
-        return Sel.Count;
-    }
+    public int SelectKeysOf(IEnumerable<Bone> bones, IEnumerable<Slot> parts) => Keys.SelectKeysOf(bones, parts);
 
     // A frame of the animation under an x position (not the end, where it loops)
     private int LastFrameAt(float x) => Math.Clamp(XToFrame(x), 0, Math.Max(0, _state.FrameCount - 1));
@@ -646,15 +637,7 @@ public class TimelinePanel
     public (EventTimeline Events, int Frame)? SingleSelectedEvent =>
         Sel.Count == 1 && Sel.First() is { Tl: EventTimeline events } only ? (events, only.Frame) : null;
 
-    // ======================= key operations (all undoable) =======================
-
-    private void Edit(string name, Action change)
-    {
-        var before = AnimationSnapshot.Capture(_state.Animation);
-        change();
-        var after = AnimationSnapshot.Capture(_state.Animation);
-        _state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(name, before, after, s => s.Restore()));
-    }
+    // ======================= key operations (all undoable: see KeyEditor) =======================
 
     // Right-click: make sure the clicked key is part of the selection
     public bool SelectForMenu(Vector2 p)
@@ -668,175 +651,33 @@ public class TimelinePanel
         return true;
     }
 
-    // The curve shared by all selected keys, or null if they differ
-    public CurveType? SelectedCurve()
-    {
-        CurveType? result = null;
-        foreach (var (tl, f) in Sel)
-        {
-            foreach (var (t, c) in tl.KeyInfos)
-            {
-                if (TimeToFrame(t) != f) continue;
-                if (result == null) result = c;
-                else if (result != c) return null;
-            }
-        }
-        return result;
-    }
+    public CurveType? SelectedCurve() => Keys.SelectedCurve();
+    public void SetCurve(CurveType curve) => Keys.SetCurve(curve);
+    public void SetBezier(Bezier bezier, string name) => Keys.SetBezier(bezier, name);
+    public bool DeleteSelected() => Keys.DeleteSelected();
+    public void Copy() => Keys.Copy();
+    public void Paste() => Keys.Paste();
 
-    public void SetCurve(CurveType curve)
-    {
-        if (Sel.Count == 0) return;
-        Edit($"Set {Sel.Count} key(s) to {curve}", () =>
-        {
-            foreach (var (tl, f) in Sel) tl.SetCurve(FrameToTime(f), curve);
-        });
-    }
+    // ======================= the dopesheet's tools (the shown rows) =======================
 
-    // The selected keys eased by these Bézier handles (from the key to the next)
-    public void SetBezier(Bezier bezier, string name)
-    {
-        if (Sel.Count == 0) return;
-        Edit($"{Sel.Count} key(s): {name}", () =>
-        {
-            foreach (var (tl, f) in Sel) tl.SetBezier(FrameToTime(f), bezier);
-        });
-    }
+    public List<(Timeline Tl, int Frame)> KeysAt(int frame) => Keys.KeysAt(Rows(), frame);
+    public int SelectKeys(int frame, bool fromOn) => Keys.SelectKeys(Rows(), frame, fromOn);
+    public bool Nudge(int by) => Keys.Nudge(by);
+    public bool Stretch(float factor) => Keys.Stretch(factor);
+    public bool ReverseSelected() => Keys.Reverse();
 
-    public bool DeleteSelected()
-    {
-        if (Sel.Count == 0) return false;
-        Edit($"Delete {Sel.Count} key(s)", () =>
-        {
-            foreach (var (tl, f) in Sel) tl.RemoveKey(FrameToTime(f));
-        });
-        Sel.Clear();
-        return true;
-    }
-
-    public void Copy()
-    {
-        if (Sel.Count == 0) return;
-        int min = Sel.Min(k => k.Frame);
-        _clipboard.Clear();
-        foreach (var (tl, f) in Sel)
-        {
-            var key = tl.CopyKey(FrameToTime(f));
-            if (key != null) _clipboard.Add((tl, f - min, key));
-        }
-    }
-
-    // Pastes into the same timelines, with the earliest key landing on the playhead
-    public void Paste()
-    {
-        if (_clipboard.Count == 0) return;
-        int at = _state.Frame;
-        var pasted = new List<(Timeline, int)>();
-
-        Edit($"Paste {_clipboard.Count} key(s) at frame {at}", () =>
-        {
-            foreach (var (tl, rel, key) in _clipboard)
-            {
-                int f = at + rel;
-                // Skip keys past the end, or timelines that were undone out of existence
-                if (f > _state.FrameCount || !_state.Animation.Timelines.Contains(tl)) continue;
-                tl.PutKey(key, FrameToTime(f));
-                pasted.Add((tl, f));
-            }
-        });
-
-        Sel.Clear();
-        foreach (var k in pasted) Sel.Add(k);
-    }
-
-    // ======================= the dopesheet's tools (all undoable) =======================
-
-    // Every key of the shown rows at a frame
-    public List<(Timeline Tl, int Frame)> KeysAt(int frame) =>
-        Rows().SelectMany(tl => tl.KeyTimes.Select(t => (Tl: tl, Frame: TimeToFrame(t)))).Where(k => k.Frame == frame).ToList();
-
-    // Picks every key of the shown rows at this frame, or from it on
-    public int SelectKeys(int frame, bool fromOn)
-    {
-        Sel.Clear();
-        foreach (var tl in Rows())
-            foreach (var t in tl.KeyTimes)
-            {
-                int f = TimeToFrame(t);
-                if (fromOn ? f >= frame : f == frame) Sel.Add((tl, f));
-            }
-        return Sel.Count;
-    }
-
-    private void Reselect(IEnumerable<(Timeline Tl, int Frame)> keys)
-    {
-        Sel.Clear();
-        Sel.UnionWith(keys);
-    }
-
-    // The selected keys some frames earlier (negative) or later
-    public bool Nudge(int by)
-    {
-        if (Sel.Count == 0 || by == 0) return false;
-        var keys = Sel.ToList();
-        Edit($"Nudge {keys.Count} key(s) {(by < 0 ? "earlier" : "later")}", () => Reselect(KeyTimeOps.Nudge(keys, by, _state.FrameCount, _state.Fps)));
-        return true;
-    }
-
-    // Further apart or closer together (factor 2 = twice as long), from the first selected key
-    public bool Stretch(float factor)
-    {
-        if (Sel.Count < 2 || !(factor > 0)) return false;
-        var keys = Sel.ToList();
-        int from = keys.Min(k => k.Frame);
-        Edit($"Stretch {keys.Count} keys to {factor * 100:0}%", () => Reselect(KeyTimeOps.Stretch(keys, from, factor, _state.FrameCount, _state.Fps)));
-        return true;
-    }
-
-    // Back to front, between the first and last selected key
-    public bool ReverseSelected()
-    {
-        if (Sel.Count < 2) return false;
-        var keys = Sel.ToList();
-        Edit($"Reverse {keys.Count} keys", () => Reselect(KeyTimeOps.Reverse(keys, _state.Fps)));
-        return true;
-    }
-
-    // New frames after `at` (every later key moves on, the animation gets longer)
     public void InsertFrames(int at, int count)
     {
-        if (count <= 0) return;
-        Sel.Clear();
-        Range = null;
-        Edit(count == 1 ? $"Insert a frame after frame {at}" : $"Insert {count} frames after frame {at}",
-            () => KeyTimeOps.InsertFrames(_state.Animation, at, count, _state.Fps));
+        if (Keys.InsertFrames(at, count)) Range = null;
     }
 
-    // Frames at..at+count-1 taken out (their keys go, later keys move up). false: nothing to take
     public bool RemoveFrames(int at, int count)
     {
-        var before = AnimationSnapshot.Capture(_state.Animation);
-        int removed = KeyTimeOps.RemoveFrames(_state.Animation, at, count, _state.Fps);
-        if (removed == 0) return false;
-        Sel.Clear();
+        if (!Keys.RemoveFrames(at, count)) return false;
         Range = null;
-        _state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
-            removed == 1 ? $"Remove frame {at}" : $"Remove frames {at}–{at + removed - 1}",
-            before, AnimationSnapshot.Capture(_state.Animation), s => s.Restore()));
-        _state.SetFrame(Math.Min(at, _state.FrameCount));
         return true;
     }
 
-    // The playhead to the next key of the shown rows after it (or the one before it). false: none
-    public bool JumpToKey(int direction)
-    {
-        int now = _state.Frame;
-        var frames = Rows().SelectMany(tl => tl.KeyTimes).Select(TimeToFrame).Distinct().ToList();
-        var next = direction > 0 ? frames.Where(f => f > now).DefaultIfEmpty(-1).Min()
-                                 : frames.Where(f => f < now).DefaultIfEmpty(-1).Max();
-        if (next < 0) return false;
-        _state.Playing = false;
-        _state.SetFrame(next);
-        return true;
-    }
+    public bool JumpToKey(int direction) => Keys.JumpToKey(Rows(), direction);
+}
 }

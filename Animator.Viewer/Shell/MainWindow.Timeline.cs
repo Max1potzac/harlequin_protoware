@@ -74,39 +74,17 @@ public partial class MainWindow
 			AnimHint.Text = $"Keys are set in Animate ({KeyOf("anim.mode")}).";
 			return;
 		}
-		_state.Playing = false;
-		_state.SetFrame(_state.Frame);
-		var animation = _state.Animation;
-		var before = AnimationSnapshot.Capture(animation);
-		bool held = _state.Hold.Any;
-		int count = held
-			? _state.Hold.KeyInto(animation, _state.Time)
-			: PoseHold.KeyNow(animation, _state.Time, _state.PickedBones, _state.PickedSlots);
-		if (count == 0)
+		if (_timeline.Keys.KeyPose() == 0)
 		{
 			AnimHint.Text = "Nothing to key here: pose something, or pick bones and parts.";
 			return;
 		}
-		_state.Hold.Clear();
 		AnimHint.Text = "";
-		_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
-			$"Key {count} {(held ? "posed" : "picked")} @ frame {_state.Frame}",
-			before, AnimationSnapshot.Capture(animation), s => s.Restore()));
 	}
 
 	// Auto key off: a pose number typed in a panel changes the pose (held until S) instead of
 	// setting a key. false: auto key is on, so it's for a key.
-	private bool HoldInsteadOfKey(Action pose)
-	{
-		if (_state.AutoKey) return false;
-		_state.Playing = false;
-		_state.SetFrame(_state.Frame);
-		var before = PoseValues.Capture(_skeleton);
-		pose();
-		_state.Hold.Take(before, PoseValues.Capture(_skeleton), _skeleton, _state.Animation, _state.Frame);
-		_skeleton.UpdatePose();
-		return true;
-	}
+	private bool HoldInsteadOfKey(Action pose) => _timeline.Keys.HoldInsteadOfKey(pose);
 
 	// ======================= rows =======================
 
