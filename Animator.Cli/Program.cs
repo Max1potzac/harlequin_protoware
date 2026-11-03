@@ -46,8 +46,9 @@ namespace Animator.Cli
 			      A skin of those parts' drawings (the parts then show only while it's on). Made off, unless --on.
 			      --from: their drawings taken out of that skin (a hat out of a head skin, into a skin of its own).
 
-			  harlequin attach <project> --object NAME --parts P,... --bone B
-			      Parts put on another bone, staying where they are; the animations still show them as before.
+			  harlequin attach <project> --object NAME --parts P,... --bone B [--ride]
+			      Parts put on another bone, staying where they are; the animations still show them as before
+			      (--ride: they go along with the bone in them instead).
 
 			  harlequin hides <project> --object NAME --skin SKIN --parts P,... [--not]
 			      Those parts show nothing while the skin is on (legs under a long skirt); --not: again.
@@ -102,7 +103,7 @@ namespace Animator.Cli
 					"rename" => Commands.Rename(new Args(rest)),
 					"order" => Commands.Order(new Args(rest)),
 					"hides" => Commands.Hides(new Args(rest, "not")),
-					"attach" => Commands.Attach(new Args(rest)),
+					"attach" => Commands.Attach(new Args(rest, "ride")),
 					"remove" => Commands.Remove(new Args(rest)),
 					"render" => Commands.Render(new Args(rest)),
 					"pose" => Commands.Pose(new Args(rest)),
