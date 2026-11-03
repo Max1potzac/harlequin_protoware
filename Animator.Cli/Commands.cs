@@ -180,7 +180,7 @@ public static class Commands
 	}
 
 	// Parts put on another bone, staying where they are at rest; the animations show them where
-	// they showed before (MotionKeeper)
+	// they showed before (MotionKeeper), or (--ride) they just go along with the bone in them
 	public static int Attach(Args a)
 	{
 		var p = Project.Open(a.At(0, "project"));
@@ -189,9 +189,10 @@ public static class Commands
 		var parts = a.List("parts").Select(n => sk.FindSlot(n) ?? throw new UsageException($"{obj.Name} has no part \"{n}\".")).ToList();
 		string boneName = a.Need("bone");
 		var bone = sk.FindBone(boneName) ?? throw new UsageException($"{obj.Name} has no bone \"{boneName}\" (harlequin info --tree shows them).");
+		bool ride = a.Has("ride");
 		a.NothingElse();
 		if (parts.Count == 0) throw new UsageException("--parts is needed: the parts to put on the bone.");
-		var keeper = MotionKeeper.Capture(sk, obj.Animations, p.Scene.Fps);
+		var keeper = ride ? null : MotionKeeper.Capture(sk, obj.Animations, p.Scene.Fps);
 		int moved = parts.Count(slot => PartOps.MoveToBone(sk, slot, bone));
 		keeper?.Apply();
 		Console.WriteLine($"{moved} part(s) now on {bone.Name}.");
