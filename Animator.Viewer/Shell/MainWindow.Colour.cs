@@ -65,27 +65,14 @@ public partial class MainWindow
 
 	private void AddObjectColour(ColorAdjustKind kind)
 	{
-		var layer = new ColorLayer { Name = ColorLayerOps.UniqueName(_skeleton, ColorAdjust.KindName(kind)), Adjust = new ColorAdjust(kind) };
-		EditColourLayers($"Add colour layer {layer.Name}", () =>
-		{
-			_skeleton.ColorLayers.Add(layer);
-			return true;
-		});
-		_colourLayer = layer;
+		_colourLayer = _session.AddColourLayer(kind);
 		BuildColourPanel();
 	}
 
 	private void ColourDelete_Click(object sender, RoutedEventArgs e)
 	{
 		if (_colourLayer is not { } layer) return;
-		EditColourAndKeys($"Delete colour layer {layer.Name}", () =>
-		{
-			_skeleton.ColorLayers.Remove(layer);
-			SkinOps.Forget(_skeleton, layer);
-			foreach (var animation in _state.Animations)
-				animation.Timelines.RemoveAll(t => t is ColorLayerTimeline && t.Target == layer.Name);
-			return true;
-		});
+		_session.DeleteColourLayer(layer);
 		_colourLayer = _skeleton.ColorLayers.LastOrDefault();
 		BuildColourPanel();
 	}
@@ -96,16 +83,7 @@ public partial class MainWindow
 	// Earlier (applied before the others) or later
 	private void MoveColour(int by)
 	{
-		if (_colourLayer is not { } layer) return;
-		var list = _skeleton.ColorLayers;
-		int i = list.IndexOf(layer), j = i + by;
-		if (i < 0 || j < 0 || j >= list.Count) return;
-		EditColourLayers($"Move colour layer {layer.Name}", () =>
-		{
-			list.RemoveAt(i);
-			list.Insert(j, layer);
-			return true;
-		});
+		if (_colourLayer is { } layer) _session.MoveColourLayer(layer, by);
 	}
 
 	private void ColourList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -128,37 +106,15 @@ public partial class MainWindow
 	{
 		if (_syncingColour || _colourLayer is not { } layer || ColourName.Text.Trim() == layer.Name) return;
 		string name = ColourName.Text.Trim();
-		bool renamed = false;
-		EditColourAndKeys($"Rename colour layer to {name}", () => renamed = ColorLayerOps.Rename(_skeleton, _state.Animations, layer, name));
-		if (!renamed)
+		if (!_session.RenameColourLayer(layer, name))
 		{
 			ColourHint.Text = $"Can't call it \"{name}\": a colour layer needs a name of its own.";
 			ColourName.Text = layer.Name;
 		}
 	}
 
-	// One undo step for the colour layers themselves (none when nothing changed)
-	private void EditColourLayers(string name, Func<bool> change)
-	{
-		var before = ColorLayersSnapshot.Capture(_skeleton);
-		if (!change()) return;
-		_state.Undo.Push(new SnapshotCommand<ColorLayersSnapshot>(name, before, ColorLayersSnapshot.Capture(_skeleton), s => s.Restore()));
-	}
-
-	// ...and with their keys in every animation (renaming, deleting)
-	private void EditColourAndKeys(string name, Func<bool> change)
-	{
-		var layers = ColorLayersSnapshot.Capture(_skeleton);
-		var rest = _state.CaptureStructure();
-		if (!change()) return;
-		_state.Undo.Push(new SnapshotCommand<(StructureSnapshot, ColorLayersSnapshot)>(name, (rest, layers),
-			(_state.CaptureStructure(), ColorLayersSnapshot.Capture(_skeleton)),
-			s =>
-			{
-				s.Item1.Restore();
-				s.Item2.Restore();
-			}));
-	}
+	// (see EditorSession.EditColourLayers)
+	private bool EditColourLayers(string name, Func<bool> change) => _session.EditColourLayers(name, change);
 
 	// The list and the selected one's settings (the rig panel, in the Colour view)
 	private void BuildColourPanel()
@@ -173,11 +129,7 @@ public partial class MainWindow
 		{
 			var shown = new CheckBox { IsChecked = layer.Visible, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0), ToolTip = "On or off" };
 			var target = layer;
-			shown.Click += (_, _) => EditColourLayers($"{(shown.IsChecked == true ? "Show" : "Hide")} colour layer {target.Name}", () =>
-			{
-				target.Visible = shown.IsChecked == true;
-				return true;
-			});
+			shown.Click += (_, _) => _session.ShowColourLayer(target, shown.IsChecked == true);
 			var row = new StackPanel { Orientation = Orientation.Horizontal, Tag = layer };
 			row.Children.Add(shown);
 			row.Children.Add(new TextBlock
@@ -248,8 +200,7 @@ public partial class MainWindow
 			var part = slot;
 			box.MouseEnter += (_, _) => _renderer.HoverSlot = part;   // outlined in the viewport
 			box.MouseLeave += (_, _) => { if (_renderer.HoverSlot == part) _renderer.HoverSlot = null; };
-			box.Click += (_, _) => EditColourLayers($"{layer.Name}: {(box.IsChecked == true ? "leave out" : "take in")} {part.Name}", () =>
-				box.IsChecked == true ? layer.LeftOut.Add(part) : layer.LeftOut.Remove(part));
+			box.Click += (_, _) => _session.LeaveOut(layer, part, box.IsChecked == true);
 			ColourLeaveOutList.Children.Add(new Border { Child = box, Tag = slot, CornerRadius = new CornerRadius(2) });   // (its background: picked or not)
 		}
 		ColourLeaveOut.Header = layer.LeftOut.Count > 0 ? $"Leave out ({layer.LeftOut.Count})" : "Leave out";
@@ -261,32 +212,8 @@ public partial class MainWindow
 	// off, held until it's keyed). A slider drag is one undo step.
 	private void SetObjectColour(ColorLayer layer, AdjustValues values, string what)
 	{
-		var adjust = layer.Adjust;
-		if (_state.AnimateMode)
-		{
-			_state.Playing = false;
-			_state.SetFrame(_state.Frame);
-			if (!_state.AutoKey)
-				_state.Hold.HoldColor(layer, values, _skeleton, _state.Animation, _state.Frame);
-			else
-			{
-				var animation = _state.Animation;
-				var before = AnimationSnapshot.Capture(animation);
-				animation.GetOrCreate(layer.Name, n => new ColorLayerTimeline(n)).Track.Add(_state.Time, values);
-				adjust.Now = values;
-				_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>($"Key {layer.Name} {what.ToLowerInvariant()} @ frame {_state.Frame}",
-					before, AnimationSnapshot.Capture(animation), s => s.Restore(), mergeKey: $"colour key {layer.Name} {what} {_state.Frame}"));
-			}
-		}
-		else
-		{
-			var before = ColorLayersSnapshot.Capture(_skeleton);
-			adjust.Setup = values;
-			adjust.Now = values;
-			_state.Undo.Push(new SnapshotCommand<ColorLayersSnapshot>($"{layer.Name}: {what.ToLowerInvariant()}",
-				before, ColorLayersSnapshot.Capture(_skeleton), s => s.Restore(), mergeKey: $"colour {layer.Name} {what}"));
-		}
-		_colourShown = ShownFor(layer, adjust, LeftOutKey(layer)) with { Values = values };   // (no rebuild for this)
+		_session.SetColourValues(layer, values, what);
+		_colourShown = ShownFor(layer, layer.Adjust, LeftOutKey(layer)) with { Values = values };   // (no rebuild for this)
 	}
 
 	// ======================= colour layers in a drawing =======================
@@ -315,11 +242,7 @@ public partial class MainWindow
 			(values, what) => SetDrawingColour(asset, layer, values, what),
 			(what, change) =>
 			{
-				var before = LayerAdjustSnapshot.Capture(asset, layer);
-				change(adjust);
-				asset.MarkEdited();
-				_state.Undo.Push(new SnapshotCommand<LayerAdjustSnapshot>($"{layer.Name}: {what}", before,
-					LayerAdjustSnapshot.Capture(asset, layer), s => s.Restore()));
+				_session.EditDrawingColour(asset, layer, what, change);
 				BuildPaintColourSettings(force: true);
 			},
 			PickColour);
@@ -334,33 +257,7 @@ public partial class MainWindow
 	private void SetDrawingColour(Asset asset, AssetLayer layer, AdjustValues values, string what)
 	{
 		if (layer.Adjust is not { } adjust) return;
-		if (_state.AnimateMode)
-		{
-			_state.Playing = false;
-			_state.SetFrame(_state.Frame);
-			if (!_state.AutoKey)
-				_state.Hold.HoldColor(asset, layer, values, _skeleton, _state.Animation, _state.Frame);
-			else
-			{
-				var animation = _state.Animation;
-				var before = AnimationSnapshot.Capture(animation);
-				animation.GetOrCreate(LayerAdjustTimeline.TargetOf(layer), n => new LayerAdjustTimeline(n) { Caption = $"{asset.Name}: {layer.Name}" })
-					.Track.Add(_state.Time, values);
-				adjust.Now = values;
-				asset.MarkEdited();
-				_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>($"Key {layer.Name} {what.ToLowerInvariant()} @ frame {_state.Frame}",
-					before, AnimationSnapshot.Capture(animation), s => s.Restore(), mergeKey: $"layer colour key {layer.Id} {what} {_state.Frame}"));
-			}
-		}
-		else
-		{
-			var before = LayerAdjustSnapshot.Capture(asset, layer);
-			adjust.Setup = values;
-			adjust.Now = values;
-			asset.MarkEdited();
-			_state.Undo.Push(new SnapshotCommand<LayerAdjustSnapshot>($"{layer.Name}: {what.ToLowerInvariant()}", before,
-				LayerAdjustSnapshot.Capture(asset, layer), s => s.Restore(), mergeKey: $"layer colour {layer.Id} {what}"));
-		}
+		_session.SetDrawingColourValues(asset, layer, values, what);
 		_paintColourShown = ShownFor(layer, adjust, "") with { Values = values };
 	}
 

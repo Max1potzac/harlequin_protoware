@@ -19,8 +19,7 @@ public partial class MainWindow
 
 	// The drawing the panel works on: the one at the playhead (Animate mode),
 	// or the part's rest drawing (Setup mode)
-	private string? CurrentDrawing(Slot slot) =>
-		_state.AnimateMode ? DrawingOps.DrawingAt(_state.Animation, slot, _state.Time) : slot.SetupAttachment;
+	private string? CurrentDrawing(Slot slot) => _session.CurrentDrawing(slot);
 
 	// ======================= panel =======================
 
@@ -60,14 +59,7 @@ public partial class MainWindow
 	{
 		if (_syncingRig || _shownSlot is not { } slot || DrawingBox.SelectedItem is not DrawingChoice choice) return;
 
-		bool key = _state.AnimateMode;
-		int frame = SnapToFrame(key);
-		bool changed = _state.EditStructure(() =>
-			DrawingOps.Show(_state.Animation, slot, choice.Name, frame, _state.Fps, key)
-				? key ? $"Show {choice.Label} on {slot.Name} @ frame {frame}" : $"{slot.Name} rests on {choice.Label}"
-				: null);
-
-		if (!changed) SyncDrawingChoice();   // put the dropdown back to what's really there
+		if (!_session.ShowDrawing(slot, choice.Name)) SyncDrawingChoice();   // put the dropdown back to what's really there
 	}
 
 	private void NewDrawing_Click(object sender, RoutedEventArgs e) => NewDrawing(copy: false);
@@ -78,8 +70,7 @@ public partial class MainWindow
 	private void DeleteDrawing_Click(object sender, RoutedEventArgs e)
 	{
 		if (_shownSlot is not { } slot || CurrentDrawing(slot) is not { } name) return;
-		bool deleted = _state.EditStructure(() =>
-			DrawingOps.DeleteDrawing(_skeleton, _state.Animations, slot, name) ? $"Delete drawing {name}" : null);
+		bool deleted = _session.DeleteDrawing(slot, name);
 		if (!deleted) PartHint.Text = "A part needs at least one drawing. To remove the whole part, use Delete part.";
 	}
 
@@ -98,10 +89,7 @@ public partial class MainWindow
 		string newName = DrawingName.Text.Trim();
 		if (newName == oldName) return;
 
-		bool renamed = _state.EditStructure(() =>
-			DrawingOps.RenameDrawing(_skeleton, _state.Animations, slot, oldName, newName)
-				? $"Rename drawing {oldName} to {newName}"
-				: null);
+		bool renamed = _session.RenameDrawing(slot, oldName, newName);
 		if (!renamed)
 		{
 			PartHint.Text = $"Can't rename to \"{newName}\": names can't be empty, and each drawing of a part needs its own.";
@@ -110,17 +98,6 @@ public partial class MainWindow
 	}
 
 	// ======================= F5 / F6 / F7 =======================
-
-	// Stops playback and puts the playhead exactly on a frame (only needed when keying)
-	private int SnapToFrame(bool key)
-	{
-		if (key)
-		{
-			_state.Playing = false;
-			_state.SetFrame(_state.Frame);
-		}
-		return _state.Frame;
-	}
 
 	// F7 (blank) / F6 (copy of the current drawing): a new drawing for the selected part.
 	// Animate mode: shown from the playhead on. Setup mode: it becomes the rest drawing.
@@ -132,36 +109,12 @@ public partial class MainWindow
 			return;
 		}
 
-		bool key = _state.AnimateMode;
-		int frame = SnapToFrame(key);
-
-		// Made from the current drawing; if the part is hidden here, from its rest drawing (or any)
-		var template = DrawingOps.Find(_skeleton, slot, CurrentDrawing(slot))
-			?? DrawingOps.Find(_skeleton, slot, slot.SetupAttachment)
-			?? DrawingOps.DrawingNames(_skeleton, slot).Select(n => DrawingOps.Find(_skeleton, slot, n)).FirstOrDefault(a => a != null);
-		if (template == null || !_skeleton.Assets.TryGetValue(template.AssetId, out var source))
+		var created = _session.NewDrawing(slot, copy);
+		if (created == null)
 		{
 			PartHint.Text = "This part has no drawing to start from.";
 			return;
 		}
-
-		Attachment? created = null;
-		_state.EditStructure(() =>
-		{
-			// Same size and the same layers (names, visibility, opacity); pixels only when copying
-			var pixels = new Asset { Width = source.Width, Height = source.Height };
-			foreach (var layer in source.Layers)
-			{
-				var added = _assets.AddLayer(pixels, layer.Name, copy ? _assets.GetLayer(layer) : null);
-				added.Visible = layer.Visible;
-				added.Opacity = layer.Opacity;
-			}
-
-			created = DrawingOps.AddDrawing(_skeleton, slot, template, pixels, _state.EditSkin);
-			if (_state.EditSkin is { } skin) SkinOps.Show(_skeleton, skin);
-			DrawingOps.Show(_state.Animation, slot, created.Name, frame, _state.Fps, key);
-			return $"{(copy ? "Duplicate" : "New")} drawing {created.Name}{(key ? $" @ frame {frame}" : "")}";
-		});
 
 		// Keep drawing: if the paint editor is open, it moves to the new drawing
 		if (created != null && PaintPanel.Visibility == Visibility.Visible
@@ -185,18 +138,7 @@ public partial class MainWindow
 			return;
 		}
 
-		int frame = SnapToFrame(key: true);
-		var result = HoldChange.NothingAfter;
-		_state.EditStructure(() =>
-		{
-			result = frames > 0
-				? DrawingOps.InsertFrame(_state.Animation, slot, frame, _state.Fps, _state.FrameCount)
-				: DrawingOps.RemoveFrame(_state.Animation, slot, frame, _state.Fps);
-			return result == HoldChange.Done
-				? $"{(frames > 0 ? "Longer" : "Shorter")} hold on {slot.Name} @ frame {frame}"
-				: null;
-		});
-
+		var result = _session.ChangeHold(slot, frames);
 		PartHint.Text = result switch
 		{
 			HoldChange.NothingAfter => "Nothing comes after this drawing in the part's row: the last drawing always lasts until the end.",

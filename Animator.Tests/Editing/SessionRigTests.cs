@@ -179,4 +179,79 @@ public class SessionRigTests
 		session.State.Undo.Undo();
 		Assert.Equal("step", events.Track.Keys[0].Value.Name);
 	}
+
+	[Fact]
+	public void Parts_and_their_drawings_are_edited_through_the_session()
+	{
+		var (session, root, arm, hand, _) = Rig();
+		var state = session.State;
+		var made = session.CreatePart(arm, "glove", null, 8, 8);
+		Assert.Same(made, state.SelectedSlot);
+		Assert.Same(arm, made.Bone);
+		Assert.False(session.RenamePart(made, "hand"));   // taken
+		Assert.True(session.RenamePart(made, "mitt"));
+
+		Assert.True(session.SetPartRest(hand, PartField.X, 12f));
+		Assert.Equal(12f, state.Skeleton.ResolveAttachment(hand)!.Offset.X, 4);
+		Assert.True(session.MovePartToBone(hand, root));
+		Assert.Same(root, hand.Bone);
+
+		// Drawings: a copy shown from the playhead on (Animate), renamed, deleted again
+		state.AnimateMode = true;
+		state.SetFrame(10);
+		var second = session.NewDrawing(hand, copy: true)!;
+		Assert.Equal(second.Name, session.CurrentDrawing(hand));
+		state.SetFrame(0);
+		Assert.Equal("hand", session.CurrentDrawing(hand));
+		Assert.True(session.RenameDrawing(hand, second.Name, "fist"));
+		Assert.False(session.RenameDrawing(hand, "fist", "hand"));   // the part's other drawing
+		state.SetFrame(10);
+		Assert.Equal(HoldChange.NothingAfter, session.ChangeHold(hand, +1));   // its last drawing
+		Assert.True(session.ShowDrawing(hand, null));                 // hidden from frame 10
+		Assert.Null(session.CurrentDrawing(hand));
+		Assert.True(session.DeleteDrawing(hand, "fist"));
+		Assert.False(session.DeleteDrawing(hand, "hand"));            // a part keeps one drawing
+
+		Assert.True(session.KeyPart(hand, PartField.Rotation, 0.3f));
+		Assert.Contains(state.Animation.Timelines, tl => tl is PartRotateTimeline r && r.Target == "hand");
+
+		Assert.True(session.DeletePart(made));
+		Assert.DoesNotContain(made, state.Skeleton.Slots);
+		state.AnimateMode = false;
+		Assert.Null(session.ChangeHold(hand, +1));                     // holds are Animate's
+	}
+
+	[Fact]
+	public void Colour_layers_are_edited_through_the_session()
+	{
+		var (session, _, _, hand, _) = Rig();
+		var state = session.State;
+		var a = session.AddColourLayer(ColorAdjustKind.HueSaturation);
+		var b = session.AddColourLayer(ColorAdjustKind.HueSaturation);
+		Assert.NotEqual(a.Name, b.Name);
+		Assert.True(session.MoveColourLayer(b, -1));
+		Assert.Same(b, state.Skeleton.ColorLayers[0]);
+		Assert.False(session.MoveColourLayer(b, -1));        // first already
+		Assert.False(session.RenameColourLayer(a, b.Name));  // taken
+		Assert.True(session.RenameColourLayer(a, "glow"));
+		Assert.True(session.ShowColourLayer(a, false));
+		Assert.False(session.ShowColourLayer(a, false));
+		Assert.True(session.LeaveOut(a, hand, true));
+		Assert.Contains(hand, a.LeftOut);
+
+		// Numbers: at rest in Setup, a key at the playhead in Animate
+		var values = a.Adjust.Setup with { Mix = 0.5f };
+		session.SetColourValues(a, values, "Mix");
+		Assert.Equal(0.5f, a.Adjust.Setup.Mix, 4);
+		state.AnimateMode = true;
+		state.SetFrame(5);
+		session.SetColourValues(a, values with { Mix = 0.25f }, "Mix");
+		Assert.Contains(state.Animation.Timelines, tl => tl is ColorLayerTimeline c && c.Target == "glow");
+		Assert.Equal(0.5f, a.Adjust.Setup.Mix, 4);       // the rest value stays
+
+		Assert.True(session.DeleteColourLayer(a));
+		Assert.DoesNotContain(state.Animation.Timelines, tl => tl is ColorLayerTimeline c && c.Target == "glow");
+		state.Undo.Undo();
+		Assert.Contains(state.Skeleton.ColorLayers, l => l.Name == "glow");
+	}
 }
