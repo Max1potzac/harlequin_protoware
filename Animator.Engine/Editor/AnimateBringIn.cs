@@ -144,8 +144,8 @@ public static class AnimateBringIn
 			// or the animations would lose it whenever it shows
 			foreach (var group in source.Skeleton.Slots.Where(s => Copied(s.Name) && merge.Parts.GetValueOrDefault(s.Name) is { } t && target.FindSlot(t) != null)
 				.GroupBy(s => merge.Parts[s.Name]!).Where(g => g.Count() > 1))
-				foreach (var extra in group.OrderBy(s => s.Bone.Parent == null ? 1 : 0).Skip(1))
-					merge.Parts[extra.Name] = null;
+				foreach (var spare in group.OrderBy(s => s.Bone.Parent == null ? 1 : 0).Skip(1))
+					merge.Parts[spare.Name] = null;
 			foreach (var slot in source.Skeleton.Slots)
 				if (Copied(slot.Name) && !merge.SkinParts.Contains(slot.Name)
 					&& (merge.Parts.GetValueOrDefault(slot.Name) is not { } here || target.FindSlot(here) == null))
