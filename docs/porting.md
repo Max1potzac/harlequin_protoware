@@ -52,4 +52,11 @@ throughout.
    not) and keyed by value, connected, inheriting, hung from others, dissolved or deleted (objects
    they carried let go); look and IK constraints; parts put on bones (by hand or the nearest); a
    drawn object given bones. The Rig panel, Bind and the bone list's drags call these.
+6. **Keys** (KeyEditor): the selected keys' curve and easing, deleted, copied and pasted, nudged,
+   stretched and reversed; keys selected by frame or by what they move; frames inserted and
+   removed; the playhead to the next key; the pose keyed (S) or held (auto key off), and the
+   picked's keys at the playhead deleted. The timeline panel keeps the drawing and the mouse.
+7. **Poses and events** (EditorSession.Poses.cs): saved poses put on (partly, mirrored, on the
+   picked), the pose mirrored, copied and pasted, a rig made symmetric; the list of poses kept,
+   updated, renamed and deleted; events added and changed, with their sounds.
 
