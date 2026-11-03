@@ -325,38 +325,9 @@ public partial class MainWindow
 		else if (_objectTool.Selected is { } obj) EnterObject(obj);
 	}
 
-	// A rig edit that can also change the scene (objects carried by a bone that's renamed or
-	// deleted), as one undo step. The change returns the step's name, or null if nothing changed.
-	private bool EditStructureAndScene(Func<string?> change)
-	{
-		var sceneBefore = SceneSnapshot.Capture(_scene);
-		var rigBefore = _state.CaptureStructure();
-		string? name = change();
-		if (name == null)
-		{
-			rigBefore.Restore();
-			sceneBefore.Restore();
-			return false;
-		}
-		_state.Undo.Push(new CompositeCommand(name,
-			new SnapshotCommand<StructureSnapshot>(name, rigBefore, _state.CaptureStructure(), s => s.Restore()),
-			new SnapshotCommand<SceneSnapshot>(name, sceneBefore, SceneSnapshot.Capture(_scene), s => s.Restore())));
-		return true;
-	}
-
-	// One-shot scene edit as one undo step; the change returns the step's name, or null if nothing changed
-	private bool EditScene(Func<string?> change)
-	{
-		var before = SceneSnapshot.Capture(_scene);
-		string? name = change();
-		if (name == null)
-		{
-			before.Restore();
-			return false;
-		}
-		_state.Undo.Push(new SnapshotCommand<SceneSnapshot>(name, before, SceneSnapshot.Capture(_scene), s => s.Restore()));
-		return true;
-	}
+	// Scene edits as undo steps (see EditorSession.EditScene)
+	private bool EditStructureAndScene(Func<string?> change) => _session.EditStructureAndScene(change);
+	private bool EditScene(Func<string?> change) => _session.EditScene(change);
 
 	private void AddObject_Click(object sender, RoutedEventArgs e)
 	{
@@ -409,19 +380,7 @@ public partial class MainWindow
 	// (and, for a blank one, in the paint editor)
 	private void AddDrawnObject(string name, SKBitmap? pixels, int width, int height, bool paint)
 	{
-		SceneObject? created = null;
-		Slot? part = null;
-		Asset? drawing = null;
-		EditScene(() =>
-		{
-			created = SceneOps.AddDrawn(_scene, name, _camera.Pan);
-			drawing = new Asset { Name = name, Width = width, Height = height };
-			_assets.AddLayer(drawing, "Base", pixels);   // null pixels = a blank layer
-			part = PartOps.CreatePart(created.Skeleton, created.Skeleton.Roots[0], drawing, name, Vector2.Zero, 0f);
-			return $"New drawn object {created.Name}";
-		});
-		if (created == null || part == null || drawing == null) return;
-
+		var (created, part, drawing) = _session.AddDrawnObject(name, pixels, width, height, _camera.Pan);
 		_state.Playing = false;
 		EnterObject(created);
 		_state.Selected = part.Bone;
@@ -430,31 +389,14 @@ public partial class MainWindow
 		if (paint) OpenPaintEditor(drawing, part);
 	}
 
-	private void AddRiggedObject()
-	{
-		SceneObject? created = null;
-		EditScene(() =>
-		{
-			created = SceneOps.AddRigged(_scene, "object", _camera.Pan);   // in the middle of the view
-			return $"New object {created.Name}";
-		});
-		if (created != null) EnterObject(created);   // a new rig is there to be built: open it
-	}
+	// A new rig is there to be built: it opens, in the middle of the view
+	private void AddRiggedObject() => EnterObject(_session.AddRiggedObject(_camera.Pan));
 
 	private void CopyObject_Click(object sender, RoutedEventArgs e)
 	{
 		if (CurrentObject is not { } source) return;
 		_paint.Tool.Deactivate(_paint);   // a half-placed move or figure lands first, so the copy has it
-		SceneObject? copy = null;
-		EditScene(() =>
-		{
-			var (made, layers) = SceneOps.Duplicate(_scene, source);
-			foreach (var (newLayer, oldLayer) in layers) _assets.CopyPixels(oldLayer, newLayer);
-			made.Position += new Vector2(30, -30);   // a little aside, so you can see it
-			copy = made;
-			return $"Copy object {source.Name}";
-		});
-		if (copy == null) return;
+		var copy = _session.CopyObject(source);
 		if (_sceneLevel)
 		{
 			_objectTool.Selected = copy;
@@ -471,10 +413,10 @@ public partial class MainWindow
 	private void DeleteCurrentObject()
 	{
 		if (CurrentObject is not { } obj) return;
-		bool deleted = EditScene(() => SceneOps.DeleteObject(_scene, obj) ? $"Delete object {obj.Name}" : null);
-		if (!deleted) return;
-		_objectTool.Selected = null;
-		if (obj == _active) EditObject(_scene.Objects[0]);
+		bool open = obj == _active;
+		if (open && _scene.Objects.Count > 1) ClosePaintEditor();   // its drawing goes with it
+		if (!_session.DeleteObject(obj)) return;
+		if (open) EditObject(_active!);   // (the window's side of the object the session opened instead)
 		RefreshEverything();
 	}
 
@@ -483,10 +425,7 @@ public partial class MainWindow
 
 	private void MoveObjectInOrder(int direction)
 	{
-		if (CurrentObject is not { } obj) return;
-		EditScene(() => SceneOps.MoveInOrder(_scene, obj, direction)
-			? $"{obj.Name} {(direction > 0 ? "forward" : "backward")}"
-			: null);
+		if (CurrentObject is { } obj) _session.MoveObjectInOrder(obj, direction);
 	}
 
 	// ======================= object properties (scene level) =======================
@@ -562,7 +501,7 @@ public partial class MainWindow
 		{
 			string newName = box.Text.Trim();
 			if (newName == obj.Name) return;
-			if (!EditScene(() => SceneOps.RenameObject(_scene, obj, newName) ? $"Rename object to {newName}" : null))
+			if (!_session.RenameObject(obj, newName))
 			{
 				ObjectHint.Text = $"Can't rename to \"{newName}\": object names must be unique and not empty.";
 				box.Text = obj.Name;
@@ -578,78 +517,35 @@ public partial class MainWindow
 			return;
 		}
 
-		EditScene(() =>
+		switch (field)
 		{
-			switch (field)
-			{
-				case "OX" when v != obj.Position.X: obj.Position = new Vector2(v, obj.Position.Y); break;
-				case "OY" when v != obj.Position.Y: obj.Position = new Vector2(obj.Position.X, v); break;
-				case "ORotation" when MathF.Abs(Rad(v) - obj.Rotation) > 1e-6f: obj.Rotation = Rad(v); break;
-				case "OScaleX" when v != obj.Scale.X: obj.Scale = new Vector2(v, obj.Scale.Y); break;
-				case "OScaleY" when v != obj.Scale.Y: obj.Scale = new Vector2(obj.Scale.X, v); break;
-				default: return null;
-			}
-			return $"Set object {obj.Name} {field[1..]}";
-		});
+			case "OX": _session.PlaceObject(obj, position: new Vector2(v, obj.Position.Y)); break;
+			case "OY": _session.PlaceObject(obj, position: new Vector2(obj.Position.X, v)); break;
+			case "ORotation": _session.PlaceObject(obj, rotation: Rad(v)); break;
+			case "OScaleX": _session.PlaceObject(obj, scale: new Vector2(v, obj.Scale.Y)); break;
+			case "OScaleY": _session.PlaceObject(obj, scale: new Vector2(obj.Scale.X, v)); break;
+		}
 	}
 
 	private void ObjectFlags_Click(object sender, RoutedEventArgs e)
 	{
 		if (_syncingScene || _objectTool.Selected is not { } obj) return;
-		bool visible = ObjectVisible.IsChecked == true, locked = ObjectLocked.IsChecked == true;
-		bool export = ObjectExport.IsChecked == true, onion = ObjectOnion.IsChecked == true;
-		EditScene(() =>
-		{
-			if (obj.Visible == visible && obj.Locked == locked && obj.Export == export && obj.Onion == onion) return null;
-			obj.Visible = visible;
-			obj.Locked = locked;
-			obj.Export = export;
-			obj.Onion = onion;
-			return $"Settings of object {obj.Name}";
-		});
+		_session.SetObjectFlags(obj, ObjectVisible.IsChecked == true, ObjectLocked.IsChecked == true,
+			ObjectExport.IsChecked == true, ObjectOnion.IsChecked == true);
 	}
 
-	private sealed record AttachChoice(SceneObject? Holder, string? Bone, string Label)
-	{
-		public override string ToString() => Label;
-	}
-
-	// "Free", then every bone this object could hang on: not its own, and not those of objects
-	// it carries (they'd end up carrying each other). A drawn object counts as one bone.
-	private List<AttachChoice> AttachChoices(SceneObject obj)
-	{
-		var list = new List<AttachChoice> { new(null, null, "(nothing: free in the scene)") };
-		foreach (var other in _scene.Objects)
-		{
-			if (other == obj || SceneOps.Carries(_scene, obj, other)) continue;
-			if (other.Kind == ObjectKind.Drawn)
-			{
-				if (other.Skeleton.Roots.FirstOrDefault() is { } root) list.Add(new(other, root.Name, other.Name));
-				continue;
-			}
-			foreach (var bone in other.Skeleton.AllBones())
-				list.Add(new(other, bone.Name, $"{other.Name} ▸ {bone.Name}"));
-		}
-		return list;
-	}
+	// "Free", then every bone this object could hang on (see EditorSession.AttachChoices)
+	private List<AttachChoice> AttachChoices(SceneObject obj) => _session.AttachChoices(obj);
 
 	private void ObjectAttach_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingScene || _objectTool.Selected is not { } obj || ObjectAttach.SelectedItem is not AttachChoice choice) return;
-		bool changed = EditScene(() => SceneOps.Attach(_scene, obj, choice.Holder, choice.Bone)
-			? (choice.Holder == null ? $"Free {obj.Name}" : $"Attach {obj.Name} to {choice.Label}")
-			: null);
-		if (!changed) ShowObjectProperties();   // put the choice back to what's really there
+		if (!_session.AttachObject(obj, choice)) ShowObjectProperties();   // put the choice back to what's really there
 	}
 
 	private void ObjectPreview_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingScene || _objectTool.Selected is not { } obj || ObjectPreview.SelectedItem is not string name) return;
-		EditScene(() =>
-		{
-			if (PreviewOf(obj)?.Name == name) return null;
-			obj.PreviewAnimation = name;
-			return $"{obj.Name} previews {name}";
-		});
+		_session.SetPreview(obj, name);
 	}
 }

@@ -11,7 +11,7 @@ namespace Animator.Viewer;
 // and every panel and tool works on those: opening another object just points them elsewhere.
 // Inside an object its timeline's 0 stands for a moment of the scene (SceneTimeAtZero), so the
 // rest of the scene plays along in context.
-public sealed class EditorSession
+public sealed partial class EditorSession
 {
 	public Scene Scene { get; set; }
 	public AssetStore Assets { get; }
