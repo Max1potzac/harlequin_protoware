@@ -23,16 +23,10 @@ public partial class MainWindow
 	private static Brush SkinEditingBrush => Themes.Brush("SkinEditing");
 	private static Brush SkinHeaderBrush => Themes.Brush("TextMuted");
 
-	private void EditSkins(string name, Func<bool> change)
-	{
-		if (_sceneLevel) return;
-		_state.EditStructure(() => change() ? name : null);
-		_skeleton.UpdateWorld();
-	}
+	// (see EditorSession.EditSkins)
+	private bool EditSkins(string name, Func<bool> change) => _session.EditSkins(name, change);
 
-	// The picked parts with drawings of their own (in draw order)
-	private List<Slot> PickedOwnParts() =>
-		_skeleton.Slots.Where(s => _state.Picked.Contains(s) && SkinOps.HasOwnDrawings(_skeleton, s)).ToList();
+	private List<Slot> PickedOwnParts() => _session.PickedOwnParts();
 
 	// ======================= making skins =======================
 
@@ -79,77 +73,48 @@ public partial class MainWindow
 
 	private void MakeSkinFromParts(List<Slot> parts)
 	{
-		Skin? made = null;
-		EditSkins($"Make a skin of {Describe(parts)}", () =>
-		{
-			made = SkinOps.MakeSkin(_skeleton, parts.Count == 1 ? parts[0].Name : CommonName(parts) ?? "Skin", parts);
-			return true;
-		});
+		var made = _session.MakeSkinFromParts(parts);
 		SelectSkin(made, $"{made?.Name}: {Describe(parts)} show while it's on. Give it a category to make it one of a set of alternatives, or make it an overlay to show it over the others.");
 	}
 
 	private void MakeCategoryFromParts(List<Slot> parts)
 	{
 		if (AskCategory(CommonName(parts) ?? parts[0].Name) is not { } category) return;
-		List<Skin> made = new();
-		EditSkins($"Make a category {category} of {parts.Count} parts", () =>
-		{
-			made = SkinOps.MakeCategoryFromParts(_skeleton, category, parts);
-			return made.Count > 0;
-		});
+		var made = _session.MakeCategoryFromParts(category, parts);
 		SelectSkin(made.FirstOrDefault(), $"{category}: {made.Count} skins, one on at a time (tick another to swap).");
 	}
 
 	private void MakeCategoryFromDrawings(Slot slot)
 	{
 		if (AskCategory(slot.Name) is not { } category) return;
-		List<Skin> made = new();
-		EditSkins($"Make a category {category} of {slot.Name}'s drawings", () =>
-		{
-			made = SkinOps.MakeCategoryFromDrawings(_skeleton, _state.Animations, slot, category);
-			return made.Count > 0;
-		});
+		var made = _session.MakeCategoryFromDrawings(slot, category);
 		SelectSkin(made.FirstOrDefault(), $"{category}: {made.Count} skins for {slot.Name}, one on at a time. Its drawing keys show the skin's drawing now.");
 	}
 
 	private void MakeSkinFromColours(IReadOnlyList<ColorLayer> layers)
 	{
-		Skin? made = null;
 		string what = layers.Count == 1 ? layers[0].Name : $"{layers.Count} colour layers";
-		EditSkins($"Make a skin of {what}", () =>
-		{
-			made = SkinOps.MakeSkin(_skeleton, layers.Count == 1 ? layers[0].Name : "Colours", colorLayers: layers);
-			return true;
-		});
+		var made = _session.MakeSkinFromColours(layers);
 		SelectSkin(made, $"{made?.Name}: {what} apply only while it's on (exported too, when colour layers are baked).");
 	}
 
 	private void SkinColour_Click(ColorLayer layer, bool inIt)
 	{
 		if (_skin is not { } skin) return;
-		EditSkins(inIt ? $"Put {layer.Name} in the skin {skin.Name}" : $"Take {layer.Name} out of the skin {skin.Name}", () =>
-			inIt ? SkinOps.AddColorLayers(_skeleton, skin, new[] { layer }) > 0 : SkinOps.TakeOutColorLayers(skin, new[] { layer }) > 0);
+		_session.SetColourInSkin(skin, layer, inIt);
 		BuildSkinsPanel();
 	}
 
-	// A new skin, being edited from the start: paint or place a part and that part's new look is
-	// the skin's, the object's own (skin 0) staying as it was
+	// A new skin, being edited from the start
 	private void MakeEmptySkin()
 	{
-		Skin? made = null;
-		EditSkins("Add a skin", () =>
-		{
-			made = SkinOps.MakeSkin(_skeleton, "Skin");
-			return true;
-		});
-		_state.EditSkin = made;
+		var made = _session.MakeEmptySkin();
 		SelectSkin(made, $"Editing {made?.Name}: paint a part, move it, give it new drawings or add parts, and that goes into {made?.Name}. ✎ on Skin 0 to edit the object itself again.");
 	}
 
 	private void EditSkin(Skin? skin)
 	{
-		_state.EditSkin = skin;
-		if (skin != null && !_skeleton.ShownSkins.Contains(skin)) ShowSkin(skin, true);
+		_session.EditSkin(skin);
 		_skin = skin ?? _skin;
 		BuildSkinsPanel();
 		SkinHint.Text = skin == null
@@ -174,39 +139,8 @@ public partial class MainWindow
 		return button;
 	}
 
-	// Painting a part while editing a skin: the skin's own copy, with pixels of its own (made now,
-	// undoably). The pixels to open.
-	private Asset PixelsToPaint(Slot slot, Asset asset)
-	{
-		if (_state.EditSkin is not { } skin || _skeleton.ResolveAttachment(slot) is not { } shown || shown.AssetId != asset.Id) return asset;
-		if (skin.Get(slot.Name, shown.Name) == shown && !SkinOps.SharesPixels(_skeleton, shown)) return asset;
-		var result = asset;
-		_state.EditStructure(() =>
-		{
-			if (SkinOps.Own(_skeleton, skin, slot, shown.Name) is not { } own) return null;
-			if (SkinOps.SharesPixels(_skeleton, own))
-			{
-				result = CopyOfPixels(asset);
-				own.AssetId = result.Id;
-			}
-			return $"Paint {slot.Name} in the skin {skin.Name}";
-		});
-		return result;
-	}
-
-	private Asset CopyOfPixels(Asset source)
-	{
-		var copy = new Asset { Name = source.Name, Width = source.Width, Height = source.Height };
-		foreach (var layer in source.Layers)
-		{
-			var added = _assets.AddLayer(copy, layer.Name, _assets.GetLayer(layer));
-			added.Visible = layer.Visible;
-			added.Opacity = layer.Opacity;
-			added.Adjust = layer.Adjust?.Clone();
-		}
-		_skeleton.Assets[copy.Id] = copy;
-		return copy;
-	}
+	// Painting a part while editing a skin: the skin's own pixels (see EditorSession.PixelsToPaint)
+	private Asset PixelsToPaint(Slot slot, Asset asset) => _session.PixelsToPaint(slot, asset);
 
 	private string? AskCategory(string suggestion)
 	{
@@ -215,23 +149,8 @@ public partial class MainWindow
 		return dialog.ShowDialog() == true ? dialog.Answer.Trim() : null;
 	}
 
-	// What the names of these parts start with (bucket, bucket_dent, bucket_wrecked → bucket)
-	private static string? CommonName(IReadOnlyList<Slot> parts)
-	{
-		if (parts.Count == 0) return null;
-		string prefix = parts[0].Name;
-		foreach (var slot in parts.Skip(1))
-		{
-			int n = 0;
-			while (n < prefix.Length && n < slot.Name.Length && char.ToLowerInvariant(prefix[n]) == char.ToLowerInvariant(slot.Name[n])) n++;
-			prefix = prefix[..n];
-		}
-		prefix = prefix.TrimEnd(' ', '_', '-', '.');
-		return prefix.Length >= 2 ? prefix : null;
-	}
-
-	private static string Describe(IReadOnlyList<Slot> parts) =>
-		parts.Count == 1 ? parts[0].Name : $"{parts.Count} parts";
+	private static string? CommonName(IReadOnlyList<Slot> parts) => EditorSession.CommonName(parts);
+	private static string Describe(IReadOnlyList<Slot> parts) => EditorSession.Describe(parts);
 
 	private void SelectSkin(Skin? skin, string hint)
 	{
@@ -249,14 +168,14 @@ public partial class MainWindow
 		var back = new MenuItem { Header = "Delete, its drawings back to the object", ToolTip = "Its parts show again whatever skins are on (as they did before they were made a skin)" };
 		back.Click += (_, _) =>
 		{
-			EditSkins($"Dissolve the skin {skin.Name}", () => { SkinOps.Dissolve(_skeleton, skin); return true; });
+			_session.DissolveSkin(skin);
 			_skin = null;
 			BuildSkinsPanel();
 		};
 		var gone = new MenuItem { Header = "Delete, with its drawings", ToolTip = "Parts left with no drawings at all go too" };
 		gone.Click += (_, _) =>
 		{
-			EditSkins($"Delete the skin {skin.Name}", () => { SkinOps.Delete(_skeleton, _state.Animations, skin); return true; });
+			_session.DeleteSkin(skin);
 			_skin = null;
 			RefreshRigPanel();
 		};
@@ -271,14 +190,13 @@ public partial class MainWindow
 	private void MoveSkin(int direction)
 	{
 		if (_skin is not { } skin) return;
-		EditSkins(direction < 0 ? $"Move the skin {skin.Name} up" : $"Move the skin {skin.Name} down", () => SkinOps.Move(_skeleton, skin, direction));
+		_session.MoveSkin(skin, direction);
 		BuildSkinsPanel();
 	}
 
 	private void ShowSkin(Skin skin, bool on)
 	{
-		if (_skeleton.ShownSkins.Contains(skin) == on) return;
-		EditSkins(on ? $"Show the skin {skin.Name}" : $"Hide the skin {skin.Name}", () => { SkinOps.Show(_skeleton, skin, on); return true; });
+		if (!_session.ShowSkin(skin, on)) return;
 		_skin = skin;
 		BuildSkinsPanel();
 	}
@@ -292,7 +210,7 @@ public partial class MainWindow
 			SkinHint.Text = "Pick the parts to put in it (in the viewport, or in the Bones or Order view): parts with drawings of their own, outside any skin.";
 			return;
 		}
-		EditSkins($"Put {Describe(parts)} in the skin {skin.Name}", () => SkinOps.AddParts(_skeleton, skin, parts) > 0);
+		_session.AddPartsToSkin(skin, parts);
 		SelectSkin(skin, $"{Describe(parts)} now show while {skin.Name} is on.");
 	}
 
@@ -305,7 +223,7 @@ public partial class MainWindow
 			SkinHint.Text = $"Pick parts of {skin.Name} to take them out (back to the object's own drawings).";
 			return;
 		}
-		EditSkins($"Take {Describe(parts)} out of the skin {skin.Name}", () => SkinOps.TakeOutParts(_skeleton, skin, parts) > 0);
+		_session.TakePartsOutOfSkin(skin, parts);
 		SelectSkin(skin, $"{Describe(parts)} show whatever skins are on again.");
 	}
 
@@ -323,8 +241,7 @@ public partial class MainWindow
 				: $"Pick parts {skin.Name} hides to show them again.";
 			return;
 		}
-		EditSkins(hide ? $"{skin.Name} hides {Describe(parts)}" : $"{skin.Name} shows {Describe(parts)} again",
-			() => SkinOps.Hide(skin, parts, hide) > 0);
+		_session.HidePartsInSkin(skin, parts, hide);
 		SelectSkin(skin, hide ? $"{Describe(parts)} show nothing while {skin.Name} is on." : $"{Describe(parts)} show again with {skin.Name} on.");
 	}
 
@@ -357,7 +274,7 @@ public partial class MainWindow
 			SkinName.Text = skin.Name;
 			return;
 		}
-		EditSkins($"Rename the skin to {name}", () => SkinOps.Rename(_skeleton, skin, name));
+		_session.RenameSkin(skin, name);
 		BuildSkinsPanel();
 	}
 
@@ -384,10 +301,7 @@ public partial class MainWindow
 		if (_syncingSkins || _skin is not { } skin) return;
 		string category = SkinCategory.Text.Trim();
 		bool overlay = SkinOverlay.IsChecked == true;
-		if (category == skin.Category && overlay == skin.Overlay) return;
-		string what = overlay != skin.Overlay ? (overlay ? $"Make {skin.Name} an overlay" : $"Make {skin.Name} not an overlay")
-			: category.Length == 0 ? $"Take {skin.Name} out of its category" : $"Put {skin.Name} in the category {category}";
-		EditSkins(what, () => { SkinOps.SetKind(_skeleton, skin, category, overlay); return true; });
+		if (!_session.SetSkinKind(skin, category, overlay)) return;
 		BuildSkinsPanel();
 	}
 
@@ -396,30 +310,14 @@ public partial class MainWindow
 		var dialog = new InputDialog("Rename the category", $"A new name for {category}:", category,
 			text => text.Trim().Length == 0 ? "A name." : null) { Owner = this };
 		if (dialog.ShowDialog() != true || dialog.Answer.Trim() == category) return;
-		string name = dialog.Answer.Trim();
-		var skins = _skeleton.Skins.Where(s => SkinOps.SameCategory(s.Category, category)).ToList();
-		EditSkins($"Rename the category {category} to {name}", () =>
-		{
-			foreach (var skin in skins) SkinOps.SetKind(_skeleton, skin, name, skin.Overlay);
-			return skins.Count > 0;
-		});
+		_session.RenameCategory(category, dialog.Answer);
 		BuildSkinsPanel();
 	}
 
 	// ======================= the list =======================
 
 	// The list's groups: each category, then the outfits (no category), then the overlays in none
-	private List<(string Title, string? Category, List<Skin> Skins)> SkinGroups()
-	{
-		var groups = new List<(string, string?, List<Skin>)>();
-		foreach (var category in SkinOps.Categories(_skeleton))
-			groups.Add((category, category, _skeleton.Skins.Where(s => SkinOps.SameCategory(s.Category, category)).ToList()));
-		var outfits = _skeleton.Skins.Where(s => s.Category.Trim().Length == 0 && !s.Overlay).ToList();
-		var overlays = _skeleton.Skins.Where(s => s.Category.Trim().Length == 0 && s.Overlay).ToList();
-		if (outfits.Count > 0) groups.Add(("Outfits (one at a time)", null, outfits));
-		if (overlays.Count > 0) groups.Add(("Overlays", null, overlays));
-		return groups;
-	}
+	private List<(string Title, string? Category, List<Skin> Skins)> SkinGroups() => _session.SkinGroups();
 
 	private FrameworkElement SkinRow(Skin skin)
 	{

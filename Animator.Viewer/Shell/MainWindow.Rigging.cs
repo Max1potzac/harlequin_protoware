@@ -58,22 +58,12 @@ public partial class MainWindow
 	// where it is
 	private void GiveBones(bool suggest)
 	{
-		if (_active is not { Kind: ObjectKind.Drawn } obj) return;
+		if (_active is not { Kind: ObjectKind.Drawn }) return;
 		ClosePaintEditor();
 		_skeleton.SetToSetupPose();
 		_skeleton.UpdateWorld();
 		float height = _renderer.ImageBounds(_skeleton) is { } box ? box.Height : 200f;
-		int suggested = 0;
-		bool done = EditStructureAndScene(() =>
-		{
-			suggested = PartRigging.GiveBones(obj, _assets, Math.Clamp(height * 0.12f, 30f, 200f), suggest);
-			return suggest ? $"Give {obj.Name} suggested bones" : $"Give {obj.Name} a root bone";
-		});
-		if (!done) return;
-
-		_state.Selected = _skeleton.Roots.FirstOrDefault();
-		_state.SelectedSlot = null;
-		_state.AnimateMode = false;
+		if (_session.GiveBones(Math.Clamp(height * 0.12f, 30f, 200f), suggest) is not { } suggested) return;
 		RefreshEverything();
 		ShowRigHint(suggest
 			? $"{suggested} bone(s) suggested. {Capitalized(MoveDrag)} a joint to fit it (the parts stay put), drag parts onto bones in the list above, or Bind ▾."
@@ -122,22 +112,12 @@ public partial class MainWindow
 	// Each part goes on the bone nearest to most of it (not a root bone, unless there's no other)
 	private void PartsToNearestBones(List<Slot> slots, string what)
 	{
-		_state.EditStructure(() =>
-		{
-			int moved = PartRigging.PartsToNearestBones(_skeleton, _assets, slots);
-			ShowRigHint(moved > 0 ? $"{moved} part(s) moved onto other bones." : "Every part already was on its nearest bone.");
-			return moved > 0 ? $"Put {what} on the nearest bones" : null;
-		});
+		int moved = _session.PartsToNearestBones(slots, what);
+		ShowRigHint(moved > 0 ? $"{moved} part(s) moved onto other bones." : "Every part already was on its nearest bone.");
 	}
 
-	// Hangs a bone from another (null = a root bone). With "parts stay put", one on its parent's end
-	// lets go first, so it and what's on it stay where they are; otherwise it moves onto the new
-	// parent's end. (Inside EditStructure: if it can't, the snapshot puts the joint back.)
-	private bool HangBone(Bone bone, Bone? parent)
-	{
-		if (_tool.KeepPartsInPlace && parent != bone.Parent) RigOps.SetConnected(bone, false);
-		return RigOps.Reparent(_skeleton, bone, parent);
-	}
+	// (see EditorSession.HangBone: with the "parts stay put" setting)
+	private bool HangBone(Bone bone, Bone? parent) => _session.HangBone(bone, parent, _tool.KeepPartsInPlace);
 
 	// ======================= dragging in the list =======================
 
@@ -191,11 +171,7 @@ public partial class MainWindow
 		if (dragged is Slot slot)
 		{
 			var parts = DraggedAlong(slot).Where(s => s.Bone != target).ToList();
-			_state.EditStructure(() =>
-			{
-				int moved = parts.Count(part => PartOps.MoveToBone(_skeleton, part, target));
-				return moved == 0 ? null : moved == 1 && parts.Count == 1 ? $"Put part {slot.Name} on {target.Name}" : $"Put {moved} parts on {target.Name}";
-			});
+			_session.PutPartsOnBone(parts, target);
 			if (parts.Count == 1)
 			{
 				_state.SelectedSlot = slot;
@@ -209,11 +185,7 @@ public partial class MainWindow
 			var along = DraggedAlong(bone);
 			var bones = RestEdits.TopOf(along).Where(b => b != target && !target.IsDescendantOf(b) && b.Parent != target).ToList();
 			if (bones.Count == 0) bones.Add(bone);   // (the drop target checked this one can go there)
-			_state.EditStructure(() =>
-			{
-				int hung = bones.Count(b => HangBone(b, target));
-				return hung == 0 ? null : bones.Count == 1 ? $"Hang {bones[0].Name} from {target.Name}" : $"Hang {hung} bones from {target.Name}";
-			});
+			_session.HangBones(bones, target, _tool.KeepPartsInPlace);
 			if (bones.Count == 1)
 			{
 				_state.Selected = bone;
