@@ -37,10 +37,15 @@ public class BoneTool
 	public Vector2[]? SelectionBox { get; private set; }
 
 	// The viewport's tools (the toolbar over it): Select only picks (and drags the selected part's
-	// handles, or the ring at a bone's end); Move and Rotate take what's under either button that
-	// way. With any tool, the transform button draws new bones (Ctrl) and puts parts on the
-	// selected bone (Alt); with Select, it pans otherwise. Paint opens a part to paint with one click.
+	// handles, or the ring at a bone's end); Move and Rotate take what's under the select button
+	// that way. The transform button: with Move, a joint or part moves and a bone's body turns;
+	// with Rotate, it turns; with Select, it pans. With any tool it draws new bones (Ctrl) and puts
+	// parts on the selected bone (Alt). Paint opens a part to paint with one click.
 	public ViewTool Tool { get; set; } = ViewTool.Select;
+
+	// The transform button moving and turning things with the Select tool too, as the Move tool's
+	// does (the way it used to be; off in the editor)
+	public bool SelectTransforms { get; set; }
 
 	// Snapping to the grid and guides (joints, bone ends, new bones, parts, several at once)
 	public Snapping Snap { get; set; } = new();
@@ -204,8 +209,8 @@ public class BoneTool
 			return;
 		}
 		if (button != TransformButton) return;
-		if (Tool == ViewTool.Select) Transform(screen, null, moves: false);   // (new bones and binding only)
-		else Transform(screen, Tool == ViewTool.Rotate ? Gesture.Turn : Gesture.Move);
+		if (Tool == ViewTool.Select && !SelectTransforms) Transform(screen, null, moves: false);   // (new bones and binding only)
+		else Transform(screen, Tool == ViewTool.Rotate ? Gesture.Turn : null);   // (Move: a joint moves, a bone's body turns it)
 	}
 
 	// The selected part's handles, or the ring at the selected bone's end, under the mouse: that drag begun

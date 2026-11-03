@@ -45,7 +45,7 @@ public class PickingTests
 
 			State = new EditorState(Skeleton, Animation) { Playing = false };
 			Renderer = new SkeletonRenderer(Store) { HideHidden = true };
-			Tool = new BoneTool(State, Camera, Renderer) { KeepPartsInPlace = false, Modifiers = () => Held };
+			Tool = new BoneTool(State, Camera, Renderer) { KeepPartsInPlace = false, Modifiers = () => Held, SelectTransforms = true };
 			Pose();
 		}
 
