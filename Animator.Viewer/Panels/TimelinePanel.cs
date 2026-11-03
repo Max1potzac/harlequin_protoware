@@ -680,4 +680,3 @@ public class TimelinePanel
 
     public bool JumpToKey(int direction) => Keys.JumpToKey(Rows(), direction);
 }
-}
