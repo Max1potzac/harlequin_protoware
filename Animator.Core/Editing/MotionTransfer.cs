@@ -27,6 +27,9 @@ public sealed class MotionTransfer
 	private readonly Dictionary<Slot, (Matrix3x2 Turn, Vector2 Joint, Vector2 Along, float Stretch)> _fit = new();
 	private readonly IReadOnlyList<Animation> _sourceAnimations, _targetAnimations;
 	private readonly Func<string, bool>? _fits;   // the parts (here) fitted by their joints: limbs
+	private readonly Func<string, bool>? _byPose, _own;   // see MergePlan.ByPose, OwnArt
+	// The part here's drawing and the source's, shown posed alike, and our pixels → theirs then
+	private readonly Dictionary<string, (Attachment Ours, Attachment Theirs, Matrix3x2 Registration)> _rest = new();
 	private bool _fitted;
 
 	// sourceAnimations, targetAnimations: each one's own (where their joints are is worked out
@@ -35,9 +38,11 @@ public sealed class MotionTransfer
 		Func<string, string, string> drawingName, Matrix3x2 space,
 		IDictionary<Attachment, Matrix3x2>? symbols = null, Func<Slot, Slot, Attachment, Attachment?>? supply = null,
 		IReadOnlyList<Animation>? sourceAnimations = null, IReadOnlyList<Animation>? targetAnimations = null,
-		Func<string, bool>? fits = null)
+		Func<string, bool>? fits = null, Func<string, bool>? byPose = null, Func<string, bool>? own = null)
 	{
 		_fits = fits;
+		_byPose = byPose;
+		_own = own;
 		_sourceAnimations = sourceAnimations ?? Array.Empty<Animation>();
 		_targetAnimations = targetAnimations?.ToList() ?? new List<Animation>();
 		_source = source;
@@ -59,6 +64,7 @@ public sealed class MotionTransfer
 			if (ImageToWorld(source, s, sd) is not { } ms || ImageToWorld(target, t, td) is not { } mt ||
 				!Matrix3x2.Invert(ms * _space, out var inv)) continue;
 			_registration[(td.Name, sd.Name)] = mt * inv;
+			_rest[ours] = (td, sd, mt * inv);
 		}
 	}
 
@@ -80,7 +86,7 @@ public sealed class MotionTransfer
 		var theirs = new JointFinder(_source, _sourceAnimations, this);
 		foreach (var bone in bones)
 		{
-			if (bone.Parent == null || PartOf(bone) is not { } t || !_fits(t.Name)) continue;
+			if (bone.Parent == null || PartOf(bone) is not { } t || !_fits(t.Name) || _byPose?.Invoke(t.Name) == true || _own?.Invoke(t.Name) == true) continue;
 			var s = _source.FindSlot(_sourceOf[t.Name])!;
 			if (PartOf(bone.Parent) is not { } pt) continue;
 			var ps = _source.FindSlot(_sourceOf[pt.Name])!;
@@ -404,7 +410,8 @@ public sealed class MotionTransfer
 	// The drawing here for one of the source's: by name; else a copy of it (a hand this object
 	// has nothing like, see ObjectMerge); else the part's own rest drawing, in its place
 	private Attachment? DrawingFor(Slot ours, Slot theirs, Attachment drawing) =>
-		Drawing(ours, _drawingName(theirs.Name, drawing.Name))
+		(_own?.Invoke(ours.Name) == true ? _supply?.Invoke(ours, theirs, drawing) : null)
+		?? Drawing(ours, _drawingName(theirs.Name, drawing.Name))
 		?? _supply?.Invoke(ours, theirs, drawing)
 		?? (ours.SetupAttachment is { } rest ? Drawing(ours, rest) : null);
 
@@ -415,6 +422,18 @@ public sealed class MotionTransfer
 	// alike, else their middles on each other
 	private Matrix3x2 Registration(Slot slot, Attachment ours, (int X, int Y) size, Attachment theirs)
 	{
+		// Placed as posed alike (another drawing than then: from that one, through the symbols).
+		// Their own art, copied, is exact through the symbols.
+		bool copied = _own?.Invoke(slot.Name) == true;
+		if (!copied && _byPose?.Invoke(slot.Name) == true && _rest.TryGetValue(slot.Name, out var rest))
+		{
+			if (rest.Ours == ours && rest.Theirs == theirs) return rest.Registration;
+			if (_symbols != null && _symbols.TryGetValue(ours, out var a) && _symbols.TryGetValue(rest.Ours, out var b)
+				&& _symbols.TryGetValue(rest.Theirs, out var c) && _symbols.TryGetValue(theirs, out var d)
+				&& Matrix3x2.Invert(b, out var fromB) && Matrix3x2.Invert(d, out var fromD))
+				return a * fromB * rest.Registration * c * fromD;
+			return rest.Registration;
+		}
 		if (_symbols != null && _symbols.TryGetValue(ours, out var mine) && _symbols.TryGetValue(theirs, out var other)
 			&& Matrix3x2.Invert(other, out var fromOther))
 			return mine * (_fit.TryGetValue(slot, out var fit) ? fit.Turn : Matrix3x2.Identity) * fromOther;

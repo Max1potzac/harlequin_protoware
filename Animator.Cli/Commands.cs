@@ -110,7 +110,8 @@ public static class Commands
 			throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads), or --include, or --animations.");
 		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"),
 			a.List("except"), Pairs(a.List("map")), include, !a.Has("by-bones"), p.Scene.Fps,
-			a.Get("imported-from"), a.Get("rig") is { } rigFile ? RigFile(rigFile) : null, a.List("copy-missing"), new BringInContext(), a.List("fit"));
+			a.Get("imported-from"), a.Get("rig") is { } rigFile ? RigFile(rigFile) : null, a.List("copy-missing"), new BringInContext(), a.List("fit"),
+			a.List("by-pose"), a.List("own"));
 		bool verbose = a.Has("verbose");
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
