@@ -205,4 +205,59 @@ public class EditorSessionTests
 		session.State.Undo.Undo();
 		Assert.Single(hero.Clips);
 	}
+
+	// ======================= the open object's animations =======================
+
+	[Fact]
+	public void Animations_are_added_copied_renamed_and_deleted_as_undo_steps()
+	{
+		var (session, hero, walk) = TwoObjects();
+		session.Enter(hero);
+		var made = session.NewAnimation();
+		Assert.Equal("animation", made.Name);
+		Assert.Same(made, session.State.Animation);
+		Assert.Equal("animation2", session.NewAnimation().Name);
+
+		session.SwitchAnimation(walk);
+		var copy = session.DuplicateAnimation();
+		Assert.Equal("walk_copy", copy.Name);
+		Assert.Equal(hero.Animations.IndexOf(walk) + 1, hero.Animations.IndexOf(copy));
+
+		// Renamed: the preview that named it follows; a name taken or empty is refused
+		session.SwitchAnimation(walk);
+		hero.PreviewAnimation = "walk";
+		Assert.False(session.RenameAnimation("walk_copy"));
+		Assert.False(session.RenameAnimation(" "));
+		Assert.True(session.RenameAnimation("stroll"));
+		Assert.Equal("stroll", hero.PreviewAnimation);
+		session.State.Undo.Undo();
+		Assert.Equal("walk", walk.Name);
+		Assert.Equal("walk", hero.PreviewAnimation);
+
+		Assert.True(session.SetAnimationLength(45));
+		Assert.Equal(1.5f, walk.Duration, 4);
+		Assert.False(session.SetAnimationLength(45));
+		Assert.True(session.SetAnimationLoop(false));
+		Assert.True(session.SetFps(24));
+		Assert.Equal(24, session.State.Fps);
+		session.State.Undo.Undo();
+		Assert.Equal(30, session.State.Fps);
+
+		while (hero.Animations.Count > 1) Assert.True(session.DeleteAnimation());
+		Assert.False(session.DeleteAnimation());   // one always stays
+	}
+
+	[Fact]
+	public void Picked_frames_become_an_animation_sequence_of_their_own()
+	{
+		var (session, hero, walk) = TwoObjects();
+		session.Enter(hero);
+		session.SwitchAnimation(walk);
+		var piece = session.MakeSequence(10, 19, "step", split: true)!;
+		Assert.Equal(hero.Animations.IndexOf(walk) + 1, hero.Animations.IndexOf(piece));
+		Assert.Same(walk, session.State.Animation);   // still on the one it came from
+		Assert.Equal(10, session.State.Frame);         // where they were
+		Assert.True(walk.Duration < 1f);               // they left it
+		Assert.NotNull(session.MakeSequence(0, 4, "start", split: false));
+	}
 }

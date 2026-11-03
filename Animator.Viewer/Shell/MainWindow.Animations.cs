@@ -34,25 +34,14 @@ public partial class MainWindow
 		_syncingAnim = false;
 	}
 
+	// (the window's side: the picked frames go too)
 	private void SwitchAnimation(Animation animation)
 	{
-		_state.Animation = animation;
-		_state.SelectedKeys.Clear();   // selected keys (and picked frames) belong to the old animation
+		_session.SwitchAnimation(animation);
 		_timeline.ClearRange();
-		_state.Time = 0;
-		_state.Playing = false;
 	}
 
-	private string UniqueAnimationName(string baseName)
-	{
-		var used = _state.Animations.Select(a => a.Name).ToHashSet();
-		if (!used.Contains(baseName)) return baseName;
-		for (int i = 2; ; i++)
-		{
-			string candidate = $"{baseName}{i}";
-			if (!used.Contains(candidate)) return candidate;
-		}
-	}
+	private string UniqueAnimationName(string baseName) => _session.UniqueAnimationName(baseName);
 
 	// ---------- animation sequences ----------
 
@@ -84,23 +73,14 @@ public partial class MainWindow
 	{
 		_state.Playing = false;
 		var source = _state.Animation;
-		int fps = _state.Fps;
 		var taken = _state.Animations.Select(a => a.Name).ToHashSet();
 		var dialog = new SequenceDialog(source.Name, range.First, range.Last, split,
 			UniqueAnimationName($"{source.Name}_{range.First}-{range.Last}"), taken) { Owner = this };
 		if (dialog.ShowDialog() != true) return;
 
 		string name = dialog.SequenceName;
-		_state.EditStructure(() =>
-		{
-			var piece = split
-				? AnimationOps.Split(source, range.First, range.Last, fps, name)
-				: AnimationOps.Extract(source, range.First, range.Last, fps, name);
-			_state.Animations.Insert(_state.Animations.IndexOf(source) + 1, piece);
-			return $"{(split ? "Split" : "Copy")} frames {range.First}–{range.Last} of {source.Name} into {name}";
-		});
+		_session.MakeSequence(range.First, range.Last, name, split);
 		_timeline.ClearRange();
-		if (split) _state.SetFrame(Math.Min(range.First, _state.FrameCount - 1));   // where they were (or the last frame left)
 		AnimHint.Text = $"\"{name}\" is in the animation list ({range.Last - range.First + 1} frames).";
 		TimelineView.InvalidateVisual();
 	}
@@ -115,50 +95,26 @@ public partial class MainWindow
 		UpdateStatus();
 	}
 
-	private void AnimNew_Click(object sender, RoutedEventArgs e) =>
-		_state.EditStructure(() =>
-		{
-			var anim = new Animation { Name = UniqueAnimationName("animation"), Duration = 2f, Loop = true };
-			_state.Animations.Add(anim);
-			SwitchAnimation(anim);
-			return $"New animation {anim.Name}";
-		});
+	private void AnimNew_Click(object sender, RoutedEventArgs e)
+	{
+		_session.NewAnimation();
+		_timeline.ClearRange();
+	}
 
 	private void AnimDuplicate_Click(object sender, RoutedEventArgs e)
 	{
-		var source = _state.Animation;
-		_state.EditStructure(() =>
-		{
-			var copy = ProjectMapper.CloneAnimation(source, UniqueAnimationName($"{source.Name}_copy"));
-			_state.Animations.Insert(_state.Animations.IndexOf(source) + 1, copy);
-			SwitchAnimation(copy);
-			return $"Duplicate {source.Name}";
-		});
+		_session.DuplicateAnimation();
+		_timeline.ClearRange();
 	}
 
 	private void AnimDelete_Click(object sender, RoutedEventArgs e)
 	{
-		if (_state.Animations.Count <= 1) return;   // a project always keeps at least one
-		var anim = _state.Animation;
-		_state.EditStructure(() =>
-		{
-			int i = _state.Animations.IndexOf(anim);
-			_state.Animations.Remove(anim);
-			SwitchAnimation(_state.Animations[Math.Min(i, _state.Animations.Count - 1)]);
-			return $"Delete animation {anim.Name}";
-		});
+		if (_session.DeleteAnimation()) _timeline.ClearRange();
 	}
 
 	private void AnimLoop_Click(object sender, RoutedEventArgs e)
 	{
-		if (_syncingAnim) return;
-		var anim = _state.Animation;
-		bool loop = AnimLoop.IsChecked == true;
-		_state.EditStructure(() =>
-		{
-			anim.Loop = loop;
-			return $"{anim.Name} {(loop ? "loops" : "plays once")}";
-		});
+		if (!_syncingAnim) _session.SetAnimationLoop(AnimLoop.IsChecked == true);
 	}
 
 	// ---------- text fields ----------
@@ -184,21 +140,11 @@ public partial class MainWindow
 				{
 					string name = box.Text.Trim();
 					if (name == anim.Name) return;
-					if (name.Length == 0 || _state.Animations.Any(a => a != anim && a.Name == name))
+					if (!_session.RenameAnimation(name))
 					{
 						AnimHint.Text = "Animation names must be unique and not empty.";
 						box.Text = anim.Name;
-						return;
 					}
-					// The object's preview names its animation, so it follows (clips point at the animation itself)
-					string oldName = anim.Name;
-					EditStructureAndScene(() =>
-					{
-						anim.Name = name;
-						_skeleton.Mixes.Rename(oldName, name);   // (its fades follow)
-						if (_active != null && _active.PreviewAnimation == oldName) _active.PreviewAnimation = name;
-						return $"Rename animation to {name}";
-					});
 					break;
 				}
 
@@ -210,14 +156,7 @@ public partial class MainWindow
 						box.Text = _state.FrameCount.ToString();
 						return;
 					}
-					if (frames == _state.FrameCount) return;
-					float duration = frames / (float)_state.Fps;
-					_state.EditStructure(() =>
-					{
-						anim.Duration = duration;
-						return $"{anim.Name} length: {frames} frames";
-					});
-					_state.SetFrame(_state.Frame);   // keeps the playhead inside the new length
+					_session.SetAnimationLength(frames);
 					break;
 				}
 
@@ -229,10 +168,7 @@ public partial class MainWindow
 						box.Text = _state.Fps.ToString();
 						return;
 					}
-					if (fps == _state.Fps) return;
-					int before = _state.Fps;
-					_state.Fps = fps;
-					_state.Undo.Push(new SnapshotCommand<int>($"FPS: {fps}", before, fps, v => _state.Fps = v));
+					_session.SetFps(fps);
 					break;
 				}
 		}
