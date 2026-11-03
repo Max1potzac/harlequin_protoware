@@ -38,6 +38,7 @@ public sealed class XflImportPlan : IDisposable
 	public List<XflPart> Parts { get; } = new();
 	public bool SuggestRig { get; set; }
 	public bool SplitAtLabels { get; set; } = true;
+	public bool OpenStillPieces { get; private init; }   // see Load
 	public float Scale { get; set; } = 1f;
 	public int SetupFrame { get; set; }                // the rest pose: this frame's placement
 	public int Root { get; set; } = -1;                // the part whose bone everything hangs from (-1 = worked out)
@@ -59,13 +60,15 @@ public sealed class XflImportPlan : IDisposable
 
 	public void Dispose() => Painter?.Dispose();
 
-	public static XflImportPlan Load(string path, string name)
+	// openStillPieces: still symbols holding pieces the animations move about are opened up, so they
+	// show as those parts (a game's particles frame: see XflEvaluator.IsStatic)
+	public static XflImportPlan Load(string path, string name, bool openStillPieces = false)
 	{
-		var plan = new XflImportPlan(XflReader.Read(path), name);
+		var plan = new XflImportPlan(XflReader.Read(path), name) { OpenStillPieces = openStillPieces };
 		var doc = plan.Document;
 		foreach (var scene in doc.Scenes)
 			plan.Timelines.Add(new XflTimelineChoice(XflEvaluator.SceneKey(scene.Name), $"Scene: {scene.Name}", true, scene.Length));
-		var probe = new XflEvaluator(doc);
+		var probe = new XflEvaluator(doc) { OpenStillPieces = openStillPieces };
 		foreach (var symbol in doc.Symbols.Values.Where(s => !probe.IsStatic(s.Name)).OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase))
 			plan.Timelines.Add(new XflTimelineChoice(symbol.Name, $"Symbol: {symbol.Name}", false, symbol.Timeline.Length));
 		if (plan.Timelines.Count == 0)
@@ -111,7 +114,7 @@ public sealed class XflImportPlan : IDisposable
 	{
 		Timeline = choice;
 		var timeline = choice.Scene ? Document.Scenes.First(s => XflEvaluator.SceneKey(s.Name) == choice.Key) : Document.Symbol(choice.Key)!.Timeline;
-		Data = XflAnimationData.Evaluate(Document, timeline, choice.Key);
+		Data = XflAnimationData.Evaluate(Document, timeline, choice.Key, OpenStillPieces);
 		Painter?.Dispose();
 		Painter = new XflPainter(Document, Data.Evaluator);
 		NotForRig.Clear();

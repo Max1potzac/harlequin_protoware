@@ -13,16 +13,18 @@ namespace Animator.Cli
 			  harlequin info <project> [--object NAME] [--tree]
 			      What's in a project: its objects, their animations and skins (--tree: the bones and parts too).
 
-			  harlequin import <project> <file>... [--no-rig] [--no-split] [--scale S] [--rig FILE]
+			  harlequin import <project> <file>... [--no-rig] [--no-split] [--scale S] [--rig FILE] [--open-still]
 			      Animate projects (an XFL folder, .xfl, DOMDocument.xml, .fla, zipped XFL) and Photoshop
 			      files (.psd) in as objects. Makes the project if it isn't there. --rig: a bone for every
 			      part at its symbol's origin, hung as the file's [part, parent] rules say (Animate only).
+			      --open-still: a still symbol holding pieces the animations move about (a game's particles
+			      frame: the head, arm and armor laid out) shows as those parts, not one picture.
 
 			  harlequin bring-in <project> --object NAME --bones B[,B...] <animate file>... [--category Head]
 			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
 			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones] [--imported-from FILE]
 			      [--rig FILE] [--copy-missing WORD,...] [--fit WORD,...] [--by-pose WORD,...]
-			      [--own WORD,...] [--verbose]
+			      [--own WORD,...] [--open-still] [--verbose]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
@@ -96,8 +98,8 @@ namespace Animator.Cli
 				{
 					"version" or "--version" => Version(),
 					"info" => Commands.Info(new Args(rest, "tree")),
-					"import" => Commands.Import(new Args(rest, "no-rig", "no-split")),
-					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones", "verbose")),
+					"import" => Commands.Import(new Args(rest, "no-rig", "no-split", "open-still")),
+					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones", "verbose", "open-still")),
 					"show" => Commands.Show(new Args(rest, "none")),
 					"skin" => Commands.Skin(new Args(rest, "overlay", "on")),
 					"rename" => Commands.Rename(new Args(rest)),
