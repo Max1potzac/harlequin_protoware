@@ -17,12 +17,16 @@ namespace Animator.Viewer;
 // get this rig (see XflImportPlan.RigByNames). CopyMissing: with Animations, the source's parts
 // and drawings with these words in their names that the target has nothing like (hands) are
 // copied over for them, hidden at rest. Context: shared by the files of one bring-in.
-// FitByJoints: parts with these words in their names (limbs) fitted by their joints.
+// FitByJoints: parts with these words in their names (limbs) fitted by their joints. ByPose:
+// parts with these words placed as they show posed alike, not through their symbols (another
+// character's own art: see MergePlan.ByPose). OwnArt: with Animations, parts with these words show
+// the source's own drawings, copied (hands: see MergePlan.OwnArt).
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
 	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null,
 	bool ByParts = true, int Fps = 30, string? ImportedFrom = null, IReadOnlyList<(string Part, string? Parent)>? Rig = null,
-	IReadOnlyCollection<string>? CopyMissing = null, BringInContext? Context = null, IReadOnlyCollection<string>? FitByJoints = null);
+	IReadOnlyCollection<string>? CopyMissing = null, BringInContext? Context = null, IReadOnlyCollection<string>? FitByJoints = null,
+	IReadOnlyCollection<string>? ByPose = null, IReadOnlyCollection<string>? OwnArt = null);
 
 // What the files of one bring-in share: every drawing's symbol (theirs, as each is imported, and
 // the target's, from the project it was imported from)
@@ -135,6 +139,13 @@ public static class AnimateBringIn
 		{
 			bool Copied(string part) => words.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
 			merge.CopyMissing = Copied;
+			// Two of theirs matched to one here (a hand on the arm, and another of the same name
+			// the arm lets go of): the one on a bone of its own keeps it, the other is copied too,
+			// or the animations would lose it whenever it shows
+			foreach (var group in source.Skeleton.Slots.Where(s => Copied(s.Name) && merge.Parts.GetValueOrDefault(s.Name) is { } t && target.FindSlot(t) != null)
+				.GroupBy(s => merge.Parts[s.Name]!).Where(g => g.Count() > 1))
+				foreach (var spare in group.OrderBy(s => s.Bone.Parent == null ? 1 : 0).Skip(1))
+					merge.Parts[spare.Name] = null;
 			foreach (var slot in source.Skeleton.Slots)
 				if (Copied(slot.Name) && !merge.SkinParts.Contains(slot.Name)
 					&& (merge.Parts.GetValueOrDefault(slot.Name) is not { } here || target.FindSlot(here) == null))
@@ -146,6 +157,10 @@ public static class AnimateBringIn
 		merge.ByParts = options.ByParts;
 		if (options.FitByJoints is { Count: > 0 } limbs)
 			merge.FitByJoints = part => limbs.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
+		if (options.ByPose is { Count: > 0 } posed)
+			merge.ByPose = part => posed.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
+		if (options.Animations && options.OwnArt is { Count: > 0 } own)
+			merge.OwnArt = part => own.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
 		merge.Fps = options.Fps;
 		if (merge.SkinParts.Count == 0) merge.SkinName = null;   // just its animations
 		if (merge.SkinParts.Count == 0 && merge.Animations.Count == 0)

@@ -46,6 +46,15 @@ public sealed class MergePlan
 	// ByParts, with Symbols: the parts here fitted to the source's by their joints (limbs drawn
 	// longer or shorter than theirs, see MotionTransfer.FitLimbs); null: none
 	public Func<string, bool>? FitByJoints { get; set; }
+	// ByParts: the parts here placed as they show next to the source's posed alike (at the start
+	// of idle), not through their symbols: another character's own art, drawn elsewhere in its
+	// symbols (a pirate's boots, a cowboy's sleeves). A drawing either swaps to is placed from
+	// that, through the two drawings' symbols. Null: none
+	public Func<string, bool>? ByPose { get; set; }
+	// ByParts: the parts here that show the source's own drawings in its animations (copied, named
+	// with the Suffix), even where they have drawings by the same names: hands, whose poses differ
+	// from character to character. Null: none
+	public Func<string, bool>? OwnArt { get; set; }
 
 	public string? SkinName { get; set; }                        // null: no skin
 	public string SkinCategory { get; set; } = "";
@@ -225,8 +234,8 @@ public static class ObjectMerge
 		var gap = plan.AsPlaced ? LineUp(source, sourceAnimations, target, targetAnimations, plan, parts, notes) : Matrix3x2.Identity;
 		var companions = skin != null && plan.AsPlaced ? Companions(source, target, plan, parts, added) : new Dictionary<Slot, Slot>();
 		var transfer = plan.ByParts && plan.AsPlaced && plan.Animations.Count > 0
-			? new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, plan.CopyMissing != null ? Supply : null,
-				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints) : null;   // (posed alike now)
+			? new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, plan.CopyMissing != null || plan.OwnArt != null ? Supply : null,
+				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints, plan.ByPose, plan.OwnArt) : null;   // (posed alike now)
 		// A drawing placed through its symbol (see MergePlan.Symbols): measured against the part
 		// here it lands on, or the one it rides on (its companion), as Animate draws it there.
 		// False: there's nothing to measure it against that way.
@@ -255,12 +264,15 @@ public static class ObjectMerge
 		// ByParts: a drawing of the source's, copied onto a part here that has none like it
 		Attachment? Supply(Slot here, Slot s, Attachment drawing)
 		{
-			if (plan.CopyMissing?.Invoke(here.Name) != true || !source.Assets.TryGetValue(drawing.AssetId, out var asset)) return null;
+			bool own = plan.OwnArt?.Invoke(here.Name) == true;
+			if (!own && plan.CopyMissing?.Invoke(here.Name) != true || !source.Assets.TryGetValue(drawing.AssetId, out var asset)) return null;
+			string name = DrawingName(s.Name, drawing.Name) + (own ? plan.Suffix : "");
+			if (own && target.DefaultSkin.Get(here.Name, name) is { } before) return before;   // (copied already)
 			if (!copies.TryGetValue(asset.Id, out var copy))
 				copies[asset.Id] = copy = CopyAsset(asset, target, layerSources);
 			var made = new Attachment
 			{
-				Name = DrawingName(s.Name, drawing.Name),
+				Name = name,
 				AssetId = copy.Id,
 				Offset = drawing.Offset,
 				Rotation = drawing.Rotation,

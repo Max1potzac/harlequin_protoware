@@ -16,20 +16,90 @@ public static class DrawOrderOps
 	}
 
 	// One step toward the front (+1) or the back (-1): each part passes the nearest part it's
-	// not moving with (parts moved together keep their order, and stop at the end)
-	public static List<Slot> Stepped(IReadOnlyList<Slot> order, IReadOnlyCollection<Slot> moving, int direction)
+	// not moving with (parts moved together keep their order, and stop at the end). `shows`: the
+	// parts that show now; a step passes the nearest of those, and the hidden ones on the way (a
+	// step past a hidden part changes nothing to see). With none showing that way, the nearest.
+	public static List<Slot> Stepped(IReadOnlyList<Slot> order, IReadOnlyCollection<Slot> moving, int direction, Func<Slot, bool>? shows = null)
 	{
 		var result = order.ToList();
-		var indexes = Enumerable.Range(0, result.Count).Where(i => moving.Contains(result[i])).ToList();
-		if (direction > 0) indexes.Reverse();
-		int limit = direction > 0 ? result.Count - 1 : 0;
-		foreach (int start in indexes)
+		int step = Math.Sign(direction);
+		if (step == 0) return result;
+		var parts = result.Where(moving.Contains).ToList();
+		if (step > 0) parts.Reverse();
+		foreach (var part in parts)
 		{
-			int i = start, j = i + Math.Sign(direction);
-			if (i == limit || j < 0 || j >= result.Count || moving.Contains(result[j])) continue;
-			(result[i], result[j]) = (result[j], result[i]);
+			int i = result.IndexOf(part), j = -1;
+			for (int k = i + step; k >= 0 && k < result.Count && !moving.Contains(result[k]); k += step)
+			{
+				if (j < 0) j = k;   // (the nearest, if none shows)
+				if (shows == null || shows(result[k])) { j = k; break; }
+			}
+			if (j < 0) continue;
+			result.RemoveAt(i);
+			result.Insert(j, part);
 		}
 		return result;
+	}
+
+	// What a change of order did: each moved part, each part it passed, and whether it's in front
+	// of that one now
+	public static List<(string Moved, string Other, bool InFront)> Passed(IReadOnlyList<Slot> before, IReadOnlyList<Slot> after, IReadOnlyCollection<Slot> moving)
+	{
+		var was = before.Select((s, i) => (s, i)).ToDictionary(p => p.s, p => p.i);
+		var now = after.Select((s, i) => (s, i)).ToDictionary(p => p.s, p => p.i);
+		var result = new List<(string, string, bool)>();
+		foreach (var m in moving)
+			foreach (var o in before)
+				if (!moving.Contains(o) && was.ContainsKey(m) && now.ContainsKey(m) && now.ContainsKey(o)
+					&& (was[m] < was[o]) != (now[m] < now[o]))
+					result.Add((m.Name, o.Name, now[m] > now[o]));
+		return result;
+	}
+
+	// An order (a key's) with those passes made again. Agrees: each moved part sat on the same
+	// side of the parts it passed there as where it was passed (false: it didn't, a key drawing
+	// them otherwise on purpose). Order: the new one (the same when there was nothing to do).
+	public static (bool Agrees, string[] Order) Carry(IReadOnlyList<string> order, IReadOnlyList<(string Moved, string Other, bool InFront)> passed)
+	{
+		var list = order.ToList();
+		foreach (var group in passed.GroupBy(p => p.Moved))
+		{
+			if (!list.Contains(group.Key)) continue;
+			var others = group.Where(p => list.Contains(p.Other)).ToList();
+			if (others.Count == 0) continue;
+			int m = list.IndexOf(group.Key);
+			if (others.Any(p => (list.IndexOf(p.Other) > m) != p.InFront)) return (false, order.ToArray());
+			list.RemoveAt(m);
+			if (others[0].InFront)
+				list.Insert(others.Max(p => list.IndexOf(p.Other)) + 1, group.Key);
+			else
+				list.Insert(others.Min(p => list.IndexOf(p.Other)), group.Key);
+		}
+		return (true, list.ToArray());
+	}
+
+	// The keys from `after` on (or all of them) that agree with how the parts sat before a change
+	// get the change too (see Carry). Stops at the first key that doesn't (unless `all`: every key
+	// is looked at). True when a key changed.
+	public static bool CarryToKeys(Animation animation, IReadOnlyList<(string Moved, string Other, bool InFront)> passed, float after, bool all)
+	{
+		if (passed.Count == 0 || animation.DrawOrder is not { } timeline) return false;
+		bool changed = false;
+		var keys = timeline.Track.Keys;
+		for (int i = 0; i < keys.Count; i++)
+		{
+			if (!all && keys[i].Time <= after + 1e-4f) continue;
+			var (agrees, order) = Carry(keys[i].Value, passed);
+			if (!agrees)
+			{
+				if (all) continue;
+				break;
+			}
+			if (order.SequenceEqual(keys[i].Value)) continue;
+			keys[i] = keys[i] with { Value = order };
+			changed = true;
+		}
+		return changed;
 	}
 
 	// All the way to the front or the back

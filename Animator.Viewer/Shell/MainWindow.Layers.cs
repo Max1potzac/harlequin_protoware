@@ -131,21 +131,39 @@ public partial class MainWindow
 	{
 		if (parts.Count == 0) return;
 		var order = CurrentOrder().ToList();
-		var moved = toEnd ? DrawOrderOps.ToEnd(order, parts, direction > 0) : DrawOrderOps.Stepped(order, parts, direction);
+		// (a step passes the nearest part that shows: past a hidden one, nothing would change to see)
+		var moved = toEnd ? DrawOrderOps.ToEnd(order, parts, direction > 0)
+			: DrawOrderOps.Stepped(order, parts, direction, slot => _skeleton.ResolveAttachment(slot) != null);
 		string what = parts.Count == 1 ? parts.First().Name : $"{parts.Count} parts";
 		string how = toEnd ? (direction > 0 ? "to the front" : "to the back") : (direction > 0 ? "forward" : "backward");
-		ApplyOrder(moved, $"{what} {how}");
+		ApplyOrder(moved, parts, $"{what} {how}");
 	}
 
-	// The order becomes this one: the rest order, or (Animate mode) a key at the playhead
-	private void ApplyOrder(IReadOnlyList<Slot> order, string name)
+	// The order becomes this one: the rest order, or (Animate mode) a key at the playhead. Keys
+	// that drew the moved parts as the order did before get the change too, so it sticks: in
+	// Animate mode the animation's later keys, up to one that draws them otherwise; in Setup mode
+	// every animation's keys that drew them as the rest order did (those that differ on purpose
+	// stay as they are).
+	private void ApplyOrder(IReadOnlyList<Slot> order, IReadOnlyCollection<Slot> moving, string name)
 	{
 		bool keyed = _state.AnimateMode;
 		float time = _state.Time;
 		var setup = _skeleton.Slots.ToList();
+		var passed = DrawOrderOps.Passed(CurrentOrder(), order, moving);
 		_state.EditStructure(() =>
 		{
-			bool changed = keyed ? DrawOrderOps.Key(_state.Animation, time, order, setup) : DrawOrderOps.SetSetupOrder(_skeleton, order);
+			bool changed;
+			if (keyed)
+			{
+				changed = DrawOrderOps.Key(_state.Animation, time, order, setup);
+				changed |= DrawOrderOps.CarryToKeys(_state.Animation, passed, time, all: false);
+			}
+			else
+			{
+				changed = DrawOrderOps.SetSetupOrder(_skeleton, order);
+				foreach (var animation in _state.Animations)
+					changed |= DrawOrderOps.CarryToKeys(animation, passed, 0, all: true);
+			}
 			return changed ? (keyed ? $"Key the draw order at frame {_state.Frame}: {name}" : $"Draw order: {name}") : null;
 		});
 		RefreshRigPanel();
@@ -288,7 +306,7 @@ public partial class MainWindow
 		var others = order.Where(s => !moving.Contains(s)).ToList();
 		int index = others.IndexOf(target) + (inFront ? 1 : 0);
 		string what = moving.Count == 1 ? dragged.Name : $"{moving.Count} parts";
-		ApplyOrder(DrawOrderOps.Moved(order, moving, index), $"{what} {(inFront ? "in front of" : "behind")} {target.Name}");
+		ApplyOrder(DrawOrderOps.Moved(order, moving, index), moving, $"{what} {(inFront ? "in front of" : "behind")} {target.Name}");
 		if (moving.Count == 1)
 		{
 			_state.SelectedSlot = dragged;
