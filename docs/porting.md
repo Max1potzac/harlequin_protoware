@@ -41,4 +41,7 @@ throughout.
    the scene's length, loop and stage; clips added, timed, changed, fitted and deleted. Each edit
    is one undo step and says whether it changed anything. The Objects panel, the object
    properties and the scene timeline call these.
+3. **The open object's animations** (EditorSession.Animations.cs): switching, new, duplicated,
+   deleted (one always stays), renamed (the mix plan's fades and the preview follow), looping,
+   length, frame rate, and picked frames made an animation sequence. The Animations panel calls these.
 
