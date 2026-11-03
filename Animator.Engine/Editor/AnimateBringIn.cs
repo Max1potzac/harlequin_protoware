@@ -20,13 +20,14 @@ namespace Animator.Viewer;
 // FitByJoints: parts with these words in their names (limbs) fitted by their joints. ByPose:
 // parts with these words placed as they show posed alike, not through their symbols (another
 // character's own art: see MergePlan.ByPose). OwnArt: with Animations, parts with these words show
-// the source's own drawings, copied (hands: see MergePlan.OwnArt).
+// the source's own drawings, copied (hands: see MergePlan.OwnArt). OpenStill: the files are read
+// with still symbols holding moving pieces opened up (a particles frame as parts, see XflImportPlan.Load).
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
 	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null,
 	bool ByParts = true, int Fps = 30, string? ImportedFrom = null, IReadOnlyList<(string Part, string? Parent)>? Rig = null,
 	IReadOnlyCollection<string>? CopyMissing = null, BringInContext? Context = null, IReadOnlyCollection<string>? FitByJoints = null,
-	IReadOnlyCollection<string>? ByPose = null, IReadOnlyCollection<string>? OwnArt = null);
+	IReadOnlyCollection<string>? ByPose = null, IReadOnlyCollection<string>? OwnArt = null, bool OpenStill = false);
 
 // What the files of one bring-in share: every drawing's symbol (theirs, as each is imported, and
 // the target's, from the project it was imported from)
@@ -86,7 +87,7 @@ public static class AnimateBringIn
 		string name = ProjectName(path);
 		string word = ObjectMerge.ShortName(name);
 		var context = options.Context ?? new BringInContext();
-		using var plan = XflImportPlan.Load(AnimateFile(path), name);
+		using var plan = XflImportPlan.Load(AnimateFile(path), name, options.OpenStill);
 		plan.SuggestRig = true;
 		plan.NamedRig = options.Rig;
 		var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();

@@ -132,6 +132,7 @@ public sealed class XflEvaluator
 
 	private readonly XflDocument _doc;
 	private readonly Dictionary<string, bool> _static = new(StringComparer.Ordinal);
+	public bool OpenStillPieces { get; init; }   // see IsStatic
 	public HashSet<string> Notes { get; } = new();
 
 	public XflEvaluator(XflDocument doc) => _doc = doc;
@@ -141,16 +142,16 @@ public sealed class XflEvaluator
 
 	// A symbol that always looks the same (one frame, and everything in it the same too) is drawn
 	// whole; anything else is opened up, so its moving pieces become tracks of their own. So is one
-	// that holds pieces the animations move about elsewhere (a game's "particles" frame: the head,
-	// the arm and the armor laid out, the parts that fly off): they show as those parts, so what
-	// changes them (a skin) changes them there too.
+	// that holds pieces the animations move about elsewhere, when asked (OpenStillPieces: a game's
+	// "particles" frame, the head, the arm and the armor laid out, the parts that fly off): they
+	// show as those parts, so what changes them (a skin) changes them there too.
 	public bool IsStatic(string symbol)
 	{
 		if (_static.TryGetValue(symbol, out bool known)) return known;
 		_static[symbol] = true;   // a symbol inside itself: stop here
 		bool still = _doc.Symbol(symbol) is { } s && s.Timeline.Length == 1 &&
 					 s.Timeline.Layers.All(l => l.Frames.All(f => f.Elements.All(StaysStill))) &&
-					 !HoldsMovingPieces(s, new HashSet<string>(StringComparer.Ordinal));
+					 !(OpenStillPieces && HoldsMovingPieces(s, new HashSet<string>(StringComparer.Ordinal)));
 		_static[symbol] = still;
 		return still;
 	}
@@ -450,9 +451,9 @@ public sealed class XflAnimationData
 		return frame >= 0 && frame < orders.Length ? orders[frame] : Array.Empty<int>();
 	}
 
-	public static XflAnimationData Evaluate(XflDocument doc, XflTimeline timeline, string key)
+	public static XflAnimationData Evaluate(XflDocument doc, XflTimeline timeline, string key, bool openStillPieces = false)
 	{
-		var evaluator = new XflEvaluator(doc);
+		var evaluator = new XflEvaluator(doc) { OpenStillPieces = openStillPieces };
 		int length = timeline.Length;
 		var data = new XflAnimationData { FrameRate = doc.FrameRate, FrameCount = length, Evaluator = evaluator };
 
