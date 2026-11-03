@@ -188,7 +188,9 @@ public class EditorSessionTests
 		Assert.Same(clip, session.SceneState.SelectedClip);
 		Assert.Same(hero, session.SceneState.Selected);
 		Assert.Equal(1f, clip.Length, 4);                       // one play long
-		Assert.Null(session.AddClip(hero, walk, 0));            // no room there
+		var next = session.AddClip(hero, walk, 0)!;             // taken there: it goes after
+		Assert.Equal(1f, next.Start, 4);
+		Assert.True(session.DeleteClip(hero, next));
 		Assert.True(session.SetClipTiming(hero, clip, start: 15, length: 45));
 		Assert.Equal(0.5f, clip.Start, 4);
 		Assert.Equal(1.5f, clip.Length, 4);
