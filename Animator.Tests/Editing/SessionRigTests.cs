@@ -1,5 +1,6 @@
 using System.Numerics;
 using Animator.Viewer;
+using Animator.Viewer.Rendering;
 
 namespace Animator.Tests;
 
