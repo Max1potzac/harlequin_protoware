@@ -38,8 +38,7 @@ public partial class MainWindow
 		RefreshRigPanel();
 	}
 
-	private LookConstraint? LookOf(Bone? bone) =>
-		bone == null ? null : _skeleton.LookConstraints.Find(c => c.Bone == bone);
+	private LookConstraint? LookOf(Bone? bone) => _session.LookOf(bone);
 
 	// ======================= tree =======================
 
@@ -349,13 +348,7 @@ public partial class MainWindow
 		{
 			string newName = box.Text.Trim();
 			if (newName == bone.Name) return;
-			string oldName = bone.Name;
-			bool renamed = EditStructureAndScene(() =>
-			{
-				if (!RigOps.RenameBone(_skeleton, _state.Animations, bone, newName)) return null;
-				if (_active != null) SceneOps.RenameHolderBone(_scene, _active, oldName, newName);   // attached objects follow
-				return $"Rename bone to {newName}";
-			});
+			bool renamed = _session.RenameBone(bone, newName);
 			if (!renamed)
 			{
 				RigHint.Text = $"Can't rename to \"{newName}\": names must be unique and not empty.";
@@ -379,56 +372,12 @@ public partial class MainWindow
 		else ApplySetupField(bone, field, v);
 	}
 
+	// (angles typed in degrees; the session's in radians)
+	private static float FieldValueIn(string field, float v) => field is "Rotation" or "Turn" or "Tilt" ? Rad(v) : v;
+
 	private void ApplySetupField(Bone bone, string field, float v)
 	{
-		var look = LookOf(bone);
-		_state.EditStructure(() =>
-		{
-			// Parts stay put: the place, angle and length change, nothing else moves on screen
-			if (_tool.KeepPartsInPlace && field is "X" or "Y" or "Rotation" or "Length")
-			{
-				if (field is "X" or "Y") RigOps.SetConnected(bone, false);   // typing a place frees it from the parent's end
-				var frozen = FrozenRest.Capture(_skeleton);
-				switch (field)
-				{
-					case "X" or "Y":
-						var local = field == "X" ? new Vector2(v, bone.SetupPosition.Y) : new Vector2(bone.SetupPosition.X, v);
-						var target = bone.Parent is { } parent ? Vector2.Transform(local, parent.World) : local;
-						RestEdits.MoveJoint(frozen, bone, target);
-						break;
-					case "Rotation":
-						RestEdits.Turn(frozen, bone, Rad(v));
-						break;
-					default:
-						RestEdits.Stretch(frozen, bone, v);
-						break;
-				}
-				return $"Set {bone.Name} {field} (parts stay put)";
-			}
-
-			switch (field)
-			{
-				case "X":
-					RigOps.SetConnected(bone, false);   // typing a place frees it from the parent's end
-					bone.SetupPosition = new Vector2(v, bone.SetupPosition.Y);
-					break;
-				case "Y":
-					RigOps.SetConnected(bone, false);
-					bone.SetupPosition = new Vector2(bone.SetupPosition.X, v);
-					break;
-				case "Rotation": bone.SetupRotation = Rad(v); break;
-				case "Length": bone.Length = MathF.Max(0, v); break;
-				case "ScaleX": bone.SetupScale = new Vector2(v, bone.SetupScale.Y); break;
-				case "ScaleY": bone.SetupScale = new Vector2(bone.SetupScale.X, v); break;
-				case "Turn": bone.SetupTurn = Rad(v); break;
-				case "Tilt": bone.SetupTilt = Rad(v); break;
-				case "Follow" when look != null: look.Follow = v; break;
-				case "RangeX" when look != null: look.Radius = new Vector2(MathF.Max(0, v), look.Radius.Y); break;
-				case "RangeY" when look != null: look.Radius = new Vector2(look.Radius.X, MathF.Max(0, v)); break;
-				default: return null;
-			}
-			return $"Set {bone.Name} {field}";
-		});
+		if (Enum.TryParse<BoneField>(field, out var which)) _session.SetBoneRest(bone, which, FieldValueIn(field, v), _tool.KeepPartsInPlace);
 	}
 
 	private void KeyField(Bone bone, string field, float v)
@@ -447,59 +396,13 @@ public partial class MainWindow
 				case "Tilt": bone.Tilt = Rad(v); break;
 			}
 		})) return;
-
-		_state.Playing = false;
-		_state.SetFrame(_state.Frame);
-		var anim = _state.Animation;
-		float t = _state.Time;
-		int frame = _state.Frame;
-
-		_state.EditStructure(() =>
-		{
-			switch (field)
-			{
-				case "X":
-					anim.GetOrCreate(bone.Name, n => new TranslateTimeline(n))
-						.Track.Add(t, new Vector2(v, bone.Position.Y) - bone.SetupPosition);
-					break;
-				case "Y":
-					anim.GetOrCreate(bone.Name, n => new TranslateTimeline(n))
-						.Track.Add(t, new Vector2(bone.Position.X, v) - bone.SetupPosition);
-					break;
-				case "Rotation":
-					anim.GetOrCreate(bone.Name, n => new RotateTimeline(n))
-						.Track.Add(t, Rad(v) - bone.SetupRotation);
-					break;
-				case "ScaleX":
-					anim.GetOrCreate(bone.Name, n => new ScaleTimeline(n))
-						.Track.Add(t, new Vector2(Ratio(v, bone.SetupScale.X), Ratio(bone.Scale.Y, bone.SetupScale.Y)));
-					break;
-				case "ScaleY":
-					anim.GetOrCreate(bone.Name, n => new ScaleTimeline(n))
-						.Track.Add(t, new Vector2(Ratio(bone.Scale.X, bone.SetupScale.X), Ratio(v, bone.SetupScale.Y)));
-					break;
-				case "Turn":
-					anim.GetOrCreate(bone.Name, n => new DepthTimeline(n))
-						.Track.Add(t, new Vector2(bone.Tilt - bone.SetupTilt, Rad(v) - bone.SetupTurn));
-					break;
-				case "Tilt":
-					anim.GetOrCreate(bone.Name, n => new DepthTimeline(n))
-						.Track.Add(t, new Vector2(Rad(v) - bone.SetupTilt, bone.Turn - bone.SetupTurn));
-					break;
-				default:
-					return null;
-			}
-			return $"Key {bone.Name} {field} @ frame {frame}";
-		});
+		if (Enum.TryParse<BoneField>(field, out var which)) _session.KeyBone(bone, which, FieldValueIn(field, v));
 	}
 
 	private void BoneConnected_Click(object sender, RoutedEventArgs e)
 	{
-		if (_syncingRig || _shownBone is not { Parent: { } parent } bone) return;
-		bool connected = BoneConnected.IsChecked == true;
-		_state.EditStructure(() => RigOps.SetConnected(bone, connected)
-			? (connected ? $"Snap {bone.Name} to the end of {parent.Name}" : $"Free {bone.Name} from the end of {parent.Name}")
-			: null);
+		if (_syncingRig || _shownBone is not { } bone) return;
+		_session.SetBoneConnected(bone, BoneConnected.IsChecked == true);
 	}
 
 	private void SnapJoints_Click(object sender, RoutedEventArgs e) => _tool.SnapJoints = SnapJointsBox.IsChecked == true;
@@ -507,14 +410,7 @@ public partial class MainWindow
 	private void BoneInherit_Click(object sender, RoutedEventArgs e)
 	{
 		if (_syncingRig || _shownBone is not { } bone) return;
-		bool rotation = BoneInheritRotation.IsChecked == true;
-		bool scale = BoneInheritScale.IsChecked == true;
-		_state.EditStructure(() =>
-		{
-			bone.InheritRotation = rotation;
-			bone.InheritScale = scale;
-			return $"Inheritance of {bone.Name}";
-		});
+		_session.SetBoneInherit(bone, BoneInheritRotation.IsChecked == true, BoneInheritScale.IsChecked == true);
 	}
 
 	private void BoneParent_Changed(object sender, SelectionChangedEventArgs e)
@@ -527,37 +423,18 @@ public partial class MainWindow
 	private void LookTarget_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingRig || _shownBone is not { } bone || LookTarget.SelectedItem is not BoneChoice choice) return;
-		_state.EditStructure(() => RigOps.SetLookTarget(_skeleton, bone, choice.Bone)
-			? (choice.Bone == null ? $"Remove look from {bone.Name}" : $"{bone.Name} looks at {choice.Bone.Name}")
-			: null);
+		_session.SetLookTarget(bone, choice.Bone);
 	}
 
 	private void LookShape_Changed(object sender, SelectionChangedEventArgs e)
 	{
-		if (_syncingRig || LookOf(_shownBone) is not { } look || LookShapeBox.SelectedItem is not LookShape shape) return;
-		if (look.Shape == shape) return;
-		_state.EditStructure(() =>
-		{
-			look.Shape = shape;
-			return $"Look shape: {shape}";
-		});
+		if (_syncingRig || _shownBone is not { } bone || LookShapeBox.SelectedItem is not LookShape shape) return;
+		_session.SetLookShape(bone, shape);
 	}
 
 	// ======================= buttons =======================
 
-	private void AddBone_Click(object sender, RoutedEventArgs e)
-	{
-		var parent = _state.Selected;
-		_state.EditStructure(() =>
-		{
-			var position = parent == null ? Vector2.Zero : new Vector2(parent.Length, 0);
-			var bone = RigOps.AddBone(_skeleton, parent, "bone", position, 0f, 50f);
-			if (parent != null && _tool.SnapJoints) bone.Connected = true;   // on the parent's end, and it stays there
-			_state.Selected = bone;
-			_state.SelectedSlot = null;
-			return $"Add bone {bone.Name}";
-		});
-	}
+	private void AddBone_Click(object sender, RoutedEventArgs e) => _session.AddBone(_state.Selected, _tool.SnapJoints);
 
 	// A part goes at once; for a bone, a menu: keep what's on it, or delete that too
 	private void Delete_Click(object sender, RoutedEventArgs e)
@@ -586,32 +463,14 @@ public partial class MainWindow
 	// staying exactly where they are
 	private void DissolveSelectedBone()
 	{
-		if (_state.Selected is not { Parent: { } parent } bone) return;
-		_state.SelectedKeys.Clear();
-		EditStructureAndScene(() =>
-		{
-			if (_active != null) SceneOps.ReleaseFromBones(_scene, _active, new HashSet<string> { bone.Name });   // objects it carried stay put
-			if (!RigOps.DissolveBone(_skeleton, _state.Animations, bone)) return null;
-			_state.Selected = parent;
-			return $"Delete bone {bone.Name} (what was on it went to {parent.Name})";
-		});
+		if (_state.Selected is { } bone) _session.DissolveBone(bone);
 	}
 
 	private void DeleteSelectedBone()
 	{
 		if (_state.Selected is not { } bone) return;
-		var parent = bone.Parent;
-		_state.SelectedKeys.Clear();
 		ClosePaintEditor();   // it may be showing a part that's about to disappear
-		EditStructureAndScene(() =>
-		{
-			// Objects carried by these bones let go first, staying where they are
-			var doomed = _skeleton.AllBones().Where(b => b == bone || b.IsDescendantOf(bone)).Select(b => b.Name).ToHashSet();
-			if (_active != null) SceneOps.ReleaseFromBones(_scene, _active, doomed);
-			RigOps.DeleteBone(_skeleton, _state.Animations, bone);
-			_state.Selected = parent;
-			return $"Delete bone {bone.Name}";
-		});
+		_session.DeleteBone(bone);
 	}
 
 	// ======================= helpers =======================
@@ -635,34 +494,14 @@ public partial class MainWindow
 		public override string ToString() => Label;
 	}
 
-	// The IK constraint whose chain ENDS at this bone (that's where it's edited)
-	private IkConstraint? IkEndingAt(Bone? bone) =>
-		bone == null ? null : _skeleton.IkConstraints.Find(c => c.Bones.Count > 0 && c.Bones[^1] == bone);
-
-	// Any IK constraint this bone is part of
-	private IkConstraint? IkContaining(Bone? bone) =>
-		bone == null ? null : _skeleton.IkConstraints.Find(c => c.Bones.Contains(bone));
+	private IkConstraint? IkEndingAt(Bone? bone) => _session.IkEndingAt(bone);
+	private IkConstraint? IkContaining(Bone? bone) => _session.IkContaining(bone);
 
 	private void IkLength_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingRig || _shownBone is not { } bone || IkLength.SelectedItem is not IkChoice choice) return;
-		var ik = IkEndingAt(bone);
-		if (choice.Length == (ik?.Bones.Count ?? 0)) return;
-
-		bool done = _state.EditStructure(() =>
-		{
-			if (ik == null)
-				return RigOps.CreateIk(_skeleton, bone, choice.Length) is { } created
-					? $"Create IK {created.Name}" : null;
-
-			if (choice.Length == 0)
-			{
-				RigOps.DeleteIk(_skeleton, _state.Animations, ik);
-				return $"Remove IK {ik.Name}";
-			}
-
-			return RigOps.SetIkLength(_skeleton, ik, choice.Length) ? $"IK {ik.Name}: {choice.Length} bones" : null;
-		});
+		if (choice.Length == (IkEndingAt(bone)?.Bones.Count ?? 0)) return;
+		bool done = _session.SetIkLength(bone, choice.Length);
 
 		if (!done)
 		{
@@ -676,20 +515,12 @@ public partial class MainWindow
 	{
 		if (_syncingRig || IkEndingAt(_shownBone) is not { } ik) return;
 		if (IkTargetBox.SelectedItem is not BoneChoice { Bone: { } target }) return;
-		_state.EditStructure(() => RigOps.SetIkTarget(ik, target) ? $"{ik.Name} targets {target.Name}" : null);
+		_session.SetIkTarget(ik, target);
 	}
 
 	private void IkOptions_Click(object sender, RoutedEventArgs e)
 	{
 		if (_syncingRig || IkEndingAt(_shownBone) is not { } ik) return;
-		float mix = IkOn.IsChecked == true ? 1f : 0f;
-		int bend = IkFlip.IsChecked == true ? -1 : 1;
-		if (mix == ik.SetupMix && bend == ik.BendDirection) return;
-		_state.EditStructure(() =>
-		{
-			ik.SetupMix = mix;
-			ik.BendDirection = bend;
-			return $"{ik.Name} settings";
-		});
+		_session.SetIkOptions(ik, IkOn.IsChecked == true, IkFlip.IsChecked == true);
 	}
 }
