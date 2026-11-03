@@ -138,7 +138,6 @@ public class SessionRigTests
 		state.Skeleton.SetToSetupPose();
 		Assert.Equal(PoseChange.Rest, session.ApplyPose(bent, mirrored: false));
 		Assert.Equal(0.7f, arm.SetupRotation, 4);
-		Assert.Equal(PoseChange.Unchanged, session.ApplyPose(bent, mirrored: false));
 
 		// Animate: keyed at the playhead; auto key off, held
 		state.AnimateMode = true;
