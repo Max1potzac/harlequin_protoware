@@ -13,13 +13,15 @@ namespace Animator.Cli
 			  harlequin info <project> [--object NAME] [--tree]
 			      What's in a project: its objects, their animations and skins (--tree: the bones and parts too).
 
-			  harlequin import <project> <file>... [--no-rig] [--no-split] [--scale S]
+			  harlequin import <project> <file>... [--no-rig] [--no-split] [--scale S] [--rig FILE]
 			      Animate projects (an XFL folder, .xfl, DOMDocument.xml, .fla, zipped XFL) and Photoshop
-			      files (.psd) in as objects. Makes the project if it isn't there.
+			      files (.psd) in as objects. Makes the project if it isn't there. --rig: a bone for every
+			      part at its symbol's origin, hung as the file's [part, parent] rules say (Animate only).
 
 			  harlequin bring-in <project> --object NAME --bones B[,B...] <animate file>... [--category Head]
 			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
-			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones]
+			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones] [--imported-from FILE]
+			      [--rig FILE] [--copy-missing WORD,...] [--fit WORD,...] [--verbose]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
@@ -28,6 +30,11 @@ namespace Animator.Cli
 			      that come too wherever their bones are (or, without --bones, the only ones: a body skin).
 			      --animations copies theirs by where their parts show, frame by frame (any rig; with no bones
 			      or parts named, just the animations); --by-bones: bone for bone instead (for matching rigs).
+			      --imported-from: the Animate project the object came from, to place everything exactly
+			      through the symbols. --copy-missing hand: their parts and drawings with those words that
+			      the object has nothing like, copied for the animations. --fit arm,leg: those parts (limbs)
+			      fitted by their joints, where theirs are drawn longer or shorter (with --imported-from).
+			      --verbose: which part went where.
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
 			      [--from SKIN]
@@ -49,6 +56,10 @@ namespace Animator.Cli
 			      [--skins A,B] [--scale S] [--background RRGGBB] [--sheet CATEGORY|all] [--columns N]
 			      A picture of an object (at rest, or a frame of an animation). --sheet: one picture of every
 			      skin in the category side by side, named.
+
+			  harlequin pose <project> [--object NAME] [--animation A] [--frame N | --time T] [--skins A,B] [--sweep K]
+			      Every part shown then, front last: its drawing, its picture's middle, turn and size.
+			      --sweep K: the whole animation, K times a frame (as it plays between keys), each line timed.
 
 			  harlequin export <project> --format engine|png|gif|sheet --out PATH [--object NAME]
 			      [--animations A,B] [--scale S] [--bake] [--pixel-art] [--no-events] [--background RRGGBB]
@@ -73,13 +84,14 @@ namespace Animator.Cli
 					"version" or "--version" => Version(),
 					"info" => Commands.Info(new Args(rest, "tree")),
 					"import" => Commands.Import(new Args(rest, "no-rig", "no-split")),
-					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones")),
+					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones", "verbose")),
 					"show" => Commands.Show(new Args(rest, "none")),
 					"skin" => Commands.Skin(new Args(rest, "overlay", "on")),
 					"rename" => Commands.Rename(new Args(rest)),
 					"order" => Commands.Order(new Args(rest)),
 					"remove" => Commands.Remove(new Args(rest)),
 					"render" => Commands.Render(new Args(rest)),
+					"pose" => Commands.Pose(new Args(rest)),
 					"export" => Commands.Export(new Args(rest, "bake", "pixel-art", "no-events")),
 					_ => throw new UsageException($"There's no command \"{args[0]}\".")
 				};

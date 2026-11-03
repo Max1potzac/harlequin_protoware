@@ -60,6 +60,7 @@ public static class Commands
 		bool rig = !a.Has("no-rig");
 		bool split = !a.Has("no-split");
 		float scale = a.Float("scale", 1f);
+		var named = a.Get("rig") is { } rigFile ? RigFile(rigFile) : null;
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the files to import after the project.");
 		var p = Project.OpenOrNew(path);
@@ -79,7 +80,8 @@ public static class Commands
 			else
 			{
 				using var plan = XflImportPlan.Load(AnimateBringIn.AnimateFile(file), AnimateBringIn.ProjectName(file));
-				plan.SuggestRig = rig;
+				plan.SuggestRig = rig || named != null;
+				plan.NamedRig = named;
 				plan.SplitAtLabels = split;
 				plan.Scale = scale;
 				if (first) p.Scene.Fps = Math.Max(1, (int)MathF.Round(plan.Data.FrameRate));
@@ -107,7 +109,9 @@ public static class Commands
 		if (bones.Count == 0 && include.Count == 0 && !a.Has("animations"))
 			throw new UsageException("--bones is needed: the bones whose parts come in (head, for heads), or --include, or --animations.");
 		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"),
-			a.List("except"), Pairs(a.List("map")), include, !a.Has("by-bones"), p.Scene.Fps);
+			a.List("except"), Pairs(a.List("map")), include, !a.Has("by-bones"), p.Scene.Fps,
+			a.Get("imported-from"), a.Get("rig") is { } rigFile ? RigFile(rigFile) : null, a.List("copy-missing"), new BringInContext(), a.List("fit"));
+		bool verbose = a.Has("verbose");
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
 		int brought = 0;
@@ -118,6 +122,9 @@ public static class Commands
 			{
 				var b = AnimateBringIn.FromAnimate(file, target.Skeleton, target.Animations, p.Assets, options);
 				Console.WriteLine(AnimateBringIn.Describe(b));
+				if (verbose)
+					foreach (var (theirs, ours) in b.Plan.Parts.OrderBy(x => x.Key))
+						Console.WriteLine($"    {theirs} → {(ours != null && target.Skeleton.FindSlot(ours) != null ? ours : b.Plan.NewParts.Contains(theirs) ? "(new)" : "-")}");
 				if (b.Result == null) continue;
 				brought++;
 				foreach (string note in b.Result.Notes) notes.Add(note);
@@ -301,6 +308,43 @@ public static class Commands
 		return 0;
 	}
 
+	// ======================= pose =======================
+
+	// Where every part shows at a moment (for checking an animation against another): its
+	// drawing, where its picture's middle is (object space, y up), its turn and its size
+	public static int Pose(Args a)
+	{
+		var p = Project.Open(a.At(0, "project"));
+		var obj = a.Get("object") is { } name ? p.Object(name)
+			: p.Scene.Objects.FirstOrDefault() ?? throw new UsageException("The project has no objects.");
+		var anim = a.Get("animation") is { } an ? obj.FindAnimation(an) ?? throw new UsageException($"{obj.Name} has no animation \"{an}\".") : null;
+		float time = a.Get("time") != null ? a.Float("time", 0f) : a.Int("frame", 0) / (float)p.Scene.Fps;
+		foreach (string s in a.List("skins")) SkinOps.Show(obj.Skeleton, p.Skin(obj, s));
+		int sweep = a.Int("sweep", 0);   // every 1/sweep of a frame through the whole animation, each line led by its time
+		a.NothingElse();
+		var sk = obj.Skeleton;
+		var ci = System.Globalization.CultureInfo.InvariantCulture;
+		var times = sweep > 0 && anim != null
+			? Enumerable.Range(0, (int)MathF.Floor(anim.Duration * p.Scene.Fps * sweep) + 1).Select(i => i / (float)(p.Scene.Fps * sweep)).ToList()
+			: new List<float> { time };
+		foreach (float at in times)
+		{
+			sk.SetToSetupPose();
+			anim?.Apply(sk, at);
+			sk.UpdatePose();
+			foreach (var slot in sk.DrawOrder)
+			{
+				if (sk.ResolveAttachment(slot) is not { } d || !sk.Assets.TryGetValue(d.AssetId, out var asset)) continue;
+				var m = d.LocalMatrix(asset.Width, asset.Height, slot.Offset, slot.Rotation, slot.Scale) * slot.Bone.World;
+				var middle = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), m);
+				float turn = MathF.Atan2(m.M12, m.M11) * 180 / MathF.PI;
+				string line = string.Format(ci, "{0}\t{1}\t{2:0.0}\t{3:0.0}\t{4:0.0}\t{5}x{6}", slot.Name, d.Name, middle.X, middle.Y, turn, asset.Width, asset.Height);
+				Console.WriteLine(sweep > 0 ? string.Format(ci, "{0:0.0000}\t", at) + line : line);
+			}
+		}
+		return 0;
+	}
+
 	// ======================= export =======================
 
 	public static int Export(Args a)
@@ -344,6 +388,23 @@ public static class Commands
 			}
 		Console.WriteLine($"Exported to {settings.Path}.");
 		return 0;
+	}
+
+	// A rig file: a list of [part, parent] name pairs, * standing for anything (see XflImportPlan.RigByNames)
+	private static List<(string Part, string? Parent)> RigFile(string path)
+	{
+		try
+		{
+			var rules = System.Text.Json.JsonSerializer.Deserialize<List<List<string?>>>(File.ReadAllText(path),
+				new System.Text.Json.JsonSerializerOptions { ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip, AllowTrailingCommas = true })
+				?? throw new UsageException($"{path} is empty.");
+			return rules.Select(r => r.Count is 1 or 2 && r[0] is { } part ? (part, r.Count > 1 ? r[1] : null)
+				: throw new UsageException($"{path}: each rule is [part, parent].")).ToList();
+		}
+		catch (System.Text.Json.JsonException ex)
+		{
+			throw new UsageException($"{path} isn't a rig file ({ex.Message}).");
+		}
 	}
 
 	// "a=b" pairs (--map head_105x74=zombie_skull)

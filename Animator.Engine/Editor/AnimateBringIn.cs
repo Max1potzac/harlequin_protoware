@@ -11,11 +11,47 @@ namespace Animator.Viewer;
 // part → part here, for the ones whose names don't say (a head Animate left called "symbol_105x74").
 // Include: source parts that come too, wherever their bones are (a hairflap hung off the torso;
 // a whole body, with no bones picked). ByParts: animations by where the parts show, frame by
-// frame at Fps (imports each get their own rig, so bone for bone rarely fits)
+// frame at Fps (imports each get their own rig, so bone for bone rarely fits).
+// ImportedFrom: the Animate project the target object was imported from: with it, drawings are
+// placed exactly, through their symbols (see MergePlan.Symbols). Rig: the files imported aside
+// get this rig (see XflImportPlan.RigByNames). CopyMissing: with Animations, the source's parts
+// and drawings with these words in their names that the target has nothing like (hands) are
+// copied over for them, hidden at rest. Context: shared by the files of one bring-in.
+// FitByJoints: parts with these words in their names (limbs) fitted by their joints.
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
 	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null,
-	bool ByParts = true, int Fps = 30);
+	bool ByParts = true, int Fps = 30, string? ImportedFrom = null, IReadOnlyList<(string Part, string? Parent)>? Rig = null,
+	IReadOnlyCollection<string>? CopyMissing = null, BringInContext? Context = null, IReadOnlyCollection<string>? FitByJoints = null);
+
+// What the files of one bring-in share: every drawing's symbol (theirs, as each is imported, and
+// the target's, from the project it was imported from)
+public sealed class BringInContext
+{
+	public Dictionary<Attachment, Matrix3x2> Symbols { get; } = new();
+	public Matrix3x2? TargetSpace { get; private set; }   // the target's Animate timeline → its object
+	private Skeleton? _readFor;
+
+	// The target's drawings' symbols, from the Animate project it was imported from (matched by
+	// part and drawing name), once
+	public void Read(string path, Skeleton target)
+	{
+		if (_readFor == target) return;
+		using var plan = XflImportPlan.Load(AnimateBringIn.AnimateFile(path), AnimateBringIn.ProjectName(path));
+		plan.SuggestRig = false;
+		var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
+		var aside = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
+		var byName = new Dictionary<(string Part, string Drawing), Matrix3x2>();
+		foreach (var slot in aside.Skeleton.Slots)
+			foreach (var drawing in aside.Skeleton.DefaultSkin.AttachmentsFor(slot.Name))
+				if (pictures.TryGetValue(drawing, out var picture)) byName[(slot.Name, drawing.Name)] = picture.PixelToDrawing;
+		foreach (var slot in target.Slots)
+			foreach (var drawing in target.DefaultSkin.AttachmentsFor(slot.Name))
+				if (byName.TryGetValue((slot.Name, drawing.Name), out var symbol)) Symbols[drawing] = symbol;
+		TargetSpace = plan.TimelineToObject;
+		_readFor = target;
+	}
+}
 
 public sealed record BroughtIn(string Name, MergeResult? Result, MergePlan Plan, string? Problem);
 
@@ -45,10 +81,21 @@ public static class AnimateBringIn
 	{
 		string name = ProjectName(path);
 		string word = ObjectMerge.ShortName(name);
+		var context = options.Context ?? new BringInContext();
 		using var plan = XflImportPlan.Load(AnimateFile(path), name);
 		plan.SuggestRig = true;
-		var source = XflImporter.IntoScene(new Scene(), assets, plan, Vector2.Zero);   // (aside: not into the target's scene)
+		plan.NamedRig = options.Rig;
+		var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
+		var source = XflImporter.IntoScene(new Scene(), assets, plan, Vector2.Zero, pictures);   // (aside: not into the target's scene)
 		var merge = ObjectMerge.Suggest(source.Skeleton, source.Animations, target);
+		if (options.ImportedFrom is { } targetProject)
+		{
+			context.Read(targetProject, target);
+			foreach (var (drawing, picture) in pictures) context.Symbols[drawing] = picture.PixelToDrawing;
+			merge.Symbols = context.Symbols;
+			if (context.TargetSpace is { } space && Matrix3x2.Invert(plan.TimelineToObject, out var toTimeline))
+				merge.Space = toTimeline * space;
+		}
 		merge.AsPlaced = options.AsPlaced;
 		merge.SkinName = word;
 		merge.SkinCategory = options.Category;
@@ -83,12 +130,33 @@ public static class AnimateBringIn
 			merge.SkinParts.UnionWith(extra);
 		}
 		if (!options.Animations) merge.Animations.Clear();
+		var hiddenNew = new HashSet<string>();
+		if (options.Animations && options.CopyMissing is { Count: > 0 } words)
+		{
+			bool Copied(string part) => words.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
+			merge.CopyMissing = Copied;
+			foreach (var slot in source.Skeleton.Slots)
+				if (Copied(slot.Name) && !merge.SkinParts.Contains(slot.Name)
+					&& (merge.Parts.GetValueOrDefault(slot.Name) is not { } here || target.FindSlot(here) == null))
+				{
+					merge.NewParts.Add(slot.Name);
+					hiddenNew.Add(slot.Name);
+				}
+		}
 		merge.ByParts = options.ByParts;
+		if (options.FitByJoints is { Count: > 0 } limbs)
+			merge.FitByJoints = part => limbs.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
 		merge.Fps = options.Fps;
 		if (merge.SkinParts.Count == 0) merge.SkinName = null;   // just its animations
 		if (merge.SkinParts.Count == 0 && merge.Animations.Count == 0)
 			return new BroughtIn(word, null, merge, "none of its parts match the ones on the chosen bones");
 		var result = ObjectMerge.Merge(source.Skeleton, source.Animations, target, targetAnimations, merge);
+		foreach (var slot in result.NewParts)   // (copied for the animations: hidden unless they show them)
+			if (target.DefaultSkin.AttachmentsFor(slot.Name).Any() && hiddenNew.Count > 0)
+			{
+				slot.SetupAttachment = null;
+				slot.ResetToSetup();
+			}
 		foreach (var (newLayer, oldLayer) in result.LayerSources) assets.CopyPixels(oldLayer, newLayer);
 		return new BroughtIn(word, result, merge, null);
 	}

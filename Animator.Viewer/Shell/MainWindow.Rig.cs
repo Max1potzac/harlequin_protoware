@@ -90,7 +90,7 @@ public partial class MainWindow
 		SnapJointsBox.Visibility = KeepPartsBox.Visibility = drawn || !building ? Visibility.Collapsed : Visibility.Visible;
 		GiveBonesButton.Visibility = drawn && building ? Visibility.Visible : Visibility.Collapsed;
 		PartBoneLabel.Visibility = PartBone.Visibility = drawn ? Visibility.Collapsed : Visibility.Visible;
-		if (_tool is not null) _tool.BonesEnabled = !drawn;   // also after undoing "Give it bones"
+		if (_tool is not null) _tool.BonesEnabled = !drawn && _appSettings.ShowBones;   // also after undoing "Give it bones" (and View → Bones)
 	}
 
 	private TreeViewItem MakeTreeItem(Bone bone)

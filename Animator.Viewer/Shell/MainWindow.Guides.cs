@@ -60,6 +60,18 @@ public partial class MainWindow
 		ApplyViewAids();
 	}
 
+	// View → Bones: the open object's armature shown, or hidden (and then not picked in the viewport)
+	private void ToggleBones()
+	{
+		_appSettings.ShowBones = !_appSettings.ShowBones;
+		_appSettings.Save();
+		if (_tool is not null && _active is { } open) _tool.BonesEnabled = BonesUsable(open);
+		AnimHint.Text = _appSettings.ShowBones ? "" : $"Bones hidden ({KeyOf("view.bones")} shows them again).";
+	}
+
+	// A drawn object's one bone stays hidden; any other's bones show unless View → Bones is off
+	private bool BonesUsable(SceneObject obj) => obj.Kind != ObjectKind.Drawn && _appSettings.ShowBones;
+
 	// The status line about them
 	private string ViewAidsHelp()
 	{
@@ -313,6 +325,7 @@ public partial class MainWindow
 				"view.snapGuides" => s.SnapToGuides,
 				"view.lockGuides" => s.LockGuides,
 				"view.images" => _renderer.ShowImages,
+				"view.bones" => _appSettings.ShowBones,
 				"view.pixels" => _renderer.PixelArt,
 				"view.onion" => _onion.Enabled,
 				"view.hitboxes" => _showHitboxes,

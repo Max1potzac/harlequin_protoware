@@ -34,6 +34,19 @@ public sealed class MergePlan
 	public bool ByParts { get; set; }
 	public int Fps { get; set; } = 30;                           // ByParts: keys on every frame of this rate
 
+	// Exact placement, for objects imported from Animate projects whose parts are symbols (games'
+	// characters): each drawing's pixels → its symbol's own space, for drawings of both objects
+	// (filled in as drawings are made), and the source object's space → this one's. With these, a
+	// drawing goes where its symbol puts it, whatever pose the two are in; without, they're lined
+	// up by how they show (see AsPlaced).
+	public IDictionary<Attachment, Matrix3x2>? Symbols { get; set; }
+	public Matrix3x2? Space { get; set; }
+	// ByParts: the parts here that take the source's drawing where they have none like it (hands)
+	public Func<string, bool>? CopyMissing { get; set; }
+	// ByParts, with Symbols: the parts here fitted to the source's by their joints (limbs drawn
+	// longer or shorter than theirs, see MotionTransfer.FitLimbs); null: none
+	public Func<string, bool>? FitByJoints { get; set; }
+
 	public string? SkinName { get; set; }                        // null: no skin
 	public string SkinCategory { get; set; } = "";
 	public bool SkinOverlay { get; set; }
@@ -207,11 +220,61 @@ public static class ObjectMerge
 			target.Skins.Add(skin);
 		}
 		var copies = new Dictionary<Guid, Asset>();
+		int copiedDrawings = 0;
 		bool meshesDropped = false;
-		var gap = plan.AsPlaced ? LineUp(source, sourceAnimations, target, targetAnimations, plan, parts, notes) : Vector2.Zero;
+		var gap = plan.AsPlaced ? LineUp(source, sourceAnimations, target, targetAnimations, plan, parts, notes) : Matrix3x2.Identity;
 		var companions = skin != null && plan.AsPlaced ? Companions(source, target, plan, parts, added) : new Dictionary<Slot, Slot>();
 		var transfer = plan.ByParts && plan.AsPlaced && plan.Animations.Count > 0
-			? new MotionTransfer(source, target, parts, DrawingName, gap) : null;   // (posed alike now)
+			? new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, plan.CopyMissing != null ? Supply : null,
+				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints) : null;   // (posed alike now)
+		// A drawing placed through its symbol (see MergePlan.Symbols): measured against the part
+		// here it lands on, or the one it rides on (its companion), as Animate draws it there.
+		// False: there's nothing to measure it against that way.
+		bool OnSymbol(Attachment made, Attachment drawing, Slot s, Slot here)
+		{
+			if (plan.Symbols is not { } symbols || !symbols.TryGetValue(drawing, out var mine)) return false;
+			var anchor = companions.TryGetValue(here, out var c) ? c : here;
+			if (added.Contains(anchor) || OwnDrawing(target, anchor) is not { } theirs || !symbols.TryGetValue(theirs, out var anchorSymbol)
+				|| Size(target, theirs) is not { } anchorSize || Size(source, drawing) is not { } size) return false;
+			var toSymbol = mine;   // its pixels → the anchor's symbol space (in the source)
+			if (anchor != here)
+			{
+				var cs = source.Slots.FirstOrDefault(x => parts.GetValueOrDefault(x.Name) == anchor.Name);
+				if (cs == null || source.ResolveAttachment(cs) is not { } shown || !symbols.TryGetValue(shown, out var shownSymbol)
+					|| Size(source, shown) is not { } shownSize) return false;
+				var world = drawing.LocalMatrix(size.X, size.Y, s.Offset, s.Rotation, s.Scale) * s.Bone.World;
+				var anchorWorld = shown.LocalMatrix(shownSize.X, shownSize.Y, cs.Offset, cs.Rotation, cs.Scale) * cs.Bone.World;
+				if (!Matrix3x2.Invert(anchorWorld, out var fromAnchor)) return false;
+				toSymbol = world * fromAnchor * shownSymbol;
+			}
+			if (!Matrix3x2.Invert(anchorSymbol, out var fromSymbol)) return false;
+			SetLocal(made, size, toSymbol * fromSymbol * theirs.LocalMatrix(anchorSize.X, anchorSize.Y));
+			return true;
+		}
+
+		// ByParts: a drawing of the source's, copied onto a part here that has none like it
+		Attachment? Supply(Slot here, Slot s, Attachment drawing)
+		{
+			if (plan.CopyMissing?.Invoke(here.Name) != true || !source.Assets.TryGetValue(drawing.AssetId, out var asset)) return null;
+			if (!copies.TryGetValue(asset.Id, out var copy))
+				copies[asset.Id] = copy = CopyAsset(asset, target, layerSources);
+			var made = new Attachment
+			{
+				Name = DrawingName(s.Name, drawing.Name),
+				AssetId = copy.Id,
+				Offset = drawing.Offset,
+				Rotation = drawing.Rotation,
+				Scale = drawing.Scale,
+				Pivot = drawing.Pivot
+			};
+			if (target.DefaultSkin.Get(here.Name, made.Name) != null) made.Name = UniqueDrawingName(target, here, made.Name);
+			if (!OnSymbol(made, drawing, s, here)) PlaceAsShown(made, drawing, s, here, gap);
+			if (plan.Symbols != null && plan.Symbols.TryGetValue(drawing, out var symbol)) plan.Symbols[made] = symbol;
+			target.DefaultSkin.Set(here.Name, made);
+			copiedDrawings++;
+			return made;
+		}
+
 		foreach (var s in source.Slots)
 		{
 			if (parts.GetValueOrDefault(s.Name) is not { } targetPart) continue;
@@ -234,7 +297,9 @@ public static class ObjectMerge
 					Scale = drawing.Scale,
 					Pivot = drawing.Pivot
 				};
-				if (plan.AsPlaced && target.FindSlot(targetPart) is { } here) PlaceAsShown(made, drawing, s, here, gap);
+				if (plan.AsPlaced && target.FindSlot(targetPart) is { } here && !OnSymbol(made, drawing, s, here))
+					PlaceAsShown(made, drawing, s, here, gap);
+				if (plan.Symbols != null && plan.Symbols.TryGetValue(drawing, out var symbol)) plan.Symbols[made] = symbol;
 				into.Set(targetPart, made);
 			}
 		}
@@ -289,6 +354,7 @@ public static class ObjectMerge
 			count++;
 		}
 		if (deformsDropped) notes.Add("Mesh deform keys weren't brought along (the meshes aren't).");
+		if (copiedDrawings > 0) notes.Add($"{copiedDrawings} drawing(s) this object had nothing like were copied over for its animations (hands).");
 		if (dropped > 0) notes.Add($"{dropped} row(s) of keys were left out: for bones, parts, colour layers or hitboxes this object hasn't.");
 		return new MergeResult(count, keys, dropped, skin, added, layerSources, notes);
 	}
@@ -297,7 +363,7 @@ public static class ObjectMerge
 	// rest. Returns how far the source's space sits from this one's: two imports can stand their
 	// characters at different origins, so the parts both have that stay as they are (the body, when
 	// a head comes in) say where the source's drawings go here (the middle of their gaps).
-	private static Vector2 LineUp(Skeleton source, IReadOnlyList<Animation> sourceAnimations, Skeleton target, List<Animation> targetAnimations,
+	private static Matrix3x2 LineUp(Skeleton source, IReadOnlyList<Animation> sourceAnimations, Skeleton target, List<Animation> targetAnimations,
 		MergePlan plan, Dictionary<string, string?> parts, List<string> notes)
 	{
 		var names = targetAnimations.Select(a => a.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -313,6 +379,7 @@ public static class ObjectMerge
 		else notes.Add("No animation has the same name in both: drawings lined up at rest.");
 		source.UpdatePose();
 		target.UpdatePose();
+		if (plan.Space is { } exact) return exact;
 
 		var xs = new List<float>();
 		var ys = new List<float>();
@@ -324,10 +391,10 @@ public static class ObjectMerge
 			xs.Add(b.X - a.X);
 			ys.Add(b.Y - a.Y);
 		}
-		if (xs.Count == 0) return Vector2.Zero;
+		if (xs.Count == 0) return Matrix3x2.Identity;
 		var gap = new Vector2(Median(xs), Median(ys));
 		if (gap.Length() > 0.5f) notes.Add($"The two stand {gap.Length():0} apart: the drawings were moved to match ({xs.Count} part(s) both have said where).");
-		return gap;
+		return Matrix3x2.CreateTranslation(gap);
 	}
 
 	// A skin's new parts (a hat, a hairflap, gum) ride on the part of the skin they sit nearest as
@@ -389,14 +456,37 @@ public static class ObjectMerge
 
 	// A drawing placed on this part so it shows where the source drawing shows now (both posed by
 	// LineUp), this part's own placement keys taken into account
-	private static void PlaceAsShown(Attachment made, Attachment drawing, Slot sourceSlot, Slot here, Vector2 gap)
+	private static void PlaceAsShown(Attachment made, Attachment drawing, Slot sourceSlot, Slot here, Matrix3x2 gap)
 	{
 		var shown = Matrix3x2.CreateScale(drawing.Scale * sourceSlot.Scale) * Matrix3x2.CreateRotation(drawing.Rotation + sourceSlot.Rotation)
-			* Matrix3x2.CreateTranslation(drawing.Offset + sourceSlot.Offset) * sourceSlot.Bone.World * Matrix3x2.CreateTranslation(gap);
+			* Matrix3x2.CreateTranslation(drawing.Offset + sourceSlot.Offset) * sourceSlot.Bone.World * gap;
 		PartOps.PlaceFrame(made, shown, here.Bone.World);
 		made.Offset -= here.Offset;
 		made.Rotation -= here.Rotation;
 		made.Scale = new Vector2(Ratio(made.Scale.X, here.Scale.X, made.Scale.X), Ratio(made.Scale.Y, here.Scale.Y, made.Scale.Y));
+	}
+
+	// A part's own drawing (its rest one, else any): what the skins' drawings for it are measured against
+	private static Attachment? OwnDrawing(Skeleton skeleton, Slot slot) =>
+		(slot.SetupAttachment is { } rest ? skeleton.DefaultSkin.Get(slot.Name, rest) : null)
+		?? skeleton.DefaultSkin.AttachmentsFor(slot.Name).FirstOrDefault();
+
+	private static (int X, int Y)? Size(Skeleton skeleton, Attachment drawing) =>
+		skeleton.Assets.TryGetValue(drawing.AssetId, out var asset) ? (asset.Width, asset.Height) : null;
+
+	// A drawing's placement on its bone set from where its pixels go there (image → bone)
+	private static void SetLocal(Attachment made, (int X, int Y) size, Matrix3x2 local)
+	{
+		var before = Matrix3x2.CreateTranslation(-made.Pivot.X * size.X, -made.Pivot.Y * size.Y) * Matrix3x2.CreateScale(1, -1);
+		if (!Matrix3x2.Invert(before, out var undo)) return;
+		PartOps.PlaceFrame(made, undo * local, Matrix3x2.Identity);
+	}
+
+	private static string UniqueDrawingName(Skeleton skeleton, Slot slot, string name)
+	{
+		string unique = name;
+		for (int i = 2; skeleton.AllSkins().Any(s => s.Get(slot.Name, unique) != null); i++) unique = $"{name} {i}";
+		return unique;
 	}
 
 	// The bone a source bone's things go on: its match, or the match of the bone it hangs from

@@ -160,7 +160,7 @@ public partial class MainWindow
 		UpdateStatus();
 	}
 
-	private static bool SafeWhilePainting(string id) => id is "help.keys" or "edit.history" or "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides" or "view.rulers";
+	private static bool SafeWhilePainting(string id) => id is "help.keys" or "edit.history" or "view.images" or "view.bones" or "view.pixels" or "view.onion" or "view.grid" or "view.guides" or "view.rulers";
 	private static bool SafeWhileDragging(string id) => id is "view.images" or "view.pixels" or "view.onion" or "view.grid" or "view.guides"
 		or "view.snapGrid" or "view.snapGuides" or "file.save" or "file.saveAs";
 
@@ -190,6 +190,7 @@ public partial class MainWindow
 			case "help.keys": ShowHelp(); return true;
 			case "edit.history": ShowHistory(); return true;
 			case "view.images": _renderer.ShowImages = !_renderer.ShowImages; return true;
+			case "view.bones": ToggleBones(); return true;
 			case "view.pixels": _renderer.PixelArt = !_renderer.PixelArt; return true;
 			case "view.reset": ResetView(); return true;
 			case "view.onion": ToggleOnion(); return true;

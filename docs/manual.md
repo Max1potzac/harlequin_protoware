@@ -192,7 +192,9 @@ middle button **moves the view**. You can reassign all three in
   objects all snap.
 - **Lock the guides** so you can't move them by accident; **Clear the guides** removes them all.
 
-**Pictures** (G) hides the art so you can see just the bones. **Pixel filtering** (P) switches
+**Pictures** (G) hides the art so you can see just the bones. **Bones** (Shift+G) does the
+opposite: it hides the open object's armature, so you see just the art (hidden bones can't be
+picked or dragged in the viewport; the rig panel still picks them). **Pixel filtering** (P) switches
 between smooth and crisp pixels when zoomed in.
 
 ### Number fields
@@ -1162,6 +1164,7 @@ ones.
 |---|---|
 | F | Reset the view |
 | G | Pictures on / off |
+| Shift+G | Bones on / off (hidden, they can't be picked or dragged in the viewport) |
 | P | Pixel filtering on / off |
 | O | Onion skin on / off |
 | J | Hitboxes and points on / off |

@@ -135,7 +135,7 @@ public partial class MainWindow : Window, IScalesItsParts
 		_renderer.PickedSlots = _sceneLevel ? NoSlots : _state.PickedSlots.ToHashSet();
 		_renderer.SelectionBox = _sceneLevel ? null : _tool.SelectionBox;
 		_renderer.ShowPivotHandle = !_state.AnimateMode && _state.Picked.Count <= 1;   // in Animate mode, part drags set placement keys
-		_renderer.ShowBones = !IsDrawn;                    // a drawn object's one bone stays hidden
+		_renderer.ShowBones = !IsDrawn && _appSettings.ShowBones;   // a drawn object's one bone stays hidden; View → Bones
 		_renderer.PartsOf = !_sceneLevel && !IsDrawn && _state.SelectedSlot == null ? _state.Selected : null;   // what's on the selected bone
 		_renderer.GhostBone = _tool.CreatePreview;
 		_renderer.TipHandleOf = !_sceneLevel && !IsDrawn ? _tool.TipHandle : null;   // Setup mode: where the selected bone ends
