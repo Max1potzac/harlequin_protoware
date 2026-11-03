@@ -44,4 +44,12 @@ throughout.
 3. **The open object's animations** (EditorSession.Animations.cs): switching, new, duplicated,
    deleted (one always stays), renamed (the mix plan's fades and the preview follow), looping,
    length, frame rate, and picked frames made an animation sequence. The Animations panel calls these.
+4. **Skins** (EditorSession.Skins.cs): made from parts, a part's drawings or colour layers; filled,
+   emptied and hiding parts; shown, ordered, renamed, put in categories (and categories renamed);
+   dissolved or deleted; the skin being edited, and painting in it (its own pixels). The Skins
+   panel calls these.
+5. **The rig** (EditorSession.Rig.cs): bones added, renamed, set at rest (parts staying put or
+   not) and keyed by value, connected, inheriting, hung from others, dissolved or deleted (objects
+   they carried let go); look and IK constraints; parts put on bones (by hand or the nearest); a
+   drawn object given bones. The Rig panel, Bind and the bone list's drags call these.
 
