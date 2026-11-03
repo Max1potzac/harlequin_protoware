@@ -140,15 +140,55 @@ public sealed class XflEvaluator
 		key.StartsWith('\n') ? _doc.Scenes.Find(s => s.Name == key[1..]) : _doc.Symbol(key)?.Timeline;
 
 	// A symbol that always looks the same (one frame, and everything in it the same too) is drawn
-	// whole; anything else is opened up, so its moving pieces become tracks of their own
+	// whole; anything else is opened up, so its moving pieces become tracks of their own. So is one
+	// that holds pieces the animations move about elsewhere (a game's "particles" frame: the head,
+	// the arm and the armor laid out, the parts that fly off): they show as those parts, so what
+	// changes them (a skin) changes them there too.
 	public bool IsStatic(string symbol)
 	{
 		if (_static.TryGetValue(symbol, out bool known)) return known;
 		_static[symbol] = true;   // a symbol inside itself: stop here
 		bool still = _doc.Symbol(symbol) is { } s && s.Timeline.Length == 1 &&
-					 s.Timeline.Layers.All(l => l.Frames.All(f => f.Elements.All(StaysStill)));
+					 s.Timeline.Layers.All(l => l.Frames.All(f => f.Elements.All(StaysStill))) &&
+					 !HoldsMovingPieces(s, new HashSet<string>(StringComparer.Ordinal));
 		_static[symbol] = still;
 		return still;
+	}
+
+	// The symbols placed straight on a timeline that moves (more than one frame): what animations
+	// move about as pieces of their own
+	private HashSet<string>? _moved;
+	private HashSet<string> Moved()
+	{
+		if (_moved != null) return _moved;
+		_moved = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var timeline in _doc.Symbols.Values.Select(s => s.Timeline).Concat(_doc.Scenes).Where(t => t.Length > 1))
+			foreach (var layer in timeline.Layers)
+				foreach (var frame in layer.Frames)
+					foreach (var instance in Instances(frame.Elements))
+						_moved.Add(instance.Library);
+		return _moved;
+	}
+
+	private static IEnumerable<XflInstance> Instances(IEnumerable<XflElement> elements)
+	{
+		foreach (var e in elements)
+		{
+			if (e is XflInstance i) yield return i;
+			else if (e is XflGroup g) foreach (var inner in Instances(g.Members)) yield return inner;
+		}
+	}
+
+	// Whether a symbol holds (at any depth) an instance of a symbol the animations move about
+	private bool HoldsMovingPieces(XflSymbol symbol, HashSet<string> seen)
+	{
+		if (!seen.Add(symbol.Name)) return false;
+		foreach (var layer in symbol.Timeline.Layers)
+			foreach (var frame in layer.Frames)
+				foreach (var instance in Instances(frame.Elements))
+					if (Moved().Contains(instance.Library) || _doc.Symbol(instance.Library) is { } inner && HoldsMovingPieces(inner, seen))
+						return true;
+		return false;
 	}
 
 	private bool StaysStill(XflElement e) => e switch
