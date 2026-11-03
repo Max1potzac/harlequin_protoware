@@ -179,6 +179,22 @@ public static class Commands
 		return 0;
 	}
 
+	// Parts that show nothing while a skin is on (an outfit covering them), or (--not) again
+	public static int Hides(Args a)
+	{
+		var p = Project.Open(a.At(0, "project"));
+		var obj = p.Object(a.Need("object"));
+		var skin = p.Skin(obj, a.Need("skin"));
+		var parts = a.List("parts").Select(n => obj.Skeleton.FindSlot(n) ?? throw new UsageException($"{obj.Name} has no part \"{n}\".")).ToList();
+		bool not = a.Has("not");
+		a.NothingElse();
+		if (parts.Count == 0) throw new UsageException("--parts is needed: the parts it hides.");
+		SkinOps.Hide(skin, parts, !not);
+		Console.WriteLine($"{skin.Name} {(not ? "shows" : "hides")} {string.Join(", ", parts.Select(s => s.Name))}" + (not ? " again." : "."));
+		p.Save();
+		return 0;
+	}
+
 	// A part moved in the draw order: just behind another, or just in front of it. In the rest
 	// order (and every animation's keys that drew them as the rest order did), or with
 	// --animation, in that animation, all through it

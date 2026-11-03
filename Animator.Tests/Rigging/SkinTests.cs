@@ -258,4 +258,30 @@ public class SkinTests
 		Assert.Null(skeleton.SkinOf(frost));
 		Assert.True(skeleton.Applies(frost));
 	}
+
+	[Fact]
+	public void An_outfit_hides_what_it_covers_while_its_on()
+	{
+		var skeleton = Zombie();
+		Part(skeleton, skeleton.Roots[0], "legs");
+		var dress = new Skin { Name = "Dress", Category = "Body" };
+		skeleton.Skins.Add(dress);
+		Assert.Equal(1, SkinOps.Hide(dress, new[] { S(skeleton, "legs") }));
+		Assert.Equal(0, SkinOps.Hide(dress, new[] { S(skeleton, "legs") }));   // (it does already)
+
+		Assert.NotNull(skeleton.ResolveAttachment(S(skeleton, "legs")));   // off: the legs show
+		SkinOps.Show(skeleton, dress, true);
+		Assert.Null(skeleton.ResolveAttachment(S(skeleton, "legs")));      // on: they don't
+		Assert.NotNull(skeleton.ResolveAttachment(S(skeleton, "head")));
+
+		// Saved with the skin, and undone with the rest of a structural edit
+		var dto = ProjectMapper.ToDto(skeleton, Array.Empty<Animation>(), Fps);
+		var (loaded, _) = ProjectMapper.FromDto(JsonSerializer.Deserialize<ProjectDto>(JsonSerializer.Serialize(dto, ProjectMapper.Json), ProjectMapper.Json)!);
+		Assert.Equal(new[] { "legs" }, loaded.FindSkin("Dress")!.Hides);
+		var before = StructureSnapshot.Capture(skeleton, new List<Animation>());
+		SkinOps.Hide(dress, new[] { S(skeleton, "legs") }, hide: false);
+		Assert.NotNull(skeleton.ResolveAttachment(S(skeleton, "legs")));
+		before.Restore();
+		Assert.Null(skeleton.ResolveAttachment(S(skeleton, "legs")));
+	}
 }

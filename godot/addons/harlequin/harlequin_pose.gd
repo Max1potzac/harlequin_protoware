@@ -694,7 +694,7 @@ func show_skin(skin_name: String, on := true) -> void:
 
 
 ## The drawing a part shows under this name: from the skins on (overlays first, then the later
-## in the list), else the object's own (Skeleton.FindAttachment). null: none.
+## in the list), else the object's own (Skeleton.FindAttachment). null: none, or a skin on hides it.
 func find_drawing(slot: int, drawing_name) -> Variant:
 	if drawing_name == null:
 		return null
@@ -706,6 +706,8 @@ func find_drawing(slot: int, drawing_name) -> Variant:
 	var overlays := on_top.filter(func(s): return s.overlay)
 	var others := on_top.filter(func(s): return not s.overlay)
 	for skin in overlays + others:
+		if skin.has("hides") and skin.hides.has(part):
+			return null
 		if skin.entries.has(part) and skin.entries[part].has(drawing_name):
 			return skin.entries[part][drawing_name]
 	var own: Dictionary = data.skins[0]

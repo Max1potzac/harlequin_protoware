@@ -32,6 +32,7 @@ public sealed class StructureSnapshot
 	private readonly List<BoneState> _bones;
 	private readonly List<SlotState> _slots;
 	private readonly List<(Skin Skin, Dictionary<(string Slot, string Attachment), Attachment> Map, string Name, string Category, bool Overlay, List<ColorLayer> Colours)> _skins;
+	private readonly List<(Skin Skin, string[] Hides)> _hides;
 	private readonly List<Skin> _skinList;
 	private readonly List<Skin> _shownSkins;
 	private readonly List<ColorLayer> _colorLayers;
@@ -61,6 +62,7 @@ public sealed class StructureSnapshot
 		_slots = skeleton.Slots.Select(s => new SlotState(s, s.Name, s.Bone, s.SetupAttachment,
 			s.Blend, s.SetupColor, s.SetupOpacity, s.IsMask, s.MaskUntil, s.MaskShows)).ToList();
 		_skins = skeleton.AllSkins().Select(s => (s, s.CopyMap(), s.Name, s.Category, s.Overlay, s.ColorLayers.ToList())).ToList();
+		_hides = skeleton.AllSkins().Select(s => (s, s.Hides.ToArray())).ToList();
 		_skinList = skeleton.Skins.ToList();
 		_shownSkins = skeleton.ShownSkins.ToList();
 		_colorLayers = skeleton.ColorLayers.ToList();
@@ -126,6 +128,11 @@ public sealed class StructureSnapshot
 			skin.ColorLayers.Clear();
 			skin.ColorLayers.AddRange(colours);
 			(skin.Name, skin.Category, skin.Overlay) = (name, category, overlay);
+		}
+		foreach (var (skin, hides) in _hides)
+		{
+			skin.Hides.Clear();
+			skin.Hides.UnionWith(hides);
 		}
 		_skeleton.Skins.Clear();
 		_skeleton.Skins.AddRange(_skinList);

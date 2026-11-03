@@ -234,6 +234,7 @@ public class SkinDto
 	public string? Category { get; set; }   // (format 11)
 	public bool Overlay { get; set; }
 	public List<string>? ColorLayers { get; set; }   // the object's colour layers in it, by name
+	public List<string>? Hides { get; set; }          // parts that show nothing while it's on
 	public List<SkinEntryDto> Entries { get; set; } = new();
 }
 

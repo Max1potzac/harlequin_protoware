@@ -373,6 +373,7 @@ public static class ProjectMapper
 		Category = skin.Category.Length > 0 ? skin.Category : null,
 		Overlay = skin.Overlay,
 		ColorLayers = skin.ColorLayers.Count > 0 ? skin.ColorLayers.Select(l => l.Name).ToList() : null,
+		Hides = skin.Hides.Count > 0 ? skin.Hides.OrderBy(n => n, StringComparer.Ordinal).ToList() : null,
 		Entries = skin.Entries.Select(e => new SkinEntryDto
 		{
 			Slot = e.Slot,
@@ -599,6 +600,7 @@ public static class ProjectMapper
 			var skin = skinDto.Name == skeleton.DefaultSkin.Name ? skeleton.DefaultSkin
 				: new Skin { Name = skinDto.Name, Category = skinDto.Category ?? "", Overlay = skinDto.Overlay };
 			if (skin != skeleton.DefaultSkin) skeleton.Skins.Add(skin);
+			if (skin != skeleton.DefaultSkin && skinDto.Hides != null) skin.Hides.UnionWith(skinDto.Hides);
 			foreach (var e in skinDto.Entries)
 			{
 				skin.Set(e.Slot, new Attachment

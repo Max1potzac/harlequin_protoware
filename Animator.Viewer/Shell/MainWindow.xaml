@@ -446,6 +446,12 @@
                                                     ToolTip="The picked parts' drawings in this skin go back to the object's own" />
                                             <Button Content="Pick its parts" Margin="2,0,0,0" Click="SkinPickParts_Click" />
                                         </UniformGrid>
+                                        <UniformGrid Columns="2" Margin="0,0,0,4">
+                                            <Button Content="Hides the picked" Margin="0,0,2,0" Click="SkinHideParts_Click"
+                                                    ToolTip="The picked parts show nothing while this skin is on (legs under a long skirt)" />
+                                            <Button Content="Stop hiding them" Margin="2,0,0,0" Click="SkinUnhideParts_Click"
+                                                    ToolTip="The picked parts show again while this skin is on" />
+                                        </UniformGrid>
                                         <TextBlock x:Name="SkinParts" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap" />
                                         <Expander x:Name="SkinColoursBox" Header="Colour layers" Foreground="{DynamicResource TextBrush}" Margin="0,6,0,0" IsExpanded="True"
                                                   ToolTip="The object's colour layers in this skin: they apply only while it's on (and are exported with it when colour layers are baked)">

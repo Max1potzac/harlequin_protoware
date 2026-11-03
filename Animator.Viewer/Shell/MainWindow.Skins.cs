@@ -309,6 +309,25 @@ public partial class MainWindow
 		SelectSkin(skin, $"{Describe(parts)} show whatever skins are on again.");
 	}
 
+	// The picked parts show nothing while the skin is on (hide), or show again
+	private void SkinHideParts_Click(object sender, RoutedEventArgs e) => HideParts(true);
+	private void SkinUnhideParts_Click(object sender, RoutedEventArgs e) => HideParts(false);
+
+	private void HideParts(bool hide)
+	{
+		if (_skin is not { } skin) return;
+		var parts = _state.PickedSlots.Where(s => skin.Hides.Contains(s.Name) != hide).ToList();
+		if (parts.Count == 0)
+		{
+			SkinHint.Text = hide ? $"Pick the parts {skin.Name} covers (legs under a long skirt): they show nothing while it's on."
+				: $"Pick parts {skin.Name} hides to show them again.";
+			return;
+		}
+		EditSkins(hide ? $"{skin.Name} hides {Describe(parts)}" : $"{skin.Name} shows {Describe(parts)} again",
+			() => SkinOps.Hide(skin, parts, hide) > 0);
+		SelectSkin(skin, hide ? $"{Describe(parts)} show nothing while {skin.Name} is on." : $"{Describe(parts)} show again with {skin.Name} on.");
+	}
+
 	private void SkinPickParts_Click(object sender, RoutedEventArgs e)
 	{
 		if (_skin is not { } skin) return;
@@ -499,6 +518,8 @@ public partial class MainWindow
 		SkinOverlay.IsChecked = _skin?.Overlay == true;
 		SkinParts.Text = _skin == null ? "" : SkinOps.PartsOf(_skeleton, _skin) is { Count: > 0 } parts
 			? "Parts: " + string.Join(", ", parts.Select(p => p.Name)) : "No parts yet: pick some, then Add the picked.";
+		if (_skin != null && SkinOps.HiddenBy(_skeleton, _skin) is { Count: > 0 } hidden)
+			SkinParts.Text += "\nHides: " + string.Join(", ", hidden.Select(p => p.Name));
 
 		// The object's colour layers: ticked = in this skin (applying only while it's on)
 		SkinColours.Children.Clear();

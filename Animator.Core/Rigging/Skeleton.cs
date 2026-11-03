@@ -21,11 +21,15 @@ public class Skeleton
 	public IEnumerable<Skin> SkinsOnTop() =>
 		Skins.Where(ShownSkins.Contains).Reverse().OrderBy(s => s.Overlay ? 0 : 1);
 
-	// The drawing a part shows under this name: from the skins that are on, or its own
+	// The drawing a part shows under this name: from the skins that are on, or its own. None
+	// while a skin that's on hides the part (one on top of it with a drawing for it aside).
 	public Attachment? FindAttachment(string slot, string name)
 	{
 		foreach (var skin in SkinsOnTop())
+		{
+			if (skin.Hides.Contains(slot)) return null;
 			if (skin.Get(slot, name) is { } drawing) return drawing;
+		}
 		return DefaultSkin.Get(slot, name);
 	}
 

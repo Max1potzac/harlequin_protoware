@@ -14,6 +14,9 @@ public class Skin
 	// skin at most; it stays in the object's list, which keeps the order they apply in)
 	public List<ColorLayer> ColorLayers { get; } = new();
     private readonly Dictionary<(string Slot, string Attachment), Attachment> _map = new();
+	// Parts (by name) that show nothing while this skin is on: what an outfit covers (legs under a
+	// long skirt). Its own drawings of them, if any, don't show either.
+	public HashSet<string> Hides { get; } = new();
 
     public void Set(string slot, Attachment a) => _map[(slot, a.Name)] = a;
     public Attachment? Get(string slot, string name) =>
@@ -44,6 +47,7 @@ public class Skin
 
 	public void RemoveSlot(string slot)
 	{
+		Hides.Remove(slot);
 		foreach (var key in _map.Keys.Where(k => k.Slot == slot).ToList())
 			_map.Remove(key);
 	}
@@ -51,6 +55,7 @@ public class Skin
 	// Entries are keyed by slot name, so a renamed slot needs its entries re-keyed
 	public void RenameSlot(string oldName, string newName)
 	{
+		if (Hides.Remove(oldName)) Hides.Add(newName);
 		foreach (var (key, attachment) in _map.Where(kv => kv.Key.Slot == oldName).ToList())
 		{
 			_map.Remove(key);

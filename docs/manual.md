@@ -496,6 +496,9 @@ In the skin's settings:
 - **Add the picked** puts the picked parts' own drawings into the skin; **Take out** sends the
   picked parts back to the object's own drawings.
 - **Pick its parts** picks the parts the skin changes.
+- **Hides the picked** makes the picked parts show nothing while the skin is on: what an outfit
+  covers, like legs under a long skirt. **Stop hiding them** shows them again. The parts a skin
+  hides are listed under its parts.
 - **Colour layers** lists the object's colour layers that belong to this skin: they apply only
   while it's on.
 
