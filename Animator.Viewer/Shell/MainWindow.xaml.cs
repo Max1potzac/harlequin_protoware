@@ -356,27 +356,9 @@ public partial class MainWindow : Window, IScalesItsParts
 
 	// Deletes the keys at the current frame of the picked parts and bones (a picked part: its own
 	// keys, not its bone's). Undoable.
-	private void DeleteKeysAtFrame()
-	{
-		var picked = _state.Picked;
-		if (picked.Count == 0) return;
+	// Delete with no keys selected: the picked bones' and parts' keys at the playhead
+	private void DeleteKeysAtFrame() => _timeline.Keys.DeletePickedKeysHere();
 
-		// A part and a bone can share a name, so the kind of row matters too
-		var bones = picked.OfType<Bone>().Select(b => b.Name).ToHashSet();
-		var parts = picked.OfType<Slot>().Select(s => s.Name).ToHashSet();
-
-		var before = AnimationSnapshot.Capture(_state.Animation);
-		bool removed = false;
-		foreach (var tl in _state.Animation.Timelines)
-			if ((RigOps.TargetsBone(tl) && bones.Contains(tl.Target)) || (PartOps.TargetsPart(tl) && parts.Contains(tl.Target)))
-				removed |= tl.RemoveKey(_state.Time);
-		if (!removed) return;
-
-		string what = picked.Count > 1 ? $"{picked.Count} picked" : picked[0] is Slot slot ? slot.Name : ((Bone)picked[0]).Name;
-		var after = AnimationSnapshot.Capture(_state.Animation);
-		_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(
-			$"Delete keys of {what} @ frame {_state.Frame}", before, after, s => s.Restore()));
-	}
 	// The constraint the selected bone belongs to (as target or chain), else the first one
 	private IkConstraint? ActiveIk()
 	{

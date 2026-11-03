@@ -41,15 +41,8 @@ public partial class MainWindow
 		var dialog = new EventDialog(frame) { Owner = this };
 		if (dialog.ShowDialog() != true) return;
 
-		var animation = _state.Animation;
-		float time = frame / (float)_state.Fps;
 		var e = new AnimationEvent(dialog.EventName, dialog.EventData, dialog.Volume, dialog.Pitch);
-		EditStructureAndScene(() =>
-		{
-			animation.GetOrCreateEvents().Add(time, e);   // an event already on this frame is replaced
-			if (dialog.PickedSound is { } sound) _scene.Sounds[e.Name] = StoredSoundPath(sound);
-			return $"Event {e.Name} @ frame {frame}";
-		});
+		_session.AddEvent(frame, e, dialog.PickedSound is { } sound ? StoredSoundPath(sound) : null);
 	}
 
 	private void EditEventAt(EventTimeline events, int frame)
@@ -65,16 +58,7 @@ public partial class MainWindow
 		if (dialog.ShowDialog() != true) return;
 
 		var updated = new AnimationEvent(dialog.EventName, dialog.EventData, dialog.Volume, dialog.Pitch);
-		if (updated == current && dialog.PickedSound == null) return;
-
-		EditStructureAndScene(() =>
-		{
-			int i = Find();
-			if (i < 0) return null;
-			events.Track.Keys[i] = events.Track.Keys[i] with { Value = updated };
-			if (dialog.PickedSound is { } sound) _scene.Sounds[updated.Name] = StoredSoundPath(sound);
-			return $"Edit event {updated.Name}";
-		});
+		_session.EditEvent(events, frame, updated, dialog.PickedSound is { } sound ? StoredSoundPath(sound) : null);
 	}
 
 	// ---------- timeline right-click menus ----------

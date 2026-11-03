@@ -123,4 +123,60 @@ public class SessionRigTests
 		session.Leave();
 		Assert.False(session.DissolveSkin(skin));
 	}
+
+	[Fact]
+	public void Poses_are_kept_put_on_and_keyed_through_the_session()
+	{
+		var (session, root, arm, _, _) = Rig();
+		var state = session.State;
+
+		// Setup: a pose put on changes the rest pose
+		arm.Rotation = 0.7f;
+		var bent = session.KeepPose()!;
+		Assert.Equal("Rest", bent.Name);
+		Assert.Equal("Rest 2", session.UniquePoseName("Rest"));
+		state.Skeleton.SetToSetupPose();
+		Assert.Equal(PoseChange.Rest, session.ApplyPose(bent, mirrored: false));
+		Assert.Equal(0.7f, arm.SetupRotation, 4);
+
+		// Animate: keyed at the playhead; auto key off, held
+		state.AnimateMode = true;
+		state.SetFrame(10);
+		state.Skeleton.SetToSetupPose();
+		Assert.Equal(PoseChange.Keyed, session.PoseEdit("Bend", () => arm.Rotation = 1.2f));
+		Assert.Contains(state.Animation.Timelines, tl => tl is RotateTimeline r && r.Target == "arm");
+		state.AutoKey = false;
+		Assert.Equal(PoseChange.Held, session.PoseEdit("Bend more", () => arm.Rotation = 1.5f));
+		Assert.True(state.Hold.Any);
+		state.AutoKey = true;
+
+		Assert.NotNull(session.CopyPose());
+		Assert.NotEqual(PoseChange.None, session.PastePose(mirrored: false));
+
+		Assert.True(session.RenamePose(bent, "bent"));
+		var other = session.KeepPose()!;
+		Assert.False(session.RenamePose(other, "BENT"));   // another pose's name, whatever the case
+		Assert.True(session.DeletePose(other));
+		var fresh = session.UpdatePose(bent);
+		Assert.Same(fresh, state.Skeleton.Poses[0]);
+		Assert.True(session.DeletePose(fresh));
+		Assert.Empty(state.Skeleton.Poses);
+		state.Undo.Undo();
+		Assert.Single(state.Skeleton.Poses);
+	}
+
+	[Fact]
+	public void Events_are_added_and_changed_with_their_sounds()
+	{
+		var (session, _, _, _, _) = Rig();
+		Assert.True(session.AddEvent(5, new AnimationEvent("step"), "sounds/step.wav"));
+		var events = session.State.Animation.Events!;
+		Assert.Equal("sounds/step.wav", session.Scene.Sounds["step"]);
+		Assert.False(session.EditEvent(events, 5, new AnimationEvent("step")));   // the same
+		Assert.False(session.EditEvent(events, 6, new AnimationEvent("hop")));    // none at 6
+		Assert.True(session.EditEvent(events, 5, new AnimationEvent("hop", Volume: 0.5f)));
+		Assert.Equal("hop", events.Track.Keys[0].Value.Name);
+		session.State.Undo.Undo();
+		Assert.Equal("step", events.Track.Keys[0].Value.Name);
+	}
 }
