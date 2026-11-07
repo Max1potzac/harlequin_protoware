@@ -546,6 +546,9 @@ public sealed class XflImportWindow : Window
 		_rootBox.SelectedItem = roots.FirstOrDefault(c => c.Part == _plan.Root) ?? roots[0];
 		_syncing = false;
 
+		_viewHint.Text = _rig != null
+			? "The bones move as they'll be animated (red: a joint the parts don't turn around)   Click: pick a part   Wheel: zoom   Space: play   < >: a frame back / on   I / R / X: the picked part's In / Rig / FX"
+			: "Click: pick a part   Wheel: zoom   Middle drag: move around   Home: fit   Space: play   < >: a frame back / on   I / R / X: the picked part's In / Rig / FX";
 		ShowPicked();
 		RefreshSummary();
 		ShowFrame();
@@ -705,10 +708,7 @@ public sealed class XflImportWindow : Window
 			using var path = ShapePaths.Polyline(corners, closed: true);
 			canvas.DrawPath(path, outline);
 		}
-		if (_rig != null) DrawRig(canvas, _rig, Frame);
-		_viewHint.Text = _rig != null
-			? "The bones move as they'll be animated (red: a joint the parts don't turn around)   Click: pick a part   Wheel: zoom   Space: play   < >: a frame back / on   I / R / X: the picked part's In / Rig / FX"
-			: "Click: pick a part   Wheel: zoom   Middle drag: move around   Home: fit   Space: play   < >: a frame back / on   I / R / X: the picked part's In / Rig / FX";
+		if (_rig != null) DrawRig(canvas, _rig, Frame);   // (nothing else may change while it's drawn: the hint's set in Refresh)
 	}
 
 	// The object's space → the timeline's (the picture's)
