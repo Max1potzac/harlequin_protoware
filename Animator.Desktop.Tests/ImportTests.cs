@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using SkiaSharp;
+using XflTestProject = Animator.Tests.XflTestProject;
 using Xunit;
 
 namespace Animator.Desktop.Tests;
