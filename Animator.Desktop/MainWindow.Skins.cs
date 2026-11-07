@@ -23,13 +23,13 @@ public sealed partial class MainWindow
 	internal Skin? PickedSkin { get; private set; }
 	private bool _syncingSkins;
 
-	private static readonly IBrush SkinRowDark = new SolidColorBrush(Color.FromRgb(0x2B, 0x2F, 0x37));
-	private static readonly IBrush SkinPickedDark = new SolidColorBrush(Color.FromRgb(0x1F, 0x5F, 0x9F));
-	private static readonly IBrush SkinRowLight = new SolidColorBrush(Color.FromRgb(0xE4, 0xE7, 0xEC));
-	private static readonly IBrush SkinPickedLight = new SolidColorBrush(Color.FromRgb(0xA8, 0xCB, 0xF0));
+	private static readonly IBrush SkinRowDark = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.FromRgb(0x2B, 0x2F, 0x37));
+	private static readonly IBrush SkinPickedDark = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.FromRgb(0x1F, 0x5F, 0x9F));
+	private static readonly IBrush SkinRowLight = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.FromRgb(0xE4, 0xE7, 0xEC));
+	private static readonly IBrush SkinPickedLight = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.FromRgb(0xA8, 0xCB, 0xF0));
 	private IBrush SkinRowBrush => LightTheme ? SkinRowLight : SkinRowDark;
 	private IBrush SkinPickedBrush => LightTheme ? SkinPickedLight : SkinPickedDark;
-	private static readonly IBrush SkinEditingBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xA0, 0x40));
+	private static readonly IBrush SkinEditingBrush = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.FromRgb(0xE0, 0xA0, 0x40));
 
 	private Control BuildSkinsTab()
 	{

@@ -83,7 +83,7 @@ public sealed partial class MainWindow
 	private List<ListBoxItem> _listed = new();
 	private object? _listedPick;
 
-	private static readonly IBrush PartColour = new SolidColorBrush(Color.FromRgb(255, 190, 110));
+	private static readonly IBrush PartColour = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.FromRgb(255, 190, 110));
 
 	private static ListBoxItem Row(string text, object tag, int depth, bool bold, bool part = false)
 	{
