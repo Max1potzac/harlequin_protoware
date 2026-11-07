@@ -262,7 +262,7 @@ public sealed partial class MainWindow
 		_rigDragging = false;
 		if (SceneLevel || !e.GetCurrentPoint(RigList).Properties.IsLeftButtonPressed) return;
 		var at = e.GetPosition(RigList);
-		if (RowAt(RigList, at)?.Tag is not (Slot or Bone) pressed) return;
+		if (RowAt(RigList, at)?.Tag is not { } pressed || pressed is not (Slot or Bone)) return;
 		_rigPress = at;
 		_rigDragged = pressed;
 	}

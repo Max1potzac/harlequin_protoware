@@ -63,11 +63,11 @@ public sealed class SettingsWindow : Window
 	public double Scale { get; private set; } = UiSize.Current;
 
 	internal readonly TabControl Tabs = new();
-	internal readonly TextBox FilterBox = new() { Watermark = "Find a command or a key" };
+	internal readonly TextBox FilterBox = new() { PlaceholderText = "Find a command or a key" };
 	internal readonly ListBox CommandList = new();
 	internal readonly TextBlock CommandTitle = new() { FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap };
 	internal readonly TextBlock CommandKeys = new() { TextWrapping = TextWrapping.Wrap };
-	internal readonly TextBox CaptureBox = new() { IsReadOnly = true, Width = 200, Watermark = "Click here, then press the keys" };
+	internal readonly TextBox CaptureBox = new() { IsReadOnly = true, Width = 200, PlaceholderText = "Click here, then press the keys" };
 	internal readonly TextBlock ConflictText = new() { Foreground = Brushes.Orange, TextWrapping = TextWrapping.Wrap };
 	internal readonly Button SetButton = new() { Content = "Set" };
 	internal readonly Button AddButton = new() { Content = "Add" };
@@ -186,7 +186,7 @@ public sealed class SettingsWindow : Window
 		Tabs.Items.Add(_mouseTab);
 		Tabs.Items.Add(new TabItem { Header = "Saving", Content = saving });
 		Tabs.Items.Add(new TabItem { Header = "Appearance", Content = look });
-		foreach (TabItem tab in Tabs.Items) { tab.FontSize = 15; tab.MinHeight = 32; tab.Padding = new Thickness(10, 4); }
+		foreach (var tab in Tabs.Items.OfType<TabItem>()) { tab.FontSize = 15; tab.MinHeight = 32; tab.Padding = new Thickness(10, 4); }
 
 		var reset = new Button { Content = "Everything as at first" };
 		reset.Click += (_, _) => ResetAll();
@@ -235,7 +235,7 @@ public sealed class SettingsWindow : Window
 			items.Add(new ListBoxItem { Content = row, Tag = command, Padding = new Thickness(6, 2) });
 		}
 		CommandList.ItemsSource = items;
-		CommandList.SelectedItem = items.FirstOrDefault(i => i.Tag == picked);
+		CommandList.SelectedItem = items.FirstOrDefault(i => ReferenceEquals(i.Tag, picked));
 	}
 
 	internal void Pick(string id) =>
