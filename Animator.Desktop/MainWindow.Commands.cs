@@ -30,6 +30,7 @@ public sealed partial class MainWindow
 		Add("file.save", "_Save", () => _ = SaveProject(), "Ctrl+S");
 		Add("file.saveAs", "Save _as…", () => _ = SaveProjectAs(), "Ctrl+Shift+S");
 		Add("file.import", "_Import…", () => _ = ImportFile(), "Ctrl+I");
+		Add("file.export", "_Export…", () => _ = ExportProject(), "Ctrl+E");
 		Add("file.quit", "_Quit", Close, "Ctrl+Q");
 
 		Add("edit.undo", "_Undo", () => State.Undo.Undo(), "Ctrl+Z");
@@ -88,7 +89,7 @@ public sealed partial class MainWindow
 		{
 			Items =
 			{
-				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.import", null, "file.quit"),
+				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.import", "file.export", null, "file.quit"),
 				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.back"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
 				Top("_Animation", "anim.mode", "anim.key", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),

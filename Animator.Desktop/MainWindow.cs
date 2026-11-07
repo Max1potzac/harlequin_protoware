@@ -221,6 +221,7 @@ public sealed partial class MainWindow : Window
 	// the window frame by frame this way)
 	internal void Frame(float dt)
 	{
+		if (_exporting) return;   // (the export poses the scene meanwhile)
 		Tick(dt);
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
