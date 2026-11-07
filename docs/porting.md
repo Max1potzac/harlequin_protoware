@@ -105,3 +105,18 @@ on WPF's keys), the sound player (MediaPlayer), and the timers. The Avalonia edi
 engine's panels, tools and ViewportPainter on its own Skia surfaces, and translates its mouse
 and keys into PointerButton and KeyMods.
 
+
+## Step 4: the Avalonia editor
+
+Animator.Desktop (the program `harlequin-editor`) is the editor on Avalonia 12, built a piece at
+a time. It references SkiaSharp 4 by name (Avalonia 12.1 takes it so; its own default is 3), and
+draws the engine's panels into bitmaps of their own (SkiaView), so it looks the same everywhere,
+the headless tests included. Animator.Desktop.Tests shows the window on Avalonia's headless
+platform and saves what it shows as pictures; CI (the `desktop` job) runs them on Linux, keeps the
+pictures with the run and on the branch `shots/<branch>`, and publishes the editor for Linux
+(`editor-linux-x64`, kept with the run).
+
+1. **The first window**: the viewport (ViewportPainter, the bone and object tools, the guides),
+   the timeline (the animation's, or the scene's at scene level), the rig list (bones and parts,
+   or the scene's objects), New / Open / Save / Save as, undo, playback, Build / Animate, keying
+   the pose, the Select / Move / Rotate tools, and the main shortcuts.
