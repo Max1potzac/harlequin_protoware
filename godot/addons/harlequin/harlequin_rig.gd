@@ -79,6 +79,43 @@ func _ready() -> void:
 		_load_rig()
 
 
+# In the editor: the rig is read again when it's exported again (else the node would keep the
+# rig it read while Godot imports the new pages under it: every part showing the wrong picture)
+func _enter_tree() -> void:
+	var fs := _editor_files()
+	if fs != null and not fs.is_connected("filesystem_changed", _on_files_changed):
+		fs.connect("filesystem_changed", _on_files_changed)
+		fs.connect("resources_reimported", _on_reimported)
+
+
+func _exit_tree() -> void:
+	var fs := _editor_files()
+	if fs != null and fs.is_connected("filesystem_changed", _on_files_changed):
+		fs.disconnect("filesystem_changed", _on_files_changed)
+		fs.disconnect("resources_reimported", _on_reimported)
+
+
+# (EditorInterface by name: the class isn't there in an exported game, and this script runs there too)
+static func _editor_files() -> Object:
+	if not Engine.is_editor_hint() or not Engine.has_singleton("EditorInterface"):
+		return null
+	return Engine.get_singleton("EditorInterface").call("get_resource_filesystem")
+
+
+func _on_files_changed() -> void:
+	if _data != null and (_data.error != "" or _data.changed_on_disk()):
+		reload()
+
+
+func _on_reimported(paths: PackedStringArray) -> void:
+	if _data == null:
+		return
+	for p in paths:
+		if _data.files.has(p):
+			reload()
+			return
+
+
 func _validate_property(property: Dictionary) -> void:
 	if property.name == "animation" and _data != null:
 		property.hint = PROPERTY_HINT_ENUM_SUGGESTION

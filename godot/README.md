@@ -16,7 +16,13 @@ This folder is a small Godot project:
 1. Copy `addons/harlequin` into your project's `addons/` folder.
 2. Turn it on in **Project → Project Settings → Plugins**. The node also works without this step.
 3. In Harlequin, use **File → Export… → Engine**. Put the `.hqrig.json`, its atlas page(s) and any
-   sounds anywhere inside your project.
+   sounds anywhere inside your project. Give each rig a name of its own: the pages are named after
+   the rig (`zombie.atlas.png`), so a second export under the same name replaces the first's.
+
+Exporting again while Godot is open is fine: in the editor, a HarlequinRig reads its rig again once
+Godot has imported the new pages. A page that isn't the one its rig was exported with (another
+size) isn't drawn: the node shows a warning saying so, rather than every part showing a piece of
+some other picture.
 
 ## Using it
 
@@ -56,7 +62,7 @@ func _on_event(event_name, data, volume, pitch):
 | `get_point_transform(name)`, `get_point_global_transform(name)` | Where a point is and which way it faces, e.g. a muzzle or a hand. |
 | `get_bone_transform(name)` | A bone's joint, with its x axis pointing along the bone. |
 | `get_hitboxes(only_active := true)`, `get_hitbox_polygon(hitbox)` | Hitboxes: name, kind, centre transform and size, or as an outline. |
-| `reload()` | Reads the file again after you re-export it. |
+| `reload()` | Reads the file again after you re-export it (the editor does this by itself). |
 | `get_pose()`, `get_rig_data()` | The pose and the data themselves, in Harlequin's space (y up). |
 
 Signals:
