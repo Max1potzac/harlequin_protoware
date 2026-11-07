@@ -33,9 +33,7 @@ public partial class MainWindow
 	private int _meshHover = -1;
 
 	// The selected part's drawing that shows now, and its mesh (null: no part, or no mesh)
-	private (Slot Slot, Attachment Drawing, Mesh? Mesh)? MeshPart() =>
-		!_sceneLevel && _state.SelectedSlot is { } slot && _skeleton.ResolveAttachment(slot) is { } drawing
-			? (slot, drawing, drawing.Mesh) : null;
+	private (Slot Slot, Attachment Drawing, Mesh? Mesh)? MeshPart() => _session.MeshOf(_state.SelectedSlot);
 
 	private Bone? WeightBone() =>
 		MeshBoneBox.SelectedItem is string name ? _skeleton.FindBone(name) : _state.SelectedSlot?.Bone;
@@ -77,17 +75,6 @@ public partial class MainWindow
 		};
 	}
 
-	private void EditMesh(string name, Func<Slot, Attachment, bool> change)
-	{
-		if (MeshPart() is not { } p) return;
-		_state.EditStructure(() =>
-		{
-			var drawing = _state.EditableDrawing(p.Slot) ?? p.Drawing;   // editing a skin: its own copy
-			return change(p.Slot, drawing) ? name : null;
-		});
-		SyncMeshPanel();
-	}
-
 	private void MeshMake_Click(object sender, RoutedEventArgs e)
 	{
 		var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = PlacementMode.Bottom };
@@ -102,30 +89,14 @@ public partial class MainWindow
 
 	private void MakeMesh(int across)
 	{
-		if (MeshPart() is not { } part || !_skeleton.Assets.TryGetValue(part.Drawing.AssetId, out var asset)
-			|| _assets.Get(asset, false) is not { } bitmap) return;
-		var visible = VisibleRect(bitmap) ?? (0, 0, bitmap.Width, bitmap.Height);
-		var area = ((int)visible.X, (int)visible.Y, (int)visible.W, (int)visible.H);
-		int step = across <= 1 ? Math.Max(area.Item3, area.Item4) + 1 : Math.Max(2, (int)MathF.Ceiling(Math.Max(area.Item3, area.Item4) / (float)across));
-		bool Shows(int x0, int y0, int x1, int y1)
-		{
-			for (int y = Math.Max(0, y0); y < Math.Min(bitmap.Height, y1); y++)
-				for (int x = Math.Max(0, x0); x < Math.Min(bitmap.Width, x1); x++)
-					if (bitmap.GetPixel(x, y).Alpha > 8) return true;
-			return false;
-		}
-		EditMesh($"Make a mesh on {part.Slot.Name}", (_, drawing) =>
-		{
-			drawing.Mesh = MeshOps.Grid(bitmap.Width, bitmap.Height, area, step, Shows);
-			return true;
-		});
+		if (MeshPart() is not { } part || !_session.MakeMesh(part.Slot, across)) return;
 		_meshTool = MeshTool.Points;
 		SyncMeshPanel();
 	}
 
 	private void MeshRemove_Click(object sender, RoutedEventArgs e)
 	{
-		EditMesh("Remove the mesh", (_, drawing) => { drawing.Mesh = null; return true; });
+		if (MeshPart() is { } part) _session.RemoveMesh(part.Slot);
 		_meshTool = MeshTool.None;
 		SyncMeshPanel();
 	}
@@ -134,32 +105,27 @@ public partial class MainWindow
 	{
 		if (MeshPart() is not { Mesh: not null } part) return;
 		var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = PlacementMode.Bottom };
-		void Add(string header, string tip, Func<Slot, Attachment, Mesh, Mesh> make)
+		void Add(string header, string tip, Action weigh)
 		{
 			var item = new MenuItem { Header = header, ToolTip = tip };
 			item.Click += (_, _) =>
 			{
-				EditMesh(header, (slot, drawing) =>
-				{
-					if (drawing.Mesh is not { } mesh) return false;
-					_skeleton.SetToSetupPose();   // (weights are given at rest)
-					_skeleton.UpdateWorld();
-					drawing.Mesh = make(slot, drawing, mesh);
-					return true;
-				});
+				weigh();
+				SyncMeshPanel();
 			};
 			menu.Items.Add(item);
 		}
+		var slot = part.Slot;
 		Add("From the nearest bones", "Each point shared by the 3 bones nearest to it, the nearer the more (then paint to adjust)",
-			(slot, drawing, mesh) => MeshOps.AutoWeights(_skeleton, slot, drawing, mesh));
+			() => _session.WeighMesh(slot, EditorSession.Weights.Nearest, "From the nearest bones"));
 		var picked = _state.PickedBones.ToList();
 		if (picked.Count > 0)
 			Add($"From the picked bones ({picked.Count})", "As above, among the picked bones only",
-				(slot, drawing, mesh) => MeshOps.AutoWeights(_skeleton, slot, drawing, mesh, picked));
-		var bone = WeightBone() ?? part.Slot.Bone;
-		Add($"All on {bone.Name}", "Every point follows that bone alone", (slot, drawing, mesh) => MeshOps.AllOn(_skeleton, slot, drawing, mesh, bone));
+				() => _session.WeighMesh(slot, EditorSession.Weights.Nearest, $"From the picked bones ({picked.Count})", among: picked));
+		var bone = WeightBone() ?? slot.Bone;
+		Add($"All on {bone.Name}", "Every point follows that bone alone", () => _session.WeighMesh(slot, EditorSession.Weights.AllOn, $"All on {bone.Name}", bone));
 		Add("None (follows its part, flat)", "No weights: the mesh moves with its part's bone, and deform keys push it about",
-			(_, _, mesh) => mesh.Rigid());
+			() => _session.WeighMesh(slot, EditorSession.Weights.None, "None (follows its part, flat)"));
 		menu.IsOpen = true;
 	}
 
