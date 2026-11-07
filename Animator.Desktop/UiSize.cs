@@ -40,6 +40,7 @@ public static class UiSize
 	public static void Fit(Window dialog)
 	{
 		if (Math.Abs(Current - 1.0) < 1e-6 || dialog.Content is not Control content) return;
+		dialog.Content = null;   // (let go of it first: a control has one parent)
 		dialog.Content = new LayoutTransformControl { Child = content, LayoutTransform = Transform };
 		if (dialog.SizeToContent is not (SizeToContent.Width or SizeToContent.WidthAndHeight) && double.IsFinite(dialog.Width)) dialog.Width *= Current;
 		if (dialog.SizeToContent is not (SizeToContent.Height or SizeToContent.WidthAndHeight) && double.IsFinite(dialog.Height)) dialog.Height *= Current;
