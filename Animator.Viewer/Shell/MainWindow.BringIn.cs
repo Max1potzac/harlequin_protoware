@@ -28,20 +28,11 @@ public partial class MainWindow
 		var dialog = new BringInWindow(target.Name, _skeleton, sources, SkinOps.Categories(_skeleton), () => _state.PickedBones.ToList()) { Owner = this };
 		if (dialog.ShowDialog() != true || dialog.Source is not { } source) return;
 
-		MergeResult? result = null;
-		bool done = _state.EditStructure(() =>
-		{
-			result = ObjectMerge.Merge(source.Skeleton, source.Animations, _skeleton, _state.Animations, dialog.Plan);
-			foreach (var (newLayer, oldLayer) in result.LayerSources) _assets.CopyPixels(oldLayer, newLayer);
-			return result.Animations == 0 && result.Skin == null && result.NewParts.Count == 0 ? null : $"Bring in from {source.Name}";
-		});
-		if (!done || result == null)
+		if (_session.BringIn(source, dialog.Plan) is not { } result)
 		{
 			Tell("Nothing came in.");
 			return;
 		}
-		if (result.Skin is { } skin) SkinOps.Show(_skeleton, skin);
-		_skeleton.SetToSetupPose();
 		RefreshRigPanel();
 		RefreshAnimationsPanel();
 		var lines = new List<string>();
@@ -75,41 +66,18 @@ public partial class MainWindow
 			_appSettings.Save();
 		}
 
-		var brought = new List<string>();
-		var problems = new List<string>();
-		var notes = new HashSet<string>();
+		BatchBroughtIn done;
 		Mouse.OverrideCursor = Cursors.Wait;
 		try
 		{
-			_state.EditStructure(() =>
-			{
-				var options = new BringInOptions(picked, dialog.Category, dialog.Animations, dialog.AsPlaced, dialog.Accessories);
-				foreach (string file in dialog.Files)
-				{
-					try
-					{
-						var b = AnimateBringIn.FromAnimate(file, _skeleton, _state.Animations, _assets, options);
-						if (b.Problem != null)
-						{
-							problems.Add(AnimateBringIn.Describe(b));
-							continue;
-						}
-						brought.Add(AnimateBringIn.Describe(b));
-						foreach (string note in b.Result!.Notes.Where(n => !n.StartsWith("Drawings lined up", StringComparison.Ordinal))) notes.Add(note);
-					}
-					catch (Exception ex) when (ex is NotSupportedException or InvalidDataException or IOException or System.Xml.XmlException or InvalidOperationException)
-					{
-						problems.Add($"{AnimateBringIn.ProjectName(file)}: {ex.Message}");
-					}
-				}
-				return brought.Count > 0 ? $"Bring in {brought.Count} skin(s)" : null;
-			});
+			done = _session.BringInFromAnimate(dialog.Files,
+				new BringInOptions(picked, dialog.Category, dialog.Animations, dialog.AsPlaced, dialog.Accessories));
 		}
 		finally
 		{
 			Mouse.OverrideCursor = null;
 		}
-		_skeleton.SetToSetupPose();
+		var (brought, problems, notes) = done;
 		RefreshRigPanel();
 		RefreshAnimationsPanel();
 		var lines = new List<string>();

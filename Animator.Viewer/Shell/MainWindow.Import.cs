@@ -60,26 +60,14 @@ public partial class MainWindow
 	private void ImportPhotoshop(string path)
 	{
 		string name = Path.GetFileNameWithoutExtension(path);
-		PsdImportPlan plan;
 		Mouse.OverrideCursor = Cursors.Wait;
-		try
+		var read = EditorSession.ReadPhotoshop(path, out string? why);
+		Mouse.OverrideCursor = null;
+		if (read is not { } plan)
 		{
-			plan = PsdImportPlan.FromDocument(PsdReader.Read(path), name);
-			_ = plan.Masks;   // the layers' shapes, for suggesting a rig: worked out while the cursor waits
-		}
-		catch (Exception ex)
-		{
-			Mouse.OverrideCursor = null;
-			string why = ex is NotSupportedException or InvalidDataException or IOException
-				? ex.Message
-				: $"Something in it couldn't be read ({ex.GetType().Name}: {ex.Message}).";
 			MessageBox.Show(this, $"{Path.GetFileName(path)} couldn't be imported.\n\n{why}", "Import a Photoshop file",
 				MessageBoxButton.OK, MessageBoxImage.Warning);
 			return;
-		}
-		finally
-		{
-			Mouse.OverrideCursor = null;
 		}
 
 		using (plan)
@@ -93,12 +81,7 @@ public partial class MainWindow
 			var dialog = new PsdImportDialog(plan) { Owner = this };
 			if (dialog.ShowDialog() != true) return;
 
-			SceneObject? made = null;
-			EditScene(() =>
-			{
-				made = PsdImporter.IntoScene(_scene, _assets, plan, _camera.Pan);   // in the middle of the view
-				return $"Import {name}";
-			});
+			var made = _session.ImportPhotoshop(plan, _camera.Pan, name);   // in the middle of the view
 			if (made == null) return;
 			_state.Playing = false;
 			EnterObject(made);
@@ -109,29 +92,15 @@ public partial class MainWindow
 
 	private void ImportAnimate(string path)
 	{
-		// The project's name: the .fla's, or its folder's for an .xfl or DOMDocument.xml
-		string name = Path.GetExtension(path).ToLowerInvariant() is ".fla" or ".zip"
-			? Path.GetFileNameWithoutExtension(path)
-			: new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(path))!).Name;
-		XflImportPlan plan;
+		string name = AnimateBringIn.ProjectName(path);
 		Mouse.OverrideCursor = Cursors.Wait;
-		try
+		var read = EditorSession.ReadAnimate(path, out string? why);
+		Mouse.OverrideCursor = null;
+		if (read is not { } plan)
 		{
-			plan = XflImportPlan.Load(path, name);
-		}
-		catch (Exception ex)
-		{
-			Mouse.OverrideCursor = null;
-			string why = ex is NotSupportedException or InvalidDataException or IOException or System.Xml.XmlException
-				? ex.Message
-				: $"Something in it couldn't be read ({ex.GetType().Name}: {ex.Message}).";
 			MessageBox.Show(this, $"{Path.GetFileName(path)} couldn't be imported.\n\n{why}", "Import an Animate project",
 				MessageBoxButton.OK, MessageBoxImage.Warning);
 			return;
-		}
-		finally
-		{
-			Mouse.OverrideCursor = null;
 		}
 
 		using (plan)
@@ -143,11 +112,7 @@ public partial class MainWindow
 			Mouse.OverrideCursor = Cursors.Wait;
 			try
 			{
-				EditScene(() =>
-				{
-					made = XflImporter.IntoScene(_scene, _assets, plan, _camera.Pan);   // in the middle of the view
-					return $"Import {name}";
-				});
+				made = _session.ImportAnimate(plan, _camera.Pan, name);   // in the middle of the view
 			}
 			finally
 			{
@@ -178,12 +143,12 @@ public partial class MainWindow
 		}
 
 		string name = Path.GetFileNameWithoutExtension(path);
-		var json = ReadSheetJson(Path.ChangeExtension(path, ".json"));
+		var json = EditorSession.ReadSheetJson(path);
 
 		// Parts go where new parts go: on a drawn object's own bone, or on the selected bone
 		// (the first one when none is selected)
 		var target = Editing ? _active : null;
-		var bone = target == null ? null : BoneForNewPart() ?? _skeleton.Roots.FirstOrDefault();
+		var bone = _session.BoneForSheet();
 		string partsLabel = target == null ? "As parts of an object (open one first)"
 			: bone == null ? $"As parts of \"{target.Name}\" (it needs a bone first)"
 			: IsDrawn ? $"As parts of \"{target.Name}\""
@@ -201,45 +166,16 @@ public partial class MainWindow
 
 		if (dialog.IntoOpenObject && target != null && bone != null)
 		{
-			var made = new List<Slot>();
-			_state.EditStructure(() =>
-			{
-				made = SheetImporter.IntoObject(target, bone, _assets, plan, _state.Fps);
-				return made.Count > 0 ? step : null;
-			});
-			if (made.Count == 0) return;
-			_state.Playing = false;
-			_state.SelectedSlot = made[0];
-			_state.Selected = made[0].Bone;
+			if (_session.ImportSheetIntoObject(plan, bone, step).Count == 0) return;
 			RefreshEverything();
 		}
 		else
 		{
-			var made = new List<SceneObject>();
-			EditScene(() =>
-			{
-				made = SheetImporter.IntoScene(_scene, _assets, plan, _camera.Pan, _state.Fps);   // around the view's middle
-				return made.Count > 0 ? step : null;
-			});
+			var made = _session.ImportSheetIntoScene(plan, _camera.Pan, step);   // around the view's middle
 			if (made.Count == 0) return;
 			if (!_sceneLevel) LeaveObject();
 			_objectTool.Selected = made[0];
 			RefreshEverything();
-		}
-	}
-
-	// The JSON a sheet program (or Harlequin's own export) wrote next to the sheet, if there's one
-	private static SpriteSheetJson? ReadSheetJson(string path)
-	{
-		if (!File.Exists(path)) return null;
-		try
-		{
-			var json = SpriteSheetJson.Read(File.ReadAllText(path));
-			return json.Frames.Count > 0 ? json : null;
-		}
-		catch (Exception)
-		{
-			return null;   // not a sheet's JSON: the sheet gets cut some other way
 		}
 	}
 }
