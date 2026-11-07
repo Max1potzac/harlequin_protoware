@@ -1,4 +1,6 @@
 using Animator.Core.Editing;
+using Animator.Viewer.Files;
+using Animator.Viewer.Tools;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
