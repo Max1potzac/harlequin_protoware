@@ -246,6 +246,7 @@ public sealed partial class MainWindow
 		{
 			Orientation = Orientation.Horizontal,
 			Spacing = 10,
+			ClipToBounds = true,   // (a long one goes under the ✎, not over it)
 			VerticalAlignment = VerticalAlignment.Center,
 			Margin = new Thickness(skin == null ? 24 : 0, 0, 0, 0),
 			Children =
