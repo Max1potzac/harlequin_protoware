@@ -198,9 +198,9 @@ public partial class MainWindow
 	}
 
 	// True: the mouse went down for the mesh tool (a point taken hold of, or weights painted)
-	private bool MeshMouseDown(Vector2 screen, MouseButton button)
+	private bool MeshMouseDown(Vector2 screen, PointerButton button)
 	{
-		if (_meshTool == MeshTool.None || button != MouseButton.Left || MeshPart() is not { Mesh: { } mesh } part) return false;
+		if (_meshTool == MeshTool.None || button != PointerButton.Left || MeshPart() is not { Mesh: { } mesh } part) return false;
 		if (_meshTool == MeshTool.Weights)
 		{
 			if (_state.AnimateMode || WeightBone() is null) return false;

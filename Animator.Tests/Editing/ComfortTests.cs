@@ -51,15 +51,15 @@ public class ComfortTests
 		Assert.Empty(rig.State.Picked);
 		rig.Click(60, 50);    // the hand's pixels
 		Assert.Empty(rig.State.Picked);
-		rig.Drag(-200, 200, 200, -200, MouseButton.Left);   // a box over everything
+		rig.Drag(-200, 200, 200, -200, PointerButton.Left);   // a box over everything
 		Assert.Equal(new[] { "body", "root", "upper" }, Names(rig.State.Picked));
 
 		rig.State.ClearPicks();
 		var hand = rig.CentreOf(rig.Hand);
-		rig.Drag(60, 50, 90, 50, MouseButton.Right);     // the hand: nothing to take hold of, so the view moves instead
+		rig.Drag(60, 50, 90, 50, PointerButton.Right);     // the hand: nothing to take hold of, so the view moves instead
 		Assert.NotEqual(Vector2.Zero, rig.Camera.Pan);
 		rig.Camera.Pan = Vector2.Zero;                   // (back where the screen points are)
-		rig.Drag(60, 100, 90, 100, MouseButton.Right);   // the forearm's joint: the same
+		rig.Drag(60, 100, 90, 100, PointerButton.Right);   // the forearm's joint: the same
 		Assert.NotEqual(Vector2.Zero, rig.Camera.Pan);
 		rig.Camera.Pan = Vector2.Zero;
 		rig.Pose();
@@ -89,7 +89,7 @@ public class ComfortTests
 		rig.Body.Locked = true;   // the rig panel can still pick it
 		rig.State.Pick(new object[] { rig.Upper, rig.Body });
 
-		rig.Drag(0, 100, 0, 120, MouseButton.Right);   // by the upper arm's joint
+		rig.Drag(0, 100, 0, 120, PointerButton.Right);   // by the upper arm's joint
 		rig.Pose();
 
 		AssertNear(new Vector2(0, 120), rig.Upper.World.Translation);
@@ -266,7 +266,7 @@ public class ComfortTests
 	{
 		var rig = new Rig();
 		rig.Tool.Snap = new Snapping { ToGrid = true, GridSize = 10 };
-		rig.Drag(60, 100, 73, 104, MouseButton.Right);   // the forearm's joint, to near (70, 100)
+		rig.Drag(60, 100, 73, 104, PointerButton.Right);   // the forearm's joint, to near (70, 100)
 		AssertNear(new Vector2(70, 0), rig.Lower.SetupPosition);   // (on the upper arm, from its joint at (0, 100))
 	}
 
@@ -275,7 +275,7 @@ public class ComfortTests
 	{
 		var rig = new Rig();
 		rig.Tool.Snap = new Snapping { ToGrid = true, GridSize = 10 };
-		rig.Drag(0, -100, 8, -93, MouseButton.Right);   // the body: its middle (the pivot) to near (10, -90)
+		rig.Drag(0, -100, 8, -93, PointerButton.Right);   // the body: its middle (the pivot) to near (10, -90)
 		AssertNear(new Vector2(10, -90), rig.CentreOf(rig.Body));
 	}
 
@@ -286,7 +286,7 @@ public class ComfortTests
 		rig.Tool.Snap = new Snapping { ToGrid = true, GridSize = 10 };
 		rig.State.Pick(new object[] { rig.Upper, rig.Body });
 
-		rig.Drag(0, 100, 4, 117, MouseButton.Right);   // by the upper arm's joint, to near (0, 120)
+		rig.Drag(0, 100, 4, 117, PointerButton.Right);   // by the upper arm's joint, to near (0, 120)
 		rig.Pose();
 
 		AssertNear(new Vector2(0, 120), rig.Upper.World.Translation);
@@ -296,8 +296,8 @@ public class ComfortTests
 	[Fact]
 	public void Shift_turns_a_bone_in_15_degree_steps()
 	{
-		var rig = new Rig { Held = ModifierKeys.Shift };
-		rig.Tool.MouseDown(Rig.Screen(30, 100), MouseButton.Right);   // on the upper arm: it turns round its joint (0, 100)
+		var rig = new Rig { Held = KeyMods.Shift };
+		rig.Tool.MouseDown(Rig.Screen(30, 100), PointerButton.Right);   // on the upper arm: it turns round its joint (0, 100)
 		foreach (var degrees in new[] { 10, 25, 37 })
 		{
 			float a = degrees * MathF.PI / 180;
@@ -318,7 +318,7 @@ public class ComfortTests
 		var snap = new Snapping { ToGrid = true, GridSize = 10 };
 		var tool = new ObjectTool(() => scene, new SceneState(), rig.Camera, rig.Renderer, rig.State.Undo)
 		{
-			Modifiers = () => ModifierKeys.None,
+			Modifiers = () => KeyMods.None,
 			Snap = snap
 		};
 
@@ -329,9 +329,9 @@ public class ComfortTests
 		var expected = moved + snap.Offset(handles.Corners.Append(handles.Origin).Select(p => p + moved).ToList(), rig.Camera.Zoom);
 		Assert.NotEqual(moved, expected);
 
-		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Left, 1);   // its body: selected
+		tool.MouseDown(Rig.Screen(0, -100), PointerButton.Left, 1);   // its body: selected
 		tool.MouseUp();
-		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Right, 1);
+		tool.MouseDown(Rig.Screen(0, -100), PointerButton.Right, 1);
 		tool.MouseMove(Rig.Screen(6, -98));
 		tool.MouseMove(Rig.Screen(13, -96));
 		tool.MouseUp();
