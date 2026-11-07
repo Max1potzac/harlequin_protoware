@@ -184,6 +184,13 @@ public sealed partial class MainWindow : Window
 		double now = _clock.Elapsed.TotalSeconds;
 		float dt = (float)Math.Min(now - _last, 0.1);
 		_last = now;
+		Frame(dt);
+	}
+
+	// One frame: the time goes on, everything drawn again, the panels following (the tests step
+	// the window frame by frame this way)
+	internal void Frame(float dt)
+	{
 		Tick(dt);
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();

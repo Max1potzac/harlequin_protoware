@@ -37,7 +37,7 @@ internal static class Windows
 	internal static void Settle(MainWindow window)
 	{
 		Dispatcher.UIThread.RunJobs();
-		window.Tick(0);
+		window.Frame(0);
 		Dispatcher.UIThread.RunJobs();
 	}
 
