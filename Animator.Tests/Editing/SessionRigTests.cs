@@ -1,4 +1,5 @@
 using System.Numerics;
+using Animator.Core.Export;
 using Animator.Viewer;
 using Animator.Viewer.Rendering;
 
@@ -471,7 +472,7 @@ public class SessionRigTests
 		Assert.Empty(state.Animation.Events?.Track.Keys ?? new());
 
 		// A sound map's sounds into the scene's (nothing new: no undo step)
-		var map = new SoundMapFile { Sounds = { ["step"] = Path.GetFullPath("step.wav"), [" "] = "x.wav" } };
+		var map = new SoundMapFile { Sounds = { ["step"] = System.IO.Path.GetFullPath("step.wav"), [" "] = "x.wav" } };
 		Assert.True(session.ImportSoundMap(map, "", "Import the sound map"));
 		Assert.Single(scene.Sounds);
 		Assert.False(session.ImportSoundMap(map, "", "Import the sound map"));
