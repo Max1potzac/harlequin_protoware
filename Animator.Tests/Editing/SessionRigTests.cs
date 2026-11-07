@@ -267,7 +267,8 @@ public class SessionRigTests
 		Assert.Same(arm, point.Bone);
 
 		Assert.True(session.RenameBoxItem(box, "body"));
-		Assert.False(session.RenameBoxItem(point, "body"));   // (it checks its own kind's names)
+		Assert.True(session.RenameBoxItem(point, "body"));    // (points have names of their own)
+		Assert.False(session.RenameBoxItem(point, "body"));   // unchanged
 		Assert.True(session.SetHitboxKind(box, "attack"));
 		Assert.False(session.SetHitboxKind(box, " "));
 		Assert.True(session.SetHitboxShape(box, HitboxShape.Circle));
