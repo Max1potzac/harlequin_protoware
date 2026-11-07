@@ -341,6 +341,49 @@ public class ComfortTests
 
 	// ======================= autosave and backups =======================
 
+	// Autosave's bookkeeping without a window (Autosaver)
+	[Fact]
+	public void A_copy_is_kept_only_when_theres_unsaved_work_and_its_time()
+	{
+		string folder = TempFolder();
+		string was = Recovery.Folder;
+		Recovery.Folder = folder;
+		try
+		{
+			var skeleton = new Skeleton();
+			skeleton.Roots.Add(new Bone { Name = "root", Length = 10 });
+			var walk = new Animation { Name = "walk", Duration = 1f };
+			var session = new EditorSession(new AssetStore(), new EditorState(skeleton, walk));
+			session.Scene.Objects.Add(new SceneObject("hero", ObjectKind.Rigged, skeleton) { Animations = { walk } });
+			var now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+			var autosave = new Autosaver(session) { Now = () => now };
+
+			Assert.False(autosave.Unsaved);
+			Assert.False(autosave.Tick(minutes: 1, busy: false));   // nothing to keep
+
+			Assert.True(session.State.EditStructure(() =>
+			{
+				skeleton.Roots[0].Length = 20;
+				return "Longer";
+			}));
+			Assert.True(autosave.Unsaved);
+			Assert.False(autosave.Tick(minutes: 1, busy: false));   // not a minute yet
+			now = now.AddMinutes(2);
+			Assert.False(autosave.Tick(minutes: 0, busy: false));   // off
+			Assert.False(autosave.Tick(minutes: 1, busy: true));    // mid-drag
+			Assert.True(autosave.Tick(minutes: 1, busy: false));
+			Assert.NotNull(autosave.CopyFile);
+			Assert.False(autosave.Tick(minutes: 1, busy: false));   // nothing changed since
+			autosave.Forget(waitForIt: true);
+			Assert.Null(autosave.CopyFile);
+		}
+		finally
+		{
+			Recovery.Folder = was;
+		}
+	}
+
+
 	[Fact]
 	public void Copies_left_by_a_run_that_is_over_are_offered_and_this_runs_own_are_not()
 	{
