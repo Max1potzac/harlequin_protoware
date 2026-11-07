@@ -1,5 +1,5 @@
 using Animator.Core.Import;
-using Animator.Core.Utilities;
+using PixelRect = Animator.Core.Utilities.PixelRect;
 using Animator.Viewer.Import;
 using Animator.Viewer.Painting;
 using Avalonia;
