@@ -1,4 +1,3 @@
-using System.Numerics;
 using Animator.Core.Scenes;
 using Animator.Desktop.Import;
 using Animator.Viewer;
