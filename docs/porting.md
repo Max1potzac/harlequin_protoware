@@ -73,4 +73,8 @@ throughout.
 11. **Editing aids and sound** (EditorSession.Aids.cs): bones and parts hidden, shown, locked and
    unlocked; the bones' own colours; selection sets made, changed, renamed and deleted; guides and
    the grid size; an animation's sound track, the scene's sound map and events brought in from files.
+12. **Imports and bring-ins** (EditorSession.Import.cs, .Parts.cs): Photoshop files, Animate
+   projects and sprite sheets read (saying what's wrong with a file rather than throwing) and
+   brought in as objects or as parts of the open one; another object, or Animate projects' parts,
+   merged into the open one; a part's blend mode, colour and opacity at rest or keyed.
 
