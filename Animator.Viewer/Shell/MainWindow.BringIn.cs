@@ -24,7 +24,7 @@ public partial class MainWindow
 			Tell("There's no other object in this project to bring in from. Import it first (File → Import…: its Animate project, say), then open this object again.");
 			return;
 		}
-		_paint.Tool.Deactivate(_paint);
+		_session.FinishPaintTool();
 		var dialog = new BringInWindow(target.Name, _skeleton, sources, SkinOps.Categories(_skeleton), () => _state.PickedBones.ToList()) { Owner = this };
 		if (dialog.ShowDialog() != true || dialog.Source is not { } source) return;
 
@@ -56,7 +56,7 @@ public partial class MainWindow
 			Tell("Open the object to bring the heads into first (double-click it), and pick its head bone.");
 			return;
 		}
-		_paint.Tool.Deactivate(_paint);
+		_session.FinishPaintTool();
 		var picked = _state.PickedBones.ToList();
 		var dialog = new BatchBringInWindow(target.Name, picked, SkinOps.Categories(_skeleton), _appSettings.ImportFolder) { Owner = this };
 		if (dialog.ShowDialog() != true) return;

@@ -75,7 +75,7 @@ public partial class MainWindow
 				MessageBoxButton.OK, MessageBoxImage.Warning);
 			return;
 		}
-		_paint.Tool.Deactivate(_paint);
+		_session.FinishPaintTool();
 		if (Unsaved && MessageBox.Show(this, $"Go back to {DocumentName} as it was last saved? The changes since then are thrown away (undo can't bring them back).",
 				"Reopen", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
 			return;

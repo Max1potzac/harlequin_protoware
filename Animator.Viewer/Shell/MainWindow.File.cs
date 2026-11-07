@@ -156,7 +156,7 @@ public partial class MainWindow
 
 	private bool SaveTo(string path)
 	{
-		_paint.Tool.Deactivate(_paint);   // finish a half-placed figure, so it gets saved too
+		_session.FinishPaintTool();   // finish a half-placed figure, so it gets saved too
 		try
 		{
 			using var thumbnail = RenderThumbnail(256);
@@ -185,7 +185,7 @@ public partial class MainWindow
 	// true = go ahead (saved or discarded), false = the user cancelled
 	private bool ConfirmDiscard()
 	{
-		_paint.Tool.Deactivate(_paint);
+		_session.FinishPaintTool();
 		if (!Unsaved) return true;
 
 		var answer = MessageBox.Show(this, $"Save changes to {DocumentName}?", "Harlequin",

@@ -14,9 +14,6 @@ public partial class MainWindow
 		public override string ToString() => Label;
 	}
 
-	private Slot? _paintSlot;        // the part whose drawing the paint editor shows (null = none)
-	private Asset? _paintFollowed;   // the drawing that part showed when the editor last looked
-
 	// The drawing the panel works on: the one at the playhead (Animate mode),
 	// or the part's rest drawing (Setup mode)
 	private string? CurrentDrawing(Slot slot) => _session.CurrentDrawing(slot);
@@ -156,27 +153,11 @@ public partial class MainWindow
 	// to it, so you can draw frame by frame. Not while playing, and never mid-stroke.
 	private void FollowPaintDrawing()
 	{
-		if (_paint.Asset is not { } open) return;
-
-		bool gone = !_skeleton.Assets.ContainsKey(open.Id);   // deleted, or undone out of the project
-		if (_paintSlot is { } part && !_skeleton.Slots.Contains(part)) _paintSlot = null;
-		if (_paintSlot is not { } slot)
+		switch (_session.FollowPaint(busy: _paintCanvas.IsBusy))
 		{
-			if (gone) ClosePaintEditor();
-			return;
+			case EditorSession.PaintFollow.Close: ClosePaintEditor(); break;
+			case EditorSession.PaintFollow.Opened: ShowPaintEditor(fit: false); break;
+			case EditorSession.PaintFollow.OpenedNewSize: ShowPaintEditor(fit: true); break;
 		}
-		if (_paintCanvas.IsBusy || (_state.Playing && !gone)) return;
-
-		var shown = PartData(slot).Asset;   // what the part shows in the current pose
-		if (shown == null)
-		{
-			if (gone) ClosePaintEditor();   // hidden here, and the old drawing is gone
-			return;
-		}
-		if (shown == _paintFollowed && !gone) return;
-
-		_paintFollowed = shown;
-		if (shown != open)
-			OpenPaintEditor(shown, slot, fit: shown.Width != open.Width || shown.Height != open.Height);
 	}
 }

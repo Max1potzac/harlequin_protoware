@@ -10,21 +10,10 @@ namespace Animator.Viewer;
 
 public partial class MainWindow
 {
-	private PaintSession _paint = null!;
+	private PaintSession _paint => _session.Paint;
+	private PaintToolbox Tools => _session.PaintTools;
 	private PaintCanvas _paintCanvas = null!;
 	private bool _syncingUi;
-
-	private readonly ShapeSelectTool _select = new();
-	private readonly MagicWandTool _wand = new();
-	private readonly MoveTool _move = new();
-	private readonly StrokeTool _pencil = new(StrokeTool.Kind.Pencil);
-	private readonly StrokeTool _brush = new(StrokeTool.Kind.Brush);
-	private readonly MixerTool _mixer = new();
-	private readonly StrokeTool _eraser = new(StrokeTool.Kind.Eraser);
-	private readonly EyedropperTool _picker = new();
-	private readonly FillTool _fill = new();
-	private readonly GradientTool _gradient = new();
-	private readonly FigureTool _figure = new();
 
 	private static readonly SKColor[] PaletteColors =
 	{
@@ -36,7 +25,6 @@ public partial class MainWindow
 
 	private void InitPaint()
 	{
-		_paint = new PaintSession(_assets, _state.Undo, _skeleton, _brush);
 		_paintCanvas = new PaintCanvas(_paint);
 		_paint.Changed += SyncPaintUi;
 		_state.Undo.Changed += SyncPaintUi;
@@ -78,14 +66,14 @@ public partial class MainWindow
 		{
 			_state.Selected = hit.Slot.Bone;
 			_state.SelectedSlot = hit.Slot;
-			OpenPaintEditor(PixelsToPaint(hit.Slot, hit.Asset), hit.Slot);
+			OpenPaintEditorOn(hit.Slot);
 			return true;
 		}
 
 		// A blank (or see-through) part has no pixels to hit: inside the selected part's box will do
-		if (_state.SelectedSlot is { } slot && PartData(slot).Asset is { } asset && _tool.InsidePart(slot, world))
+		if (_state.SelectedSlot is { } slot && _session.PictureOf(slot) != null && _tool.InsidePart(slot, world))
 		{
-			OpenPaintEditor(PixelsToPaint(slot, asset), slot);
+			OpenPaintEditorOn(slot);
 			return true;
 		}
 		return false;
@@ -95,15 +83,19 @@ public partial class MainWindow
 	// along the timeline. fit: zoom to fit (off when stepping between same-size drawings).
 	private void OpenPaintEditor(Asset asset, Slot? slot, bool fit = true)
 	{
-		_paint.Tool.Deactivate(_paint);   // finish any half-placed figure first
-		// Another drawing of the same part: stay on the same layer number (lines, colors…)
-		int layer = slot != null && slot == _paintSlot && _paint.Asset is { } previous && _paint.Layer is { } current
-			? previous.Layers.IndexOf(current)
-			: -1;
-		_paint.Open(asset, layer);
-		_paintSlot = slot;
-		_paintFollowed = slot != null ? PartData(slot).Asset : null;
-		_renderer.Highlight = asset;
+		_session.OpenPaint(asset, slot);
+		ShowPaintEditor(fit);
+	}
+
+	// The part's drawing (editing a skin: the skin's own, see EditorSession.PixelsToPaint)
+	private void OpenPaintEditorOn(Slot slot)
+	{
+		if (_session.OpenPaintOn(slot)) ShowPaintEditor(fit: true);
+	}
+
+	private void ShowPaintEditor(bool fit)
+	{
+		_renderer.Highlight = _paint.Asset;
 		PaintColumn.Width = new GridLength(1, GridUnitType.Star);
 		PaintSplitter.Visibility = Visibility.Visible;
 		PaintPanel.Visibility = Visibility.Visible;
@@ -112,10 +104,7 @@ public partial class MainWindow
 
 	private void ClosePaintEditor()
 	{
-		_paint.Tool.Deactivate(_paint);
-		_paint.Close();
-		_paintSlot = null;
-		_paintFollowed = null;
+		_session.ClosePaint();
 		_renderer.Highlight = null;
 		PaintColumn.Width = new GridLength(0);
 		PaintSplitter.Visibility = Visibility.Collapsed;
@@ -177,23 +166,7 @@ public partial class MainWindow
 
 	private void SelectTool(string name)
 	{
-		PaintTool tool = name switch
-		{
-			"Select" => _select,
-			"Wand" => _wand,
-			"Move" => _move,
-			"Pencil" => _pencil,
-			"Brush" => _brush,
-			"Mixer" => _mixer,
-			"Eraser" => _eraser,
-			"Picker" => _picker,
-			"Fill" => _fill,
-			"Gradient" => _gradient,
-			"Figure" => _figure,
-			_ => _paint.Tool
-		};
-		if (tool != _paint.Tool) _paint.Tool.Deactivate(_paint);
-		_paint.Tool = tool;
+		_session.SelectPaintTool(name);
 
 		foreach (var rb in ToolButtons.Children.OfType<RadioButton>())
 			rb.IsChecked = (string)rb.Tag == name;
@@ -204,25 +177,25 @@ public partial class MainWindow
 	private void SyncToolOptions()
 	{
 		var t = _paint.Tool;
-		bool strokes = t == _pencil || t == _brush || t == _eraser || t == _mixer;
-		bool outline = t == _figure && _paint.FigureStyle != FigureStyle.Filled;   // the figure's line width
-		bool bySimilarColour = t == _fill || t == _wand;
+		bool strokes = Tools.DrawsStrokes(t);
+		bool outline = t == Tools.Figure && _paint.FigureStyle != FigureStyle.Filled;   // the figure's line width
+		bool bySimilarColour = Tools.BySimilarColour(t);
 
 		Show(SizeOption, strokes || outline);
 		Show(ToleranceOption, bySimilarColour);
 		Show(ContiguousBox, bySimilarColour);
-		Show(SampleAllBox, bySimilarColour || t == _mixer);
-		Show(MixOptions, t == _mixer);
-		Show(GradientTransparentBox, t == _gradient);
-		Show(SelectShapeOption, t == _select);
-		Show(SelectModeOption, t == _select || t == _wand);
-		Show(FigureOptions, t == _figure);
+		Show(SampleAllBox, bySimilarColour || t == Tools.Mixer);
+		Show(MixOptions, t == Tools.Mixer);
+		Show(GradientTransparentBox, t == Tools.Gradient);
+		Show(SelectShapeOption, t == Tools.Select);
+		Show(SelectModeOption, Tools.PicksShapes(t));
+		Show(FigureOptions, t == Tools.Figure);
 		Show(SidesOption, _paint.Figure == FigureShape.Polygon);
 
 		ToolOptionsTitle.Text = t switch
 		{
-			_ when t == _move => "Move: drag the selected pixels (or the whole layer when nothing is selected).",
-			_ when t == _picker => "Picker: click or drag over the picture to take its colour (Alt+click works with most tools).",
+			_ when t == Tools.Move => "Move: drag the selected pixels (or the whole layer when nothing is selected).",
+			_ when t == Tools.Picker => "Picker: click or drag over the picture to take its colour (Alt+click works with most tools).",
 			_ => $"{ToolLabel(t)}:"
 		};
 
@@ -316,7 +289,7 @@ public partial class MainWindow
 	private void SelectShape_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingUi || _paint is null || SelectShapeBox.SelectedItem is not SelectShape shape) return;
-		_select.Cancel();   // a shape half-made with the old setting is dropped
+		Tools.Select.Cancel();   // a shape half-made with the old setting is dropped
 		_paint.SelectShape = shape;
 	}
 
@@ -401,7 +374,7 @@ public partial class MainWindow
 		if (_paint.Asset is not { } asset) return;
 		_syncingUi = true;
 
-		string part = _paintSlot != null && _paintSlot.Name != asset.Name ? $" of {_paintSlot.Name}" : "";
+		string part = _session.PaintSlot != null && _session.PaintSlot.Name != asset.Name ? $" of {_session.PaintSlot.Name}" : "";
 		PaintTitle.Text = $"Editing: {asset.Name}{part}  ({asset.Width}×{asset.Height})";
 		ColorSwatch.Fill = new SolidColorBrush(ToWpf(_paint.Color));
 		SecondarySwatch.Fill = new SolidColorBrush(ToWpf(_paint.SecondaryColor));

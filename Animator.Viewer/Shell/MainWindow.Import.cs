@@ -21,7 +21,7 @@ public partial class MainWindow
 	private void ImportFile(ImportKind kind = ImportKind.Any)
 	{
 		if (_exporting) return;
-		_paint.Tool.Deactivate(_paint);   // a half-placed figure lands first
+		_session.FinishPaintTool();   // a half-placed figure lands first
 
 		var open = new OpenFileDialog
 		{

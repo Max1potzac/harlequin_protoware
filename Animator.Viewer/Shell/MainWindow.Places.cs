@@ -28,7 +28,7 @@ public partial class MainWindow
 
 	private object CurrentPlace() => _sceneLevel
 		? new EditPlace(null, null, false, false, null, 0)
-		: new EditPlace(_active, _state.Animation, _state.AnimateMode, PaintOpen, PaintOpen ? _paintSlot : null, _state.Frame);
+		: new EditPlace(_active, _state.Animation, _state.AnimateMode, PaintOpen, PaintOpen ? _session.PaintSlot : null, _state.Frame);
 
 	private void GoToPlace(EditPlace place)
 	{
@@ -47,7 +47,7 @@ public partial class MainWindow
 
 		if (place.Painting && place.PaintSlot is { } slot && _skeleton.Slots.Contains(slot) && PartData(slot).Asset is { } drawing)
 		{
-			if (!PaintOpen || _paintSlot != slot) OpenPaintEditor(drawing, slot);
+			if (!PaintOpen || _session.PaintSlot != slot) OpenPaintEditor(drawing, slot);
 		}
 		else if (!place.Painting && PaintOpen) ClosePaintEditor();
 		RefreshEverything();

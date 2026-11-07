@@ -161,7 +161,7 @@ public partial class MainWindow
 
 	private void EditPixels_Click(object sender, RoutedEventArgs e)
 	{
-		if (_state.SelectedSlot is { } slot && PartData(slot).Asset is { } asset) OpenPaintEditor(PixelsToPaint(slot, asset), slot);
+		if (_state.SelectedSlot is { } slot) OpenPaintEditorOn(slot);
 	}
 
 	// ======================= creating & deleting =======================

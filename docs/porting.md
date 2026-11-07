@@ -77,4 +77,8 @@ throughout.
    projects and sprite sheets read (saying what's wrong with a file rather than throwing) and
    brought in as objects or as parts of the open one; another object, or Animate projects' parts,
    merged into the open one; a part's blend mode, colour and opacity at rest or keyed.
+13. **The paint editor** (EditorSession.Paint.cs, Painting/PaintToolbox.cs): the paint session and
+   its tools (picked by name, and which options each uses); a part's drawing opened (a skin's own
+   pixels when editing one) and closed; the editor following the part's drawings along the
+   timeline. The canvas (zoom, the mouse) and the panel stay with the window.
 
