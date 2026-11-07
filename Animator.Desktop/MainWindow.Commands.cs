@@ -154,6 +154,7 @@ public sealed partial class MainWindow
 	// The command a key (with these modifiers) runs. True: there was one.
 	internal bool HandleKey(Key key, KeyModifiers modifiers)
 	{
+		if (HandlePaintKey(key, modifiers)) return true;   // (the mouse over the paint canvas: its keys first)
 		var pressed = new KeyGesture(key, modifiers);
 		foreach (var c in _commands.Values)
 			if (c.Key is { } gesture && gesture.Key == pressed.Key && gesture.KeyModifiers == pressed.KeyModifiers)

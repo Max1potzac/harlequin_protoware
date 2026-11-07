@@ -140,6 +140,9 @@ public sealed partial class MainWindow
 		order.Children.Add(front);
 		order.Children.Add(back);
 		order.Children.Add(delete);
+		var paintIt = new Button { Content = "Paint" };
+		paintIt.Click += (_, _) => { if (State.SelectedSlot is { } s) OpenPaintEditorOn(s); };
+		order.Children.Add(paintIt);
 		_partProps.Children.Add(order);
 
 		PartName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { RenameShown(); Viewport.Focus(); } };

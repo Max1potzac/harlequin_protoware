@@ -72,7 +72,7 @@ public sealed partial class MainWindow
 
 	private void AfterReplace()
 	{
-		_session.ClosePaint();
+		ClosePaintEditor();
 		_tool.BonesEnabled = _settings.ShowBones && _session.Active?.Kind != ObjectKind.Drawn;
 		_session.PoseScene(_session.ClockTime);
 		ResetView();
