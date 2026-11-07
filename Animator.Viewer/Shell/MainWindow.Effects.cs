@@ -39,11 +39,7 @@ public partial class MainWindow
 	{
 		if (_syncingRig || _shownSlot is not { } slot || BlendBox.SelectedItem is not BlendMode blend || blend == slot.Blend)
 			return;
-		_state.EditStructure(() =>
-		{
-			slot.Blend = blend;
-			return $"{slot.Name} blends: {blend}";
-		});
+		_session.SetBlend(slot, blend);
 	}
 
 	private void PartColorSwatch_Click(object sender, MouseButtonEventArgs e)
@@ -92,29 +88,7 @@ public partial class MainWindow
 	}
 
 	// Animate mode: colour and / or opacity keys at the playhead. Setup mode: the rest values.
-	private void SetPartColor(Slot slot, Vector3? color, float? opacity)
-	{
-		bool key = _state.AnimateMode;
-		int frame = SnapToFrame(key);
-		float time = _state.Time;
-		string what = color != null && opacity != null ? "colour and opacity" : color != null ? "colour" : "opacity";
-
-		_state.EditStructure(() =>
-		{
-			if (key)
-			{
-				if (color is { } c)
-					_state.Animation.GetOrCreate(slot.Name, n => new PartColorTimeline(n)).Track.Add(time, c);
-				if (opacity is { } o)
-					_state.Animation.GetOrCreate(slot.Name, n => new PartOpacityTimeline(n)).Track.Add(time, o);
-				return $"Key {slot.Name} {what} @ frame {frame}";
-			}
-
-			if (color is { } rest) slot.SetupColor = rest;
-			if (opacity is { } restOpacity) slot.SetupOpacity = restOpacity;
-			return $"Set {slot.Name} {what}";
-		});
-	}
+	private void SetPartColor(Slot slot, Vector3? color, float? opacity) => _session.SetPartColor(slot, color, opacity);
 
 	private static SKColor ToSkColor(Vector3 color, float opacity) => new(
 		(byte)Math.Clamp(MathF.Round(color.X * 255f), 0, 255),

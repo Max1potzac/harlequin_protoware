@@ -8,7 +8,8 @@ public enum PartField { X, Y, Rotation, ScaleX, ScaleY, PivotX, PivotY }
 
 // The open object's parts and their drawings, edited (EditorSession's side of the part properties
 // and the drawing controls): parts made, renamed, placed (at rest or keyed), put on another bone,
-// deleted; drawings shown, made (blank or copied), renamed, deleted, held longer or shorter. Each
+// deleted; drawings shown, made (blank or copied), renamed, deleted, held longer or shorter; its
+// blend mode, colour and opacity. Each
 // edit is one undo step and says whether it changed anything. Angles are in radians.
 public sealed partial class EditorSession
 {
@@ -212,5 +213,39 @@ public sealed partial class EditorSession
 			return result == HoldChange.Done ? $"{(frames > 0 ? "Longer" : "Shorter")} hold on {slot.Name} @ frame {frame}" : null;
 		});
 		return result;
+	}
+
+	// ======================= effects =======================
+
+	// How the part blends with what's behind it (a rest setting, for every animation)
+	public bool SetBlend(Slot slot, BlendMode blend) => blend != slot.Blend && State.EditStructure(() =>
+	{
+		slot.Blend = blend;
+		return $"{slot.Name} blends: {blend}";
+	});
+
+	// The part's colour and / or opacity (null: left as it is): keyed at the playhead (Animate),
+	// or its rest values
+	public bool SetPartColor(Slot slot, Vector3? color, float? opacity)
+	{
+		if (color == null && opacity == null) return false;
+		bool key = State.AnimateMode;
+		int frame = SnapToFrame(key);
+		float time = State.Time;
+		string what = color != null && opacity != null ? "colour and opacity" : color != null ? "colour" : "opacity";
+		return State.EditStructure(() =>
+		{
+			if (key)
+			{
+				if (color is { } c)
+					State.Animation.GetOrCreate(slot.Name, n => new PartColorTimeline(n)).Track.Add(time, c);
+				if (opacity is { } o)
+					State.Animation.GetOrCreate(slot.Name, n => new PartOpacityTimeline(n)).Track.Add(time, o);
+				return $"Key {slot.Name} {what} @ frame {frame}";
+			}
+			if (color is { } rest) slot.SetupColor = rest;
+			if (opacity is { } restOpacity) slot.SetupOpacity = restOpacity;
+			return $"Set {slot.Name} {what}";
+		});
 	}
 }
