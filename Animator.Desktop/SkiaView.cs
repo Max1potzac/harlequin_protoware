@@ -26,7 +26,11 @@ public sealed class SkiaView : Control
 
 	public override void Render(DrawingContext context)
 	{
-		double scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+		var top = TopLevel.GetTopLevel(this);
+		double scaling = top?.RenderScaling ?? 1.0;
+		// Inside something scaled (UiSize): as many pixels as it covers on the screen
+		if (top != null && this.TransformToVisual(top) is { } m)
+			scaling *= Math.Max(0.1, Math.Sqrt(m.M11 * m.M11 + m.M12 * m.M12));
 		int width = (int)Math.Ceiling(Bounds.Width * scaling);
 		int height = (int)Math.Ceiling(Bounds.Height * scaling);
 		if (width <= 0 || height <= 0 || Draw == null) return;

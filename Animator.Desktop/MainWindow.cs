@@ -67,9 +67,13 @@ public sealed partial class MainWindow : Window
 		_timeline = new TimelinePanel(State);
 		_sceneTimeline = new SceneTimelinePanel(() => _session.Scene, _session.SceneState, State) { Modifiers = () => _mods };
 		_sceneTimeline.ClipOpened += (obj, clip) => EnterObject(obj, clip);
+		_keys = KeyMap.From(_settings.Shortcuts);
 		ApplySettings();
+		ApplyAppearance();
 
 		Content = BuildLayout();
+		ShowPaintToolKeys();
+		InitAutosave();
 		WireViewport();
 		WireTimeline();
 		WireKeys();
@@ -144,15 +148,17 @@ public sealed partial class MainWindow : Window
 		var top = new StackPanel();
 		top.Children.Add(BuildMenu());
 		top.Children.Add(BuildToolBar());
-		DockPanel.SetDock(top, Dock.Top);
-		root.Children.Add(top);
+		var scaledTop = UiSize.Scaled(top);
+		DockPanel.SetDock(scaledTop, Dock.Top);
+		root.Children.Add(scaledTop);
 
 		var statusBar = new DockPanel { Margin = new Thickness(8, 2), Height = 24 };
 		DockPanel.SetDock(_hint, Dock.Right);
 		statusBar.Children.Add(_hint);
 		statusBar.Children.Add(_status);
-		DockPanel.SetDock(statusBar, Dock.Bottom);
-		root.Children.Add(statusBar);
+		var scaledStatus = UiSize.Scaled(statusBar);
+		DockPanel.SetDock(scaledStatus, Dock.Bottom);
+		root.Children.Add(scaledStatus);
 
 		// Left: the rig (or the scene's objects); right of it, the viewport over the timeline
 		var main = new Grid { ColumnDefinitions = new ColumnDefinitions("280,4,*,4,300") };
@@ -166,7 +172,7 @@ public sealed partial class MainWindow : Window
 				new TabItem { Header = "Poses", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildPosesTab() }
 			}
 		};
-		var rig = LeftTabs;
+		var rig = UiSize.Scaled(LeftTabs);
 		Grid.SetColumn(rig, 0);
 		main.Children.Add(rig);
 		var splitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
@@ -189,7 +195,7 @@ public sealed partial class MainWindow : Window
 		var timelineSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Rows };
 		Grid.SetRow(timelineSplitter, 1);
 		work.Children.Add(timelineSplitter);
-		var animations = BuildAnimationsBar();
+		var animations = UiSize.Scaled(BuildAnimationsBar());
 		Grid.SetRow(animations, 2);
 		work.Children.Add(animations);
 		Grid.SetRow(TimelineView, 3);
@@ -199,7 +205,7 @@ public sealed partial class MainWindow : Window
 		var propsSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
 		Grid.SetColumn(propsSplitter, 3);
 		main.Children.Add(propsSplitter);
-		var props = BuildProperties();
+		var props = UiSize.Scaled(BuildProperties());
 		Grid.SetColumn(props, 4);
 		main.Children.Add(props);
 
@@ -311,5 +317,5 @@ public sealed partial class MainWindow : Window
 
 	internal void Hint(string text) => _hint.Text = text;
 
-	private void UpdateTitle() => Title = $"{_session.DocumentName}{(State.Undo.IsDirty ? " *" : "")} — Harlequin";
+	private void UpdateTitle() => Title = $"{_session.DocumentName}{(Unsaved ? " *" : "")} — Harlequin";
 }

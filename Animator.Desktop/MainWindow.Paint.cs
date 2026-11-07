@@ -107,16 +107,10 @@ public sealed partial class MainWindow
 
 		// The tools
 		var tools = Wrap();
-		var keys = new Dictionary<string, string>
-		{
-			["Select"] = "M", ["Wand"] = "W", ["Move"] = "V", ["Pencil"] = "N", ["Brush"] = "B", ["Mixer"] = "X",
-			["Eraser"] = "E", ["Picker"] = "I", ["Fill"] = "G", ["Gradient"] = "D", ["Figure"] = "U"
-		};
 		foreach (string name in PaintToolbox.Names)
 		{
 			string n = name;
 			var button = new ToggleButton { Content = name, Margin = new Thickness(0, 0, 4, 4), Padding = new Thickness(8, 3) };
-			ToolTip.SetTip(button, $"{name} ({keys[name]})");
 			button.Click += (_, _) => SelectPaintTool(n);
 			_paintToolButtons[n] = button;
 			tools.Children.Add(button);
@@ -394,35 +388,50 @@ public sealed partial class MainWindow
 
 	// ======================= keys over the canvas =======================
 
-	private static readonly Dictionary<Key, string> PaintToolKeys = new()
-	{
-		[Key.M] = "Select", [Key.W] = "Wand", [Key.V] = "Move", [Key.N] = "Pencil", [Key.B] = "Brush", [Key.X] = "Mixer",
-		[Key.E] = "Eraser", [Key.I] = "Picker", [Key.G] = "Fill", [Key.D] = "Gradient", [Key.U] = "Figure"
-	};
+	// The paint keys this editor has (the key map's ids), and each tool's
+	private static readonly HashSet<string> PaintCommands = KeyMap.Commands.Where(c => c.Scope == KeyScope.Paint).Select(c => c.Id).ToHashSet();
+
+	private static string PaintToolCommand(string tool) => "paint." + tool.ToLowerInvariant();
 
 	// While the mouse is over the canvas: the paint editor's keys first (true: handled)
-	internal bool HandlePaintKey(Key key, KeyModifiers mods)
+	internal bool HandlePaintKey(KeyChord chord)
 	{
 		if (!_session.PaintOpen || !PaintView.IsPointerOver) return false;
+		if (_keys.CommandFor(chord, KeyScope.Paint) is not { } id) return false;
 		var tools = PaintTools;
-		switch (key, mods)
+		foreach (string tool in PaintToolbox.Names)
+			if (id == PaintToolCommand(tool))
+			{
+				SelectPaintTool(tool);
+				return true;
+			}
+		switch (id)
 		{
-			case (_, KeyModifiers.None) when PaintToolKeys.TryGetValue(key, out var tool): SelectPaintTool(tool); return true;
-			case (Key.S, KeyModifiers.None): Paint.SwapColors(); return true;
-			case (Key.OemOpenBrackets, KeyModifiers.None): Paint.Size = Math.Max(1, Paint.Size - 1); SyncPaintUi(); return true;
-			case (Key.OemCloseBrackets, KeyModifiers.None): Paint.Size = Math.Min(64, Paint.Size + 1); SyncPaintUi(); return true;
-			case (Key.A, KeyModifiers.Control): Paint.SelectAll(); return true;
-			case (Key.D, KeyModifiers.Control): Paint.Deselect(); return true;
-			case (Key.I, KeyModifiers.Control | KeyModifiers.Shift): Paint.InvertSelection(); return true;
-			case (Key.Delete, KeyModifiers.None) when Paint.Selection != null: Paint.DeleteSelectedPixels(); return true;
-			case (Key.Enter, KeyModifiers.None) when tools.Figure.InProgress: tools.Figure.Finish(Paint); return true;
-			case (Key.Enter, KeyModifiers.None) when tools.Select.PlacingPoints: tools.Select.Finish(Paint); return true;
-			case (Key.Back, KeyModifiers.None) when tools.Figure.InProgress: tools.Figure.RemoveLastPoint(Paint); return true;
-			case (Key.Back, KeyModifiers.None) when tools.Select.PlacingPoints: tools.Select.RemoveLastPoint(Paint); return true;
-			case (Key.Escape, KeyModifiers.None) when tools.Figure.InProgress: tools.Figure.Cancel(Paint); return true;
-			case (Key.Escape, KeyModifiers.None) when tools.Select.PlacingPoints: tools.Select.Cancel(); return true;
-			case (Key.Escape, KeyModifiers.None) when Paint.Selection != null: Paint.Deselect(); return true;
-			default: return false;
+			case "paint.swap": Paint.SwapColors(); return true;
+			case "paint.smaller": Paint.Size = Math.Max(1, Paint.Size - 1); SyncPaintUi(); return true;
+			case "paint.bigger": Paint.Size = Math.Min(64, Paint.Size + 1); SyncPaintUi(); return true;
+			case "paint.selectAll": Paint.SelectAll(); return true;
+			case "paint.deselect": Paint.Deselect(); return true;
+			case "paint.invert": Paint.InvertSelection(); return true;
+			case "paint.delete" when Paint.Selection != null: Paint.DeleteSelectedPixels(); return true;
+			case "paint.finish" when tools.Figure.InProgress: tools.Figure.Finish(Paint); return true;
+			case "paint.finish" when tools.Select.PlacingPoints: tools.Select.Finish(Paint); return true;
+			case "paint.undoPoint" when tools.Figure.InProgress: tools.Figure.RemoveLastPoint(Paint); return true;
+			case "paint.undoPoint" when tools.Select.PlacingPoints: tools.Select.RemoveLastPoint(Paint); return true;
+			case "paint.cancel" when tools.Figure.InProgress: tools.Figure.Cancel(Paint); return true;
+			case "paint.cancel" when tools.Select.PlacingPoints: tools.Select.Cancel(); return true;
+			case "paint.cancel" when Paint.Selection != null: Paint.Deselect(); return true;
+			default: return false;   // (not now: the key goes on to the editor's own)
+		}
+	}
+
+	// Each tool button names its key
+	private void ShowPaintToolKeys()
+	{
+		foreach (var (name, button) in _paintToolButtons)
+		{
+			string keys = _keys.Describe(PaintToolCommand(name));
+			ToolTip.SetTip(button, keys.Length > 0 ? $"{name} ({keys})" : name);
 		}
 	}
 
