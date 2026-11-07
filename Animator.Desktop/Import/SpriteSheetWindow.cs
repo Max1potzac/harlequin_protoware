@@ -65,7 +65,7 @@ public sealed class SpriteSheetWindow : Window
 	internal readonly RadioButton HandMode = new() { Content = "Draw them by hand", GroupName = "cut" };
 	internal readonly RadioButton JsonMode = new() { Content = "As its JSON file says", GroupName = "cut" };
 	private readonly StackPanel _gridFields = new() { Spacing = 4, Margin = new Thickness(24, 0, 0, 0) };
-	private readonly StackPanel _findFields = new() { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(24, 0, 0, 0) };
+	private readonly WrapPanel _findFields = new() { Orientation = Orientation.Horizontal, ItemSpacing = 6, Margin = new Thickness(24, 0, 0, 0) };   // (on two lines when narrow)
 	internal readonly TextBox CellWidth = Num(), CellHeight = Num(), OffsetX = Num(), OffsetY = Num(), GapX = Num(), GapY = Num(), SplitX = Num(), SplitY = Num(), Join = Num(), Smallest = Num();
 	private readonly TextBlock _jsonHint = new() { Foreground = Brushes.Gray, TextWrapping = TextWrapping.Wrap, FontSize = 12, Margin = new Thickness(24, 0, 0, 0) };
 	private readonly Button _cutButton = new() { Content = "Cut again" };
