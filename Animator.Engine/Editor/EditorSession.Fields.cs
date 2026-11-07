@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Globalization;
 
 namespace Animator.Viewer;
