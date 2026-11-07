@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Animator.Viewer.Tools;
 
 // What the mesh tool does in the viewport (the part panel's Mesh box)

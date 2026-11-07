@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Animator.Viewer.Tools;
 
 // The rulers and guides in the viewport (see ViewAids): where a guide is on screen, and dragging
