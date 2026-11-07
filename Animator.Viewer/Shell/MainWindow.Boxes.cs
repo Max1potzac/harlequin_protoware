@@ -23,13 +23,6 @@ public partial class MainWindow
 
 	private bool _boxDrag => _session.DraggingBox;   // (see EditorSession.BeginBoxDrag)
 
-	private bool ShowingHitboxes => !_sceneLevel && (_showHitboxes || _boxesView);
-
-	private void DrawHitboxes(SKCanvas canvas)
-	{
-		if (!ShowingHitboxes || (_skeleton.Hitboxes.Count == 0 && _skeleton.Points.Count == 0)) return;
-		DrawInSpace(canvas, _camera.Space, () => HitboxRenderer.Draw(canvas, _skeleton, _renderer.Zoom, _boxesView ? _boxItem : null, _boxesView ? _boxHover : null));
-	}
 
 	private void ToggleHitboxes()
 	{

@@ -144,42 +144,6 @@ public partial class MainWindow
 
 	// ======================= the viewport =======================
 
-	private void DrawMeshOverlay(SKCanvas canvas)
-	{
-		if (_meshTool == MeshMode.None || MeshPart() is not { Mesh: { } mesh } part) return;
-		DrawInSpace(canvas, _camera.Space, () =>
-		{
-			float px = 1f / MathF.Max(_renderer.Zoom, 1e-4f);
-			var posed = MeshOps.Posed(part.Slot, part.Drawing, mesh);
-			using var edge = new SKPaint { Color = new SKColor(255, 255, 255, 110), Style = SKPaintStyle.Stroke, StrokeWidth = 1f * px, IsAntialias = true };
-			var t = mesh.Triangles;
-			for (int i = 0; i < t.Length; i += 3)
-			{
-				using var path = ShapePaths.Polyline(new[] { posed[t[i]], posed[t[i + 1]], posed[t[i + 2]] }, closed: true);
-				canvas.DrawPath(path, edge);
-			}
-			var bone = _meshTool == MeshMode.Weights ? WeightBone() : null;
-			using var dot = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = true };
-			using var ring = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1f * px, IsAntialias = true };
-			for (int i = 0; i < posed.Length; i++)
-			{
-				dot.Color = bone != null ? Heat(MeshOps.WeightOf(mesh, i, bone)) : i == _mesh.Hover ? SKColors.Yellow : SKColors.White;
-				float r = (bone != null ? 4.5f : 3.5f) * px;
-				canvas.DrawCircle(posed[i].X, posed[i].Y, r, dot);
-				canvas.DrawCircle(posed[i].X, posed[i].Y, r, ring);
-			}
-		});
-	}
-
-	// Blue (none) → green → red (all of it)
-	private static SKColor Heat(float weight)
-	{
-		weight = Math.Clamp(weight, 0f, 1f);
-		return weight < 0.5f
-			? new SKColor(0, (byte)(weight * 2 * 255), (byte)((1 - weight * 2) * 255))
-			: new SKColor((byte)((weight - 0.5f) * 2 * 255), (byte)((1 - (weight - 0.5f) * 2) * 255), 0);
-	}
-
 	// True: the mouse went down for the mesh tool (a point taken hold of, or weights painted)
 	private bool MeshMouseDown(Vector2 screen, PointerButton button)
 	{
