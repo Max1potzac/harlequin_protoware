@@ -103,6 +103,7 @@ public class SettingsTests
 			Assert.Equal(1.25, UiSize.Current);
 			Dispatcher.UIThread.RunJobs();
 			var frame = dialog.CaptureRenderedFrame();
+			Directory.CreateDirectory(Windows.ShotsFolder);   // (whichever test runs first)
 			frame!.Save(Path.Combine(Windows.ShotsFolder, "settings-appearance.png"));
 			dialog.TryOk();
 			return Task.FromResult(true);
