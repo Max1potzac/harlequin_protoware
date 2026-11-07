@@ -1,5 +1,5 @@
 using System.Numerics;
-using System.Windows.Input;
+using Animator.Viewer.Tools;
 using SkiaSharp;
 
 namespace Animator.Viewer.Panels;
@@ -180,16 +180,16 @@ public sealed class GraphPanel
 		else _range = _manual ?? Fit(channels);
 		if (_focus is { } f && Focused() == null) _focus = null;
 
-		canvas.Clear(Themes.Sk("Canvas"));
+		canvas.Clear(CanvasTheme.Sk("Canvas"));
 		using var font = new SKFont { Size = 12 };
 		using var small = new SKFont { Size = 10 };
-		using var text = new SKPaint { Color = Themes.Sk("CanvasText"), IsAntialias = true };
-		using var faint = new SKPaint { Color = Themes.SkAlpha("CanvasText", 170), IsAntialias = true };
-		using var tick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
-		using var grid = new SKPaint { Color = Themes.SkAlpha("CanvasText", 18), StrokeWidth = 1 };
-		using var zero = new SKPaint { Color = Themes.SkAlpha("CanvasText", 50), StrokeWidth = 1 };
-		using var divider = new SKPaint { Color = Themes.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
-		using var playhead = new SKPaint { Color = Themes.Sk("Playhead"), StrokeWidth = 2 };
+		using var text = new SKPaint { Color = CanvasTheme.Sk("CanvasText"), IsAntialias = true };
+		using var faint = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 170), IsAntialias = true };
+		using var tick = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
+		using var grid = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 18), StrokeWidth = 1 };
+		using var zero = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 50), StrokeWidth = 1 };
+		using var divider = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
+		using var playhead = new SKPaint { Color = CanvasTheme.Sk("Playhead"), StrokeWidth = 2 };
 
 		// The ruler (frames), as in the dopesheet
 		for (int fr = 0; fr <= frames; fr++)
@@ -243,7 +243,7 @@ public sealed class GraphPanel
 		if (Focused() is { } focus)
 		{
 			var keys = focus.Channel.Keys();
-			using var arm = new SKPaint { Color = Themes.SkAlpha("CanvasText", 150), StrokeWidth = 1, IsAntialias = true };
+			using var arm = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 150), StrokeWidth = 1, IsAntialias = true };
 			using var knob = new SKPaint { Color = SKColors.White, IsAntialias = true };
 			if (Handles(focus.Channel, focus.Key, keys) is { } outOf)
 			{
@@ -337,19 +337,19 @@ public sealed class GraphPanel
 
 	// ======================= the mouse =======================
 
-	public void MouseDown(Vector2 p, ModifierKeys modifiers, MouseButton button, int clicks)
+	public void MouseDown(Vector2 p, KeyMods modifiers, PointerButton button, int clicks)
 	{
 		_press = p;
 		_changed = false;
-		bool shift = modifiers.HasFlag(ModifierKeys.Shift);
+		bool shift = modifiers.HasFlag(KeyMods.Shift);
 
-		if (button == MouseButton.Middle)
+		if (button == PointerButton.Middle)
 		{
 			_manual ??= _range;
 			_drag = Drag.Pan;
 			return;
 		}
-		if (button != MouseButton.Left) return;
+		if (button != PointerButton.Left) return;
 
 		if (p.X < LabelWidth)
 		{
@@ -406,7 +406,7 @@ public sealed class GraphPanel
 		_dragRange = _range;   // the values stay put while something is dragged
 	}
 
-	public void MouseMove(Vector2 p, ModifierKeys modifiers)
+	public void MouseMove(Vector2 p, KeyMods modifiers)
 	{
 		switch (_drag)
 		{
@@ -422,7 +422,7 @@ public sealed class GraphPanel
 				}
 				break;
 			case Drag.Key when _before != null && Focused() is { } focus:
-				DragKeys(p, focus, modifiers.HasFlag(ModifierKeys.Shift));
+				DragKeys(p, focus, modifiers.HasFlag(KeyMods.Shift));
 				break;
 			case Drag.Handle when _before != null && Focused() is { } focus:
 				DragHandle(p, focus);

@@ -91,15 +91,15 @@ public class TimelineToolsTests
 	public void Ctrl_drag_boxes_keys_and_Alt_click_takes_every_key_at_its_frame()
 	{
 		var (state, panel, a, b) = Panel();
-		panel.MouseDown(At(3, 0) + new Vector2(0, -8), ModifierKeys.Control);
+		panel.MouseDown(At(3, 0) + new Vector2(0, -8), KeyMods.Control);
 		panel.MouseMove(At(7, 1) + new Vector2(0, 8));
 		panel.MouseUp();
 		Assert.Equal(new[] { ("a", 5), ("b", 5) }, state.SelectedKeys.Select(k => (k.Tl.Target, k.Frame)).OrderBy(k => k.Item1));
 
-		panel.MouseDown(At(10, 0), ModifierKeys.Alt);   // the key at 10: just a has one there
+		panel.MouseDown(At(10, 0), KeyMods.Alt);   // the key at 10: just a has one there
 		panel.MouseUp();
 		Assert.Equal(new (Timeline, int)[] { (a, 10) }, state.SelectedKeys);
-		panel.MouseDown(At(5, 1), ModifierKeys.Alt | ModifierKeys.Shift);   // and every key at 5, as well
+		panel.MouseDown(At(5, 1), KeyMods.Alt | KeyMods.Shift);   // and every key at 5, as well
 		panel.MouseUp();
 		Assert.Equal(3, state.SelectedKeys.Count);
 	}
@@ -120,7 +120,7 @@ public class TimelineToolsTests
 		// Only b's row: it's the first row now, so a click there takes its key
 		state.Pick(new object[] { state.Skeleton.FindBone("b")! });
 		panel.OnlyPicked = true;
-		panel.MouseDown(At(20, 0), ModifierKeys.None);
+		panel.MouseDown(At(20, 0), KeyMods.None);
 		panel.MouseUp();
 		Assert.Equal(new (Timeline, int)[] { (b, 20) }, state.SelectedKeys);
 	}

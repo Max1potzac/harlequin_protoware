@@ -1,5 +1,5 @@
 using System.Text.Json;
-using System.Windows.Input;
+using Animator.Viewer.Tools;
 using Animator.Core.Serialization;
 using Animator.Viewer;
 using Animator.Viewer.Panels;
@@ -122,9 +122,9 @@ public class CurveTests
 	public void In_the_graph_a_click_selects_a_key_and_dragging_it_changes_its_value()
 	{
 		var (state, graph, turn) = Graph();
-		graph.MouseDown(At(30, 90), ModifierKeys.None, MouseButton.Left, 1);
+		graph.MouseDown(At(30, 90), KeyMods.None, PointerButton.Left, 1);
 		Assert.Equal(new (Timeline, int)[] { (turn, 30) }, state.SelectedKeys);
-		graph.MouseMove(At(30, 99), ModifierKeys.Shift);   // up only
+		graph.MouseMove(At(30, 99), KeyMods.Shift);   // up only
 		graph.MouseUp();
 		Assert.Equal(99f, turn.Track.Keys[1].Value * 180 / MathF.PI, 1);
 		Assert.Equal(30, KeyTimeOps.FrameOf(turn.Track.Keys[1].Time, Fps));
@@ -137,13 +137,13 @@ public class CurveTests
 	public void Dragging_a_keys_handle_eases_its_stretch_with_a_Bezier()
 	{
 		var (state, graph, turn) = Graph();
-		graph.MouseDown(At(0, 0), ModifierKeys.None, MouseButton.Left, 1);   // the first key: its handles show
+		graph.MouseDown(At(0, 0), KeyMods.None, PointerButton.Left, 1);   // the first key: its handles show
 		graph.MouseUp();
 		Draw(graph);
 
 		// Its way-out handle, a third of the way along (straight, for a linear stretch): to halfway, flat
-		graph.MouseDown(At(10, 30), ModifierKeys.None, MouseButton.Left, 1);
-		graph.MouseMove(At(15, 0), ModifierKeys.None);
+		graph.MouseDown(At(10, 30), KeyMods.None, PointerButton.Left, 1);
+		graph.MouseMove(At(15, 0), KeyMods.None);
 		graph.MouseUp();
 
 		var key = turn.Track.Keys[0];

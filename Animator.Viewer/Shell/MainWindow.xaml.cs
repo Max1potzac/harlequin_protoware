@@ -290,7 +290,7 @@ public partial class MainWindow : Window, IScalesItsParts
 		_sceneTimelineDrag = _sceneLevel;
 		if (_sceneLevel)
 		{
-			_sceneTimeline.MouseDown(p, e.ChangedButton, e.ClickCount);
+			_sceneTimeline.MouseDown(p, (PointerButton)e.ChangedButton, e.ClickCount);
 			if (_sceneLevel && e.ChangedButton == MouseButton.Left) TimelineView.CaptureMouse();   // not if a clip just opened
 			UpdateStatus();
 			return;
@@ -304,7 +304,7 @@ public partial class MainWindow : Window, IScalesItsParts
 				if (Graph.SelectForMenu(p)) ShowKeyMenu();
 				return;
 			}
-			Graph.MouseDown(p, Keyboard.Modifiers, e.ChangedButton, e.ClickCount);
+			Graph.MouseDown(p, HeldKeys(), (PointerButton)e.ChangedButton, e.ClickCount);
 			TimelineView.CaptureMouse();
 			UpdateStatus();
 			return;
@@ -328,7 +328,7 @@ public partial class MainWindow : Window, IScalesItsParts
 			return;
 		}
 
-		_timeline.MouseDown(p, Keyboard.Modifiers);
+		_timeline.MouseDown(p, HeldKeys());
 		TimelineView.CaptureMouse();
 		UpdateStatus();
 	}
@@ -337,7 +337,7 @@ public partial class MainWindow : Window, IScalesItsParts
 	{
 		var p = PosIn(TimelineView, e);
 		if (_sceneTimelineDrag) _sceneTimeline.MouseMove(p);
-		else if (_graphMode) Graph.MouseMove(p, Keyboard.Modifiers);
+		else if (_graphMode) Graph.MouseMove(p, HeldKeys());
 		else _timeline.MouseMove(p);
 	}
 
