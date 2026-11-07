@@ -51,7 +51,8 @@ public sealed partial class MainWindow : Window
 		Title = "Harlequin";
 		Width = 1280;
 		Height = 800;
-		Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x21, 0x27));
+		ShowThemeColours();
+		ActualThemeVariantChanged += (_, _) => ShowThemeColours();
 
 		_renderer = new SkeletonRenderer(_assets);
 		var (skeleton, animation) = NewCharacter();
