@@ -74,13 +74,20 @@ public sealed partial class MainWindow
 			return;
 		}
 
-		// Inside an object: a double-click on another object opens that one
-		if (button == _tool.SelectButton && clicks == 2
-			&& _objectTool.Pick(_camera.ScreenToScene(pos)) is { } other && other != _session.Active)
+		// Inside an object: a double-click on a part paints it; on another object, opens that one
+		if (button == _tool.SelectButton && clicks == 2)
 		{
-			EnterObject(other);
-			_viewPressed = false;
-			return;
+			if (TryOpenPaintAt(pos))
+			{
+				_viewPressed = false;
+				return;
+			}
+			if (_objectTool.Pick(_camera.ScreenToScene(pos)) is { } other && other != _session.Active)
+			{
+				EnterObject(other);
+				_viewPressed = false;
+				return;
+			}
 		}
 
 		_tool.MouseDown(pos, button);

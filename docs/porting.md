@@ -135,3 +135,8 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
    taken out or hidden by them, moved, deleted (their drawings back to the object, or with
    them), a category renamed. Poses: kept, renamed, put on again (mirrored, partly, on just the
    picked), kept again, deleted; the pose mirrored, copied and pasted; the rig symmetrized.
+5. **The paint editor**, beside the viewport (a double-click on a part, or Paint on the part
+   panel): the engine's PaintCanvas, the eleven tools with the options each uses, the colours
+   (a colour dialog, a palette, typed as hex), the drawing's layers (shown, named, faded, added,
+   deleted, moved), the canvas size; it follows the part's drawings along the timeline, and has
+   the Windows editor's keys while the mouse is over it.

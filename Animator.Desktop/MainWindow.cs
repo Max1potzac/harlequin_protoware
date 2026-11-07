@@ -174,8 +174,18 @@ public sealed partial class MainWindow : Window
 		main.Children.Add(splitter);
 
 		var work = new Grid { RowDefinitions = new RowDefinitions("*,4,Auto,190") };
-		Grid.SetRow(Viewport, 0);
-		work.Children.Add(Viewport);
+		// The viewport, and the paint editor beside it while it's open
+		var paintColumn = new ColumnDefinition(0, GridUnitType.Pixel);
+		var views = new Grid { ColumnDefinitions = { new ColumnDefinition(1, GridUnitType.Star), new ColumnDefinition(4, GridUnitType.Pixel), paintColumn } };
+		views.Children.Add(Viewport);
+		_paintSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns, IsVisible = false };
+		Grid.SetColumn(_paintSplitter, 1);
+		views.Children.Add(_paintSplitter);
+		var paint = BuildPaintPanel(paintColumn);
+		Grid.SetColumn(paint, 2);
+		views.Children.Add(paint);
+		Grid.SetRow(views, 0);
+		work.Children.Add(views);
 		var timelineSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Rows };
 		Grid.SetRow(timelineSplitter, 1);
 		work.Children.Add(timelineSplitter);
@@ -217,6 +227,7 @@ public sealed partial class MainWindow : Window
 		SyncToolBar();
 		SyncRigSelection();
 		SyncProperties();
+		FollowPaint();
 		UpdateStatus();
 	}
 
