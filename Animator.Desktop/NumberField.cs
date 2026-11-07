@@ -32,7 +32,14 @@ public sealed class NumberField : Grid
 		Step = step;
 		ColumnDefinitions = new ColumnDefinitions("78,*");
 		Margin = new Thickness(0, 2);
-		_label = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, Cursor = new Cursor(StandardCursorType.SizeWestEast) };
+		_label = new TextBlock
+		{
+			Text = label,
+			VerticalAlignment = VerticalAlignment.Stretch,
+			Padding = new Thickness(0, 5, 0, 0),
+			Background = Avalonia.Media.Brushes.Transparent,   // (all of it takes the mouse, not just the letters)
+			Cursor = new Cursor(StandardCursorType.SizeWestEast)
+		};
 		Box = new TextBox { MinHeight = 26, Padding = new Thickness(6, 2) };
 		SetColumn(_label, 0);
 		SetColumn(Box, 1);
