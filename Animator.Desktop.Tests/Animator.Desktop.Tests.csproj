@@ -2,7 +2,7 @@
 
   <!-- The Avalonia editor's checks, run without a screen (Avalonia's headless platform, drawing
        with Skia, so what the window shows can be saved as pictures). xUnit v3: the tests are a
-       program, run with  dotnet run --project Animator.Desktop.Tests. Pictures go to the
+       program: dotnet run, with the project Animator.Desktop.Tests. Pictures go to the
        folder in HQ_SHOTS (CI keeps them with the run), else screenshots/ next to the tests. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
