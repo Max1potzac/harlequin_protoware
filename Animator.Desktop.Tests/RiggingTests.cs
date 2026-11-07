@@ -1,3 +1,4 @@
+using Animator.Core.Scenes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -5,6 +6,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using SkiaSharp;
 using Xunit;
 
 namespace Animator.Desktop.Tests;
@@ -106,7 +108,7 @@ public class RiggingTests
 		var rig = window.State.Skeleton;
 		Assert.True(window.ShowingLayers);
 		Assert.True(rig.Slots.Count >= 3);
-		Assert.Equal(rig.Slots.Reverse().Cast<object>(), Rows(window));   // front first
+		Assert.Equal(Enumerable.Reverse(rig.Slots).Cast<object>(), Rows(window));   // front first
 
 		// The one at the back dropped over the front one: in front of everything
 		var back = rig.Slots[0];
