@@ -15,6 +15,7 @@ namespace Animator.Viewer;
 public partial class MainWindow
 {
 	private readonly Snapping _snap = new();
+	private ViewportPainter _painter = null!;          // what the viewport shows (see ViewportPainter)
 	private GuideTool _guides = null!;              // the rulers and guides, dragged (see GuideTool)
 	private Vector2? _mouseOnView;                  // for the rulers' red marks
 	private Guide? _guideDrag => _guides?.Dragging;
@@ -22,6 +23,13 @@ public partial class MainWindow
 	private void InitViewAids()
 	{
 		_guides = new GuideTool(_session, _camera) { Snap = _snap, SomethingToPickAt = SomethingToPickAt };
+		_painter = new ViewportPainter(_session, _camera, _renderer, _tool, _objectTool, _guides, _mesh)
+		{
+			Onion = _onion,
+			WeightBone = WeightBone,
+			PoseScene = PoseScene   // (the mixer playing poses the open object)
+		};
+		_paintCanvas.LightTable = _painter.LightTable;   // the part's other drawings under the one painted
 		_tool.Snap = _snap;
 		_objectTool.Snap = _snap;
 		ApplyViewAids();
@@ -84,45 +92,6 @@ public partial class MainWindow
 		var s = _appSettings;
 		return $"View: {K("view.rulers")} rulers, {K("view.grid")} grid, {K("view.guides")} guides (drag one out of a ruler, back onto it to take it away; {K("view.lockGuides")}: lock them).   " +
 			   $"Snap: {K("view.snapGrid")} to the grid ({OnOff(s.SnapToGrid)}), {K("view.snapGuides")} to guides ({OnOff(s.SnapToGuides)}). Grid size: View menu";
-	}
-
-	// ======================= drawing =======================
-
-	// The space the grid and guides are in: the open object's, or the scene's
-	private Matrix3x2 AidSpace => Editing ? _camera.Space : Matrix3x2.Identity;
-
-	// The part of that space on screen
-	private SKRect VisibleArea()
-	{
-		var view = _camera.ViewSize;
-		var corners = new[] { Vector2.Zero, new Vector2(view.X, 0), view, new Vector2(0, view.Y) }
-			.Select(_camera.ScreenToWorld).ToArray();
-		var min = corners.Aggregate(Vector2.Min);
-		var max = corners.Aggregate(Vector2.Max);
-		return new SKRect(min.X, min.Y, max.X, max.Y);
-	}
-
-	// Under the scene: the axes' companions
-	private void DrawGrid(SKCanvas canvas)
-	{
-		if (!_appSettings.ShowGrid) return;
-		DrawInSpace(canvas, AidSpace, () => ViewAids.DrawGrid(canvas, VisibleArea(), _scene.GridSize, _camera.EditZoom));   // (pixels per unit of that space)
-	}
-
-	// Over everything
-	private void DrawGuides(SKCanvas canvas)
-	{
-		if (!_appSettings.ShowGuides || _scene.Guides.Count == 0) return;
-		DrawInSpace(canvas, AidSpace, () =>
-			ViewAids.DrawGuides(canvas, _scene.Guides, VisibleArea(), _camera.EditZoom, _guideDrag, _appSettings.LockGuides));
-	}
-
-	// The canvas in screen units
-	private void DrawRulers(SKCanvas canvas)
-	{
-		if (!_appSettings.ShowRulers) return;
-		var (top, left) = _guides.Marks();
-		ViewAids.DrawRulers(canvas, _camera.ViewSize, _camera.ScreenToWorld, top, left, _mouseOnView);
 	}
 
 	// ======================= where guides are on screen (see GuideTool) =======================

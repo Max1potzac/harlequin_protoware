@@ -121,36 +121,22 @@ public partial class MainWindow : Window, IScalesItsParts
 		canvas.Clear(Themes.Sk("Viewport"));
 		if (Viewport.ActualWidth <= 0) return;
 
-		float dpi = (float)(e.Info.Width / Viewport.ActualWidth);
-		canvas.Scale(dpi);   // DPI fix
-		_camera.ViewSize = new((float)Viewport.ActualWidth, (float)Viewport.ActualHeight);
-		_camera.Apply(canvas);   // scene space from here on
 		_snap.GridSize = _scene.GridSize;   // (the project's: it changes with undo, or another file)
 		_snap.Guides = _scene.Guides;
-
-		_renderer.Zoom = _camera.Zoom;
-		_renderer.Selected = _state.Selected;
-		_renderer.SelectedSlot = _state.SelectedSlot;
-		_renderer.HideHidden = !_sceneLevel;   // bones and parts hidden with their eyes: while editing
-		_renderer.SkipLocked = !_sceneLevel;   // ...and locked ones can't be picked
-		_renderer.PickedBones = _sceneLevel ? NoBones : _state.PickedBones.ToHashSet();
-		_renderer.PickedSlots = _sceneLevel ? NoSlots : _state.PickedSlots.ToHashSet();
-		_renderer.SelectionBox = _sceneLevel ? null : _tool.SelectionBox;
-		_renderer.ShowPivotHandle = !_state.AnimateMode && _state.Picked.Count <= 1;   // in Animate mode, part drags set placement keys
-		_renderer.ShowBones = !IsDrawn && _appSettings.ShowBones;   // a drawn object's one bone stays hidden; View → Bones
-		_renderer.PartsOf = !_sceneLevel && !IsDrawn && _state.SelectedSlot == null ? _state.Selected : null;   // what's on the selected bone
-		_renderer.GhostBone = _tool.CreatePreview;
-		_renderer.TipHandleOf = !_sceneLevel && !IsDrawn ? _tool.TipHandle : null;   // Setup mode: where the selected bone ends
-		DrawScene(canvas);   // onion ghosts, every object, then the open object's bones and handles
-		DrawGuides(canvas);
-
-		canvas.ResetMatrix();
-		canvas.Scale(dpi);   // screen units from here on
-		DrawRulers(canvas);
+		var s = _appSettings;
+		_painter.ShowGrid = s.ShowGrid;
+		_painter.ShowGuides = s.ShowGuides;
+		_painter.ShowRulers = s.ShowRulers;
+		_painter.LockGuides = s.LockGuides;
+		_painter.ShowBones = s.ShowBones;
+		_painter.ShowHitboxes = _showHitboxes;
+		_painter.BoxesView = _boxesView;
+		_painter.BoxPicked = _boxItem;
+		_painter.BoxHover = _boxHover;
+		_painter.MouseOnView = _mouseOnView;
+		// onion ghosts, every object, then the open object's bones and handles; guides; rulers
+		_painter.Draw(canvas, new((float)Viewport.ActualWidth, (float)Viewport.ActualHeight), (float)(e.Info.Width / Viewport.ActualWidth));
 	}
-
-	private static readonly HashSet<Bone> NoBones = new();
-	private static readonly HashSet<Slot> NoSlots = new();
 
 	private void OnTimelinePaint(object? sender, SKPaintSurfaceEventArgs e)
 	{

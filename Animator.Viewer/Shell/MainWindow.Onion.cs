@@ -18,7 +18,6 @@ public partial class MainWindow
 		OnionAfter.ItemsSource = Enumerable.Range(0, 6).ToList();
 		OnionStep.ItemsSource = Enumerable.Range(1, 4).ToList();
 		SyncOnionUi();
-		_paintCanvas.LightTable = LightTableImages;
 	}
 
 	private void SyncOnionUi()
@@ -45,82 +44,5 @@ public partial class MainWindow
 		if (OnionBefore.SelectedItem is int before) _onion.Before = before;
 		if (OnionAfter.SelectedItem is int after) _onion.After = after;
 		if (OnionStep.SelectedItem is int step) _onion.Step = step;
-	}
-
-	// ======================= viewport =======================
-
-	// Draws the ghosts behind everything, farthest first. Inside an object only that object gets
-	// them; at scene level, every visible object with "Onion skin" ticked. Each ghost poses the
-	// scene at its own frame; afterwards everything goes back to the frame you're on.
-	// Not while playing. (The canvas is in scene space.)
-	private void DrawOnionGhosts(SKCanvas canvas)
-	{
-		if (!_onion.Enabled || _state.Playing || !_renderer.ShowImages) return;
-		var ghosted = _scene.Objects.Where(o => Editing ? o == _active : o.Visible && o.Onion).ToList();
-		if (ghosted.Count == 0) return;
-
-		int now = (int)MathF.Round(ClockTime * _state.Fps);
-		bool drew = false;
-		for (int k = _onion.Before; k >= 1; k--)
-			drew |= DrawGhostsAt(canvas, ghosted, now - k * _onion.Step, now, before: true, k, _onion.Before);
-		for (int k = _onion.After; k >= 1; k--)
-			drew |= DrawGhostsAt(canvas, ghosted, now + k * _onion.Step, now, before: false, k, _onion.After);
-
-		if (drew) PoseScene(ClockTime);
-	}
-
-	private bool DrawGhostsAt(SKCanvas canvas, List<SceneObject> ghosted, int frame, int now, bool before, int distance, int count)
-	{
-		// Frames of the animation being edited, or of the scene timeline: a loop wraps around
-		int frames = Editing ? _state.FrameCount : (int)MathF.Round(_scene.Duration * _state.Fps);
-		bool loops = Editing ? _state.Animation.Loop : _scene.Loop;
-		if (frames <= 0) return false;
-		if (loops) frame = (frame % frames + frames) % frames;
-		else if (frame < 0 || frame > frames) return false;
-		if (frame == now) return false;
-
-		PoseScene(frame / (float)_state.Fps);   // all of it, so attached objects follow their holders
-		float opacity = OnionSkin.Opacity(distance, count);
-		foreach (var obj in ghosted)
-			DrawInSpace(canvas, _scene.WorldTransform(obj), () => _renderer.DrawGhost(canvas, obj.Skeleton, before, opacity));
-		return true;
-	}
-
-	// The whole pose pipeline at one time: rest pose, the animation's keys, then constraints
-	private void PoseAt(float time) => _state.PoseAt(time);
-
-	// ======================= paint editor (light table) =======================
-
-	// The part's previous and next drawings, placed relative to the drawing being painted
-	// (all drawings of a part sit on the same bone, so only their own placements matter)
-	private IReadOnlyList<LightTableImage> LightTableImages()
-	{
-		var images = new List<LightTableImage>();
-		if (!_onion.Enabled || _state.Playing || _session.PaintSlot is not { } slot || _paint.Asset is not { } open)
-			return images;
-
-		var painted = _skeleton.AllSkins().SelectMany(s => s.AttachmentsFor(slot.Name)).FirstOrDefault(a => a.AssetId == open.Id);
-		if (painted == null || !Matrix3x2.Invert(painted.LocalMatrix(open.Width, open.Height), out var toPainted))
-			return images;
-
-		var (earlier, later) = DrawingOps.Neighbors(_state.Animation, slot, _state.Time, _onion.Before, _onion.After);
-		AddGhosts(earlier, before: true, _onion.Before);
-		AddGhosts(later, before: false, _onion.After);
-		return images;
-
-		void AddGhosts(List<string> names, bool before, int count)
-		{
-			for (int k = names.Count; k >= 1; k--)   // farthest first, so the nearest ends up on top
-			{
-				if (DrawingOps.Find(_skeleton, slot, names[k - 1]) is not { } drawing
-					|| drawing.AssetId == open.Id
-					|| !_skeleton.Assets.TryGetValue(drawing.AssetId, out var asset)
-					|| _assets.Get(asset) is not { } bitmap)
-					continue;
-
-				var placement = drawing.LocalMatrix(asset.Width, asset.Height) * toPainted;
-				images.Add(new LightTableImage(bitmap, placement, before, OnionSkin.Opacity(k, count)));
-			}
-		}
 	}
 }

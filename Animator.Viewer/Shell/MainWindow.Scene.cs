@@ -28,7 +28,6 @@ public partial class MainWindow
 	private bool _syncingScene;
 	private object? _shownObject;          // the object the properties show
 	private SceneClip? _shownClip;         // the clip the properties show
-	private const float FadedOpacity = 0.35f;
 
 	private bool Editing => _session.Editing;
 	private float ClockTime => _session.ClockTime;
@@ -115,79 +114,6 @@ public partial class MainWindow
 
 	private static Animation? PreviewOf(SceneObject obj) => ScenePlayer.Preview(obj);
 
-	// The canvas is in scene space here. Objects are drawn in list order (first = furthest back);
-	// while you edit one, the others are faded and its bones and handles go on top of everything.
-	private void DrawScene(SKCanvas canvas)
-	{
-		// The axes the panel's numbers are measured from: the open object's origin, or the scene's
-		DrawInSpace(canvas, Editing ? _camera.Space : Matrix3x2.Identity, () => _renderer.DrawAxes(canvas));
-		DrawGrid(canvas);   // in the same units, behind everything
-		if (Editing) DrawStage(canvas);   // inside an object: just the frame's outline, behind
-		DrawOnionGhosts(canvas);
-
-		foreach (var obj in _scene.Objects)
-		{
-			bool open = Editing && obj == _active;
-			if (!obj.Visible && !open) continue;   // a hidden object still shows while you work on it
-			DrawInSpace(canvas, _scene.WorldTransform(obj), () =>
-			{
-				if (Editing && !open) _renderer.DrawFaded(canvas, obj.Skeleton, FadedOpacity);
-				else _renderer.DrawParts(canvas, obj.Skeleton);
-				if (!Editing && obj.Kind == ObjectKind.Rigged && _renderer.ImageBounds(obj.Skeleton) == null)
-					_renderer.DrawBoneHints(canvas, obj.Skeleton);   // a rig with no pictures yet
-			});
-		}
-
-		if (Editing)
-		{
-			DrawInSpace(canvas, _camera.Space, () => _renderer.DrawOverlays(canvas, _skeleton));
-			DrawHitboxes(canvas);
-			DrawMeshOverlay(canvas);
-			return;
-		}
-
-		DrawStage(canvas);   // at scene level, what's outside the frame is dimmed
-
-		// Scene level: every object's origin as a faint cross (so even an empty one can be found)
-		foreach (var obj in _scene.Objects.Where(o => o.Visible))
-			ObjectGizmo.DrawOrigin(canvas, Vector2.Transform(Vector2.Zero, _scene.WorldTransform(obj)), _camera.Zoom);
-
-		if (_objectTool.Selected is { Visible: true } selected && _scene.Objects.Contains(selected))
-		{
-			ObjectGizmo.Draw(canvas, ObjectGizmo.For(_scene, selected, _renderer, _camera.Zoom), _camera.Zoom,
-							 handles: !selected.Locked);
-			// Carried by a bone: a dashed line from that bone's joint to the object's origin
-			if (_scene.AttachmentBone(selected) is { } bone && _scene.Find(selected.AttachObject!) is { } holder)
-				ObjectGizmo.DrawAttachLine(canvas,
-					Vector2.Transform(bone.World.Translation, _scene.WorldTransform(holder)),
-					Vector2.Transform(Vector2.Zero, _scene.WorldTransform(selected)), _camera.Zoom);
-		}
-	}
-
-	// The stage: the frame the scene is made for (an animation project's video size), centred on
-	// the scene's origin. At scene level everything outside it is dimmed.
-	private void DrawStage(SKCanvas canvas)
-	{
-		if (!_scene.HasStage) return;
-		float w = _scene.StageWidth / 2f, h = _scene.StageHeight / 2f, px = 1f / _camera.Zoom, far = 1e6f;
-		if (!Editing)
-		{
-			using var dim = new SKPaint { Color = new SKColor(0, 0, 0, 100) };
-			canvas.DrawRect(new SKRect(-far, h, far, far), dim);     // above (y points up)
-			canvas.DrawRect(new SKRect(-far, -far, far, -h), dim);   // below
-			canvas.DrawRect(new SKRect(-far, -h, -w, h), dim);       // left
-			canvas.DrawRect(new SKRect(w, -h, far, h), dim);         // right
-		}
-		using var edge = new SKPaint
-		{
-			Color = new SKColor(255, 255, 255, Editing ? (byte)45 : (byte)120),
-			Style = SKPaintStyle.Stroke,
-			StrokeWidth = 1.5f * px,
-			IsAntialias = true
-		};
-		canvas.DrawRect(new SKRect(-w, -h, w, h), edge);
-	}
-
 	// F: zoom 1, centred on the open object's origin. At scene level: the whole stage in view
 	// (or zoom 1 on the scene's origin, without a stage).
 	private void ResetView()
@@ -202,24 +128,6 @@ public partial class MainWindow
 			float fit = MathF.Min(_camera.ViewSize.X / _scene.StageWidth, _camera.ViewSize.Y / _scene.StageHeight);
 			_camera.Zoom = Math.Clamp(fit * 0.9f, 0.1f, 20f);
 		}
-	}
-
-	// Draws in an object's space. The renderer keeps lines and handles the same size on screen.
-	private void DrawInSpace(SKCanvas canvas, Matrix3x2 space, Action draw)
-	{
-		var m = SkeletonRenderer.ToSk(space);
-		canvas.Save();
-		canvas.Concat(in m);
-		_renderer.Zoom = _camera.Zoom * ScaleOf(space);
-		draw();
-		canvas.Restore();
-		_renderer.Zoom = _camera.Zoom;
-	}
-
-	private static float ScaleOf(Matrix3x2 m)
-	{
-		float det = MathF.Abs(m.M11 * m.M22 - m.M12 * m.M21);
-		return det > 1e-12f ? MathF.Sqrt(det) : 1f;
 	}
 
 	// Inside an object, a double-click on another object opens that one instead

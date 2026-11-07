@@ -9,7 +9,7 @@ throughout.
 |---|---|---|
 | 1 | **Animator.Engine**: everything that isn't a window (drawing, painting, imports, exports, the project file, the editing state) moved out of Animator.Viewer into a plain .NET library, built on Linux by CI | done |
 | 2 | **A command-line Harlequin** (`harlequin`, see [cli.md](cli.md)) on the engine: open and save projects, import Animate and Photoshop files, bring heads (or other parts) in from other Animate projects as skins, render a frame or a sheet of skins to a picture, export. CI builds it for Linux and Windows and publishes it as a release download. | done |
-| 3 | **Editing logic out of the window code** (in progress: the session, see below): the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | |
+| 3 | **Editing logic out of the window code** (the session, the tools, the panels and the viewport, see below): the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | done |
 | 4 | **An Avalonia editor** (Animator.Desktop) on the engine, built panel by panel next to the WPF one, with headless UI tests | |
 | 5 | **Parity**, then the Avalonia editor becomes the one released (for Windows too), and the WPF one is retired | |
 
@@ -81,4 +81,27 @@ throughout.
    its tools (picked by name, and which options each uses); a part's drawing opened (a skin's own
    pixels when editing one) and closed; the editor following the part's drawings along the
    timeline. The canvas (zoom, the mouse) and the panel stay with the window.
+14. **The viewport tools** (Animator.Engine/Tools): BoneTool (picking, posing and rigging bones and
+   parts), ObjectTool (whole objects), Snapping and KeyShift, with the engine's own mouse buttons
+   and modifier keys (PointerButton, KeyMods: the same names and numbers as WPF's, so the Windows
+   editor casts, and settings saved by name still read).
+15. **The viewport's other drags** (GuideTool, MeshEditTool, EditorSession box drags) and **IK,
+   space switches and throws** (EditorSession.Ik.cs): guides out of the rulers, moved and taken
+   away; mesh points dragged and weights painted; hitboxes and points moved and resized; IK
+   matched, baked, switched, toggled and flipped; a bone made to follow another, or thrown.
+16. **The timelines, the graph, the paint canvas and the settings** (Animator.Engine/Panels,
+   PaintCanvas, AppSettings): drawn with Skia already, so moved whole; the theme's colours handed
+   in by the editor (CanvasTheme).
+17. **What the viewport shows** (Rendering/ViewportPainter.cs): the scene, the onion ghosts, the open
+   object's bones, handles, hitboxes and mesh, the stage, grid, guides and rulers; the paint
+   editor's light table. And **autosave's bookkeeping** (Files/Autosaver.cs): when a copy is kept,
+   written in the background, forgotten on save, adopted after a crash.
+
+What stays in Animator.Viewer is the Windows UI itself, for step 4 to build again in Avalonia:
+the window's layout, menus and panels of controls (MainWindow.xaml and its partial files, which
+now mostly fill in controls and call the session), the dialogs, the two WPF controls of the
+property panels (NumberScrub, AdjustEditor), the theme brushes (Themes), the shortcut map (KeyMap,
+on WPF's keys), the sound player (MediaPlayer), and the timers. The Avalonia editor hosts the
+engine's panels, tools and ViewportPainter on its own Skia surfaces, and translates its mouse
+and keys into PointerButton and KeyMods.
 
