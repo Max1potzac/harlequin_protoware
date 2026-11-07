@@ -134,7 +134,7 @@ public sealed class SettingsWindow : Window
 		var keys = new DockPanel { Margin = new Thickness(10) };
 		DockPanel.SetDock(FilterBox, Dock.Top);
 		FilterBox.Margin = new Thickness(0, 0, 0, 6);
-		FilterBox.TextChanged += (_, _) => ShowList();
+		FilterBox.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) ShowList(); };   // (as it's typed)
 		keys.Children.Add(FilterBox);
 		var details = new StackPanel { Spacing = 6, Margin = new Thickness(0, 8, 0, 0) };
 		details.Children.Add(CommandTitle);
