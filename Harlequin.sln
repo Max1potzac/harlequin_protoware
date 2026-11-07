@@ -15,12 +15,18 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Engine", "Animator
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Cli", "Animator.Cli\Animator.Cli.csproj", "{3C7E9A14-5B2D-4F86-A1E3-8D9C0B6F2E45}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Desktop", "Animator.Desktop\Animator.Desktop.csproj", "{7E2B5C91-4A3D-4F6E-9C18-2D7A6B5E3F10}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7E2B5C91-4A3D-4F6E-9C18-2D7A6B5E3F10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E2B5C91-4A3D-4F6E-9C18-2D7A6B5E3F10}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E2B5C91-4A3D-4F6E-9C18-2D7A6B5E3F10}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E2B5C91-4A3D-4F6E-9C18-2D7A6B5E3F10}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6A0F3B52-8C1D-4E7A-9B2C-5D4E3F2A1B07}.Release|Any CPU.ActiveCfg = Release|Any CPU

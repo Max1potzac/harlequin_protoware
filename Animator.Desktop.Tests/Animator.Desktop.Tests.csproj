@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Avalonia editor's checks, run without a screen (Avalonia's headless platform, drawing
+       with Skia, so what the window shows can be saved as pictures). xUnit v3: the tests are a
+       program: dotnet run, with the project Animator.Desktop.Tests. Pictures go to the
+       folder in HQ_SHOTS (CI keeps them with the run), else screenshots/ next to the tests. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.HarfBuzz" Version="12.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Animator.Desktop\Animator.Desktop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Animator.Tests\Files\imagemagick-layers.psd" Link="Files\imagemagick-layers.psd" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
