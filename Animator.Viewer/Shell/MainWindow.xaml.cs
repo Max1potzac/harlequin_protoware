@@ -39,6 +39,7 @@ public partial class MainWindow : Window, IScalesItsParts
 	{
 		Themes.Apply(Themes.Find(_appSettings.Theme));   // (before the window's parts take its colours)
 		InitializeComponent();
+		CanvasTheme.Colour = Themes.Sk;   // what the engine draws with Skia (timelines, graph, rulers) follows the theme
 		RestoreLayout();   // the window and its panels as they were left
 		UiScale.Apply(_appSettings.UiScale);
 		Themes.Changed += ThemeChanged;
