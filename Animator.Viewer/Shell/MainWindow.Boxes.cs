@@ -21,17 +21,7 @@ public partial class MainWindow
 	private object? _boxHover;
 	private bool _syncingBoxes;
 
-	private sealed class BoxDrag
-	{
-		public required object Item;
-		public required bool Resize;
-		public required StructureSnapshot Before;
-		public required Vector2 Start;          // where the mouse went down, in the object's space
-		public required Vector2 StartOffset;
-		public required Vector2 StartSize;
-		public bool Moved;
-	}
-	private BoxDrag? _boxDrag;
+	private bool _boxDrag => _session.DraggingBox;   // (see EditorSession.BeginBoxDrag)
 
 	private bool ShowingHitboxes => !_sceneLevel && (_showHitboxes || _boxesView);
 
@@ -141,34 +131,16 @@ public partial class MainWindow
 		if (!_boxesView || _sceneLevel || button != PointerButton.Left || _tool.Tool == ViewTool.Paint) return false;
 		if (BoxAt(screen) is not { } hit) return false;
 		_boxItem = hit.Item;
-		_boxDrag = new BoxDrag
-		{
-			Item = hit.Item,
-			Resize = hit.Resize,
-			Before = _state.CaptureStructure(),
-			Start = _camera.ScreenToWorld(screen),
-			StartOffset = hit.Item is Hitbox h ? h.Offset : ((RigPoint)hit.Item).Offset,
-			StartSize = hit.Item is Hitbox s ? s.Size : Vector2.Zero
-		};
+		_session.BeginBoxDrag(hit.Item, hit.Resize, _camera.ScreenToWorld(screen));
 		BuildBoxesPanel();
 		return true;
 	}
 
-	private void BoxMouseMove(Vector2 screen)
-	{
-		if (_boxDrag is not { } drag) return;
-		var world = _camera.ScreenToWorld(screen);
-		if (drag.Resize && drag.Item is Hitbox box) EditorSession.ResizeHitboxTo(box, world);
-		else EditorSession.MoveBoxItem(drag.Item, drag.StartOffset, drag.Start, world);
-		drag.Moved = true;
-	}
+	private void BoxMouseMove(Vector2 screen) => _session.DragBoxTo(_camera.ScreenToWorld(screen));
 
 	private void BoxMouseUp()
 	{
-		if (_boxDrag is not { } drag) return;
-		_boxDrag = null;
-		string name = drag.Item is Hitbox h ? h.Name : ((RigPoint)drag.Item).Name;
-		if (drag.Moved) _state.PushStructure(drag.Before, drag.Resize ? $"Resize {name}" : $"Move {name}");
+		_session.EndBoxDrag();
 		BuildBoxesPanel();
 	}
 

@@ -261,4 +261,41 @@ public sealed partial class EditorSession
 			};
 			return true;
 		});
+
+	// ======================= dragging in the viewport =======================
+
+	private sealed record BoxDrag(object Item, bool Resize, StructureSnapshot Before, Vector2 Start, Vector2 StartOffset)
+	{
+		public bool Moved { get; set; }
+	}
+	private BoxDrag? _boxDrag;
+
+	public bool DraggingBox => _boxDrag != null;
+
+	// A hitbox or point (the one under the mouse, see BoxItemAt) taken hold of at this point of the
+	// object's space: moved, or resized by its corner
+	public void BeginBoxDrag(object item, bool resize, Vector2 world)
+	{
+		var offset = item is Hitbox h ? h.Offset : ((RigPoint)item).Offset;
+		_boxDrag = new BoxDrag(item, resize, State.CaptureStructure(), world, offset);
+	}
+
+	public void DragBoxTo(Vector2 world)
+	{
+		if (_boxDrag is not { } drag) return;
+		if (drag.Resize && drag.Item is Hitbox box) ResizeHitboxTo(box, world);
+		else MoveBoxItem(drag.Item, drag.StartOffset, drag.Start, world);
+		drag.Moved = true;
+	}
+
+	// Let go: one undo step, if it moved (true)
+	public bool EndBoxDrag()
+	{
+		if (_boxDrag is not { } drag) return false;
+		_boxDrag = null;
+		if (!drag.Moved) return false;
+		string name = drag.Item is Hitbox h ? h.Name : ((RigPoint)drag.Item).Name;
+		State.PushStructure(drag.Before, drag.Resize ? $"Resize {name}" : $"Move {name}");
+		return true;
+	}
 }
