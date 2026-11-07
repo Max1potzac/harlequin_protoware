@@ -9,7 +9,7 @@ public sealed class Autosaver
 {
 	private readonly EditorSession _session;
 	private string? _file;                 // this run's copy of the open document (null: none yet)
-	private DateTime _lastKept = DateTime.UtcNow;
+	private DateTime? _lastKept;           // (null: from the first tick on)
 	private Task? _keeping;                // a copy being written
 	private int _version;                  // goes up on every save, new and open: a copy kept for an
 	                                       // older one is thrown away once it's written
@@ -35,8 +35,9 @@ public sealed class Autosaver
 	// True: a copy is being written.
 	public bool Tick(int minutes, bool busy)
 	{
+		_lastKept ??= Now();
 		if (minutes <= 0 || _keeping != null || !Unsaved || !_changedSinceKept) return false;
-		if (Now() - _lastKept < TimeSpan.FromMinutes(minutes)) return false;
+		if (Now() - _lastKept.Value < TimeSpan.FromMinutes(minutes)) return false;
 		if (busy) return false;
 		return Keep();
 	}
