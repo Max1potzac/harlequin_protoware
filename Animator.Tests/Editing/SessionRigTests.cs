@@ -254,4 +254,64 @@ public class SessionRigTests
 		state.Undo.Undo();
 		Assert.Contains(state.Skeleton.ColorLayers, l => l.Name == "glow");
 	}
+
+	[Fact]
+	public void Hitboxes_and_points_are_edited_through_the_session()
+	{
+		var (session, root, arm, _, _) = Rig();
+		var state = session.State;
+		state.Selected = arm;
+		var box = session.AddHitbox(HitboxShape.Box, "hurt")!;
+		Assert.Same(arm, box.Bone);
+		var point = session.AddPoint()!;
+		Assert.Same(arm, point.Bone);
+
+		Assert.True(session.RenameBoxItem(box, "body"));
+		Assert.True(session.RenameBoxItem(point, "body"));    // (points have names of their own)
+		Assert.False(session.RenameBoxItem(point, "body"));   // unchanged
+		Assert.True(session.SetHitboxKind(box, "attack"));
+		Assert.False(session.SetHitboxKind(box, " "));
+		Assert.True(session.SetHitboxShape(box, HitboxShape.Circle));
+		Assert.Equal(box.Size.X, box.Size.Y);
+		Assert.True(session.PlaceBoxItem(box, size: new System.Numerics.Vector2(20, 5)));
+		Assert.Equal(20f, box.Size.Y);                          // a circle: both
+		Assert.False(session.PlaceBoxItem(box, size: new System.Numerics.Vector2(20, 5)));
+		Assert.True(session.SetBoxBone(point, root));
+		Assert.Same(root, point.Bone);
+		Assert.True(session.SetHitboxActive(box, false));
+
+		Assert.False(session.KeyHitbox(box, true));             // Animate's
+		state.AnimateMode = true;
+		state.SetFrame(5);
+		Assert.True(session.KeyHitbox(box, true));
+
+		state.Skeleton.UpdateWorld();
+		Assert.Same(box, session.BoxItemAt(box.World.Translation, 1f, null)?.Item);
+
+		Assert.True(session.DeleteBoxItem(box));
+		Assert.True(session.DeleteBoxItem(point));
+		Assert.Empty(state.Skeleton.Hitboxes);
+		state.Undo.Undo();
+		Assert.Single(state.Skeleton.Points);
+	}
+
+	[Fact]
+	public void Meshes_are_made_weighted_and_removed_through_the_session()
+	{
+		var (session, _, arm, _, _) = Rig();
+		using var pixels = new SkiaSharp.SKBitmap(16, 16);
+		pixels.Erase(SkiaSharp.SKColors.Red);
+		var part = session.CreatePart(arm, "sleeve", pixels, 16, 16);
+		Assert.Null(session.MeshOf(part)!.Value.Mesh);
+		Assert.True(session.MakeMesh(part, 4));
+		var mesh = session.MeshOf(part)!.Value.Mesh!;
+		Assert.True(mesh.Points.Length >= 4);
+		Assert.True(session.WeighMesh(part, EditorSession.Weights.AllOn, "All on arm", arm));
+		Assert.True(session.MeshOf(part)!.Value.Mesh!.Weighted);
+		Assert.True(session.WeighMesh(part, EditorSession.Weights.None, "None"));
+		Assert.False(session.MeshOf(part)!.Value.Mesh!.Weighted);
+		Assert.True(session.RemoveMesh(part));
+		Assert.False(session.RemoveMesh(part));               // none left
+		Assert.Equal(new SkiaSharp.SKRectI(0, 0, 16, 16).Width, (int)EditorSession.VisibleRect(pixels)!.Value.W);
+	}
 }

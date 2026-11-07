@@ -63,4 +63,8 @@ throughout.
    placed at rest or keyed, put on another bone, deleted; drawings shown, made (blank or copied),
    renamed, deleted, held longer or shorter; colour layers added, deleted, moved, renamed, shown,
    leaving parts out, their numbers set at rest or keyed (a drawing's colour layers too).
+9. **Hitboxes, points and meshes** (EditorSession.Boxes.cs): hitboxes and points added (round the
+   selected part), deleted, renamed, fitted, typed, put on bones, switched on and off at rest or
+   keyed; what's under the mouse and how a drag moves or resizes one; meshes made over a drawing's
+   visible pixels, weighted (nearest bones, one bone, none) and removed.
 

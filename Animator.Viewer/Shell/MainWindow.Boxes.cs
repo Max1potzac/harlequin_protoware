@@ -47,15 +47,11 @@ public partial class MainWindow
 		AnimHint.Text = _showHitboxes ? "Hitboxes and points show (the Boxes view edits them)." : "";
 	}
 
-	private void EditBoxes(string name, Func<bool> change)
-	{
-		if (_sceneLevel) return;
-		_state.EditStructure(() => change() ? name : null);
-	}
+	private void EditBoxes(string name, Func<bool> change) => _session.EditBoxes(name, change);
 
 	// ======================= adding and deleting =======================
 
-	private Bone? BoxBone() => _state.Selected ?? _state.SelectedSlot?.Bone ?? _skeleton.Roots.FirstOrDefault();
+	private Bone? BoxBone() => _session.BoxBone();
 
 	private void BoxAdd_Click(object sender, RoutedEventArgs e)
 	{
@@ -78,14 +74,7 @@ public partial class MainWindow
 			BoxHint.Text = "Add a bone first: hitboxes go on bones.";
 			return;
 		}
-		Hitbox? made = null;
-		var part = _state.SelectedSlot;
-		EditBoxes($"Add a {kind} {(shape == HitboxShape.Box ? "box" : "circle")} on {bone.Name}", () =>
-		{
-			made = HitboxOps.AddHitbox(_skeleton, bone, shape, kind, part != null ? $"{part.Name} {kind}" : null);
-			if (part != null && part.Bone == bone) FitBox(made, part);   // round the selected part, when it's on that bone
-			return true;
-		});
+		var made = _session.AddHitbox(shape, kind);
 		_boxItem = made;
 		BuildBoxesPanel();
 		BoxHint.Text = $"{made?.Name} is on {bone.Name}. Drag it in the viewport (a corner resizes), or type its numbers.";
@@ -99,8 +88,7 @@ public partial class MainWindow
 			BoxHint.Text = "Add a bone first: points go on bones.";
 			return;
 		}
-		RigPoint? made = null;
-		EditBoxes($"Add a point on {bone.Name}", () => { made = HitboxOps.AddPoint(_skeleton, bone); return true; });
+		var made = _session.AddPoint();
 		_boxItem = made;
 		BuildBoxesPanel();
 		BoxHint.Text = $"{made?.Name}: at the tip of {bone.Name}. Drag it, and type which way it faces.";
@@ -108,16 +96,7 @@ public partial class MainWindow
 
 	private void BoxDelete_Click(object sender, RoutedEventArgs e)
 	{
-		switch (_boxItem)
-		{
-			case Hitbox hitbox:
-				EditBoxes($"Delete the hitbox {hitbox.Name}", () => { HitboxOps.DeleteHitbox(_skeleton, _state.Animations, hitbox); return true; });
-				break;
-			case RigPoint point:
-				EditBoxes($"Delete the point {point.Name}", () => _skeleton.Points.Remove(point));
-				break;
-			default: return;
-		}
+		if (_boxItem is not { } item || !_session.DeleteBoxItem(item)) return;
 		_boxItem = null;
 		BuildBoxesPanel();
 	}
@@ -131,43 +110,13 @@ public partial class MainWindow
 			BoxHint.Text = "Pick the part to fit it round (in the viewport, or the Bones or Order view): the Boxes view keeps its hitbox selected.";
 			return;
 		}
-		bool fitted = false;
-		EditBoxes($"Fit {hitbox.Name} round {part.Name}", () =>
-		{
-			_skeleton.SetToSetupPose();
-			_skeleton.UpdateWorld();
-			fitted = FitBox(hitbox, part);
-			return fitted;
-		});
-		_state.SetFrame(_state.Frame);   // (back to how the animation poses it)
+		bool fitted = _session.FitHitbox(hitbox, part);
 		BuildBoxesPanel();
 		if (!fitted) BoxHint.Text = $"{part.Name} shows nothing at rest to fit round.";
 	}
 
-	private bool FitBox(Hitbox hitbox, Slot part)
-	{
-		(float, float, float, float)? visible = null;
-		if (part.SetupAttachment is { } name && _skeleton.FindAttachment(part.Name, name) is { } drawing
-			&& _skeleton.Assets.TryGetValue(drawing.AssetId, out var asset) && _assets.Get(asset, false) is { } bitmap)
-			visible = VisibleRect(bitmap);
-		return HitboxOps.FitToPart(_skeleton, hitbox, part, visible);
-	}
-
-	// The rectangle of a picture's pixels that show (null: none do, or all of it)
-	private static (float X, float Y, float W, float H)? VisibleRect(SKBitmap bitmap)
-	{
-		int minX = bitmap.Width, minY = bitmap.Height, maxX = -1, maxY = -1;
-		for (int y = 0; y < bitmap.Height; y++)
-			for (int x = 0; x < bitmap.Width; x++)
-				if (bitmap.GetPixel(x, y).Alpha > 8)
-				{
-					if (x < minX) minX = x;
-					if (x > maxX) maxX = x;
-					if (y < minY) minY = y;
-					if (y > maxY) maxY = y;
-				}
-		return maxX < 0 ? null : (minX, minY, maxX - minX + 1, maxY - minY + 1);
-	}
+	// (see EditorSession.VisibleRect)
+	private static (float X, float Y, float W, float H)? VisibleRect(SKBitmap bitmap) => EditorSession.VisibleRect(bitmap);
 
 	// Animate mode: on or off from the playhead on
 	private void BoxOnHere_Click(object sender, RoutedEventArgs e) => KeyBox(true);
@@ -175,28 +124,16 @@ public partial class MainWindow
 
 	private void KeyBox(bool on)
 	{
-		if (_boxItem is not Hitbox hitbox || !_state.AnimateMode) return;
-		int frame = _state.Frame;
-		EditBoxes($"{hitbox.Name} {(on ? "on" : "off")} @ frame {frame}", () => HitboxOps.KeyActive(_state.Animation, hitbox, frame, _state.Fps, on));
-		_state.SetFrame(frame);
+		if (_boxItem is not Hitbox hitbox) return;
+		_session.KeyHitbox(hitbox, on);
 		BuildBoxesPanel();
 	}
 
 	// ======================= the viewport =======================
 
 	// What's under the mouse: the picked box's handles first, then points, then the smallest box
-	private (object Item, bool Resize)? BoxAt(Vector2 screen)
-	{
-		const float Reach = 8f;
-		if (_boxItem is Hitbox picked)
-			foreach (var handle in HitboxRenderer.Handles(picked))
-				if (Vector2.Distance(_camera.WorldToScreen(handle), screen) <= Reach) return (picked, true);
-		foreach (var point in _skeleton.Points.AsEnumerable().Reverse())
-			if (Vector2.Distance(_camera.WorldToScreen(point.WorldPosition), screen) <= Reach) return (point, false);
-		var world = _camera.ScreenToWorld(screen);
-		var inside = _skeleton.Hitboxes.Where(h => h.Contains(world)).OrderBy(h => h.Size.X * h.Size.Y).FirstOrDefault();
-		return inside != null ? (inside, false) : null;
-	}
+	private (object Item, bool Resize)? BoxAt(Vector2 screen) =>
+		_session.BoxItemAt(_camera.ScreenToWorld(screen), 8f / _camera.Zoom, _boxItem);
 
 	// True: the mouse went down on a hitbox or point (the Boxes view open), and drags it
 	private bool BoxMouseDown(Vector2 screen, MouseButton button)
@@ -221,23 +158,8 @@ public partial class MainWindow
 	{
 		if (_boxDrag is not { } drag) return;
 		var world = _camera.ScreenToWorld(screen);
-		var bone = drag.Item is Hitbox hb ? hb.Bone : ((RigPoint)drag.Item).Bone;
-		if (!Matrix3x2.Invert(bone.World, out var toBone)) return;
-		if (drag.Resize && drag.Item is Hitbox box)
-		{
-			// Round its middle: the corner (or edge) follows the mouse
-			if (!Matrix3x2.Invert(box.World, out var toBox)) return;
-			var local = Vector2.Transform(world, toBox);
-			box.Size = box.Shape == HitboxShape.Box
-				? new Vector2(MathF.Max(1f, 2f * MathF.Abs(local.X)), MathF.Max(1f, 2f * MathF.Abs(local.Y)))
-				: new Vector2(MathF.Max(1f, 2f * local.Length()));
-		}
-		else
-		{
-			var offset = drag.StartOffset + Vector2.TransformNormal(world - drag.Start, toBone);
-			if (drag.Item is Hitbox moved) moved.Offset = offset;
-			else ((RigPoint)drag.Item).Offset = offset;
-		}
+		if (drag.Resize && drag.Item is Hitbox box) EditorSession.ResizeHitboxTo(box, world);
+		else EditorSession.MoveBoxItem(drag.Item, drag.StartOffset, drag.Start, world);
 		drag.Moved = true;
 	}
 
@@ -279,11 +201,11 @@ public partial class MainWindow
 		{
 			case Hitbox hitbox when name.Length > 0 && name != hitbox.Name:
 				if (_skeleton.FindHitbox(name) != null) { BoxHint.Text = $"Another hitbox is called \"{name}\"."; BoxName.Text = hitbox.Name; return; }
-				EditBoxes($"Rename the hitbox to {name}", () => HitboxOps.RenameHitbox(_skeleton, _state.Animations, hitbox, name));
+				_session.RenameBoxItem(hitbox, name);
 				break;
 			case RigPoint point when name.Length > 0 && name != point.Name:
 				if (_skeleton.FindPoint(name) != null) { BoxHint.Text = $"Another point is called \"{name}\"."; BoxName.Text = point.Name; return; }
-				EditBoxes($"Rename the point to {name}", () => HitboxOps.RenamePoint(_skeleton, point, name));
+				_session.RenameBoxItem(point, name);
 				break;
 			default: return;
 		}
@@ -309,43 +231,27 @@ public partial class MainWindow
 	private void CommitBoxKind()
 	{
 		if (_syncingBoxes || _boxItem is not Hitbox hitbox) return;
-		string kind = BoxKind.Text.Trim();
-		if (kind.Length == 0 || kind == hitbox.Kind) return;
-		EditBoxes($"Make {hitbox.Name} a {kind} box", () => { hitbox.Kind = kind; return true; });
-		BuildBoxesPanel();
+		if (_session.SetHitboxKind(hitbox, BoxKind.Text)) BuildBoxesPanel();
 	}
 
 	private void BoxShape_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingBoxes || _boxItem is not Hitbox hitbox) return;
 		var shape = BoxShape.SelectedIndex == 1 ? HitboxShape.Circle : HitboxShape.Box;
-		if (shape == hitbox.Shape) return;
-		EditBoxes($"Make {hitbox.Name} a {(shape == HitboxShape.Box ? "box" : "circle")}", () =>
-		{
-			hitbox.Shape = shape;
-			if (shape == HitboxShape.Circle) hitbox.Size = new Vector2((hitbox.Size.X + hitbox.Size.Y) / 2f);
-			return true;
-		});
-		BuildBoxesPanel();
+		if (_session.SetHitboxShape(hitbox, shape)) BuildBoxesPanel();
 	}
 
 	private void BoxBone_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingBoxes || BoxBoneChoice.SelectedItem is not string boneName || _skeleton.FindBone(boneName) is not { } bone) return;
-		switch (_boxItem)
-		{
-			case Hitbox hitbox: EditBoxes($"Put {hitbox.Name} on {bone.Name}", () => HitboxOps.SetBone(hitbox, bone)); break;
-			case RigPoint point: EditBoxes($"Put {point.Name} on {bone.Name}", () => HitboxOps.SetBone(point, bone)); break;
-		}
+		if (_boxItem is { } item) _session.SetBoxBone(item, bone);
 		BuildBoxesPanel();
 	}
 
 	private void BoxActive_Click(object sender, RoutedEventArgs e)
 	{
 		if (_syncingBoxes || _boxItem is not Hitbox hitbox) return;
-		bool on = BoxActive.IsChecked == true;
-		EditBoxes($"{hitbox.Name} {(on ? "on" : "off")} at rest", () => { hitbox.SetupActive = on; return true; });
-		_state.SetFrame(_state.Frame);
+		_session.SetHitboxActive(hitbox, BoxActive.IsChecked == true);
 		BuildBoxesPanel();
 	}
 
@@ -381,21 +287,21 @@ public partial class MainWindow
 		switch (_boxItem)
 		{
 			case Hitbox h:
-				BoxFields.Children.Add(NumberRow("X", h.Offset.X, "Its middle, along its bone", v => EditBoxes($"Move {h.Name}", () => { h.Offset = h.Offset with { X = v }; return true; })));
-				BoxFields.Children.Add(NumberRow("Y", h.Offset.Y, "Its middle, across its bone", v => EditBoxes($"Move {h.Name}", () => { h.Offset = h.Offset with { Y = v }; return true; })));
+				BoxFields.Children.Add(NumberRow("X", h.Offset.X, "Its middle, along its bone", v => _session.PlaceBoxItem(h, offset: h.Offset with { X = v })));
+				BoxFields.Children.Add(NumberRow("Y", h.Offset.Y, "Its middle, across its bone", v => _session.PlaceBoxItem(h, offset: h.Offset with { Y = v })));
 				if (h.Shape == HitboxShape.Box)
 				{
-					BoxFields.Children.Add(NumberRow("Width", h.Size.X, "Along its own sides", v => EditBoxes($"Resize {h.Name}", () => { h.Size = h.Size with { X = MathF.Max(1f, v) }; return true; })));
-					BoxFields.Children.Add(NumberRow("Height", h.Size.Y, "Along its own sides", v => EditBoxes($"Resize {h.Name}", () => { h.Size = h.Size with { Y = MathF.Max(1f, v) }; return true; })));
-					BoxFields.Children.Add(NumberRow("Angle", Degrees(h.Rotation), "Degrees, from its bone's direction", v => EditBoxes($"Turn {h.Name}", () => { h.Rotation = Radians(v); return true; })));
+					BoxFields.Children.Add(NumberRow("Width", h.Size.X, "Along its own sides", v => _session.PlaceBoxItem(h, size: h.Size with { X = v })));
+					BoxFields.Children.Add(NumberRow("Height", h.Size.Y, "Along its own sides", v => _session.PlaceBoxItem(h, size: h.Size with { Y = v })));
+					BoxFields.Children.Add(NumberRow("Angle", Degrees(h.Rotation), "Degrees, from its bone's direction", v => _session.PlaceBoxItem(h, rotation: Radians(v))));
 				}
 				else
-					BoxFields.Children.Add(NumberRow("Diameter", h.Size.X, "Across the circle", v => EditBoxes($"Resize {h.Name}", () => { h.Size = new Vector2(MathF.Max(1f, v)); return true; })));
+					BoxFields.Children.Add(NumberRow("Diameter", h.Size.X, "Across the circle", v => _session.PlaceBoxItem(h, size: new Vector2(v))));
 				break;
 			case RigPoint p:
-				BoxFields.Children.Add(NumberRow("X", p.Offset.X, "Along its bone", v => EditBoxes($"Move {p.Name}", () => { p.Offset = p.Offset with { X = v }; return true; })));
-				BoxFields.Children.Add(NumberRow("Y", p.Offset.Y, "Across its bone", v => EditBoxes($"Move {p.Name}", () => { p.Offset = p.Offset with { Y = v }; return true; })));
-				BoxFields.Children.Add(NumberRow("Facing", Degrees(p.Rotation), "Degrees, from its bone's direction", v => EditBoxes($"Turn {p.Name}", () => { p.Rotation = Radians(v); return true; })));
+				BoxFields.Children.Add(NumberRow("X", p.Offset.X, "Along its bone", v => _session.PlaceBoxItem(p, offset: p.Offset with { X = v })));
+				BoxFields.Children.Add(NumberRow("Y", p.Offset.Y, "Across its bone", v => _session.PlaceBoxItem(p, offset: p.Offset with { Y = v })));
+				BoxFields.Children.Add(NumberRow("Facing", Degrees(p.Rotation), "Degrees, from its bone's direction", v => _session.PlaceBoxItem(p, rotation: Radians(v))));
 				break;
 		}
 	}
