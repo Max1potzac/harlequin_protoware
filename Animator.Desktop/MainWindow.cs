@@ -161,9 +161,9 @@ public sealed partial class MainWindow : Window
 		{
 			Items =
 			{
-				new TabItem { Header = "Rig", Content = BuildRigList() },
-				new TabItem { Header = "Skins", Content = BuildSkinsTab() },
-				new TabItem { Header = "Poses", Content = BuildPosesTab() }
+				new TabItem { Header = "Rig", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildRigList() },
+				new TabItem { Header = "Skins", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildSkinsTab() },
+				new TabItem { Header = "Poses", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildPosesTab() }
 			}
 		};
 		var rig = LeftTabs;
