@@ -126,3 +126,6 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
    place in the order; the picked object's place in the scene. Numbers are typed or dragged by
    their labels (a drag is one undo step). The shown and typed numbers are the engine's
    (EditorSession.Fields.cs), which the Windows editor's panels use too.
+3. **The animations bar** over the timeline: the open object's animations (picked, new, a copy,
+   deleted), the edited one's name, length and looping, the project's frame rate; picked frames
+   split or copied into an animation sequence of their own (the timeline's right-click).

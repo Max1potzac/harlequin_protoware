@@ -56,6 +56,11 @@ public sealed partial class MainWindow
 			_timelinePressed = SceneLevel && button == PointerButton.Left;   // not if a clip just opened
 			return;
 		}
+		if (button == PointerButton.Right)
+		{
+			ShowTimelineMenu(p);   // picked frames: an animation sequence of their own
+			return;
+		}
 		if (button != PointerButton.Left) return;
 		_timeline.MouseDown(p, _mods);
 		_timelinePressed = true;
