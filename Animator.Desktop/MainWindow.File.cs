@@ -51,7 +51,10 @@ public sealed partial class MainWindow
 	}
 
 	// (without asking anything: the tests open files this way)
-	internal bool TryOpen(string path, out string? problem)
+	internal bool TryOpen(string path, out string? problem) => TryOpen(path, out problem, path);
+
+	// savesTo: where Save puts it (a recovery copy saves to the project it's a copy of; null: Save asks)
+	internal bool TryOpen(string path, out string? problem, string? savesTo)
 	{
 		problem = null;
 		ProjectFile.LoadedProject loaded;
@@ -65,13 +68,14 @@ public sealed partial class MainWindow
 			return false;
 		}
 		// A lone character opens ready to edit; an animation, or a scene of several objects, at scene level
-		_session.Replace(loaded.Scene, loaded.Store, path);
+		_session.Replace(loaded.Scene, loaded.Store, savesTo);
 		AfterReplace();
 		return true;
 	}
 
 	private void AfterReplace()
 	{
+		ForgetRecoveryCopy();   // the old document's copy isn't needed any more
 		ClosePaintEditor();
 		_tool.BonesEnabled = _settings.ShowBones && _session.Active?.Kind != ObjectKind.Drawn;
 		_session.PoseScene(_session.ClockTime);
@@ -121,7 +125,8 @@ public sealed partial class MainWindow
 				// No backup (a full disk, a read-only folder): the save itself still goes ahead
 			}
 			_session.Save(path, thumbnail: null);
-			State.Undo.MarkSaved();
+			ForgetRecoveryCopy();
+			State.Undo.MarkSaved();   // (after the copy's gone: Unsaved, and so the title, follow)
 			UpdateTitle();
 			return true;
 		}
@@ -136,7 +141,7 @@ public sealed partial class MainWindow
 	private async Task<bool> ConfirmDiscard()
 	{
 		_session.FinishPaintTool();
-		if (!State.Undo.IsDirty) return true;
+		if (!Unsaved) return true;
 		string? answer = await Dialogs.Ask(this, "Harlequin", $"Save changes to {_session.DocumentName}?", "Save", "Don't save", "Cancel");
 		return answer switch
 		{
@@ -148,7 +153,7 @@ public sealed partial class MainWindow
 
 	private async void Window_Closing(object? sender, WindowClosingEventArgs e)
 	{
-		if (_closingConfirmed || !State.Undo.IsDirty) return;
+		if (_closingConfirmed || !Unsaved) return;
 		e.Cancel = true;   // (asked first: Closing can't wait for the answer)
 		if (!await ConfirmDiscard()) return;
 		_closingConfirmed = true;

@@ -6,8 +6,8 @@ using Avalonia.Layout;
 
 namespace Animator.Desktop;
 
-// The menus, the tool bar and the keyboard: the Windows editor's default shortcuts (the ones
-// for what this editor does so far)
+// The menus, the tool bar and the keyboard: the keys are the key map's (the Windows editor's
+// defaults, changed in Settings), for the commands this editor has so far
 public sealed partial class MainWindow
 {
 	private readonly Dictionary<ViewTool, ToggleButton> _toolButtons = new();
@@ -15,56 +15,62 @@ public sealed partial class MainWindow
 	private ToggleButton _playButton = null!;
 	private Button _sceneButton = null!;
 
-	// One command: what it does, and its key (shown in the menus)
-	private sealed record Command(string Name, string Header, Action Run, KeyGesture? Key = null);
+	// One command (by its key map id): its menu text, and what it does
+	private sealed record Command(string Name, string Header, Action Run);
 
 	private readonly Dictionary<string, Command> _commands = new();
+	private readonly Dictionary<string, MenuItem> _menuItems = new();
+	private KeyMap _keys = new();
 
-	private void Add(string name, string header, Action run, string? key = null) =>
-		_commands[name] = new Command(name, header, run, key != null ? KeyGesture.Parse(key) : null);
+	private void Add(string name, string header, Action run) => _commands[name] = new Command(name, header, run);
+
+	// The commands a key can be given here (Settings lists these)
+	internal bool HasCommand(string id) => _commands.ContainsKey(id) || PaintCommands.Contains(id);
+
+	internal KeyMap Keys => _keys;
 
 	private void DefineCommands()
 	{
-		Add("file.new", "_New project", () => _ = NewProject(), "Ctrl+N");
-		Add("file.open", "_Open…", () => _ = OpenProject(), "Ctrl+O");
-		Add("file.save", "_Save", () => _ = SaveProject(), "Ctrl+S");
-		Add("file.saveAs", "Save _as…", () => _ = SaveProjectAs(), "Ctrl+Shift+S");
-		Add("file.import", "_Import…", () => _ = ImportFile(), "Ctrl+I");
-		Add("file.export", "_Export…", () => _ = ExportProject(), "Ctrl+E");
-		Add("file.quit", "_Quit", Close, "Ctrl+Q");
+		Add("file.new", "_New project", () => _ = NewProject());
+		Add("file.open", "_Open…", () => _ = OpenProject());
+		Add("file.save", "_Save", () => _ = SaveProject());
+		Add("file.saveAs", "Save _as…", () => _ = SaveProjectAs());
+		Add("file.import", "_Import…", () => _ = ImportFile());
+		Add("file.export", "_Export…", () => _ = ExportProject());
+		Add("file.settings", "Se_ttings…", () => _ = OpenSettings());
+		Add("file.quit", "_Quit", Close);
 
-		Add("edit.undo", "_Undo", () => State.Undo.Undo(), "Ctrl+Z");
-		Add("edit.redo", "_Redo", () => State.Undo.Redo(), "Ctrl+Y");
-		Add("edit.redo2", "Redo", () => State.Undo.Redo(), "Ctrl+Shift+Z");
-		Add("edit.copy", "_Copy the selected keys", () => { if (!SceneLevel) _timeline.Copy(); }, "Ctrl+C");
-		Add("edit.paste", "_Paste the keys at the playhead", () => { if (!SceneLevel) _timeline.Paste(); }, "Ctrl+V");
-		Add("edit.delete", "_Delete the selected keys", DeleteKeys, "Delete");
-		Add("edit.back", "_Back to the scene", LeaveObject, "Escape");
+		Add("edit.undo", "_Undo", () => State.Undo.Undo());
+		Add("edit.redo", "_Redo", () => State.Undo.Redo());
+		Add("edit.copy", "_Copy the selected keys", () => { if (!SceneLevel) _timeline.Copy(); });
+		Add("edit.paste", "_Paste the keys at the playhead", () => { if (!SceneLevel) _timeline.Paste(); });
+		Add("edit.delete", "_Delete the selected keys", DeleteKeys);
+		Add("edit.back", "_Back to the scene", LeaveObject);
 
-		Add("play.toggle", "_Play / pause", () => State.Playing = !State.Playing, "Space");
-		Add("play.restart", "Back to the _first frame", Restart, "R");
-		Add("play.back", "A frame _back", () => StepFrames(-1), "Left");
-		Add("play.on", "A frame _on", () => StepFrames(+1), "Right");
-		Add("play.prevKey", "To the key _before", () => JumpToKey(-1), "Shift+Left");
-		Add("play.nextKey", "To the key _after", () => JumpToKey(+1), "Shift+Right");
+		Add("play.toggle", "_Play / pause", () => State.Playing = !State.Playing);
+		Add("play.restart", "Back to the _first frame", Restart);
+		Add("play.back", "A frame _back", () => StepFrames(-1));
+		Add("play.on", "A frame _on", () => StepFrames(+1));
+		Add("play.prevKey", "To the key _before", () => JumpToKey(-1));
+		Add("play.nextKey", "To the key _after", () => JumpToKey(+1));
 
-		Add("anim.mode", "_Build / Animate", ToggleAnimate, "K");
-		Add("anim.key", "_Key the pose here", KeyThePose, "S");
-		Add("pose.mirror", "_Mirror the pose", MirrorThePose, "Ctrl+M");
-		Add("pose.copy", "_Copy the pose", CopyThePose, "Ctrl+Shift+C");
-		Add("pose.paste", "_Paste the pose", () => PasteThePose(false), "Ctrl+Shift+V");
-		Add("pose.pasteMirrored", "Paste the pose mi_rrored", () => PasteThePose(true), "Ctrl+Alt+V");
+		Add("anim.mode", "_Build / Animate", ToggleAnimate);
+		Add("anim.key", "_Key the pose here", KeyThePose);
+		Add("pose.mirror", "_Mirror the pose", MirrorThePose);
+		Add("pose.copy", "_Copy the pose", CopyThePose);
+		Add("pose.paste", "_Paste the pose", () => PasteThePose(false));
+		Add("pose.pasteMirrored", "Paste the pose mi_rrored", () => PasteThePose(true));
 
-		Add("tool.select", "_Select", () => SetTool(ViewTool.Select), "D1");
-		Add("tool.move", "_Move", () => SetTool(ViewTool.Move), "D2");
-		Add("tool.rotate", "_Rotate", () => SetTool(ViewTool.Rotate), "D3");
+		Add("tool.select", "_Select", () => SetTool(ViewTool.Select));
+		Add("tool.move", "_Move", () => SetTool(ViewTool.Move));
+		Add("tool.rotate", "_Rotate", () => SetTool(ViewTool.Rotate));
 
-		Add("view.reset", "_Reset the view", ResetView, "F");
-		Add("view.images", "_Pictures on / off", () => _renderer.ShowImages = !_renderer.ShowImages, "G");
-		Add("view.onion", "_Onion skin on / off", () => _painter.Onion.Enabled = !_painter.Onion.Enabled, "O");
-		Add("view.grid", "_Grid on / off", () => ToggleSetting(s => s.ShowGrid = !s.ShowGrid), "Ctrl+OemQuotes");
-		Add("view.rulers", "R_ulers on / off", () => ToggleSetting(s => s.ShowRulers = !s.ShowRulers), "Ctrl+R");
-		Add("view.guides", "G_uides on / off", () => ToggleSetting(s => s.ShowGuides = !s.ShowGuides), "Ctrl+OemSemicolon");
+		Add("view.reset", "_Reset the view", ResetView);
+		Add("view.images", "_Pictures on / off", () => _renderer.ShowImages = !_renderer.ShowImages);
+		Add("view.onion", "_Onion skin on / off", () => _painter.Onion.Enabled = !_painter.Onion.Enabled);
+		Add("view.grid", "_Grid on / off", () => ToggleSetting(s => s.ShowGrid = !s.ShowGrid));
+		Add("view.rulers", "R_ulers on / off", () => ToggleSetting(s => s.ShowRulers = !s.ShowRulers));
+		Add("view.guides", "G_uides on / off", () => ToggleSetting(s => s.ShowGuides = !s.ShowGuides));
 		Add("view.bones", "_Bones on / off", () => ToggleSetting(s => s.ShowBones = !s.ShowBones));
 	}
 
@@ -74,8 +80,9 @@ public sealed partial class MainWindow
 		MenuItem Item(string name)
 		{
 			var c = _commands[name];
-			var item = new MenuItem { Header = c.Header, InputGesture = c.Key };
+			var item = new MenuItem { Header = c.Header };
 			item.Click += (_, _) => c.Run();
+			_menuItems[name] = item;
 			return item;
 		}
 		MenuItem Top(string header, params string?[] names)
@@ -85,11 +92,11 @@ public sealed partial class MainWindow
 				top.Items.Add(name == null ? new Separator() : Item(name));
 			return top;
 		}
-		return new Menu
+		var menu = new Menu
 		{
 			Items =
 			{
-				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.import", "file.export", null, "file.quit"),
+				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.import", "file.export", null, "file.settings", null, "file.quit"),
 				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.back"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
 				Top("_Animation", "anim.mode", "anim.key", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
@@ -97,6 +104,15 @@ public sealed partial class MainWindow
 					"view.grid", "view.rulers", "view.guides")
 			}
 		};
+		ShowKeysInMenus();
+		return menu;
+	}
+
+	// Each menu item shows its command's first key
+	private void ShowKeysInMenus()
+	{
+		foreach (var (id, item) in _menuItems)
+			item.InputGesture = _keys.KeysOf(id) is { Count: > 0 } keys ? new KeyGesture(keys[0].Key, keys[0].Modifiers) : null;
 	}
 
 	private Control BuildToolBar()
@@ -156,15 +172,11 @@ public sealed partial class MainWindow
 	// The command a key (with these modifiers) runs. True: there was one.
 	internal bool HandleKey(Key key, KeyModifiers modifiers)
 	{
-		if (HandlePaintKey(key, modifiers)) return true;   // (the mouse over the paint canvas: its keys first)
-		var pressed = new KeyGesture(key, modifiers);
-		foreach (var c in _commands.Values)
-			if (c.Key is { } gesture && gesture.Key == pressed.Key && gesture.KeyModifiers == pressed.KeyModifiers)
-			{
-				c.Run();
-				return true;
-			}
-		return false;
+		if (KeyChord.From(key, modifiers) is not { } chord) return false;
+		if (HandlePaintKey(chord)) return true;   // (the mouse over the paint canvas: its keys first)
+		if (_keys.CommandFor(chord, KeyScope.Main) is not { } id || !_commands.TryGetValue(id, out var command)) return false;
+		command.Run();
+		return true;
 	}
 
 	// ======================= what the commands do =======================
