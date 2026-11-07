@@ -13,24 +13,20 @@ namespace Animator.Viewer;
 // deform keys at the playhead). Editing a skin: the skin's own copy of the drawing changes.
 public partial class MainWindow
 {
-	private enum MeshTool { None, Points, Weights }
-	private MeshTool _meshTool;
+	private MeshEditTool _mesh = null!;   // the viewport side (see MeshEditTool)
+	private MeshMode _meshTool   // (None until the tool is made: the panels fill in first)
+	{
+		get => _mesh?.Mode ?? MeshMode.None;
+		set { if (_mesh != null) _mesh.Mode = value; }
+	}
 	private bool _syncingMesh;
 
-	private sealed class MeshDrag
+	private void InitMeshTool() => _mesh = new MeshEditTool(_session, _camera)
 	{
-		public required Slot Slot;
-		public required Attachment Drawing;
-		public required int Point;               // -1: painting weights
-		public StructureSnapshot? Structure;     // Build
-		public AnimationSnapshot? Keys;          // Animate
-		public Vector2[]? StartOffsets;
-		public Vector2 Start;
-		public bool Subtract;
-		public bool Changed;
-	}
-	private MeshDrag? _meshDrag;
-	private int _meshHover = -1;
+		WeightBone = WeightBone,
+		BrushPx = (float)MeshBrush.Value,
+		Strength = (float)MeshStrength.Value
+	};
 
 	// The selected part's drawing that shows now, and its mesh (null: no part, or no mesh)
 	private (Slot Slot, Attachment Drawing, Mesh? Mesh)? MeshPart() => _session.MeshOf(_state.SelectedSlot);
@@ -52,10 +48,10 @@ public partial class MainWindow
 		MeshPointsToggle.IsEnabled = has;
 		MeshWeightsToggle.IsEnabled = has && building && p.Mesh!.Weighted;
 		MeshWeightsButton.IsEnabled = has && building;
-		if (!MeshWeightsToggle.IsEnabled && _meshTool == MeshTool.Weights) _meshTool = MeshTool.None;
-		if (!has) _meshTool = MeshTool.None;
-		MeshPointsToggle.IsChecked = _meshTool == MeshTool.Points;
-		MeshWeightsToggle.IsChecked = _meshTool == MeshTool.Weights;
+		if (!MeshWeightsToggle.IsEnabled && _meshTool == MeshMode.Weights) _meshTool = MeshMode.None;
+		if (!has) _meshTool = MeshMode.None;
+		MeshPointsToggle.IsChecked = _meshTool == MeshMode.Points;
+		MeshWeightsToggle.IsChecked = _meshTool == MeshMode.Weights;
 		var names = _skeleton.AllBones().Select(b => b.Name).ToList();
 		if (!MeshBoneBox.Items.Cast<string>().SequenceEqual(names))
 		{
@@ -71,7 +67,7 @@ public partial class MainWindow
 			null => "No mesh: the picture stays flat. Make a mesh to let it bend.",
 			{ Weighted: false } m => $"{m.Points.Length} points, following {p.Slot.Bone.Name} flat. Weights ▾ lets bones bend it; in Animate, Edit points keys deforms.",
 			{ } m => $"{m.Points.Length} points, {m.Weights!.SelectMany(w => w).Select(w => w.Bone).Distinct().Count()} bone(s) bending it." +
-				(_meshTool == MeshTool.Weights ? " Drag over the points to give the chosen bone more (Alt: less)." : "")
+				(_meshTool == MeshMode.Weights ? " Drag over the points to give the chosen bone more (Alt: less)." : "")
 		};
 	}
 
@@ -90,14 +86,14 @@ public partial class MainWindow
 	private void MakeMesh(int across)
 	{
 		if (MeshPart() is not { } part || !_session.MakeMesh(part.Slot, across)) return;
-		_meshTool = MeshTool.Points;
+		_meshTool = MeshMode.Points;
 		SyncMeshPanel();
 	}
 
 	private void MeshRemove_Click(object sender, RoutedEventArgs e)
 	{
 		if (MeshPart() is { } part) _session.RemoveMesh(part.Slot);
-		_meshTool = MeshTool.None;
+		_meshTool = MeshMode.None;
 		SyncMeshPanel();
 	}
 
@@ -131,13 +127,13 @@ public partial class MainWindow
 
 	private void MeshPoints_Click(object sender, RoutedEventArgs e)
 	{
-		_meshTool = MeshPointsToggle.IsChecked == true ? MeshTool.Points : MeshTool.None;
+		_meshTool = MeshPointsToggle.IsChecked == true ? MeshMode.Points : MeshMode.None;
 		SyncMeshPanel();
 	}
 
 	private void MeshWeights_Click(object sender, RoutedEventArgs e)
 	{
-		_meshTool = MeshWeightsToggle.IsChecked == true ? MeshTool.Weights : MeshTool.None;
+		_meshTool = MeshWeightsToggle.IsChecked == true ? MeshMode.Weights : MeshMode.None;
 		SyncMeshPanel();
 	}
 
@@ -150,7 +146,7 @@ public partial class MainWindow
 
 	private void DrawMeshOverlay(SKCanvas canvas)
 	{
-		if (_meshTool == MeshTool.None || MeshPart() is not { Mesh: { } mesh } part) return;
+		if (_meshTool == MeshMode.None || MeshPart() is not { Mesh: { } mesh } part) return;
 		DrawInSpace(canvas, _camera.Space, () =>
 		{
 			float px = 1f / MathF.Max(_renderer.Zoom, 1e-4f);
@@ -162,12 +158,12 @@ public partial class MainWindow
 				using var path = ShapePaths.Polyline(new[] { posed[t[i]], posed[t[i + 1]], posed[t[i + 2]] }, closed: true);
 				canvas.DrawPath(path, edge);
 			}
-			var bone = _meshTool == MeshTool.Weights ? WeightBone() : null;
+			var bone = _meshTool == MeshMode.Weights ? WeightBone() : null;
 			using var dot = new SKPaint { Style = SKPaintStyle.Fill, IsAntialias = true };
 			using var ring = new SKPaint { Color = SKColors.Black, Style = SKPaintStyle.Stroke, StrokeWidth = 1f * px, IsAntialias = true };
 			for (int i = 0; i < posed.Length; i++)
 			{
-				dot.Color = bone != null ? Heat(MeshOps.WeightOf(mesh, i, bone)) : i == _meshHover ? SKColors.Yellow : SKColors.White;
+				dot.Color = bone != null ? Heat(MeshOps.WeightOf(mesh, i, bone)) : i == _mesh.Hover ? SKColors.Yellow : SKColors.White;
 				float r = (bone != null ? 4.5f : 3.5f) * px;
 				canvas.DrawCircle(posed[i].X, posed[i].Y, r, dot);
 				canvas.DrawCircle(posed[i].X, posed[i].Y, r, ring);
@@ -184,107 +180,18 @@ public partial class MainWindow
 			: new SKColor((byte)((weight - 0.5f) * 2 * 255), (byte)((1 - (weight - 0.5f) * 2) * 255), 0);
 	}
 
-	private int MeshPointAt(Vector2 screen, Slot slot, Attachment drawing, Mesh mesh)
-	{
-		var posed = MeshOps.Posed(slot, drawing, mesh);
-		int best = -1;
-		float bestDistance = 9f;
-		for (int i = 0; i < posed.Length; i++)
-		{
-			float d = Vector2.Distance(_camera.WorldToScreen(posed[i]), screen);
-			if (d < bestDistance) (best, bestDistance) = (i, d);
-		}
-		return best;
-	}
-
 	// True: the mouse went down for the mesh tool (a point taken hold of, or weights painted)
 	private bool MeshMouseDown(Vector2 screen, PointerButton button)
 	{
-		if (_meshTool == MeshTool.None || button != PointerButton.Left || MeshPart() is not { Mesh: { } mesh } part) return false;
-		if (_meshTool == MeshTool.Weights)
-		{
-			if (_state.AnimateMode || WeightBone() is null) return false;
-			var drawing = part.Drawing;
-			_meshDrag = new MeshDrag { Slot = part.Slot, Drawing = drawing, Point = -1, Structure = _state.CaptureStructure(), Subtract = Keyboard.Modifiers.HasFlag(ModifierKeys.Alt) };
-			if (_state.EditSkin != null && _state.EditableDrawing(part.Slot) is { } own) _meshDrag.Drawing = own;
-			PaintWeightsAt(screen);
-			return true;
-		}
-
-		int point = MeshPointAt(screen, part.Slot, part.Drawing, mesh);
-		if (point < 0) return false;
-		var drag = new MeshDrag { Slot = part.Slot, Drawing = part.Drawing, Point = point, Start = _camera.ScreenToWorld(screen) };
-		if (_state.AnimateMode)
-		{
-			_state.Playing = false;
-			_state.SetFrame(_state.Frame);
-			drag.Keys = AnimationSnapshot.Capture(_state.Animation);
-			drag.StartOffsets = part.Slot.DeformOf(part.Drawing)?.ToArray() ?? new Vector2[mesh.Points.Length];
-		}
-		else
-		{
-			drag.Structure = _state.CaptureStructure();
-			if (_state.EditSkin != null && _state.EditableDrawing(part.Slot) is { } own) drag.Drawing = own;
-		}
-		_meshDrag = drag;
-		return true;
+		_mesh.BrushPx = (float)MeshBrush.Value;
+		_mesh.Strength = (float)MeshStrength.Value;
+		return _mesh.MouseDown(screen, button, subtract: Keyboard.Modifiers.HasFlag(ModifierKeys.Alt));
 	}
 
-	private void MeshMouseMove(Vector2 screen)
-	{
-		if (_meshDrag is not { } drag)
-		{
-			_meshHover = _meshTool == MeshTool.Points && MeshPart() is { Mesh: { } m } p ? MeshPointAt(screen, p.Slot, p.Drawing, m) : -1;
-			return;
-		}
-		if (drag.Point < 0)
-		{
-			PaintWeightsAt(screen);
-			return;
-		}
-		if (drag.Drawing.Mesh is not { } mesh || drag.Point >= mesh.Points.Length) return;
-		var world = _camera.ScreenToWorld(screen);
-		if (!Matrix3x2.Invert(MeshOps.PointMatrix(drag.Slot, drag.Drawing, mesh, drag.Point), out var toPixels)) return;
-		if (drag.Keys != null && drag.StartOffsets != null)
-		{
-			// Animate: a deform key here, the point pushed by how far the mouse went (in its pixels)
-			var offsets = (Vector2[])drag.StartOffsets.Clone();
-			offsets[drag.Point] += Vector2.TransformNormal(world - drag.Start, toPixels);
-			MeshOps.KeyDeform(_state.Animation, drag.Slot, drag.Drawing, offsets, _state.Frame, _state.Fps);
-		}
-		else
-			drag.Drawing.Mesh = MeshOps.MovePoint(mesh, drag.Point, Vector2.Transform(world, toPixels));
-		drag.Changed = true;
-	}
-
-	private void PaintWeightsAt(Vector2 screen)
-	{
-		if (_meshDrag is not { } drag || drag.Drawing.Mesh is not { Weighted: true } mesh || WeightBone() is not { } bone) return;
-		var posed = MeshOps.Posed(drag.Slot, drag.Drawing, mesh);
-		float reach = (float)MeshBrush.Value;
-		var touched = new Dictionary<int, float>();
-		for (int i = 0; i < posed.Length; i++)
-		{
-			float d = Vector2.Distance(_camera.WorldToScreen(posed[i]), screen);
-			if (d <= reach) touched[i] = 1f - d / reach * 0.7f;   // the middle of the brush, most
-		}
-		if (touched.Count == 0) return;
-		float amount = (float)MeshStrength.Value * 0.35f * (drag.Subtract ? -1f : 1f);
-		drag.Drawing.Mesh = MeshOps.Paint(mesh, bone, touched, amount);
-		drag.Changed = true;
-	}
+	private void MeshMouseMove(Vector2 screen) => _mesh.MouseMove(screen);
 
 	private void MeshMouseUp()
 	{
-		if (_meshDrag is not { } drag) return;
-		_meshDrag = null;
-		if (!drag.Changed) return;
-		string name = drag.Point < 0 ? $"Paint weights on {drag.Slot.Name}"
-			: drag.Keys != null ? $"Deform {drag.Slot.Name} @ frame {_state.Frame}" : $"Move a mesh point of {drag.Slot.Name}";
-		if (drag.Keys != null)
-			_state.Undo.Push(new SnapshotCommand<AnimationSnapshot>(name, drag.Keys, AnimationSnapshot.Capture(_state.Animation), s => s.Restore()));
-		else if (drag.Structure != null)
-			_state.PushStructure(drag.Structure, name);
-		SyncMeshPanel();
+		if (_mesh.MouseUp()) SyncMeshPanel();
 	}
 }

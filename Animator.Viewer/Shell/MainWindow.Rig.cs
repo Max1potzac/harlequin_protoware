@@ -416,8 +416,7 @@ public partial class MainWindow
 	private void BoneParent_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingRig || _shownBone is not { } bone || BoneParent.SelectedItem is not BoneChoice choice) return;
-		_state.EditStructure(() =>
-			HangBone(bone, choice.Bone) ? $"Parent {bone.Name} to {choice.Label}" : null);
+		_session.ParentBone(bone, choice.Bone, choice.Label, _tool.KeepPartsInPlace);
 	}
 
 	private void LookTarget_Changed(object sender, SelectionChangedEventArgs e)

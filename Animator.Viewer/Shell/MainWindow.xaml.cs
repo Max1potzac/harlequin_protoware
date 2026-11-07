@@ -52,6 +52,7 @@ public partial class MainWindow : Window, IScalesItsParts
 		EditObject(_scene.Objects[0]);
 		InitScene();   // before the other panels: an undo can change which object is open
 		_tool = new BoneTool(_state, _camera, _renderer) { Modifiers = HeldKeys };
+		InitMeshTool();
 		_timeline = new TimelinePanel(_state);
 		_state.Undo.Changed += UpdateStatus;
 		InitPaint();
@@ -226,12 +227,12 @@ public partial class MainWindow : Window, IScalesItsParts
 			GuideMouseMove(pos);
 			return;
 		}
-		if (_boxDrag != null)
+		if (_boxDrag)
 		{
 			BoxMouseMove(pos);
 			return;
 		}
-		if (_meshDrag != null)
+		if (_mesh.Dragging)
 		{
 			MeshMouseMove(pos);
 			return;
@@ -256,13 +257,13 @@ public partial class MainWindow : Window, IScalesItsParts
 			Viewport.ReleaseMouseCapture();
 			return;
 		}
-		if (_boxDrag != null)
+		if (_boxDrag)
 		{
 			BoxMouseUp();
 			Viewport.ReleaseMouseCapture();
 			return;
 		}
-		if (_meshDrag != null)
+		if (_mesh.Dragging)
 		{
 			MeshMouseUp();
 			Viewport.ReleaseMouseCapture();
@@ -361,75 +362,12 @@ public partial class MainWindow : Window, IScalesItsParts
 	// Delete with no keys selected: the picked bones' and parts' keys at the playhead
 	private void DeleteKeysAtFrame() => _timeline.Keys.DeletePickedKeysHere();
 
-	// The constraint the selected bone belongs to (as target or chain), else the first one
-	private IkConstraint? ActiveIk()
-	{
-		var sel = _state.Selected;
-		return _skeleton.IkConstraints.Find(c => sel != null && (c.Target == sel || c.Bones.Contains(sel)))
-			?? _skeleton.IkConstraints.FirstOrDefault();
-	}
-
-	// Undoable edit that may touch any bone's rest pose and the animation
-	private void EditRig(string name, Action change)
-	{
-		var before = RigSnapshot.Capture(_skeleton, _state.Animation);
-		change();
-		var after = RigSnapshot.Capture(_skeleton, _state.Animation);
-		_state.Undo.Push(new SnapshotCommand<RigSnapshot>(name, before, after, s => s.Restore()));
-	}
-
-	private void MatchIk(bool bake)
-	{
-		var c = ActiveIk();
-		if (c == null) return;
-
-		_state.Playing = false;
-		_state.SetFrame(_state.Frame);          // make sure we're exactly on a frame
-		bool key = _state.AnimateMode;
-		float time = _state.Time;
-
-		if (bake)
-			EditRig($"Bake {c.Name} IK into FK",
-				() => IkMatching.BakeIkToFk(_skeleton, _state.Animation, c, time, key));
-		else
-			EditRig($"Snap {c.Target.Name} to {c.Bones[^1].Name}",
-				() => IkMatching.SnapTargetToTip(_skeleton, _state.Animation, c, time, key));
-	}
-
-	private void SwitchIkHere()
-	{
-		var c = ActiveIk();
-		if (c == null || !_state.AnimateMode) return;   // a keyed switch only makes sense when animating
-
-		_state.Playing = false;
-		_state.SetFrame(_state.Frame);
-
-		// Find out which mode we're currently in at this frame, then switch to the other
-		IkMatching.Evaluate(_skeleton, _state.Animation, _state.Time);
-		bool toIk = c.Mix < 0.5f;
-		int frame = _state.Frame;
-
-		EditRig($"Switch {c.Name} to {(toIk ? "IK" : "FK")} @ frame {frame}",
-			() => IkMatching.SwitchMode(_skeleton, _state.Animation, c, frame, _state.Fps, toIk));
-	}
-	private void ToggleIkMode()
-	{
-		if (ActiveIk() is not { } ik) return;
-		float before = ik.SetupMix;
-		float after = before > 0.5f ? 0f : 1f;
-		ik.SetupMix = after;
-		_state.Undo.Push(new SnapshotCommand<float>($"{ik.Name}: {(after > 0.5f ? "IK" : "FK")}",
-			before, after, v => ik.SetupMix = v));
-	}
-
-	private void FlipElbow()
-	{
-		if (ActiveIk() is not { } ik) return;
-		int before = ik.BendDirection;
-		ik.BendDirection = -before;
-		_state.Undo.Push(new SnapshotCommand<int>($"Flip {ik.Name} bend",
-			before, -before, v => ik.BendDirection = v));
-	}
+	// (see EditorSession.Ik.cs)
+	private IkConstraint? ActiveIk() => _session.ActiveIk();
+	private void MatchIk(bool bake) => _session.MatchIk(bake);
+	private void SwitchIkHere() => _session.SwitchIkHere();
+	private void ToggleIkMode() => _session.ToggleIkMode();
+	private void FlipElbow() => _session.FlipIkBend();
 
 	// The mouse buttons, as the status line names them
 	private static string ButtonName(PointerButton button) => button switch

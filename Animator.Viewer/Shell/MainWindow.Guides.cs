@@ -15,15 +15,13 @@ namespace Animator.Viewer;
 public partial class MainWindow
 {
 	private readonly Snapping _snap = new();
-	private Guide? _guideDrag;                      // the guide being dragged
-	private List<(Guide Guide, float At)>? _guidesBefore;   // ...and what they all were before, for undo
+	private GuideTool _guides = null!;              // the rulers and guides, dragged (see GuideTool)
 	private Vector2? _mouseOnView;                  // for the rulers' red marks
-
-	private const float GuideReachPx = 4f;
-	private const float MarkReachPx = 5f;
+	private Guide? _guideDrag => _guides?.Dragging;
 
 	private void InitViewAids()
 	{
+		_guides = new GuideTool(_session, _camera) { Snap = _snap, SomethingToPickAt = SomethingToPickAt };
 		_tool.Snap = _snap;
 		_objectTool.Snap = _snap;
 		ApplyViewAids();
@@ -37,6 +35,12 @@ public partial class MainWindow
 		_snap.ToGuides = s.SnapToGuides && s.ShowGuides;
 		_snap.GridSize = _scene.GridSize;
 		_snap.Guides = _scene.Guides;
+		if (_guides != null)
+		{
+			_guides.ShowRulers = s.ShowRulers;
+			_guides.ShowGuides = s.ShowGuides;
+			_guides.LockGuides = s.LockGuides;
+		}
 		// The text over the viewport keeps clear of the rulers
 		float edge = s.ShowRulers ? ViewAids.RulerSize + 8 : 10;
 		Status.Margin = new Thickness(edge, 10, 10, 10);
@@ -117,72 +121,16 @@ public partial class MainWindow
 	private void DrawRulers(SKCanvas canvas)
 	{
 		if (!_appSettings.ShowRulers) return;
-		var shown = _appSettings.ShowGuides ? _scene.Guides : new List<Guide>();
-		var top = shown.Where(g => g.Vertical).Select(g => MarkOn(g, top: true)).OfType<float>();
-		var left = shown.Where(g => !g.Vertical).Select(g => MarkOn(g, top: false)).OfType<float>();
-		ViewAids.DrawRulers(canvas, _camera.ViewSize, _camera.ScreenToWorld, top.ToList(), left.ToList(), _mouseOnView);
+		var (top, left) = _guides.Marks();
+		ViewAids.DrawRulers(canvas, _camera.ViewSize, _camera.ScreenToWorld, top, left, _mouseOnView);
 	}
 
-	// ======================= where guides are on screen =======================
+	// ======================= where guides are on screen (see GuideTool) =======================
 
-	// Two screen points on a guide's line
-	private (Vector2 A, Vector2 B) OnScreen(Guide guide) => guide.Vertical
-		? (_camera.WorldToScreen(new Vector2(guide.At, 0)), _camera.WorldToScreen(new Vector2(guide.At, 100)))
-		: (_camera.WorldToScreen(new Vector2(0, guide.At)), _camera.WorldToScreen(new Vector2(100, guide.At)));
-
-	// Where a guide crosses the middle of a ruler: screen x on the top one, y on the left one
-	private float? MarkOn(Guide guide, bool top)
-	{
-		var (a, b) = OnScreen(guide);
-		float middle = ViewAids.RulerSize / 2;
-		if (top)
-		{
-			if (MathF.Abs(b.Y - a.Y) < 1e-4f) return null;   // along the ruler: it never crosses it
-			return a.X + (middle - a.Y) * (b.X - a.X) / (b.Y - a.Y);
-		}
-		if (MathF.Abs(b.X - a.X) < 1e-4f) return null;
-		return a.Y + (middle - a.X) * (b.Y - a.Y) / (b.X - a.X);
-	}
-
-	private static float DistanceToLine(Vector2 p, Vector2 a, Vector2 b)
-	{
-		var along = b - a;
-		float length = along.Length();
-		if (length < 1e-6f) return Vector2.Distance(p, a);
-		return MathF.Abs(along.X * (p.Y - a.Y) - along.Y * (p.X - a.X)) / length;
-	}
-
-	private bool InTopRuler(Vector2 s) => _appSettings.ShowRulers && s.Y < ViewAids.RulerSize && s.X >= ViewAids.RulerSize;
-	private bool InLeftRuler(Vector2 s) => _appSettings.ShowRulers && s.X < ViewAids.RulerSize && s.Y >= ViewAids.RulerSize;
-	private bool OnRulers(Vector2 s) => _appSettings.ShowRulers && (s.X < ViewAids.RulerSize || s.Y < ViewAids.RulerSize);
-
-	// The guide whose line passes right by this screen point (none when guides are hidden or locked)
-	private Guide? GuideAt(Vector2 screen)
-	{
-		if (!_appSettings.ShowGuides || _appSettings.LockGuides) return null;
-		Guide? best = null;
-		float bestDistance = GuideReachPx;
-		foreach (var guide in _scene.Guides)
-		{
-			var (a, b) = OnScreen(guide);
-			float d = DistanceToLine(screen, a, b);
-			if (d <= bestDistance)
-			{
-				best = guide;
-				bestDistance = d;
-			}
-		}
-		return best;
-	}
-
-	// The guide marked on a ruler at this point
-	private Guide? MarkAt(Vector2 screen, bool top)
-	{
-		if (!_appSettings.ShowGuides || _appSettings.LockGuides) return null;
-		return _scene.Guides
-			.Where(g => g.Vertical == top && MarkOn(g, top) is { } at && MathF.Abs(at - (top ? screen.X : screen.Y)) <= MarkReachPx)
-			.FirstOrDefault();
-	}
+	private bool InTopRuler(Vector2 s) => _guides.InTopRuler(s);
+	private bool InLeftRuler(Vector2 s) => _guides.InLeftRuler(s);
+	private Guide? GuideAt(Vector2 screen) => _guides.GuideAt(screen);
+	private Guide? MarkAt(Vector2 screen, bool top) => _guides.MarkAt(screen, top);
 
 	// A bone or part (or an object, at scene level) there to pick: guides give way to it
 	private bool SomethingToPickAt(Vector2 screen) => _sceneLevel
@@ -196,59 +144,17 @@ public partial class MainWindow
 	private bool GuideMouseDown(Vector2 screen, PointerButton button)
 	{
 		if (button == _tool.PanButton) return false;
-		Guide? guide = null;
-		if (OnRulers(screen))
-		{
-			bool top = InTopRuler(screen);
-			if (!top && !InLeftRuler(screen)) return true;   // the corner where they meet: nothing there
-			_guidesBefore = GuidesNow();
-			guide = MarkAt(screen, top);
-			if (guide == null)
-			{
-				// Out of the top ruler: a guide across; out of the left one: up and down
-				var at = _camera.ScreenToWorld(screen);
-				guide = new Guide(vertical: !top, top ? at.Y : at.X);
-				_scene.Guides.Add(guide);
-				if (!_appSettings.ShowGuides) ToggleViewAid("guides");   // a new guide shows
-			}
-		}
-		else
-		{
-			guide = GuideAt(screen);
-			if (guide == null || SomethingToPickAt(screen)) return false;
-			_guidesBefore = GuidesNow();
-		}
-		_guideDrag = guide;
+		var press = _guides.MouseDown(screen);
+		if (press == GuideTool.Press.NotMine) return false;
+		if (press == GuideTool.Press.NewGuide && !_appSettings.ShowGuides) ToggleViewAid("guides");   // a new guide shows
 		ApplyViewAids();
 		return true;
 	}
 
-	private void GuideMouseMove(Vector2 screen)
-	{
-		if (_guideDrag is not { } guide) return;
-		var at = _camera.ScreenToWorld(screen);
-		float value = guide.Vertical ? at.X : at.Y;
-		// It snaps to the grid (not to the other guides)
-		if (_appSettings.SnapToGrid && _scene.GridSize > 0)
-		{
-			float onGrid = MathF.Round(value / _scene.GridSize) * _scene.GridSize;
-			if (MathF.Abs(onGrid - value) * _camera.EditZoom <= _snap.ReachPx) value = onGrid;
-		}
-		guide.At = value;
-	}
+	private void GuideMouseMove(Vector2 screen) => _guides.MouseMove(screen);
 
 	// Let go: back on a ruler (or out of the view), and it's gone
-	private void GuideMouseUp(Vector2 screen)
-	{
-		if (_guideDrag is not { } guide || _guidesBefore is not { } before) return;
-		var view = _camera.ViewSize;
-		bool outside = screen.X < 0 || screen.Y < 0 || screen.X > view.X || screen.Y > view.Y;
-		if (OnRulers(screen) || outside) _scene.Guides.Remove(guide);
-		_guideDrag = null;
-		_guidesBefore = null;
-
-		_session.GuidesChanged(before);
-	}
+	private void GuideMouseUp(Vector2 screen) => _guides.MouseUp(screen);
 
 	private List<(Guide Guide, float At)> GuidesNow() => _session.GuidesNow();
 

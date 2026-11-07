@@ -66,14 +66,7 @@ public partial class MainWindow
 		if (_syncingRig || !_state.AnimateMode) return;
 		if (_shownBone is not { } bone || SpaceBox.SelectedItem is not SpaceChoice choice) return;
 
-		_state.Playing = false;
-		_state.SetFrame(_state.Frame);   // switches always happen exactly on a frame
-		int frame = _state.Frame;
-
-		bool changed = _state.EditStructure(() =>
-			SpaceSwitching.Switch(_skeleton, _state.Animation, bone, frame, _state.Fps, choice.Space)
-				? $"{bone.Name} follows {choice.Label} @ frame {frame}"
-				: null);
+		bool changed = _session.SwitchSpace(bone, choice.Space, choice.Label);   // (exactly on the playhead's frame)
 
 		if (changed) return;
 		SyncSpaceChoice();   // put the dropdown back to what's really there
@@ -100,10 +93,7 @@ public partial class MainWindow
 		if (dialog.ShowDialog() != true) return;
 		_lastThrow = dialog.Settings;
 
-		bool thrown = _state.EditStructure(() =>
-			ThrowBake.Bake(_skeleton, _state.Animation, bone, frame, _state.Fps, dialog.Settings)
-				? $"Throw {bone.Name} @ frame {frame}"
-				: null);
+		bool thrown = _session.Throw(bone, dialog.Settings);
 
 		if (!thrown) RigHint.Text = "Nothing to bake: there are no frames between here and the end (or the next attach).";
 	}

@@ -159,6 +159,10 @@ public sealed partial class EditorSession
 		return RigOps.Reparent(Rig, bone, parent);
 	}
 
+	// The bone's parent chosen in the bone panel (label: how the choice reads), as one undo step
+	public bool ParentBone(Bone bone, Bone? parent, string label, bool keepParts) =>
+		State.EditStructure(() => HangBone(bone, parent, keepParts) ? $"Parent {bone.Name} to {label}" : null);
+
 	// Several bones hung from one, as one undo step (how many were)
 	public int HangBones(IReadOnlyList<Bone> bones, Bone? parent, bool keepParts)
 	{
