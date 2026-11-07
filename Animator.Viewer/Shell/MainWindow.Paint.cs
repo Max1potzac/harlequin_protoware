@@ -10,7 +10,8 @@ namespace Animator.Viewer;
 
 public partial class MainWindow
 {
-	private PaintSession _paint => _session.Paint;
+	// (null until InitPaint: the panel's controls report changes while the window is still being built)
+	private PaintSession _paint => _paintCanvas is null ? null! : _session.Paint;
 	private PaintToolbox Tools => _session.PaintTools;
 	private PaintCanvas _paintCanvas = null!;
 	private bool _syncingUi;
@@ -25,7 +26,7 @@ public partial class MainWindow
 
 	private void InitPaint()
 	{
-		_paintCanvas = new PaintCanvas(_paint);
+		_paintCanvas = new PaintCanvas(_session.Paint);
 		_paint.Changed += SyncPaintUi;
 		_state.Undo.Changed += SyncPaintUi;
 
