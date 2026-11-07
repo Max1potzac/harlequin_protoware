@@ -205,7 +205,7 @@ public sealed class ExportWindow : Window
 		panel.Children.Add(SceneChoice);
 		ObjectChoiceButton.Margin = new Thickness(0, 4, 0, 0);
 		panel.Children.Add(ObjectChoiceButton);
-		_objectFields.ColumnDefinitions = new ColumnDefinitions($"{LabelWidth - 20},*");
+		_objectFields.ColumnDefinitions = new ColumnDefinitions($"{LabelWidth},*");
 		_objectFields.RowDefinitions = new RowDefinitions("Auto,Auto");
 		var objectLabel = Words("Object");
 		_objectFields.Children.Add(objectLabel);
