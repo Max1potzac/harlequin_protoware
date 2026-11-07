@@ -77,6 +77,7 @@ public sealed partial class MainWindow
 		_session.PoseScene(_session.ClockTime);
 		ResetView();
 		RefreshRigList();
+		RefreshAnimationsBar();
 		UpdateTitle();
 	}
 

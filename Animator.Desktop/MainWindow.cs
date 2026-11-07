@@ -79,12 +79,14 @@ public sealed partial class MainWindow : Window
 			_session.KeepToWhatExists();   // an undo can take the open object away
 			RefreshRigList();
 			RefillProperties();   // (a rename, a new parent, an undo)
+			RefreshAnimationsBar();
 			UpdateTitle();
 		};
 
 		State.Playing = false;
 		Opened += (_, _) => ResetView();
 		RefreshRigList();
+		RefreshAnimationsBar();
 		UpdateTitle();
 		_frames = new DispatcherTimer(TimeSpan.FromMilliseconds(15), DispatcherPriority.Render, (_, _) => OnFrame());
 		_frames.Start();
@@ -156,13 +158,16 @@ public sealed partial class MainWindow : Window
 		Grid.SetColumn(splitter, 1);
 		main.Children.Add(splitter);
 
-		var work = new Grid { RowDefinitions = new RowDefinitions("*,4,190") };
+		var work = new Grid { RowDefinitions = new RowDefinitions("*,4,Auto,190") };
 		Grid.SetRow(Viewport, 0);
 		work.Children.Add(Viewport);
 		var timelineSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Rows };
 		Grid.SetRow(timelineSplitter, 1);
 		work.Children.Add(timelineSplitter);
-		Grid.SetRow(TimelineView, 2);
+		var animations = BuildAnimationsBar();
+		Grid.SetRow(animations, 2);
+		work.Children.Add(animations);
+		Grid.SetRow(TimelineView, 3);
 		work.Children.Add(TimelineView);
 		Grid.SetColumn(work, 2);
 		main.Children.Add(work);
@@ -241,6 +246,7 @@ public sealed partial class MainWindow : Window
 		_session.PoseScene(_session.ClockTime);
 		UpdateCameraSpace();
 		RefreshRigList();
+		RefreshAnimationsBar();
 	}
 
 	// Back to the scene
@@ -250,6 +256,7 @@ public sealed partial class MainWindow : Window
 		_session.Leave();
 		UpdateCameraSpace();
 		RefreshRigList();
+		RefreshAnimationsBar();
 	}
 
 	// ======================= the status line =======================
