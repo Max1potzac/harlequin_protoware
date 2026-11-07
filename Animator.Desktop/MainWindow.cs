@@ -79,6 +79,7 @@ public sealed partial class MainWindow : Window
 		WireTimeline();
 		WireKeys();
 		Closing += Window_Closing;
+		Closed += (_, _) => _sound?.Dispose();
 
 		State.Undo.Changed += () =>
 		{
@@ -243,11 +244,12 @@ public sealed partial class MainWindow : Window
 	internal void Tick(float dt)
 	{
 		if (State.Playing && SceneLevel) _session.AdvanceScene(dt * State.Speed);
-		else if (State.Playing) State.Advance(dt);
+		else if (State.Playing) FireEvents(State.Advance(dt));
 		// Unkeyed changes (auto key off) last as long as the playhead stays on their frame
 		State.Hold.KeepOnlyAt(State.Skeleton, State.Animation, State.Frame, Editing && State.AnimateMode && !State.Playing);
 		_session.PoseScene(_session.ClockTime);
 		UpdateCameraSpace();
+		SyncSound();
 	}
 
 	// Tools work in the open object's own space; at scene level, in the scene's

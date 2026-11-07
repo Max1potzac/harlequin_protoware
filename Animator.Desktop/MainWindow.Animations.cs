@@ -54,6 +54,10 @@ public sealed partial class MainWindow
 		Add(Label("FPS"));
 		Add(AnimFps);
 		Add(AnimLoop);
+		var sound = new Button { Content = "Sound ▾" };
+		ToolTip.SetTip(sound, "The sound track, the sound map, events files, mute");
+		sound.Click += (_, _) => ShowSoundMenu(sound);
+		Add(sound);
 		Add(_animHint);
 
 		AnimList.SelectionChanged += (_, _) =>
@@ -75,6 +79,8 @@ public sealed partial class MainWindow
 		_animBar = bar;
 		return _animBar;
 	}
+
+	private void AnimHint(string text) => _animHint.Text = text;
 
 	// (the picked frames belonged to the one before)
 	internal void SwitchAnimation(Animation animation)
