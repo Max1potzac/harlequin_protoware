@@ -309,25 +309,9 @@ public partial class MainWindow
 		SyncSpaceChoice();   // what the bone follows can change from frame to frame
 	}
 
-	private float? FieldValue(Bone bone, string field, bool pose)
-	{
-		var look = LookOf(bone);
-		return field switch
-		{
-			"X" => pose ? bone.Position.X : bone.SetupPosition.X,
-			"Y" => pose ? bone.Position.Y : bone.SetupPosition.Y,
-			"Rotation" => Deg(pose ? bone.Rotation : bone.SetupRotation),
-			"Length" => bone.Length,
-			"ScaleX" => pose ? bone.Scale.X : bone.SetupScale.X,
-			"ScaleY" => pose ? bone.Scale.Y : bone.SetupScale.Y,
-			"Turn" => Deg(pose ? bone.Turn : bone.SetupTurn),
-			"Tilt" => Deg(pose ? bone.Tilt : bone.SetupTilt),
-			"Follow" => look?.Follow,
-			"RangeX" => look?.Radius.X,
-			"RangeY" => look?.Radius.Y,
-			_ => null
-		};
-	}
+	// (see EditorSession.BoneValue: `pose` is the session's own, from the mode)
+	private float? FieldValue(Bone bone, string field, bool pose) =>
+		Enum.TryParse<BoneField>(field, out var which) ? _session.BoneValue(bone, which) : null;
 
 	private void BoneField_KeyDown(object sender, KeyEventArgs e)
 	{
@@ -357,9 +341,8 @@ public partial class MainWindow
 			return;
 		}
 
-		bool pose = _state.AnimateMode && PoseFields.Contains(field);
-		var current = FieldValue(bone, field, pose);
-		if (current == null || box.Text.Trim() == Num(current)) return;
+		if (!Enum.TryParse<BoneField>(field, out var which) || _session.BoneValue(bone, which) is not { } current
+			|| box.Text.Trim() == Num(current)) return;
 
 		if (!TryNum(box.Text, out float v))
 		{
@@ -367,36 +350,7 @@ public partial class MainWindow
 			box.Text = Num(current);
 			return;
 		}
-
-		if (pose) KeyField(bone, field, v);
-		else ApplySetupField(bone, field, v);
-	}
-
-	// (angles typed in degrees; the session's in radians)
-	private static float FieldValueIn(string field, float v) => field is "Rotation" or "Turn" or "Tilt" ? Rad(v) : v;
-
-	private void ApplySetupField(Bone bone, string field, float v)
-	{
-		if (Enum.TryParse<BoneField>(field, out var which)) _session.SetBoneRest(bone, which, FieldValueIn(field, v), _tool.KeepPartsInPlace);
-	}
-
-	private void KeyField(Bone bone, string field, float v)
-	{
-		// Auto key off: the pose changes, no key yet
-		if (HoldInsteadOfKey(() =>
-		{
-			switch (field)
-			{
-				case "X": bone.Position = new Vector2(v, bone.Position.Y); break;
-				case "Y": bone.Position = new Vector2(bone.Position.X, v); break;
-				case "Rotation": bone.Rotation = Rad(v); break;
-				case "ScaleX": bone.Scale = new Vector2(v, bone.Scale.Y); break;
-				case "ScaleY": bone.Scale = new Vector2(bone.Scale.X, v); break;
-				case "Turn": bone.Turn = Rad(v); break;
-				case "Tilt": bone.Tilt = Rad(v); break;
-			}
-		})) return;
-		if (Enum.TryParse<BoneField>(field, out var which)) _session.KeyBone(bone, which, FieldValueIn(field, v));
+		_session.TypeBoneValue(bone, which, v, _tool.KeepPartsInPlace);
 	}
 
 	private void BoneConnected_Click(object sender, RoutedEventArgs e)
@@ -479,15 +433,10 @@ public partial class MainWindow
 		if (!box.IsKeyboardFocused && box.Text != text) box.Text = text;
 	}
 
-	private static string Num(float? v) => v is { } f ? f.ToString("0.##", CultureInfo.CurrentCulture) : "";
-
-	private static bool TryNum(string text, out float value) =>
-		float.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value) ||
-		float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
-
-	private static float Deg(float radians) => radians * 180f / MathF.PI;
-	private static float Rad(float degrees) => degrees * MathF.PI / 180f;
-	private static float Ratio(float a, float b) => MathF.Abs(b) < 1e-6f ? a : a / b;
+	private static string Num(float? v) => EditorSession.Num(v);
+	private static bool TryNum(string text, out float value) => EditorSession.TryNum(text, out value);
+	private static float Deg(float radians) => EditorSession.Deg(radians);
+	private static float Rad(float degrees) => EditorSession.Rad(degrees);
 	private sealed record IkChoice(int Length, string Label)
 	{
 		public override string ToString() => Label;

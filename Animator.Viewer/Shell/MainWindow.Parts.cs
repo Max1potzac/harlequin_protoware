@@ -67,17 +67,9 @@ public partial class MainWindow
 		SyncEffects(slot);
 	}
 
-	private static float? PartValue(Slot slot, Attachment att, Asset? asset, string field, bool pose) => field switch
-	{
-		"PX" => att.Offset.X + (pose ? slot.Offset.X : 0f),
-		"PY" => att.Offset.Y + (pose ? slot.Offset.Y : 0f),
-		"PRotation" => Deg(att.Rotation + (pose ? slot.Rotation : 0f)),
-		"PScaleX" => att.Scale.X * (pose ? slot.Scale.X : 1f),
-		"PScaleY" => att.Scale.Y * (pose ? slot.Scale.Y : 1f),
-		"PPivotX" => asset != null ? att.Pivot.X * asset.Width : null,
-		"PPivotY" => asset != null ? att.Pivot.Y * asset.Height : null,
-		_ => null
-	};
+	// (see EditorSession.PartValue: `pose` is the session's own, from the mode)
+	private float? PartValue(Slot slot, Attachment att, Asset? asset, string field, bool pose) =>
+		Enum.TryParse<PartField>(field[1..], out var which) ? _session.PartValue(slot, which) : null;   // [1..] drops the "P" prefix
 
 	private void PartField_KeyDown(object sender, KeyEventArgs e)
 	{
@@ -107,11 +99,8 @@ public partial class MainWindow
 			return;
 		}
 
-		var (att, asset) = PartData(slot);
-		if (att == null) return;
-		bool pose = _state.AnimateMode && PlacementFields.Contains(field);
-		var current = PartValue(slot, att, asset, field, pose);
-		if (current == null || box.Text.Trim() == Num(current)) return;
+		if (!Enum.TryParse<PartField>(field[1..], out var which) || _session.PartValue(slot, which) is not { } current
+			|| box.Text.Trim() == Num(current)) return;
 
 		if (!TryNum(box.Text, out float v))
 		{
@@ -119,32 +108,7 @@ public partial class MainWindow
 			box.Text = Num(current);
 			return;
 		}
-
-		if (pose)
-		{
-			KeyPartField(slot, att, field, v);
-			return;
-		}
-		if (Enum.TryParse<PartField>(field[1..], out var which))   // [1..] drops the "P" prefix
-			_session.SetPartRest(slot, which, field == "PRotation" ? Rad(v) : v);
-	}
-
-	// Animate mode: a typed number becomes a placement key at this frame (see EditorSession.KeyPart)
-	private void KeyPartField(Slot slot, Attachment att, string field, float v)
-	{
-		// Auto key off: the placement changes, no key yet
-		if (HoldInsteadOfKey(() =>
-		{
-			switch (field)
-			{
-				case "PX": slot.Offset = new Vector2(v - att.Offset.X, slot.Offset.Y); break;
-				case "PY": slot.Offset = new Vector2(slot.Offset.X, v - att.Offset.Y); break;
-				case "PRotation": slot.Rotation = Rad(v) - att.Rotation; break;
-				case "PScaleX": slot.Scale = new Vector2(Ratio(v, att.Scale.X), slot.Scale.Y); break;
-				case "PScaleY": slot.Scale = new Vector2(slot.Scale.X, Ratio(v, att.Scale.Y)); break;
-			}
-		})) return;
-		if (Enum.TryParse<PartField>(field[1..], out var which)) _session.KeyPart(slot, which, field == "PRotation" ? Rad(v) : v);
+		_session.TypePartValue(slot, which, v);
 	}
 
 	private void PartBone_Changed(object sender, SelectionChangedEventArgs e)

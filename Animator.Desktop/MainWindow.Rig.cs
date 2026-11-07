@@ -71,6 +71,7 @@ public sealed partial class MainWindow
 			}
 			RigList.ItemsSource = items;
 			_listed = items;
+			_listedPick = null;   // (picked again in the new rows, below)
 		}
 		finally
 		{

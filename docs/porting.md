@@ -120,3 +120,9 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
    the timeline (the animation's, or the scene's at scene level), the rig list (bones and parts,
    or the scene's objects), New / Open / Save / Save as, undo, playback, Build / Animate, keying
    the pose, the Select / Move / Rotate tools, and the main shortcuts.
+2. **The properties panel**: the picked bone's numbers (where, turned, long, scaled: the rest pose
+   in Build, the pose at the playhead in Animate, keyed as typed), its name, parent and links,
+   a bone added on it or deleted; the picked part's placement, pivot, opacity, blend, bone and
+   place in the order; the picked object's place in the scene. Numbers are typed or dragged by
+   their labels (a drag is one undo step). The shown and typed numbers are the engine's
+   (EditorSession.Fields.cs), which the Windows editor's panels use too.
