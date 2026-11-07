@@ -131,6 +131,8 @@ jobs:
   # "editor-screenshots"), and published for Linux (kept with the run, as "editor-linux-x64")
   desktop:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-dotnet@v5
@@ -153,6 +155,20 @@ jobs:
           name: editor-screenshots
           path: shots
           if-no-files-found: ignore
+
+      # The pictures also on a branch of their own (shots/<branch>), to look at without
+      # downloading the run's artifacts: git fetch origin shots/<branch>
+      - name: Keep the pictures on a branch
+        if: always() && github.event_name == 'push'
+        run: |
+          [ -d shots ] || exit 0
+          cd shots
+          git init -q -b pictures
+          git config user.name "CI"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -qm "Editor pictures from $GITHUB_SHA"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "pictures:refs/heads/shots/$GITHUB_REF_NAME"
 
       - name: Publish for Linux
         run: |
