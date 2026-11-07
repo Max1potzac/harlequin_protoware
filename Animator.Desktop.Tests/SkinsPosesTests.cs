@@ -42,8 +42,7 @@ public class SkinsPosesTests
 		window.ShowSkin(skin, false);
 		Assert.False(rig.ShownSkins.Contains(skin));
 		window.ShowSkin(skin, true);
-		window.State.Undo.Undo();
-		window.State.Undo.Undo();
+		for (int i = 0; i < 3; i++) window.State.Undo.Undo();   // (on, off, and the hiding: each a step)
 		Assert.DoesNotContain("body", skin.Hides);
 	}
 
