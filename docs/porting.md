@@ -129,3 +129,9 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
 3. **The animations bar** over the timeline: the open object's animations (picked, new, a copy,
    deleted), the edited one's name, length and looping, the project's frame rate; picked frames
    split or copied into an animation sequence of their own (the timeline's right-click).
+4. **Skins and poses**, as tabs next to the rig list. Skins: made from the picked parts (or each
+   picked part, or one part's drawings, a skin of a category; or the colour layers; or empty, to
+   edit), shown and hidden, ✎ edited, renamed, given a category or made an overlay, parts added,
+   taken out or hidden by them, moved, deleted (their drawings back to the object, or with
+   them), a category renamed. Poses: kept, renamed, put on again (mirrored, partly, on just the
+   picked), kept again, deleted; the pose mirrored, copied and pasted; the rig symmetrized.

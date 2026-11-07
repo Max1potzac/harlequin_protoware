@@ -78,6 +78,8 @@ public sealed partial class MainWindow
 		ResetView();
 		RefreshRigList();
 		RefreshAnimationsBar();
+		RefreshSkins();
+		RefreshPoses();
 		UpdateTitle();
 	}
 

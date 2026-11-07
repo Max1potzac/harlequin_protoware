@@ -48,6 +48,10 @@ public sealed partial class MainWindow
 
 		Add("anim.mode", "_Build / Animate", ToggleAnimate, "K");
 		Add("anim.key", "_Key the pose here", KeyThePose, "S");
+		Add("pose.mirror", "_Mirror the pose", MirrorThePose, "Ctrl+M");
+		Add("pose.copy", "_Copy the pose", CopyThePose, "Ctrl+Shift+C");
+		Add("pose.paste", "_Paste the pose", () => PasteThePose(false), "Ctrl+Shift+V");
+		Add("pose.pasteMirrored", "Paste the pose mi_rrored", () => PasteThePose(true), "Ctrl+Alt+V");
 
 		Add("tool.select", "_Select", () => SetTool(ViewTool.Select), "D1");
 		Add("tool.move", "_Move", () => SetTool(ViewTool.Move), "D2");
@@ -86,7 +90,7 @@ public sealed partial class MainWindow
 				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.quit"),
 				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.back"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
-				Top("_Animation", "anim.mode", "anim.key"),
+				Top("_Animation", "anim.mode", "anim.key", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
 				Top("_View", "tool.select", "tool.move", "tool.rotate", null, "view.reset", "view.images", "view.bones", "view.onion", null,
 					"view.grid", "view.rulers", "view.guides")
 			}
@@ -171,6 +175,7 @@ public sealed partial class MainWindow
 	{
 		if (SceneLevel) return;
 		State.AnimateMode = !State.AnimateMode;
+		RefreshPoses();   // (symmetrizing is for Build)
 		Hint(State.AnimateMode ? "Animate: posing keys the pose at the playhead." : "Build: changes are to the object itself.");
 	}
 

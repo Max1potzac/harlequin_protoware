@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
 
 	internal EditorSession Session => _session;
 	internal Camera Camera => _camera;
+	internal TabControl LeftTabs { get; private set; } = null!;
 	internal EditorState State => _session.State;
 	private Scene Scene => _session.Scene;
 	private bool Editing => _session.Editing;
@@ -80,6 +81,8 @@ public sealed partial class MainWindow : Window
 			RefreshRigList();
 			RefillProperties();   // (a rename, a new parent, an undo)
 			RefreshAnimationsBar();
+			RefreshSkins();
+			RefreshPoses();
 			UpdateTitle();
 		};
 
@@ -87,6 +90,8 @@ public sealed partial class MainWindow : Window
 		Opened += (_, _) => ResetView();
 		RefreshRigList();
 		RefreshAnimationsBar();
+		RefreshSkins();
+		RefreshPoses();
 		UpdateTitle();
 		_frames = new DispatcherTimer(TimeSpan.FromMilliseconds(15), DispatcherPriority.Render, (_, _) => OnFrame());
 		_frames.Start();
@@ -150,8 +155,18 @@ public sealed partial class MainWindow : Window
 		root.Children.Add(statusBar);
 
 		// Left: the rig (or the scene's objects); right of it, the viewport over the timeline
-		var main = new Grid { ColumnDefinitions = new ColumnDefinitions("240,4,*,4,300") };
-		var rig = BuildRigList();
+		var main = new Grid { ColumnDefinitions = new ColumnDefinitions("280,4,*,4,300") };
+		// The rig's bones and parts, its skins, its poses
+		LeftTabs = new TabControl
+		{
+			Items =
+			{
+				new TabItem { Header = "Rig", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildRigList() },
+				new TabItem { Header = "Skins", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildSkinsTab() },
+				new TabItem { Header = "Poses", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildPosesTab() }
+			}
+		};
+		var rig = LeftTabs;
 		Grid.SetColumn(rig, 0);
 		main.Children.Add(rig);
 		var splitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
@@ -247,6 +262,8 @@ public sealed partial class MainWindow : Window
 		UpdateCameraSpace();
 		RefreshRigList();
 		RefreshAnimationsBar();
+		RefreshSkins();
+		RefreshPoses();
 	}
 
 	// Back to the scene
@@ -257,6 +274,8 @@ public sealed partial class MainWindow : Window
 		UpdateCameraSpace();
 		RefreshRigList();
 		RefreshAnimationsBar();
+		RefreshSkins();
+		RefreshPoses();
 	}
 
 	// ======================= the status line =======================
