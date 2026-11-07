@@ -161,6 +161,13 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
    out, mute. Heard through OpenAL Soft (Silk.NET, with its library for each system); WAV is read
    here, MP3 by NLayer, Ogg Vorbis by NVorbis. (WMA and AAC, which the Windows editor plays
    through Windows' media player, aren't.)
+10. **Building the rig** (the Rig tab): Bones or Layers (every part in drawing order, front
+    first, with its bone, mask, clipping and skins; a drawn object always shows these), + Part ▾
+    (blank, or from a picture), Bind ▾ (parts onto their nearest bones, a bone following a part),
+    Give it bones ▾ for a drawn object, and whether parts stay put and animations stay as they
+    were. Rows dragged: parts onto bones, bones onto bones, parts up or down the layers. The order
+    keys (Ctrl+] / Ctrl+[, Shift: all the way) and Order and mask ▾ (also a part row's
+    right-click): the draw order and clipping masks.
 
 ### Still to come in step 4
 
@@ -169,38 +176,33 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **Building the rig**: + Bone and + Part (the new part dialog), parts put on bones (by hand,
-   dragged in the list, onto the nearest bones), a drawn object given bones, bones fitted
-   without moving the parts (Rigging). The Layers view (every part in drawing order), the order
-   keys (Ctrl+[ / Ctrl+], with Shift all the way; keyed in Animate) and masking (Order and
-   mask ▾).
-2. **Picking, hiding, locking**: Ctrl/Shift+click and Ctrl+A in the rig list, the eye and the
+1. **Picking, hiding, locking**: Ctrl/Shift+click and Ctrl+A in the rig list, the eye and the
    lock on each row (H, Shift+H, Alt+H, L, Shift+L, Alt+L); selection sets and bone colours
    (Sets).
-3. **The timeline's tools**: auto key on / off; playback speed, back and forth, the picked frames
+2. **The timeline's tools**: auto key on / off; playback speed, back and forth, the picked frames
    over and over; only the picked's rows, a box over keys, every key at a frame; keys nudged,
    stretched, reversed, frames inserted or removed at the playhead; the Keys ▾ menu. Event
    markers added and edited (the event dialog, E) and their flash in the viewport. The graph
    editor (Curves, Ctrl+G: GraphPanel, Bézier handles, easing).
-4. **Frame by frame**: the Drawings rows of the part panel, F5 / F6 / F7 and the frame keys
+3. **Frame by frame**: the Drawings rows of the part panel, F5 / F6 / F7 and the frame keys
    (new, copy, longer, shorter); onion skin settings and the light table under the paint editor.
-5. **Meshes**: the Mesh box (a grid over the picture, weights worked out, all on one bone, or
+4. **Meshes**: the Mesh box (a grid over the picture, weights worked out, all on one bone, or
    painted in the viewport, points dragged: where they sit in Build, deform keys in Animate).
    The tool (MeshEditTool) is already in the viewport; its panel isn't.
-6. **IK and following**: IK / FK, switching at a frame, snapping the target, baking into FK,
+5. **IK and following**: IK / FK, switching at a frame, snapping the target, baking into FK,
    flipping the elbow (the ik.* keys); Follow and jiggle (copy and jiggle constraints);
    Follows / detach and the throw / fall helper (Space, the throw dialog).
-7. **Effects and colour**: a part's tint and keyed opacity (blend mode is there already); colour
+6. **Effects and colour**: a part's tint and keyed opacity (blend mode is there already); colour
    layers on an object (hue / saturation, brightness / contrast, tint, colour balance, parts left
    out) and inside a drawing (those and Replace colour, from the paint editor).
-8. **Hitboxes and points**: the Boxes view, boxes and circles of a kind on bones, keyed on and
+7. **Hitboxes and points**: the Boxes view, boxes and circles of a kind on bones, keyed on and
    off, points facing a way, dragged and resized in the viewport; J shows them.
-9. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
+8. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
    clips placed and edited (the clip panel, the scene timeline's right-click menu). New project
    asks what kind (character or animation) and the stage size. Bring in from another object
    (animations and drawings from another object, also as a skin).
-10. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
-11. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
+9. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
+10. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
     undo bringing you back to where an edit was made first (Places); Help (the keyboard and mouse
     window, F1, the engine format, About) and the status bar's mode and last edit; the window's
     size, panel widths and timeline height remembered (Layout); the Paint tool on the tool bar
