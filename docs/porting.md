@@ -140,6 +140,10 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
    (a colour dialog, a palette, typed as hex), the drawing's layers (shown, named, faded, added,
    deleted, moved), the canvas size; it follows the part's drawings along the timeline, and has
    the Windows editor's keys while the mouse is over it.
-6. **Import** (File > Import, Ctrl+I): a Photoshop file, through the same dialog as the Windows
-   editor's (the layers ticked, a suggested rig with every choice changeable and shown on the
-   picture, the size); Animate projects and sprite sheets follow.
+6. **Import** (File > Import, Ctrl+I), through the same dialogs as the Windows editor's: a
+   Photoshop file (the layers ticked, a suggested rig with every choice changeable and shown on
+   the picture, the size); an Animate project (the timeline, an animation per label, the parts
+   in, in the rig or effects, the rig worked out from the motion and played on the picture, the
+   rest pose); a sprite sheet (cut as a grid, into its separate sprites, by hand or as its JSON
+   says, the background made see-through, animations made of the pieces and played, brought in
+   as objects or as parts of the open one).

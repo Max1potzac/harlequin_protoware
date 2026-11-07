@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Animator.Tests\Import\XflTestProject.cs" Link="Files\XflTestProject.cs" />
     <None Include="..\Animator.Tests\Files\imagemagick-layers.psd" Link="Files\imagemagick-layers.psd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
