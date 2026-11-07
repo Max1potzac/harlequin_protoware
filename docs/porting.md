@@ -147,3 +147,17 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
    rest pose); a sprite sheet (cut as a grid, into its separate sprites, by hand or as its JSON
    says, the background made see-through, animations made of the pieces and played, brought in
    as objects or as parts of the open one).
+7. **Export** (File > Export, Ctrl+E), the Windows editor's dialog: the scene or one object's
+   animations, as PNG pictures, a GIF, a sprite sheet, a video or a game engine's rig and atlas,
+   with the options each format uses; a progress window with Cancel; then where it went, and
+   Show it.
+8. **Settings** (File > Settings, Ctrl+,): any command's keys (a port of the Windows editor's key
+   map with Avalonia's keys, so both keep the same shortcuts in settings.json), the mouse buttons,
+   the recovery copy's interval and the backups, the theme (Fluent's dark or light) and the size
+   of the panels and dialogs. Autosave runs as in the Windows editor, and a copy a crashed run
+   left is offered back at the start.
+9. **Sound** (Sound ▾ on the animation bar): event sounds and the sound track heard while
+   playing, the track's waveform under the keys, the sound map, events and sound map files in and
+   out, mute. Heard through OpenAL Soft (Silk.NET, with its library for each system); WAV is read
+   here, MP3 by NLayer, Ogg Vorbis by NVorbis. (WMA and AAC, which the Windows editor plays
+   through Windows' media player, aren't.)
