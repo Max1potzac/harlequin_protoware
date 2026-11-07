@@ -270,70 +270,25 @@ public partial class MainWindow
 
 	// ======================= hiding =======================
 
-	private static string NameOf(object item) => item switch { Bone b => b.Name, Slot s => s.Name, _ => "" };
+	private static string NameOf(object item) => EditorSession.NameOf(item);
 
-	private static bool IsHiddenItem(object item) => item switch { Bone b => b.IsHidden, Slot s => s.IsHidden, _ => false };
+	private static bool IsHiddenItem(object item) => EditorSession.IsHiddenItem(item);
 
-	private void ToggleHidden(object item)
-	{
-		bool hide = item switch { Bone b => !b.Hidden, Slot s => !s.Hidden, _ => false };
-		EditAids($"{(hide ? "Hide" : "Show")} {NameOf(item)}", () => VisibilityOps.SetHidden(new[] { item }, hide));
-	}
-
-	private void HidePicked()
-	{
-		var picked = _state.Picked.ToList();
-		if (picked.Count == 0) return;
-		EditAids(picked.Count == 1 ? $"Hide {NameOf(picked[0])}" : $"Hide {picked.Count} picked",
-			() => VisibilityOps.SetHidden(picked, true));
-	}
-
-	private void HideAllButPicked()
-	{
-		var picked = _state.Picked.ToList();
-		if (picked.Count == 0) return;
-		EditAids("Hide everything but the picked", () => VisibilityOps.HideOthers(_skeleton, picked));
-	}
-
-	private void ShowEverything() => EditAids("Show everything", () => VisibilityOps.ShowAll(_skeleton));
+	private void ToggleHidden(object item) => AidsChanged(_session.ToggleHidden(item));
+	private void HidePicked() => AidsChanged(_session.HidePicked());
+	private void HideAllButPicked() => AidsChanged(_session.HideAllButPicked());
+	private void ShowEverything() => AidsChanged(_session.ShowEverything());
 
 	// ======================= locking =======================
 
-	// (a locked one picked here in the list stays picked: its numbers can still be changed)
-	private void ToggleLocked(object item)
-	{
-		bool locking = !LockOps.IsLocked(item);
-		EditAids($"{(locking ? "Lock" : "Unlock")} {NameOf(item)}", () => LockOps.SetLocked(new[] { item }, locking));
-	}
+	private void ToggleLocked(object item) => AidsChanged(_session.ToggleLocked(item));
+	private void LockPicked() => AidsChanged(_session.LockPicked());
+	private void LockAllButPicked() => AidsChanged(_session.LockAllButPicked());
+	private void UnlockEverything() => AidsChanged(_session.UnlockEverything());
 
-	// The picked locked, and let go: they can't be dragged any more
-	private void LockPicked()
+	// (see EditorSession.EditAids)
+	private void AidsChanged(bool changed)
 	{
-		var picked = _state.Picked.ToList();
-		if (picked.Count == 0) return;
-		EditAids(picked.Count == 1 ? $"Lock {NameOf(picked[0])}" : $"Lock {picked.Count} picked",
-			() => LockOps.SetLocked(picked, true), letLockedGo: true);
-	}
-
-	// Everything but the picked locked: clicks only reach the picked ones
-	private void LockAllButPicked()
-	{
-		var picked = _state.Picked.ToList();
-		if (picked.Count == 0) return;
-		EditAids("Lock everything but the picked", () => LockOps.LockOthers(_skeleton, picked));
-	}
-
-	private void UnlockEverything() => EditAids("Unlock everything", () => LockOps.UnlockAll(_skeleton));
-
-	// One undo step (none when nothing changed). What's hidden can't stay picked: it couldn't be
-	// seen being moved; nor can what's just been locked with L.
-	private void EditAids(string name, Func<bool> change, bool letLockedGo = false)
-	{
-		var before = EditAidsSnapshot.Capture(_skeleton);
-		if (!change()) return;
-		var gone = _state.Picked.Where(i => IsHiddenItem(i) || (letLockedGo && LockOps.IsLocked(i))).ToList();
-		if (gone.Count > 0) _state.Unpick(gone);
-		_state.Undo.Push(new SnapshotCommand<EditAidsSnapshot>(name, before, EditAidsSnapshot.Capture(_skeleton), s => s.Restore()));
-		UpdateStatus();
+		if (changed) UpdateStatus();
 	}
 }

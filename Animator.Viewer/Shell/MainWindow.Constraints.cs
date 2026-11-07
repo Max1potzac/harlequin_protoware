@@ -14,8 +14,8 @@ public partial class MainWindow
 
 	private const string NoBone = "(none)";
 
-	private CopyConstraint? CopyOf(Bone? bone) => bone == null ? null : _skeleton.CopyConstraints.Find(c => c.Bone == bone);
-	private JiggleConstraint? JiggleOf(Bone? bone) => bone == null ? null : _skeleton.JiggleConstraints.Find(c => c.Bone == bone);
+	private CopyConstraint? CopyOf(Bone? bone) => _session.CopyOf(bone);
+	private JiggleConstraint? JiggleOf(Bone? bone) => _session.JiggleOf(bone);
 
 	private void SyncConstraintPanel()
 	{
@@ -66,76 +66,31 @@ public partial class MainWindow
 		if (FindName(slider.Name + "Text") is TextBlock text) text.Text = value.ToString(format);
 	}
 
-	private void EditConstraints(string name, Func<bool> change)
-	{
-		if (_sceneLevel) return;
-		_state.EditStructure(() => change() ? name : null);
-		_skeleton.UpdatePose();
-		SyncConstraintPanel();
-	}
-
 	private void CopySource_Changed(object sender, SelectionChangedEventArgs e)
 	{
 		if (_syncingConstraints || _state.Selected is not { } bone || CopySourceBox.SelectedItem is not string name) return;
-		var copy = CopyOf(bone);
-		var source = name == NoBone ? null : _skeleton.FindBone(name);
-		if (source == copy?.Source) return;
-		if (source == null)
-		{
-			EditConstraints($"{bone.Name}: follow nothing", () => copy != null && _skeleton.CopyConstraints.Remove(copy));
-			return;
-		}
-		EditConstraints($"{bone.Name}: follow {source.Name}", () =>
-		{
-			if (copy == null)
-			{
-				copy = new CopyConstraint { Name = $"{bone.Name}_follow", Bone = bone };
-				_skeleton.CopyConstraints.Add(copy);
-			}
-			copy.Source = source;
-			_skeleton.SetToSetupPose();   // (offsets: where it is at rest)
-			_skeleton.UpdateWorld();
-			copy.KeepOffsets();
-			return true;
-		});
+		if (_session.SetCopySource(bone, name == NoBone ? null : _skeleton.FindBone(name))) SyncConstraintPanel();
 	}
 
 	private void CopyLocal_Click(object sender, RoutedEventArgs e)
 	{
 		if (CopyOf(_state.Selected) is not { } copy) return;
-		bool local = CopyLocalBox.IsChecked == true;
-		EditConstraints(local ? $"{copy.Bone.Name}: follow how {copy.Source.Name} moves" : $"{copy.Bone.Name}: follow where {copy.Source.Name} is",
-			() => { copy.Local = local; return true; });
+		_session.SetCopyLocal(copy, CopyLocalBox.IsChecked == true);
+		SyncConstraintPanel();
 	}
 
 	private void CopyKeep_Click(object sender, RoutedEventArgs e)
 	{
 		if (CopyOf(_state.Selected) is not { } copy) return;
-		EditConstraints($"{copy.Bone.Name}: keep its place from {copy.Source.Name}", () =>
-		{
-			float mix = copy.Mix;
-			_skeleton.UpdatePose();
-			copy.Mix = 0f;   // (where it is without the constraint)
-			_skeleton.SetToSetupPose();
-			_skeleton.UpdateWorld();
-			copy.KeepOffsets();
-			copy.Mix = mix;
-			return true;
-		});
+		_session.KeepCopyPlace(copy);
+		SyncConstraintPanel();
 	}
 
 	private void Jiggle_Click(object sender, RoutedEventArgs e)
 	{
 		if (_state.Selected is not { } bone) return;
-		var jiggle = JiggleOf(bone);
-		if (JiggleBox.IsChecked == true && jiggle == null)
-			EditConstraints($"{bone.Name}: jiggle", () =>
-			{
-				_skeleton.JiggleConstraints.Add(new JiggleConstraint { Name = $"{bone.Name}_jiggle", Bone = bone });
-				return true;
-			});
-		else if (JiggleBox.IsChecked != true && jiggle != null)
-			EditConstraints($"{bone.Name}: no jiggle", () => _skeleton.JiggleConstraints.Remove(jiggle));
+		_session.SetJiggle(bone, JiggleBox.IsChecked == true);
+		SyncConstraintPanel();
 	}
 
 	// ----- sliders: a click is one step; a drag, one step when let go -----
@@ -147,44 +102,21 @@ public partial class MainWindow
 	{
 		if (_constraintDrag is not { } before || sender is not Slider slider) return;
 		_constraintDrag = null;
-		_state.PushStructure(before, $"{_state.Selected?.Name}: {SliderName(slider)}");
+		_state.PushStructure(before, $"{_state.Selected?.Name}: {EditorSession.NameOf(Which(slider))}");
 		SyncConstraintPanel();
 	}
 
-	private static string SliderName(Slider slider) => (string)slider.Tag switch
-	{
-		"CopyRotate" => "follow its turn",
-		"CopyMove" => "follow its place",
-		"CopyScale" => "follow its size",
-		"JiggleStiffness" => "jiggle stiffness",
-		"JiggleDamping" => "jiggle damping",
-		"JiggleGravity" => "jiggle gravity",
-		_ => "constraint mix"
-	};
+	private static ConstraintValue Which(Slider slider) =>
+		Enum.TryParse<ConstraintValue>((string)slider.Tag, out var which) ? which : ConstraintValue.Mix;
 
 	private void ConstraintSlider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
 	{
 		if (_syncingConstraints || !IsLoaded || sender is not Slider slider || _state.Selected is not { } bone) return;
-		var copy = CopyOf(bone);
-		var jiggle = JiggleOf(bone);
 		float v = (float)e.NewValue;
-		var before = _constraintDrag == null ? _state.CaptureStructure() : null;   // (a click: a step of its own)
-		switch ((string)slider.Tag)
-		{
-			case "CopyRotate" when copy != null: copy.RotateMix = v; break;
-			case "CopyMove" when copy != null: copy.MoveMix = v; break;
-			case "CopyScale" when copy != null: copy.ScaleMix = v; break;
-			case "JiggleStiffness" when jiggle != null: jiggle.Stiffness = v; break;
-			case "JiggleDamping" when jiggle != null: jiggle.Damping = v; break;
-			case "JiggleGravity" when jiggle != null: jiggle.Gravity = v; break;
-			case "ConstraintMix":
-				if (copy != null) copy.SetupMix = copy.Mix = v;
-				if (jiggle != null) jiggle.SetupMix = jiggle.Mix = v;
-				if (copy == null && jiggle == null) return;
-				break;
-			default: return;
-		}
-		if (before != null) _state.PushStructure(before, $"{bone.Name}: {SliderName(slider)}");
-		else if (FindName(slider.Name + "Text") is TextBlock text) text.Text = v.ToString(slider.Maximum > 1 ? "0" : "P0");
+		var which = Which(slider);
+		if (_constraintDrag == null)
+			_session.StepConstraintValue(bone, which, v);   // (a click: a step of its own)
+		else if (_session.SetConstraintValue(bone, which, v) && FindName(slider.Name + "Text") is TextBlock text)
+			text.Text = v.ToString(slider.Maximum > 1 ? "0" : "P0");
 	}
 }

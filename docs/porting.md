@@ -67,4 +67,10 @@ throughout.
    selected part), deleted, renamed, fitted, typed, put on bones, switched on and off at rest or
    keyed; what's under the mouse and how a drag moves or resizes one; meshes made over a drawing's
    visible pixels, weighted (nearest bones, one bone, none) and removed.
+10. **Draw order, masks and constraints** (EditorSession.Order.cs): parts stepped or dragged in
+   front of or behind others (the rest order in Setup, keyed at the playhead in Animate); clipping
+   masks made, shown and stopped; follow (copy) and jiggle constraints set up and their numbers set.
+11. **Editing aids and sound** (EditorSession.Aids.cs): bones and parts hidden, shown, locked and
+   unlocked; the bones' own colours; selection sets made, changed, renamed and deleted; guides and
+   the grid size; an animation's sound track, the scene's sound map and events brought in from files.
 

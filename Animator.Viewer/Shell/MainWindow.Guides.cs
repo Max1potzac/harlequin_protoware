@@ -247,32 +247,12 @@ public partial class MainWindow
 		_guideDrag = null;
 		_guidesBefore = null;
 
-		var after = GuidesNow();
-		if (after.SequenceEqual(before)) return;
-		bool added = after.Count > before.Count, removed = after.Count < before.Count;
-		string name = added ? "Add a guide" : removed ? "Take a guide away" : "Move a guide";
-		_state.Undo.Push(new SnapshotCommand<List<(Guide Guide, float At)>>(name, before, after, RestoreGuides));
+		_session.GuidesChanged(before);
 	}
 
-	private List<(Guide Guide, float At)> GuidesNow() => _scene.Guides.Select(g => (g, g.At)).ToList();
+	private List<(Guide Guide, float At)> GuidesNow() => _session.GuidesNow();
 
-	private void RestoreGuides(List<(Guide Guide, float At)> guides)
-	{
-		_scene.Guides.Clear();
-		foreach (var (guide, at) in guides)
-		{
-			guide.At = at;
-			_scene.Guides.Add(guide);
-		}
-	}
-
-	private void ClearGuides()
-	{
-		if (_scene.Guides.Count == 0) return;
-		var before = GuidesNow();
-		_scene.Guides.Clear();
-		_state.Undo.Push(new SnapshotCommand<List<(Guide Guide, float At)>>("Clear the guides", before, GuidesNow(), RestoreGuides));
-	}
+	private void ClearGuides() => _session.ClearGuides();
 
 	// The mouse over the viewport, not dragging: the pointer says what a press would do
 	private void ShowViewPointer(Vector2 screen)
@@ -290,10 +270,7 @@ public partial class MainWindow
 
 	private void SetGridSize(float size)
 	{
-		if (!(size > 0) || MathF.Abs(size - _scene.GridSize) < 1e-6f) return;
-		float before = _scene.GridSize;
-		_scene.GridSize = size;
-		_state.Undo.Push(new SnapshotCommand<float>($"Grid size {size.ToString("0.##", CultureInfo.CurrentCulture)}", before, size, v => _scene.GridSize = v));
+		if (!_session.SetGridSize(size, $"Grid size {size.ToString("0.##", CultureInfo.CurrentCulture)}")) return;
 		if (!_appSettings.ShowGrid) ToggleViewAid("grid");   // so you see what changed
 		ApplyViewAids();
 	}

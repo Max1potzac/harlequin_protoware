@@ -1,4 +1,5 @@
 using System.Numerics;
+using Animator.Core.Export;
 using Animator.Viewer;
 using Animator.Viewer.Rendering;
 
@@ -313,5 +314,167 @@ public class SessionRigTests
 		Assert.True(session.RemoveMesh(part));
 		Assert.False(session.RemoveMesh(part));               // none left
 		Assert.Equal(new SkiaSharp.SKRectI(0, 0, 16, 16).Width, (int)EditorSession.VisibleRect(pixels)!.Value.W);
+	}
+
+	[Fact]
+	public void The_draw_order_and_masks_are_edited_through_the_session()
+	{
+		var (session, _, _, hand, hat) = Rig();
+		var state = session.State;
+		Assert.Equal(new[] { hand, hat }, state.Skeleton.Slots);
+		Assert.True(session.Reorder(new[] { hand }, +1, toEnd: false));
+		Assert.Equal(new[] { hat, hand }, state.Skeleton.Slots);
+		Assert.True(session.PlaceInOrder(new[] { hand }, hat, inFront: false));
+		Assert.Equal(new[] { hand, hat }, state.Skeleton.Slots);
+		Assert.False(session.PlaceInOrder(new[] { hand }, hat, inFront: false));   // there already
+
+		// Animate: a key at the playhead, the rest order as it was
+		state.AnimateMode = true;
+		state.SetFrame(10);
+		Assert.True(session.Reorder(new[] { hat }, -1, toEnd: true));
+		Assert.Equal(new[] { hat, hand }, session.CurrentOrder());
+		Assert.Equal(new[] { hand, hat }, state.Skeleton.Slots);
+		Assert.False(session.MakeMask(hand, null));   // masks are Build's
+
+		state.AnimateMode = false;
+		Assert.True(session.MakeMask(hand, null));
+		Assert.True(hand.IsMask);
+		Assert.True(session.SetMaskShows(hand, !hand.MaskShows));
+		Assert.True(session.StopMask(hand));
+		Assert.False(hand.IsMask);
+	}
+
+	[Fact]
+	public void Follow_and_jiggle_are_edited_through_the_session()
+	{
+		var (session, root, arm, _, _) = Rig();
+		var state = session.State;
+		var other = session.AddBone(null, snap: false);
+		Assert.True(session.SetCopySource(arm, other));
+		var copy = session.CopyOf(arm)!;
+		Assert.Same(other, copy.Source);
+		Assert.False(session.SetCopySource(arm, other));
+		Assert.True(session.SetCopyLocal(copy, !copy.Local));
+		Assert.True(session.KeepCopyPlace(copy));
+		Assert.True(session.StepConstraintValue(arm, ConstraintValue.CopyRotate, 0.5f));
+		Assert.Equal(0.5f, copy.RotateMix, 4);
+		state.Undo.Undo();
+		Assert.NotEqual(0.5f, copy.RotateMix);
+		Assert.False(session.SetConstraintValue(arm, ConstraintValue.JiggleGravity, 1f));   // no jiggle on it
+
+		Assert.True(session.SetJiggle(arm, true));
+		Assert.NotNull(session.JiggleOf(arm));
+		Assert.True(session.SetConstraintValue(arm, ConstraintValue.Mix, 0.25f));
+		Assert.Equal(0.25f, session.JiggleOf(arm)!.SetupMix, 4);
+		Assert.Equal(0.25f, copy.SetupMix, 4);
+		Assert.True(session.SetJiggle(arm, false));
+		Assert.True(session.SetCopySource(arm, null));
+		Assert.Null(session.CopyOf(arm));
+	}
+
+	[Fact]
+	public void Hiding_locking_colours_and_sets_are_edited_through_the_session()
+	{
+		var (session, root, arm, hand, hat) = Rig();
+		var state = session.State;
+		state.Pick(new object[] { arm, hat });
+
+		// Hidden: it can't stay picked
+		Assert.True(session.HidePicked());
+		Assert.True(arm.Hidden);
+		Assert.Empty(state.Picked);
+		Assert.False(session.HidePicked());   // nothing picked
+		state.Undo.Undo();
+		Assert.False(arm.Hidden);
+		Assert.False(session.ShowEverything());   // nothing hidden
+
+		Assert.True(session.ToggleLocked(hand));
+		Assert.True(LockOps.IsLocked(hand));
+		Assert.True(session.UnlockEverything());
+		Assert.False(LockOps.IsLocked(hand));
+
+		var red = new Vector3(1, 0, 0);
+		Assert.True(session.ColourBones(new[] { root, arm }, red, "Red"));
+		Assert.Equal(red, arm.EditorColor);
+		Assert.False(session.ColourBones(new[] { root, arm }, red, "Red"));
+		state.Undo.Undo();
+		Assert.Null(arm.EditorColor);
+
+		// Sets of the picked: made, added to, renamed, deleted
+		state.Pick(new object[] { arm });
+		Assert.Null(session.NewSetFromPicked(""));
+		var set = session.NewSetFromPicked("arms")!;
+		Assert.Single(state.Skeleton.Sets);
+		Assert.NotNull(session.SetNameProblem("ARMS", null));
+		state.Pick(new object[] { hand });
+		Assert.True(session.ChangeSet(set, add: true));
+		Assert.False(session.ChangeSet(set, add: true));   // in it already
+		Assert.Equal(new[] { hand }, set.Slots);
+		Assert.True(session.ReplaceSet(set));
+		Assert.Empty(set.Bones);
+		Assert.False(session.ReplaceSet(set));
+		Assert.True(session.RenameSet(set, "hands"));
+		Assert.Equal("hands", set.Name);
+		Assert.True(session.DeleteSet(set));
+		Assert.Empty(state.Skeleton.Sets);
+		state.Undo.Undo();
+		Assert.Single(state.Skeleton.Sets);
+	}
+
+	[Fact]
+	public void Guides_grid_and_sound_are_edited_through_the_session()
+	{
+		var (session, _, _, _, _) = Rig();
+		var state = session.State;
+		var scene = session.Scene;
+
+		// A guide dragged out: one undo step from how they were
+		var before = session.GuidesNow();
+		scene.Guides.Add(new Guide(vertical: true, 12f));
+		Assert.True(session.GuidesChanged(before));
+		Assert.False(session.GuidesChanged(session.GuidesNow()));
+		Assert.True(session.ClearGuides());
+		Assert.Empty(scene.Guides);
+		Assert.False(session.ClearGuides());
+		state.Undo.Undo();
+		Assert.Single(scene.Guides);
+		state.Undo.Undo();
+		Assert.Empty(scene.Guides);
+
+		float grid = scene.GridSize;
+		Assert.True(session.SetGridSize(grid * 2, "Grid"));
+		Assert.False(session.SetGridSize(grid * 2, "Grid"));
+		Assert.False(session.SetGridSize(0, "Grid"));
+		state.Undo.Undo();
+		Assert.Equal(grid, scene.GridSize);
+
+		// A sound track for the open animation
+		Assert.True(session.SetSoundTrack(new SoundTrack("boom.wav"), "Sound track"));
+		Assert.Equal("boom.wav", state.Animation.Sound!.Path);
+		Assert.False(session.SetSoundTrack(new SoundTrack("boom.wav"), "Sound track"));
+		state.Undo.Undo();
+		Assert.Null(state.Animation.Sound);
+
+		// Events from a file into the animation of the same name
+		var file = new EventsFile
+		{
+			Animations =
+			{
+				new EventsFileAnimation { Name = "walk", Events = { new EventsFileEvent { Frame = 3, Name = "step" } } },
+				new EventsFileAnimation { Name = "run", Events = { new EventsFileEvent { Frame = 1, Name = "x" } } }
+			}
+		};
+		var merged = session.ImportEvents(file, "", replace: false, "Import events")!;
+		Assert.Equal(1, merged.Added);
+		Assert.Equal(new[] { "run" }, merged.Missing);
+		Assert.Single(state.Animation.Events!.Track.Keys);
+		state.Undo.Undo();
+		Assert.Empty(state.Animation.Events?.Track.Keys ?? new());
+
+		// A sound map's sounds into the scene's (nothing new: no undo step)
+		var map = new SoundMapFile { Sounds = { ["step"] = System.IO.Path.GetFullPath("step.wav"), [" "] = "x.wav" } };
+		Assert.True(session.ImportSoundMap(map, "", "Import the sound map"));
+		Assert.Single(scene.Sounds);
+		Assert.False(session.ImportSoundMap(map, "", "Import the sound map"));
 	}
 }

@@ -66,18 +66,7 @@ public partial class MainWindow
 
 	private void ColourBones(List<Bone> bones, Vector3? color, string name)
 	{
-		string what = bones.Count == 1 ? bones[0].Name : $"{bones.Count} bones";
-		EditAids($"{what}: {name.ToLowerInvariant()}", () =>
-		{
-			bool changed = false;
-			foreach (var bone in bones)
-			{
-				if (bone.EditorColor == color) continue;
-				bone.EditorColor = color;
-				changed = true;
-			}
-			return changed;
-		});
+		if (_session.ColourBones(bones, color, name)) UpdateStatus();
 		ShowProperties();
 	}
 
@@ -155,7 +144,7 @@ public partial class MainWindow
 		Item($"Just the picked in {set.Name}", () => ReplaceSet(set), () => _state.Picked.Count > 0);
 		menu.Items.Add(new Separator());
 		Item("Rename…", () => RenameSet(set));
-		Item("Delete the set", () => EditSets($"Delete the set {set.Name}", () => _skeleton.Sets.Remove(set)));
+		Item("Delete the set", () => _session.DeleteSet(set));
 		return menu;
 	}
 
@@ -167,10 +156,7 @@ public partial class MainWindow
 			if (!used.Contains($"{baseName} {i}")) return $"{baseName} {i}";
 	}
 
-	private string? SetNameProblem(string name, SelectionSet? renaming) =>
-		name.Length == 0 ? "A set needs a name."
-		: _skeleton.Sets.Any(s => s != renaming && string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)) ? "Another set has that name."
-		: null;
+	private string? SetNameProblem(string name, SelectionSet? renaming) => _session.SetNameProblem(name, renaming);
 
 	private void NewSetFromPicked()
 	{
@@ -183,67 +169,17 @@ public partial class MainWindow
 		var dialog = new InputDialog("New set", $"A name for the set of these {picked.Count} bone(s) and part(s):",
 			UniqueSetName(picked.Count == 1 ? NameOf(picked[0]) : "set"), name => SetNameProblem(name, null)) { Owner = this };
 		if (dialog.ShowDialog() != true) return;
-		var set = new SelectionSet { Name = dialog.Answer };
-		set.Bones.AddRange(picked.OfType<Bone>());
-		set.Slots.AddRange(picked.OfType<Slot>());
-		EditSets($"New set {set.Name}", () =>
-		{
-			_skeleton.Sets.Add(set);
-			return true;
-		});
+		_session.NewSetFromPicked(dialog.Answer);
 	}
 
-	private void ChangeSet(SelectionSet set, bool add)
-	{
-		var picked = _state.Picked.ToList();
-		EditSets(add ? $"Add {picked.Count} to the set {set.Name}" : $"Take {picked.Count} out of the set {set.Name}", () =>
-		{
-			bool changed = false;
-			foreach (var bone in picked.OfType<Bone>())
-				changed |= add ? AddOnce(set.Bones, bone) : set.Bones.Remove(bone);
-			foreach (var slot in picked.OfType<Slot>())
-				changed |= add ? AddOnce(set.Slots, slot) : set.Slots.Remove(slot);
-			return changed;
-		});
-	}
+	private void ChangeSet(SelectionSet set, bool add) => _session.ChangeSet(set, add);
 
-	private static bool AddOnce<T>(List<T> list, T item)
-	{
-		if (list.Contains(item)) return false;
-		list.Add(item);
-		return true;
-	}
-
-	private void ReplaceSet(SelectionSet set)
-	{
-		var picked = _state.Picked.ToList();
-		EditSets($"The set {set.Name}: just the picked", () =>
-		{
-			set.Bones.Clear();
-			set.Bones.AddRange(picked.OfType<Bone>());
-			set.Slots.Clear();
-			set.Slots.AddRange(picked.OfType<Slot>());
-			return true;
-		});
-	}
+	private void ReplaceSet(SelectionSet set) => _session.ReplaceSet(set);
 
 	private void RenameSet(SelectionSet set)
 	{
 		var dialog = new InputDialog("Rename the set", "Its new name:", set.Name, name => SetNameProblem(name, set)) { Owner = this };
-		if (dialog.ShowDialog() != true || dialog.Answer == set.Name) return;
-		string old = set.Name;
-		EditSets($"Rename the set {old} to {dialog.Answer}", () =>
-		{
-			set.Name = dialog.Answer;
-			return true;
-		});
-	}
-
-	// One undo step; the row shows it (Undo.Changed rebuilds the rig panel)
-	private void EditSets(string name, Func<bool> change)
-	{
-		var before = SetsSnapshot.Capture(_skeleton);
-		if (!change()) return;
-		_state.Undo.Push(new SnapshotCommand<SetsSnapshot>(name, before, SetsSnapshot.Capture(_skeleton), s => s.Restore()));
+		if (dialog.ShowDialog() != true) return;
+		_session.RenameSet(set, dialog.Answer);
 	}
 }

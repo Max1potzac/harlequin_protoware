@@ -23,12 +23,7 @@ public partial class MainWindow
 		Path.IsPathRooted(stored) ? stored : Path.GetFullPath(Path.Combine(ProjectFolder ?? Environment.CurrentDirectory, stored));
 
 	// A file picked → how it's kept: relative to the project's folder when on the same drive
-	private string StoredSoundPath(string file)
-	{
-		if (ProjectFolder is not { } folder || !string.Equals(Path.GetPathRoot(folder), Path.GetPathRoot(file), StringComparison.OrdinalIgnoreCase))
-			return file;
-		return Path.GetRelativePath(folder, file);
-	}
+	private string StoredSoundPath(string file) => _session.StoredSoundPath(file);
 
 	private void PlayEventSound(AnimationEvent e)
 	{
@@ -97,16 +92,7 @@ public partial class MainWindow
 		menu.IsOpen = true;
 	}
 
-	private void SetSoundTrack(SoundTrack? track, string name)
-	{
-		var animation = _state.Animation;
-		_state.EditStructure(() =>
-		{
-			if (animation.Sound == track) return null;
-			animation.Sound = track;
-			return name;
-		});
-	}
+	private void SetSoundTrack(SoundTrack? track, string name) => _session.SetSoundTrack(track, name);
 
 	private void PickSoundTrack()
 	{
@@ -179,18 +165,9 @@ public partial class MainWindow
 			"Import events", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
 		if (answer == MessageBoxResult.Cancel) return;
 
-		// Sound track paths in the file are relative to it: kept relative to the project instead
-		string folder = Path.GetDirectoryName(dialog.FileName) ?? "";
-		foreach (var a in file.Animations)
-			if (a.Sound is { Path.Length: > 0 } s && !Path.IsPathRooted(s.Path))
-				s.Path = StoredSoundPath(Path.GetFullPath(Path.Combine(folder, s.Path)));
-
-		EventsFile.Merged? merged = null;
-		_state.EditStructure(() =>
-		{
-			merged = file.MergeInto(_state.Animations, _state.Fps, replace: answer == MessageBoxResult.Yes);
-			return merged.Added + merged.Replaced + merged.SoundTracks > 0 ? $"Import events from {Path.GetFileName(dialog.FileName)}" : null;
-		});
+		// (sound track paths in the file are relative to it: kept relative to the project instead)
+		var merged = _session.ImportEvents(file, Path.GetDirectoryName(dialog.FileName) ?? "", replace: answer == MessageBoxResult.Yes,
+			$"Import events from {Path.GetFileName(dialog.FileName)}");
 		if (merged is not { } m) return;
 		AnimHint.Text = $"Events: {m.Added} added, {m.Replaced} replaced" + (m.SoundTracks > 0 ? $", {m.SoundTracks} sound track(s)" : "")
 			+ (m.Missing.Count > 0 ? $". No animation called {string.Join(", ", m.Missing)} here." : ".");
@@ -222,14 +199,7 @@ public partial class MainWindow
 			MessageBox.Show(this, $"That sound map can't be read:\n{ex.Message}", "Import a sound map");
 			return;
 		}
-		string folder = Path.GetDirectoryName(dialog.FileName) ?? "";
-		EditScene(() =>
-		{
-			foreach (var (name, path) in file.Sounds)
-				if (name.Trim().Length > 0 && path.Trim().Length > 0)
-					_scene.Sounds[name.Trim()] = StoredSoundPath(Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(folder, path)));
-			return file.Sounds.Count > 0 ? $"Import the sound map {Path.GetFileName(dialog.FileName)}" : null;
-		});
+		_session.ImportSoundMap(file, Path.GetDirectoryName(dialog.FileName) ?? "", $"Import the sound map {Path.GetFileName(dialog.FileName)}");
 		AnimHint.Text = $"{file.Sounds.Count} sound(s) in the map.";
 	}
 
