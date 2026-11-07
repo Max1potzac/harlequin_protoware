@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Windows.Input;
 
 namespace Animator.Viewer.Tools;
 
@@ -42,12 +41,12 @@ public class ObjectTool
 	public event Action<SceneObject>? EnterRequested;
 
 	// Which mouse button does what (the settings can change them)
-	public MouseButton SelectButton { get; set; } = MouseButton.Left;
-	public MouseButton TransformButton { get; set; } = MouseButton.Right;
-	public MouseButton PanButton { get; set; } = MouseButton.Middle;
+	public PointerButton SelectButton { get; set; } = PointerButton.Left;
+	public PointerButton TransformButton { get; set; } = PointerButton.Right;
+	public PointerButton PanButton { get; set; } = PointerButton.Middle;
 
 	// The keys held down (Shift): the keyboard's, or a test's
-	public Func<ModifierKeys> Modifiers { get; set; } = () => Keyboard.Modifiers;
+	public Func<KeyMods> Modifiers { get; set; } = () => KeyMods.None;   // (the window reads the keyboard)
 
 	// Snapping to the grid and guides (in the scene's units): a moved object's origin, or a
 	// corner of its box, lands on a line it's brought near
@@ -64,7 +63,7 @@ public class ObjectTool
 		_undo = undo;
 	}
 
-	public void MouseDown(Vector2 screen, MouseButton button, int clickCount)
+	public void MouseDown(Vector2 screen, PointerButton button, int clickCount)
 	{
 		_lastScreen = _pressScreen = screen;
 		_moving = false;
@@ -189,7 +188,7 @@ public class ObjectTool
 
 	private void DragObject(SceneObject obj, Vector2 local)
 	{
-		bool shift = Modifiers().HasFlag(ModifierKeys.Shift);
+		bool shift = Modifiers().HasFlag(KeyMods.Shift);
 		switch (_drag)
 		{
 			case Drag.Move:

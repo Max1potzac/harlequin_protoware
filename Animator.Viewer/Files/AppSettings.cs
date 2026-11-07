@@ -32,9 +32,9 @@ public sealed class AppSettings
 	// Settings: the shortcuts changed from the defaults (command → its keys, see KeyMap), and which
 	// mouse button picks, which moves things and which moves the view
 	public Dictionary<string, string[]>? Shortcuts { get; set; }
-	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton SelectButton { get; set; } = MouseButton.Left;
-	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton TransformButton { get; set; } = MouseButton.Right;
-	[JsonConverter(typeof(JsonStringEnumConverter))] public MouseButton PanButton { get; set; } = MouseButton.Middle;
+	[JsonConverter(typeof(JsonStringEnumConverter))] public PointerButton SelectButton { get; set; } = PointerButton.Left;
+	[JsonConverter(typeof(JsonStringEnumConverter))] public PointerButton TransformButton { get; set; } = PointerButton.Right;
+	[JsonConverter(typeof(JsonStringEnumConverter))] public PointerButton PanButton { get; set; } = PointerButton.Middle;
 
 	// The viewport's editing aids (View menu): rulers, grid and guides, and what drags snap to.
 	// The grid's size and the guides themselves belong to each project.

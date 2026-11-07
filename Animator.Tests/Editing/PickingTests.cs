@@ -30,7 +30,7 @@ public class PickingTests
 		public readonly Camera Camera = new() { ViewSize = new Vector2(400, 400) };
 		public readonly SkeletonRenderer Renderer;
 		public readonly BoneTool Tool;
-		public ModifierKeys Held = ModifierKeys.None;
+		public KeyMods Held = KeyMods.None;
 
 		public Rig()
 		{
@@ -69,14 +69,14 @@ public class PickingTests
 
 		public static Vector2 Screen(float x, float y) => new(200 + x, 200 - y);
 
-		public void Click(float x, float y, MouseButton button = MouseButton.Left)
+		public void Click(float x, float y, PointerButton button = PointerButton.Left)
 		{
 			Tool.MouseDown(Screen(x, y), button);
 			Tool.MouseUp();
 		}
 
 		// A drag in a few steps, with frames going by in between
-		public void Drag(float x0, float y0, float x1, float y1, MouseButton button)
+		public void Drag(float x0, float y0, float x1, float y1, PointerButton button)
 		{
 			Tool.MouseDown(Screen(x0, y0), button);
 			for (int i = 1; i <= 4; i++)
@@ -110,19 +110,19 @@ public class PickingTests
 		rig.Click(0, 100);   // the upper arm's joint
 		Assert.Equal(new object[] { rig.Upper }, rig.State.Picked);
 
-		rig.Held = ModifierKeys.Control;
+		rig.Held = KeyMods.Control;
 		rig.Click(60, 100);   // the forearm's joint: picked as well
 		Assert.Equal(new object[] { rig.Upper, rig.Lower }, rig.State.Picked);
 		Assert.Same(rig.Lower, rig.State.Selected);
 		rig.Click(0, 100);    // the upper arm again: let go
 		Assert.Equal(new object[] { rig.Lower }, rig.State.Picked);
 
-		rig.Held = ModifierKeys.Shift;
+		rig.Held = KeyMods.Shift;
 		rig.Click(0, -100);   // the body's pixels
 		Assert.Equal(new object[] { rig.Lower, rig.Body }, rig.State.Picked);
 		Assert.Same(rig.Body, rig.State.SelectedSlot);
 
-		rig.Held = ModifierKeys.None;
+		rig.Held = KeyMods.None;
 		rig.Click(150, 150);  // nothing there: nothing picked
 		Assert.Empty(rig.State.Picked);
 		Assert.Null(rig.State.Selected);
@@ -132,16 +132,16 @@ public class PickingTests
 	public void A_box_picks_the_bones_and_parts_in_it_and_Ctrl_lets_them_go()
 	{
 		var rig = new Rig();
-		rig.Drag(-20, 120, 80, 40, MouseButton.Left);   // the arm's joints and the hand, not the root or the body
+		rig.Drag(-20, 120, 80, 40, PointerButton.Left);   // the arm's joints and the hand, not the root or the body
 		Assert.Equal(new[] { "hand", "lower", "upper" }, Names(rig.State.Picked));
 		Assert.Null(rig.Tool.SelectionBox);              // gone once it's let go
 
-		rig.Held = ModifierKeys.Control;
-		rig.Drag(40, 70, 80, 30, MouseButton.Left);      // just the hand
+		rig.Held = KeyMods.Control;
+		rig.Drag(40, 70, 80, 30, PointerButton.Left);      // just the hand
 		Assert.Equal(new[] { "lower", "upper" }, Names(rig.State.Picked));
 
-		rig.Held = ModifierKeys.Shift;
-		rig.Drag(-20, -80, 20, -120, MouseButton.Left);  // the body, too
+		rig.Held = KeyMods.Shift;
+		rig.Drag(-20, -80, 20, -120, PointerButton.Left);  // the body, too
 		Assert.Equal(new[] { "body", "lower", "upper" }, Names(rig.State.Picked));
 	}
 
@@ -155,7 +155,7 @@ public class PickingTests
 
 		rig.Click(60, 100);
 		Assert.Empty(rig.State.Picked);
-		rig.Drag(-200, 200, 200, -200, MouseButton.Left);   // a box over everything
+		rig.Drag(-200, 200, 200, -200, PointerButton.Left);   // a box over everything
 		Assert.Equal(new[] { "body", "root" }, Names(rig.State.Picked));
 	}
 
@@ -184,10 +184,10 @@ public class PickingTests
 	public void The_transform_button_drags_a_joint_and_the_select_button_doesnt()
 	{
 		var rig = new Rig();
-		rig.Drag(60, 100, 70, 110, MouseButton.Left);   // a box: nothing moves
+		rig.Drag(60, 100, 70, 110, PointerButton.Left);   // a box: nothing moves
 		Assert.Equal(new Vector2(60, 0), rig.Lower.SetupPosition);
 
-		rig.Drag(60, 100, 70, 110, MouseButton.Right);
+		rig.Drag(60, 100, 70, 110, PointerButton.Right);
 		AssertNear(new Vector2(70, 10), rig.Lower.SetupPosition);
 		Assert.Same(rig.Lower, rig.State.Selected);
 
@@ -204,7 +204,7 @@ public class PickingTests
 		rig.Pose();
 		rig.State.Pick(new object[] { rig.Upper, rig.Body });
 
-		rig.Drag(0, 100, 10, 95, MouseButton.Right);   // by the upper arm's joint
+		rig.Drag(0, 100, 10, 95, PointerButton.Right);   // by the upper arm's joint
 
 		var arm = rig.Animation.Find<TranslateTimeline>("upper")!;
 		var key = Assert.Single(arm.Track.Keys);
@@ -240,7 +240,7 @@ public class PickingTests
 		rig.Pose();   // halfway between the keys: the upper arm's joint is at (0, 115)
 		AssertNear(new Vector2(0, 115), rig.Upper.World.Translation);
 
-		rig.Drag(0, 115, 20, 115, MouseButton.Right);
+		rig.Drag(0, 115, 20, 115, PointerButton.Right);
 
 		Assert.Equal(2, arm.Track.Keys.Count);
 		AssertNear(new Vector2(20, 0), arm.Track.Keys[0].Value);
@@ -266,7 +266,7 @@ public class PickingTests
 		rig.Pose();
 
 		// Round the upper arm's joint (0, 100), from along the bone to straight up, frames going by
-		rig.Tool.MouseDown(Rig.Screen(30, 100), MouseButton.Right);
+		rig.Tool.MouseDown(Rig.Screen(30, 100), PointerButton.Right);
 		foreach (var degrees in new[] { 30, 60, 90 })
 		{
 			float a = degrees * MathF.PI / 180;
@@ -289,7 +289,7 @@ public class PickingTests
 		var hand = rig.CentreOf(rig.Hand);
 		rig.State.Pick(new object[] { rig.Upper, rig.Lower });
 
-		rig.Drag(0, 100, 0, 120, MouseButton.Right);   // by the upper arm's joint
+		rig.Drag(0, 100, 0, 120, PointerButton.Right);   // by the upper arm's joint
 		rig.Pose();
 
 		AssertNear(new Vector2(0, 120), rig.Upper.World.Translation);
@@ -310,7 +310,7 @@ public class PickingTests
 		rig.State.Pick(new object[] { rig.Body, rig.Hand });   // the hand is the one with handles
 
 		// The hand's round handle sits above it, at (60, 88); turned a quarter round its middle (60, 50)
-		rig.Tool.MouseDown(Rig.Screen(60, 88), MouseButton.Right);
+		rig.Tool.MouseDown(Rig.Screen(60, 88), PointerButton.Right);
 		foreach (var degrees in new[] { 120, 150, 180 })
 		{
 			float a = degrees * MathF.PI / 180;
@@ -333,18 +333,18 @@ public class PickingTests
 		var scene = new Scene { Fps = 30 };
 		var character = new SceneObject("Character", ObjectKind.Rigged, rig.Skeleton);
 		scene.Objects.Add(character);
-		var tool = new ObjectTool(() => scene, new SceneState(), rig.Camera, rig.Renderer, rig.State.Undo) { Modifiers = () => ModifierKeys.None };
+		var tool = new ObjectTool(() => scene, new SceneState(), rig.Camera, rig.Renderer, rig.State.Undo) { Modifiers = () => KeyMods.None };
 
-		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Left, 1);   // its body
+		tool.MouseDown(Rig.Screen(0, -100), PointerButton.Left, 1);   // its body
 		tool.MouseUp();
 		Assert.Same(character, tool.Selected);
 
-		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Left, 1);   // picking doesn't move it
+		tool.MouseDown(Rig.Screen(0, -100), PointerButton.Left, 1);   // picking doesn't move it
 		tool.MouseMove(Rig.Screen(30, -100));
 		tool.MouseUp();
 		Assert.Equal(Vector2.Zero, character.Position);
 
-		tool.MouseDown(Rig.Screen(0, -100), MouseButton.Right, 1);
+		tool.MouseDown(Rig.Screen(0, -100), PointerButton.Right, 1);
 		tool.MouseMove(Rig.Screen(15, -100));
 		tool.MouseMove(Rig.Screen(30, -100));
 		tool.MouseUp();
@@ -352,7 +352,7 @@ public class PickingTests
 		rig.State.Undo.Undo();
 		AssertNear(Vector2.Zero, character.Position);
 
-		tool.MouseDown(Rig.Screen(150, 150), MouseButton.Left, 1);   // nothing there
+		tool.MouseDown(Rig.Screen(150, 150), PointerButton.Left, 1);   // nothing there
 		tool.MouseUp();
 		Assert.Null(tool.Selected);
 	}
@@ -370,14 +370,14 @@ public class PickingTests
 		// Animate mode: it gets a placement key like the others
 		rig.State.AnimateMode = true;
 		rig.State.Pick(new object[] { rig.Body, spark });
-		rig.Drag(0, -100, 20, -100, MouseButton.Right);   // by the body
+		rig.Drag(0, -100, 20, -100, PointerButton.Right);   // by the body
 		AssertNear(new Vector2(20, 0), Assert.Single(rig.Animation.Find<PartTranslateTimeline>("spark")!.Track.Keys).Value);
 
 		// Setup mode: its drawing moves, though it isn't shown at rest
 		rig.State.AnimateMode = false;
 		rig.Animation.Timelines.Clear();
 		rig.Pose();
-		rig.Drag(0, -100, 0, -130, MouseButton.Right);
+		rig.Drag(0, -100, 0, -130, PointerButton.Right);
 		var drawing = rig.Skeleton.DefaultSkin.Get("spark", "spark")!;
 		AssertNear(new Vector2(100, -130), drawing.Offset);
 		AssertNear(new Vector2(0, -130), rig.Skeleton.DefaultSkin.Get("body", "body")!.Offset);

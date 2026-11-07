@@ -41,18 +41,18 @@ public sealed class KeyRow : INotifyPropertyChanged
 // Nothing changes until OK.
 public partial class SettingsDialog : Window
 {
-	private sealed record ButtonChoice(MouseButton Button, string Label)
+	private sealed record ButtonChoice(PointerButton Button, string Label)
 	{
 		public override string ToString() => Label;
 	}
 
 	private static readonly ButtonChoice[] Buttons =
 	{
-		new(MouseButton.Left, "Left button"),
-		new(MouseButton.Right, "Right button"),
-		new(MouseButton.Middle, "Middle button (wheel)"),
-		new(MouseButton.XButton1, "Side button (back)"),
-		new(MouseButton.XButton2, "Side button (forward)")
+		new(PointerButton.Left, "Left button"),
+		new(PointerButton.Right, "Right button"),
+		new(PointerButton.Middle, "Middle button (wheel)"),
+		new(PointerButton.XButton1, "Side button (back)"),
+		new(PointerButton.XButton2, "Side button (forward)")
 	};
 
 	// A number to pick, as the list shows it
@@ -69,9 +69,9 @@ public partial class SettingsDialog : Window
 
 	// What OK leaves: the keys, the buttons, and saving
 	public KeyMap Keys { get; }
-	public MouseButton SelectButton { get; private set; }
-	public MouseButton TransformButton { get; private set; }
-	public MouseButton PanButton { get; private set; }
+	public PointerButton SelectButton { get; private set; }
+	public PointerButton TransformButton { get; private set; }
+	public PointerButton PanButton { get; private set; }
 	public int AutosaveMinutes { get; private set; }   // 0: never
 	public int BackupCount { get; private set; }       // 0: none
 	public string ThemeName { get; private set; } = Themes.Current.Name;
@@ -81,7 +81,7 @@ public partial class SettingsDialog : Window
 	public double Scale { get; private set; } = UiScale.Current;
 	private bool _themeChosen;
 
-	public SettingsDialog(KeyMap keys, MouseButton select, MouseButton transform, MouseButton pan,
+	public SettingsDialog(KeyMap keys, PointerButton select, PointerButton transform, PointerButton pan,
 						  int autosaveMinutes, int backupCount)
 	{
 		InitializeComponent();
@@ -266,7 +266,7 @@ public partial class SettingsDialog : Window
 
 	// ======================= mouse =======================
 
-	private void ShowButtons(MouseButton select, MouseButton transform, MouseButton pan)
+	private void ShowButtons(PointerButton select, PointerButton transform, PointerButton pan)
 	{
 		SelectButtonBox.SelectedItem = Buttons.FirstOrDefault(b => b.Button == select) ?? Buttons[0];
 		TransformButtonBox.SelectedItem = Buttons.FirstOrDefault(b => b.Button == transform) ?? Buttons[1];
@@ -274,7 +274,7 @@ public partial class SettingsDialog : Window
 		MouseError.Text = "";
 	}
 
-	private static MouseButton ButtonIn(ComboBox box) => (box.SelectedItem as ButtonChoice)?.Button ?? MouseButton.Left;
+	private static PointerButton ButtonIn(ComboBox box) => (box.SelectedItem as ButtonChoice)?.Button ?? PointerButton.Left;
 
 	private void Ok_Click(object sender, RoutedEventArgs e)
 	{

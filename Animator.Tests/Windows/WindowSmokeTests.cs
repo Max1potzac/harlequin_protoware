@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using Animator.Viewer.Tools;
 using System.Windows.Threading;
 using Animator.Viewer;
 using Animator.Viewer.Dialogs;
@@ -101,14 +102,14 @@ public class WindowSmokeTests
 				var scene = (Scene)Field(window, "_scene");
 				var viewport = (FrameworkElement)window.FindName("Viewport");
 				float w = (float)viewport.ActualWidth, h = (float)viewport.ActualHeight;
-				Call(window, "GuideMouseDown", new Vector2(w / 2, 5), MouseButton.Left);
+				Call(window, "GuideMouseDown", new Vector2(w / 2, 5), PointerButton.Left);
 				Call(window, "GuideMouseMove", new Vector2(w / 2, h / 2));
 				Call(window, "GuideMouseUp", new Vector2(w / 2, h / 2));
 				Assert.Single(scene.Guides);
 				Assert.False(scene.Guides[0].Vertical);   // across
 				Assert.Equal("Add a guide", state.Undo.NextUndoName);
 				Pump(40);
-				Call(window, "GuideMouseDown", new Vector2(5, h / 2), MouseButton.Left);   // its mark on the left ruler
+				Call(window, "GuideMouseDown", new Vector2(5, h / 2), PointerButton.Left);   // its mark on the left ruler
 				Call(window, "GuideMouseUp", new Vector2(5, h / 2));
 				Assert.Empty(scene.Guides);
 				Run(window, "edit.undo");
@@ -152,7 +153,7 @@ public class WindowSmokeTests
 				((RadioButton)window.FindName("BonesViewChoice")).IsChecked = true;
 				Pump(40);
 
-				var settings = new SettingsDialog(new KeyMap(), MouseButton.Left, MouseButton.Right, MouseButton.Middle, 5, 3) { Owner = window };
+				var settings = new SettingsDialog(new KeyMap(), PointerButton.Left, PointerButton.Right, PointerButton.Middle, 5, 3) { Owner = window };
 				settings.Show();
 				Pump();
 				((TabItem)settings.FindName("SavingTab")).IsSelected = true;
@@ -286,11 +287,11 @@ public class WindowSmokeTests
 	// tunnel down to it, and each element on the way turns them into its left-button events
 	private static void Click(UIElement element)
 	{
-		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, PointerButton.Left)
 		{
 			RoutedEvent = Mouse.PreviewMouseDownEvent
 		});
-		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
+		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, PointerButton.Left)
 		{
 			RoutedEvent = Mouse.PreviewMouseUpEvent
 		});

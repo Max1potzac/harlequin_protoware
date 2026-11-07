@@ -136,9 +136,9 @@ public partial class MainWindow
 		_session.BoxItemAt(_camera.ScreenToWorld(screen), 8f / _camera.Zoom, _boxItem);
 
 	// True: the mouse went down on a hitbox or point (the Boxes view open), and drags it
-	private bool BoxMouseDown(Vector2 screen, MouseButton button)
+	private bool BoxMouseDown(Vector2 screen, PointerButton button)
 	{
-		if (!_boxesView || _sceneLevel || button != MouseButton.Left || _tool.Tool == ViewTool.Paint) return false;
+		if (!_boxesView || _sceneLevel || button != PointerButton.Left || _tool.Tool == ViewTool.Paint) return false;
 		if (BoxAt(screen) is not { } hit) return false;
 		_boxItem = hit.Item;
 		_boxDrag = new BoxDrag

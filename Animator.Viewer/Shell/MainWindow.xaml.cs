@@ -51,7 +51,7 @@ public partial class MainWindow : Window, IScalesItsParts
 		_scene = SingleObjectScene();
 		EditObject(_scene.Objects[0]);
 		InitScene();   // before the other panels: an undo can change which object is open
-		_tool = new BoneTool(_state, _camera, _renderer);
+		_tool = new BoneTool(_state, _camera, _renderer) { Modifiers = HeldKeys };
 		_timeline = new TimelinePanel(_state);
 		_state.Undo.Changed += UpdateStatus;
 		InitPaint();
@@ -174,8 +174,10 @@ public partial class MainWindow : Window, IScalesItsParts
 		Viewport.Focus();
 		var pos = PosIn(Viewport, e);
 
+		var button = (PointerButton)e.ChangedButton;   // (the same names and numbers)
+
 		// The rulers and guides come first: out of a ruler comes a guide, a guide moves
-		if (_guideDrag == null && GuideMouseDown(pos, e.ChangedButton))
+		if (_guideDrag == null && GuideMouseDown(pos, button))
 		{
 			Viewport.CaptureMouse();
 			return;
@@ -185,7 +187,7 @@ public partial class MainWindow : Window, IScalesItsParts
 		_objectDrag = _sceneLevel;
 		if (_sceneLevel)
 		{
-			_objectTool.MouseDown(pos, e.ChangedButton, e.ClickCount);
+			_objectTool.MouseDown(pos, button, e.ClickCount);
 			if (_sceneLevel) Viewport.CaptureMouse();   // not when a double-click just opened an object
 			UpdateStatus();
 			return;
@@ -193,24 +195,24 @@ public partial class MainWindow : Window, IScalesItsParts
 
 		// Inside an object: double-click a part to paint it, or another object to open that one
 		// (with the Paint tool, one click does)
-		if (e.ChangedButton == _tool.SelectButton && (e.ClickCount == 2 || _tool.Tool == ViewTool.Paint) &&
+		if (button == _tool.SelectButton && (e.ClickCount == 2 || _tool.Tool == ViewTool.Paint) &&
 			(TryOpenPaintAt(pos) || TryEnterOtherObjectAt(pos))) return;
 
 		// The mesh tools (the part panel's Mesh box): its points, or its weights
-		if (MeshMouseDown(pos, e.ChangedButton))
+		if (MeshMouseDown(pos, button))
 		{
 			Viewport.CaptureMouse();
 			return;
 		}
 
 		// The Boxes view open: a hitbox or point under the mouse is picked and dragged
-		if (BoxMouseDown(pos, e.ChangedButton))
+		if (BoxMouseDown(pos, button))
 		{
 			Viewport.CaptureMouse();
 			return;
 		}
 
-		_tool.MouseDown(pos, e.ChangedButton);
+		_tool.MouseDown(pos, button);
 		Viewport.CaptureMouse();
 		UpdateStatus();
 	}
@@ -430,12 +432,12 @@ public partial class MainWindow : Window, IScalesItsParts
 	}
 
 	// The mouse buttons, as the status line names them
-	private static string ButtonName(MouseButton button) => button switch
+	private static string ButtonName(PointerButton button) => button switch
 	{
-		MouseButton.Left => "Left",
-		MouseButton.Right => "Right",
-		MouseButton.Middle => "Middle",
-		MouseButton.XButton1 => "Back-button",
+		PointerButton.Left => "Left",
+		PointerButton.Right => "Right",
+		PointerButton.Middle => "Middle",
+		PointerButton.XButton1 => "Back-button",
 		_ => "Forward-button"
 	};
 
@@ -446,9 +448,9 @@ public partial class MainWindow : Window, IScalesItsParts
 
 	private void UpdateStatus()
 	{
-		string pick = ButtonName(_tool?.SelectButton ?? MouseButton.Left);
-		string move = ButtonName(_tool?.TransformButton ?? MouseButton.Right);
-		string pan = ButtonName(_tool?.PanButton ?? MouseButton.Middle);
+		string pick = ButtonName(_tool?.SelectButton ?? PointerButton.Left);
+		string move = ButtonName(_tool?.TransformButton ?? PointerButton.Right);
+		string pan = ButtonName(_tool?.PanButton ?? PointerButton.Middle);
 		string K(string id) => KeyOf(id);
 		string pixels = _renderer.PixelArt ? "on" : "off";
 
@@ -503,4 +505,10 @@ public partial class MainWindow : Window, IScalesItsParts
 
 		UpdateTitle();
 	}
+}
+// The keyboard's modifiers as the viewport tools go by them (see PointerButton and KeyMods)
+public partial class MainWindow
+{
+	private static KeyMods HeldKeys() =>
+		(KeyMods)(Keyboard.Modifiers & (ModifierKeys.Alt | ModifierKeys.Control | ModifierKeys.Shift));
 }

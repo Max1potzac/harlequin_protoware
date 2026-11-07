@@ -46,7 +46,7 @@ public class SkinEditingTests
 		rig.Pose();
 		rig.Tool.Tool = ViewTool.Move;
 
-		rig.Drag(0, -100, 0, -80, MouseButton.Left);   // the body, 20 up
+		rig.Drag(0, -100, 0, -80, PointerButton.Left);   // the body, 20 up
 		rig.Pose();
 
 		AssertNear(new Vector2(0, -80), rig.CentreOf(rig.Body));
@@ -62,7 +62,7 @@ public class SkinEditingTests
 
 		// Editing skin 0 again: the object's own drawing moves
 		rig.State.EditSkin = null;
-		rig.Drag(0, -100, 0, -90, MouseButton.Left);
+		rig.Drag(0, -100, 0, -90, PointerButton.Left);
 		rig.Pose();
 		AssertNear(new Vector2(0, -90), rig.CentreOf(rig.Body));
 		Assert.Null(burnt.Get("body", "body"));

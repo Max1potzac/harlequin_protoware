@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Animator.Viewer;
 using Animator.Viewer.Panels;
+using Animator.Viewer.Tools;
 using Rig = Animator.Tests.PickingTests.Rig;
 
 namespace Animator.Tests;
@@ -159,7 +160,7 @@ public class TimelineToolsTests
 	private static void TurnUpperArm(Rig rig, float degrees)
 	{
 		float from = rig.Upper.Rotation;
-		rig.Tool.MouseDown(Rig.Screen(30 * MathF.Cos(from), 100 + 30 * MathF.Sin(from)), MouseButton.Right);
+		rig.Tool.MouseDown(Rig.Screen(30 * MathF.Cos(from), 100 + 30 * MathF.Sin(from)), PointerButton.Right);
 		foreach (var t in new[] { 0.5f, 1f })
 		{
 			float a = from + degrees * t * MathF.PI / 180;
@@ -204,7 +205,7 @@ public class TimelineToolsTests
 		Assert.Equal(60 * MathF.PI / 180, rig.Upper.Rotation, 2);
 
 		var joint = rig.Lower.World.Translation;
-		rig.Drag(joint.X, joint.Y, joint.X + 10, joint.Y + 10, MouseButton.Right);   // the forearm's joint, moved
+		rig.Drag(joint.X, joint.Y, joint.X + 10, joint.Y + 10, PointerButton.Right);   // the forearm's joint, moved
 		Pose(rig);
 		AssertNear(joint + new Vector2(10, 10), rig.Lower.World.Translation, 0.05f);
 		Assert.True(rig.State.Hold.Holds(rig.Lower));

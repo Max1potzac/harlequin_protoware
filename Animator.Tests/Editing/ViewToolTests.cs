@@ -16,7 +16,7 @@ public class ViewToolTests
 	{
 		var rig = new Rig();
 		rig.Tool.Tool = ViewTool.Move;
-		rig.Drag(30, 100, 30, 120, MouseButton.Left);   // the upper arm's body (the Select tool: it would turn it with the other button)
+		rig.Drag(30, 100, 30, 120, PointerButton.Left);   // the upper arm's body (the Select tool: it would turn it with the other button)
 		rig.Pose();
 		AssertNear(new Vector2(0, 120), rig.Upper.World.Translation);
 		Assert.Equal(0f, rig.Upper.SetupRotation, 4);
@@ -28,7 +28,7 @@ public class ViewToolTests
 		var rig = new Rig();
 		rig.Tool.Tool = ViewTool.Rotate;
 		// The forearm's joint (60, 100) turns round itself: grabbed a little off it, then swung up
-		rig.Tool.MouseDown(Rig.Screen(64, 100), MouseButton.Left);
+		rig.Tool.MouseDown(Rig.Screen(64, 100), PointerButton.Left);
 		foreach (var degrees in new[] { 30, 60, 90 })
 		{
 			float a = degrees * MathF.PI / 180;
@@ -40,7 +40,7 @@ public class ViewToolTests
 		AssertNear(new Vector2(60, 100), rig.Lower.World.Translation);
 
 		// The body, turned a quarter round its middle
-		rig.Tool.MouseDown(Rig.Screen(8, -100), MouseButton.Left);
+		rig.Tool.MouseDown(Rig.Screen(8, -100), PointerButton.Left);
 		foreach (var degrees in new[] { 30, 60, 90 })
 		{
 			float a = degrees * MathF.PI / 180;
@@ -57,7 +57,7 @@ public class ViewToolTests
 	{
 		var rig = new Rig();
 		rig.Tool.Tool = ViewTool.Move;
-		rig.Drag(-20, 120, 80, 40, MouseButton.Left);
+		rig.Drag(-20, 120, 80, 40, PointerButton.Left);
 		Assert.Equal(3, rig.State.Picked.Count);   // the arm's joints and the hand
 		Assert.Equal(new Vector2(60, 0), rig.Lower.SetupPosition);   // nothing moved
 	}
@@ -68,7 +68,7 @@ public class ViewToolTests
 		var rig = new Rig();
 		rig.Tool.SelectTransforms = false;   // (as in the editor)
 		var pan = rig.Camera.Pan;
-		rig.Drag(30, 100, 30, 140, MouseButton.Right);   // the upper arm's body
+		rig.Drag(30, 100, 30, 140, PointerButton.Right);   // the upper arm's body
 		rig.Pose();
 		AssertNear(new Vector2(0, 100), rig.Upper.World.Translation);
 		Assert.Equal(0f, rig.Upper.SetupRotation, 4);
@@ -81,7 +81,7 @@ public class ViewToolTests
 		var rig = new Rig();
 		rig.Tool.KeepPartsInPlace = true;
 		rig.Tool.Tool = ViewTool.Move;
-		rig.Drag(60, 100, 60, 120, MouseButton.Left);   // the forearm's joint
+		rig.Drag(60, 100, 60, 120, PointerButton.Left);   // the forearm's joint
 		rig.Pose();
 		AssertNear(new Vector2(60, 120), rig.Lower.World.Translation);
 		Assert.Equal(40f, rig.Lower.Length, 2);
@@ -90,8 +90,8 @@ public class ViewToolTests
 		var other = new Rig();
 		other.Tool.KeepPartsInPlace = true;
 		other.Tool.Tool = ViewTool.Move;
-		other.Held = ModifierKeys.Shift;
-		other.Drag(60, 100, 60, 120, MouseButton.Left);
+		other.Held = KeyMods.Shift;
+		other.Drag(60, 100, 60, 120, PointerButton.Left);
 		other.Pose();
 		AssertNear(new Vector2(100, 100), other.Lower.TipWorld, 0.05f);   // its end stayed
 		Assert.Equal(MathF.Sqrt(40 * 40 + 20 * 20), other.Lower.Length, 1);

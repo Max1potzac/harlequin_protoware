@@ -48,7 +48,7 @@ public partial class MainWindow
 		var s = _appSettings;
 		var (select, transform, pan) = s.MouseButtonsValid
 			? (s.SelectButton, s.TransformButton, s.PanButton)
-			: (MouseButton.Left, MouseButton.Right, MouseButton.Middle);
+			: (PointerButton.Left, PointerButton.Right, PointerButton.Middle);
 		_tool.SelectButton = _objectTool.SelectButton = select;
 		_tool.TransformButton = _objectTool.TransformButton = transform;
 		_tool.PanButton = _objectTool.PanButton = pan;
@@ -60,7 +60,7 @@ public partial class MainWindow
 	}
 
 	// "right-drag": a drag with the button that moves things
-	private string MoveDrag => $"{ButtonName(_tool?.TransformButton ?? MouseButton.Right).ToLowerInvariant()}-drag";
+	private string MoveDrag => $"{ButtonName(_tool?.TransformButton ?? PointerButton.Right).ToLowerInvariant()}-drag";
 
 	private static string Capitalized(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 

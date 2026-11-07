@@ -193,7 +193,7 @@ public partial class MainWindow
 
 	// A press in the viewport: on a ruler (a new guide, or the one marked there) or on a guide.
 	// true: it's a guide drag (or the rulers' corner), and the tools don't see it.
-	private bool GuideMouseDown(Vector2 screen, MouseButton button)
+	private bool GuideMouseDown(Vector2 screen, PointerButton button)
 	{
 		if (button == _tool.PanButton) return false;
 		Guide? guide = null;

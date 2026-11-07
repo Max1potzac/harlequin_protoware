@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using System.Windows.Input;
 
 namespace Animator.Viewer.Tools;
 
@@ -25,13 +24,13 @@ public class BoneTool
 	private bool _changed;
 
 	// Which mouse button does what (the settings can change them)
-	public MouseButton SelectButton { get; set; } = MouseButton.Left;
-	public MouseButton TransformButton { get; set; } = MouseButton.Right;
-	public MouseButton PanButton { get; set; } = MouseButton.Middle;
+	public PointerButton SelectButton { get; set; } = PointerButton.Left;
+	public PointerButton TransformButton { get; set; } = PointerButton.Right;
+	public PointerButton PanButton { get; set; } = PointerButton.Middle;
 
 	// The keys held down (Ctrl, Shift, Alt): the keyboard's, or a test's
-	public Func<ModifierKeys> Modifiers { get; set; } = () => Keyboard.Modifiers;
-	private bool Held(ModifierKeys key) => Modifiers().HasFlag(key);
+	public Func<KeyMods> Modifiers { get; set; } = () => KeyMods.None;   // (the window reads the keyboard)
+	private bool Held(KeyMods key) => Modifiers().HasFlag(key);
 
 	// A box being dragged with the select button: its corners in the world, for drawing
 	public Vector2[]? SelectionBox { get; private set; }
@@ -188,7 +187,7 @@ public class BoneTool
 
 	// ======================= mouse =======================
 
-	public void MouseDown(Vector2 screen, MouseButton button)
+	public void MouseDown(Vector2 screen, PointerButton button)
 	{
 		_lastScreen = screen;
 		_pressScreen = screen;
@@ -239,7 +238,7 @@ public class BoneTool
 
 		// Ctrl+drag draws a new bone (a child of the selected one). Started near the selected
 		// bone's end, it starts exactly there.
-		if (only == null && setup && BonesEnabled && Held(ModifierKeys.Control))
+		if (only == null && setup && BonesEnabled && Held(KeyMods.Control))
 		{
 			_drag = Drag.Create;
 			var parent = _state.Selected;
@@ -249,7 +248,7 @@ public class BoneTool
 		}
 
 		// Alt+click a part: it goes on the selected bone, staying where it is
-		if (only == null && setup && BonesEnabled && Held(ModifierKeys.Alt) && _state.SelectedSlot == null &&
+		if (only == null && setup && BonesEnabled && Held(KeyMods.Alt) && _state.SelectedSlot == null &&
 			_state.Selected is { } holder && _renderer.Pick(_state.Skeleton, world) is { } clicked)
 		{
 			var slot = clicked.Slot;
@@ -356,9 +355,9 @@ public class BoneTool
 			case Drag.Move when bone != null && _frozen != null:
 				// Parts stay put: the bone goes where the mouse took it, as long as it was (with
 				// Shift: just its joint, its end staying where it is), nothing else moves
-				_jointOnly |= Held(ModifierKeys.Shift);
+				_jointOnly |= Held(KeyMods.Shift);
 				RestEdits.MoveJoint(_frozen, bone, Snapped(_frozen.HeadOf(bone) + (world - _pressWorld)),
-					SnapJoints ? SnapPx / _camera.EditZoom : 0f, keepLength: !Held(ModifierKeys.Shift));
+					SnapJoints ? SnapPx / _camera.EditZoom : 0f, keepLength: !Held(KeyMods.Shift));
 				_changed = true;
 				break;
 
@@ -387,7 +386,7 @@ public class BoneTool
 					_turnedFreely += MathUtil.ShortestAngle(angle - _lastAngle);
 					_lastAngle = angle;
 					// Shift: the bone's angle in 15° steps
-					float turn = Held(ModifierKeys.Shift)
+					float turn = Held(KeyMods.Shift)
 						? Snapping.StepAngle(_rotationAtStart + _turnedFreely) - _rotationAtStart
 						: _turnedFreely;
 					float step = turn - _turned;
@@ -465,11 +464,11 @@ public class BoneTool
 	private void ClickSelect(Vector2 world)
 	{
 		var hit = Hit(world);
-		if (Held(ModifierKeys.Control))
+		if (Held(KeyMods.Control))
 		{
 			if (hit != null) _state.TogglePick(hit);
 		}
-		else if (Held(ModifierKeys.Shift))
+		else if (Held(KeyMods.Shift))
 		{
 			if (hit != null) _state.PickMore(new[] { hit });
 		}
@@ -497,8 +496,8 @@ public class BoneTool
 	private void BoxSelect(IReadOnlyList<Vector2> box)
 	{
 		var found = InBox(box);
-		if (Held(ModifierKeys.Control)) _state.Unpick(found);
-		else if (Held(ModifierKeys.Shift)) _state.PickMore(found);
+		if (Held(KeyMods.Control)) _state.Unpick(found);
+		else if (Held(KeyMods.Shift)) _state.PickMore(found);
 		else _state.Pick(found);
 	}
 
@@ -785,7 +784,7 @@ public class BoneTool
 		if (_att == null || _partSlot is not { } slot) return;
 		if (!Matrix3x2.Invert(slot.Bone.World, out var toBone)) return;
 		var local = Vector2.Transform(world, toBone);
-		bool shift = Held(ModifierKeys.Shift);
+		bool shift = Held(KeyMods.Shift);
 
 		switch (_drag)
 		{
@@ -1050,7 +1049,7 @@ public class BoneTool
 					_manyTurned += MathUtil.ShortestAngle(angle - _manyLastAngle);
 					_manyLastAngle = angle;
 					float turn = _manyTurned;
-					if (Held(ModifierKeys.Shift)) turn = MathF.Round(turn / (MathF.PI / 12)) * (MathF.PI / 12);   // 15° steps
+					if (Held(KeyMods.Shift)) turn = MathF.Round(turn / (MathF.PI / 12)) * (MathF.PI / 12);   // 15° steps
 					if (_manyFrozen != null)
 					{
 						RestEdits.TurnPicked(_manyFrozen, _pickedBones, _pickedParts, turn);
@@ -1061,7 +1060,7 @@ public class BoneTool
 				}
 			case Gesture.Scale:
 				{
-					var factor = ScaleFactor(_startLocal, Vector2.Transform(world, _scaleToBone), _scaleOffset, _scaleRotation, Held(ModifierKeys.Shift));
+					var factor = ScaleFactor(_startLocal, Vector2.Transform(world, _scaleToBone), _scaleOffset, _scaleRotation, Held(KeyMods.Shift));
 					foreach (var mover in _movers) Scale(mover, factor, animate);
 					break;
 				}
