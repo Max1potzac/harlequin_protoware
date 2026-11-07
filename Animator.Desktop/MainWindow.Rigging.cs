@@ -155,17 +155,17 @@ public sealed partial class MainWindow
 	internal void PartsToNearestBones(List<Slot> slots, string what)
 	{
 		int moved = _session.PartsToNearestBones(slots, what);
-		ShowRigHint(moved > 0 ? $"{moved} part(s) moved onto other bones." : "Every part already was on its nearest bone.");
 		RefreshRigList();
+		ShowRigHint(moved > 0 ? $"{moved} part(s) moved onto other bones." : "Every part already was on its nearest bone.");
 	}
 
 	// A bone takes over a part's motion: the part goes on it, the bone gets keys that move it as
 	// the part moved in every animation (for tracing a rig over animated art)
 	private void BoneFollowsPart(Bone bone, Slot slot)
 	{
-		if (State.BoneFollowsPart(bone, slot))
-			ShowRigHint($"{bone.Name} now carries {slot.Name}, moving as it moved in every animation.");
+		bool done = State.BoneFollowsPart(bone, slot);
 		RefreshRigList();
+		if (done) ShowRigHint($"{bone.Name} now carries {slot.Name}, moving as it moved in every animation.");
 	}
 
 	// ======================= the draw order and masks =======================
