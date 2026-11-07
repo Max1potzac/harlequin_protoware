@@ -314,4 +314,60 @@ public class SessionRigTests
 		Assert.False(session.RemoveMesh(part));               // none left
 		Assert.Equal(new SkiaSharp.SKRectI(0, 0, 16, 16).Width, (int)EditorSession.VisibleRect(pixels)!.Value.W);
 	}
+
+	[Fact]
+	public void The_draw_order_and_masks_are_edited_through_the_session()
+	{
+		var (session, _, _, hand, hat) = Rig();
+		var state = session.State;
+		Assert.Equal(new[] { hand, hat }, state.Skeleton.Slots);
+		Assert.True(session.Reorder(new[] { hand }, +1, toEnd: false));
+		Assert.Equal(new[] { hat, hand }, state.Skeleton.Slots);
+		Assert.True(session.PlaceInOrder(new[] { hand }, hat, inFront: false));
+		Assert.Equal(new[] { hand, hat }, state.Skeleton.Slots);
+		Assert.False(session.PlaceInOrder(new[] { hand }, hat, inFront: false));   // there already
+
+		// Animate: a key at the playhead, the rest order as it was
+		state.AnimateMode = true;
+		state.SetFrame(10);
+		Assert.True(session.Reorder(new[] { hat }, -1, toEnd: true));
+		Assert.Equal(new[] { hat, hand }, session.CurrentOrder());
+		Assert.Equal(new[] { hand, hat }, state.Skeleton.Slots);
+		Assert.False(session.MakeMask(hand, null));   // masks are Build's
+
+		state.AnimateMode = false;
+		Assert.True(session.MakeMask(hand, null));
+		Assert.True(hand.IsMask);
+		Assert.True(session.SetMaskShows(hand, !hand.MaskShows));
+		Assert.True(session.StopMask(hand));
+		Assert.False(hand.IsMask);
+	}
+
+	[Fact]
+	public void Follow_and_jiggle_are_edited_through_the_session()
+	{
+		var (session, root, arm, _, _) = Rig();
+		var state = session.State;
+		var other = session.AddBone(null, snap: false);
+		Assert.True(session.SetCopySource(arm, other));
+		var copy = session.CopyOf(arm)!;
+		Assert.Same(other, copy.Source);
+		Assert.False(session.SetCopySource(arm, other));
+		Assert.True(session.SetCopyLocal(copy, !copy.Local));
+		Assert.True(session.KeepCopyPlace(copy));
+		Assert.True(session.StepConstraintValue(arm, ConstraintValue.CopyRotate, 0.5f));
+		Assert.Equal(0.5f, copy.RotateMix, 4);
+		state.Undo.Undo();
+		Assert.NotEqual(0.5f, copy.RotateMix);
+		Assert.False(session.SetConstraintValue(arm, ConstraintValue.JiggleGravity, 1f));   // no jiggle on it
+
+		Assert.True(session.SetJiggle(arm, true));
+		Assert.NotNull(session.JiggleOf(arm));
+		Assert.True(session.SetConstraintValue(arm, ConstraintValue.Mix, 0.25f));
+		Assert.Equal(0.25f, session.JiggleOf(arm)!.SetupMix, 4);
+		Assert.Equal(0.25f, copy.SetupMix, 4);
+		Assert.True(session.SetJiggle(arm, false));
+		Assert.True(session.SetCopySource(arm, null));
+		Assert.Null(session.CopyOf(arm));
+	}
 }
