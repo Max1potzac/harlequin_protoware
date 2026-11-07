@@ -20,7 +20,7 @@ public class AnimationsTests
 		window.RefreshAnimationsBar();
 		Assert.Equal(2, state.Animations.Count);
 		Assert.NotSame(first, state.Animation);
-		Assert.Same(state.Animation, window.AnimList.SelectedItem);
+		Assert.Same(state.Animation, ((MainWindow.AnimationChoice)window.AnimList.SelectedItem!).Animation);
 
 		// Renamed, lengthened; a length that isn't one changes nothing
 		window.AnimName.Text = "walk";
@@ -42,7 +42,7 @@ public class AnimationsTests
 		Windows.Shot(window, "animations-bar");
 
 		// Picked from the list; deleted; the deletion undone
-		window.AnimList.SelectedItem = first;
+		window.AnimList.SelectedItem = ((System.Collections.IEnumerable)window.AnimList.ItemsSource!).Cast<MainWindow.AnimationChoice>().First(c => c.Animation == first);
 		Assert.Same(first, state.Animation);
 		Assert.True(window.Session.DeleteAnimation());
 		window.RefreshAnimationsBar();

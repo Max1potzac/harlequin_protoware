@@ -21,10 +21,20 @@ public sealed partial class MainWindow
 	private Control _animBar = null!;
 	private bool _syncingAnim;
 
+	// An animation in the list, by its name
+	internal sealed record AnimationChoice(Animation Animation)
+	{
+		public override string ToString() => Animation.Name;
+	}
+
 	private Control BuildAnimationsBar()
 	{
-		var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(6, 4) };
-		void Add(Control c) => bar.Children.Add(c);
+		var bar = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 2) };   // (on two lines when narrow)
+		void Add(Control c)
+		{
+			c.Margin = new Thickness(c.Margin.Left, 2, 6, 2);
+			bar.Children.Add(c);
+		}
 		static TextBlock Label(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
 
 		Add(new TextBlock { Text = "Animation", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
@@ -48,7 +58,7 @@ public sealed partial class MainWindow
 
 		AnimList.SelectionChanged += (_, _) =>
 		{
-			if (_syncingAnim || AnimList.SelectedItem is not Animation anim || anim == State.Animation) return;
+			if (_syncingAnim || AnimList.SelectedItem is not AnimationChoice { Animation: var anim } || anim == State.Animation) return;
 			SwitchAnimation(anim);
 		};
 		AnimLoop.IsCheckedChanged += (_, _) =>
@@ -62,12 +72,7 @@ public sealed partial class MainWindow
 			b.LostFocus += (_, _) => CommitAnimField(b);
 		}
 
-		_animBar = new ScrollViewer
-		{
-			Content = bar,
-			HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-			VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
-		};
+		_animBar = bar;
 		return _animBar;
 	}
 
@@ -88,8 +93,9 @@ public sealed partial class MainWindow
 		_syncingAnim = true;
 		try
 		{
-			AnimList.ItemsSource = State.Animations.ToList();   // a fresh copy, so the list notices changes
-			AnimList.SelectedItem = State.Animation;
+			var choices = State.Animations.Select(a => new AnimationChoice(a)).ToList();   // (fresh, so the list notices changes)
+			AnimList.ItemsSource = choices;
+			AnimList.SelectedItem = choices.FirstOrDefault(c => c.Animation == State.Animation);
 			_animDelete.IsEnabled = State.Animations.Count > 1;
 			AnimName.Text = State.Animation.Name;
 			AnimLength.Text = State.FrameCount.ToString();
