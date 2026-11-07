@@ -54,6 +54,7 @@ public class ImportTests
 		var import = window.ImportPath(Psd);
 		Dispatcher.UIThread.RunJobs();
 		Assert.True(import.IsCompleted);
+		import.GetAwaiter().GetResult();   // (what went wrong in the dialog, if anything did)
 		Assert.Equal(before + 1, window.Session.Scene.Objects.Count);
 		var made = window.Session.Active!;
 		Assert.Equal(ObjectKind.Rigged, made.Kind);
@@ -108,6 +109,7 @@ public class ImportTests
 		var import = window.ImportPath(BouncingFla());
 		Dispatcher.UIThread.RunJobs();
 		Assert.True(import.IsCompleted);
+		import.GetAwaiter().GetResult();   // (what went wrong in the dialog, if anything did)
 		Assert.Equal(before + 1, window.Session.Scene.Objects.Count);
 		Assert.Equal(2, window.Session.Active!.Animations.Count);
 	}
@@ -161,6 +163,7 @@ public class ImportTests
 		var import = window.ImportPath(Strip());
 		Dispatcher.UIThread.RunJobs();
 		Assert.True(import.IsCompleted);
+		import.GetAwaiter().GetResult();   // (what went wrong in the dialog, if anything did)
 		Assert.True(window.Session.Scene.Objects.Count > before);
 		Assert.True(window.Session.SceneLevel);   // (brought in as objects: at scene level, the first picked)
 	}
