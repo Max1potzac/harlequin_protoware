@@ -78,6 +78,7 @@ public sealed partial class MainWindow : Window
 		{
 			_session.KeepToWhatExists();   // an undo can take the open object away
 			RefreshRigList();
+			RefillProperties();   // (a rename, a new parent, an undo)
 			UpdateTitle();
 		};
 
@@ -147,7 +148,7 @@ public sealed partial class MainWindow : Window
 		root.Children.Add(statusBar);
 
 		// Left: the rig (or the scene's objects); right of it, the viewport over the timeline
-		var main = new Grid { ColumnDefinitions = new ColumnDefinitions("240,4,*") };
+		var main = new Grid { ColumnDefinitions = new ColumnDefinitions("240,4,*,4,300") };
 		var rig = BuildRigList();
 		Grid.SetColumn(rig, 0);
 		main.Children.Add(rig);
@@ -165,6 +166,12 @@ public sealed partial class MainWindow : Window
 		work.Children.Add(TimelineView);
 		Grid.SetColumn(work, 2);
 		main.Children.Add(work);
+		var propsSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
+		Grid.SetColumn(propsSplitter, 3);
+		main.Children.Add(propsSplitter);
+		var props = BuildProperties();
+		Grid.SetColumn(props, 4);
+		main.Children.Add(props);
 
 		root.Children.Add(main);
 		return root;
@@ -182,6 +189,7 @@ public sealed partial class MainWindow : Window
 		TimelineView.InvalidateVisual();
 		SyncToolBar();
 		SyncRigSelection();
+		SyncProperties();
 		UpdateStatus();
 	}
 

@@ -477,4 +477,45 @@ public class SessionRigTests
 		Assert.Single(scene.Sounds);
 		Assert.False(session.ImportSoundMap(map, "", "Import the sound map"));
 	}
+
+	[Fact]
+	public void The_panels_numbers_show_and_are_typed_as_the_mode_says()
+	{
+		var (session, _, arm, hand, _) = Rig();
+		var state = session.State;
+
+		// Build: rest values, angles in degrees
+		arm.SetupRotation = EditorSession.Rad(30);
+		Assert.Equal(30f, session.BoneValue(arm, BoneField.Rotation)!.Value, 3);
+		Assert.True(session.TypeBoneValue(arm, BoneField.Rotation, 45, keepParts: false));
+		Assert.Equal(45f, EditorSession.Deg(arm.SetupRotation), 3);
+		Assert.False(session.TypeBoneValue(arm, BoneField.Rotation, 45, keepParts: false));   // the same
+		Assert.Null(session.BoneValue(arm, BoneField.Follow));   // no look-at
+
+		// Animate, auto key on: a key at the playhead, the rest pose as it was
+		state.AnimateMode = true;
+		state.SetFrame(5);
+		Assert.True(session.TypeBoneValue(arm, BoneField.Rotation, 90, keepParts: false));
+		Assert.NotNull(state.Animation.Find<RotateTimeline>(arm.Name));
+		Assert.Equal(45f, EditorSession.Deg(arm.SetupRotation), 3);
+
+		// Auto key off: posed and held, no key (yet)
+		state.AutoKey = false;
+		Assert.True(session.TypeBoneValue(arm, BoneField.X, 7, keepParts: false));
+		Assert.Equal(7f, arm.Position.X, 3);
+		Assert.Null(state.Animation.Find<TranslateTimeline>(arm.Name));
+		state.AutoKey = true;
+
+		// A part's placement: rest in Build, keyed in Animate; the pivot only in Build
+		state.AnimateMode = false;
+		float x = session.PartValue(hand, PartField.X)!.Value;
+		Assert.True(session.TypePartValue(hand, PartField.X, x + 3));
+		Assert.Equal(x + 3, session.PartValue(hand, PartField.X)!.Value, 3);
+		state.AnimateMode = true;
+		Assert.True(session.TypePartValue(hand, PartField.X, x + 10));   // (a placement key: posed on the next frame)
+		Assert.False(EditorSession.IsPlacement(PartField.PivotX));
+
+		Assert.True(EditorSession.TryNum("1.5", out float v) && v == 1.5f);
+		Assert.False(EditorSession.TryNum("x", out _));
+	}
 }
