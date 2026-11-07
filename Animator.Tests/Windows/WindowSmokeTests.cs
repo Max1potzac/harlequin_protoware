@@ -287,11 +287,11 @@ public class WindowSmokeTests
 	// tunnel down to it, and each element on the way turns them into its left-button events
 	private static void Click(UIElement element)
 	{
-		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, PointerButton.Left)
+		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
 		{
 			RoutedEvent = Mouse.PreviewMouseDownEvent
 		});
-		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, PointerButton.Left)
+		element.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
 		{
 			RoutedEvent = Mouse.PreviewMouseUpEvent
 		});
