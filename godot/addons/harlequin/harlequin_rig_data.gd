@@ -23,6 +23,9 @@ var version := 1
 ## { page, x, y, w, h, offset_x, offset_y, width, height }
 var pages: Array[Texture2D] = []
 var regions := {}
+## The files read (the rig file and its pages) and when each was last changed: to know, in the
+## editor, when they've been exported again
+var files := {}
 
 ## Bones, parents before children: { name, parent (index, -1 = none), children (indices), length,
 ## position, rotation, scale, inherit_rotation, inherit_scale, turn, tilt, min_offset, max_offset }
@@ -83,6 +86,10 @@ static func forget(file: String) -> void:
 
 
 func _read(file: String) -> void:
+	if file.begins_with("uid://"):   # (how the inspector may name a file: its pages are beside the file itself)
+		var id := ResourceUID.text_to_id(file)
+		if ResourceUID.has_id(id):
+			file = ResourceUID.get_id_path(id)
 	path = file
 	folder = file.get_base_dir()
 	var text := FileAccess.get_file_as_string(file)
@@ -96,6 +103,7 @@ func _read(file: String) -> void:
 	if json.get("format", "") != FORMAT:
 		error = "%s isn't a Harlequin rig (format \"%s\")" % [file, json.get("format", "")]
 		return
+	files[file] = FileAccess.get_modified_time(file)
 	version = int(json.get("version", 1))
 	if version > SUPPORTED_VERSION:
 		push_warning("Harlequin: %s is version %d; this plugin knows version %d. It may not play right." % [file, version, SUPPORTED_VERSION])
@@ -103,14 +111,36 @@ func _read(file: String) -> void:
 	fps = int(json.get("fps", 30))
 	sounds = _dict(json.get("sounds"))
 	_read_atlas(_dict(json.get("atlas")))
+	if error != "":
+		return
 	_read_rig(_dict(json.get("rig")))
+
+
+## Whether the rig file or one of its pages has changed since it was read (exported again)
+func changed_on_disk() -> bool:
+	for file in files:
+		if FileAccess.get_modified_time(file) != files[file]:
+			return true
+	return false
 
 
 # ---------------------------------------------------------------- atlas
 
 func _read_atlas(atlas: Dictionary) -> void:
 	for page in _list(atlas.get("pages")):
-		pages.append(load_texture(folder.path_join(str(page.get("file", "")))))
+		var file := folder.path_join(str(page.get("file", "")))
+		var texture := load_texture(file)
+		files[file] = FileAccess.get_modified_time(file)
+		# Each picture's place on the page is in pixels: a page of another size is another export's
+		# (two exported under one name, or a page left from an earlier export), and drawn with it
+		# every part shows a piece of some other picture
+		var want := Vector2i(int(page.get("width", 0)), int(page.get("height", 0)))
+		if texture != null and want.x > 0 and want.y > 0 and Vector2i(texture.get_width(), texture.get_height()) != want:
+			error = ("%s is %d×%d, but %s was exported with a %d×%d one: they're from different exports. "
+				+ "Export the rig again, under a name of its own (or, if Godot shrinks the picture on import, set its Size Limit to 0).") % [
+				file.get_file(), texture.get_width(), texture.get_height(), path.get_file(), want.x, want.y]
+			return
+		pages.append(texture)
 	var found := _dict(atlas.get("regions"))
 	for id in found:
 		var r: Dictionary = found[id]

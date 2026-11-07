@@ -24,6 +24,7 @@ func _initialize() -> void:
 	_test_data(data)
 	_test_curves()
 	_test_poses(data, update)
+	_test_other_atlas()
 	_test_node()
 
 
@@ -63,6 +64,45 @@ func _test_curves() -> void:
 	check(absf(HarlequinPose.sample(keys, 0.25) - 1.5625) < 1e-4, "smooth: 3t² − 2t³")
 	check(HarlequinPose.sample(keys, -1.0) == 0.0 and HarlequinPose.sample(keys, 2.0) == 10.0, "before and after the keys")
 	check(absf(HarlequinPose.shortest_angle(3 * PI) - PI) < 1e-5 or absf(HarlequinPose.shortest_angle(3 * PI) + PI) < 1e-5, "shortest angle")
+
+
+# A page that isn't the one the rig was exported with (two exports under one name): not drawn,
+# and the error says so
+func _test_other_atlas() -> void:
+	DirAccess.make_dir_recursive_absolute("user://other_atlas")
+	var image := Image.load_from_file(ProjectSettings.globalize_path("res://demo/sample.atlas.png"))
+	image.save_png("user://other_atlas/sample.atlas.png")
+	var json: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(RIG))
+	var page: Dictionary = json.atlas.pages[0]
+	var f := FileAccess.open("user://other_atlas/same.hqrig.json", FileAccess.WRITE)
+	f.store_string(JSON.stringify(json))
+	f.close()
+	var same := HarlequinRigData.open("user://other_atlas/same.hqrig.json", true)
+	check(same.error == "" and same.pages.size() == 1, "a copy beside its page reads: " + same.error)
+	check(same.files.size() == 2 and not same.changed_on_disk(), "it knows its files")
+	page.width = int(page.width) + 10
+	f = FileAccess.open("user://other_atlas/other.hqrig.json", FileAccess.WRITE)
+	f.store_string(JSON.stringify(json))
+	f.close()
+	var other := HarlequinRigData.open("user://other_atlas/other.hqrig.json", true)
+	check("different exports" in other.error, "a page of another size is another export's: " + other.error)
+	var rig := HarlequinRig.new()
+	rig.rig_file = "user://other_atlas/other.hqrig.json"
+	root.add_child(rig)
+	check(rig.get_child_count(true) == 0, "the node draws nothing with it")
+	check(rig._get_configuration_warnings().size() == 1, "and warns")
+	rig.free()
+	# Exported again (in the editor, its pages reimported): read again
+	rig = HarlequinRig.new()
+	rig.rig_file = RIG
+	var before = rig.get_rig_data()
+	rig._on_reimported(PackedStringArray(["res://demo/something_else.png"]))
+	check(rig.get_rig_data() == before, "another picture reimported: kept")
+	rig._on_reimported(PackedStringArray(["res://demo/sample.atlas.png"]))
+	check(rig.get_rig_data() != before and rig.get_rig_data().error == "", "its page reimported: read again")
+	rig._on_files_changed()
+	check(rig.get_rig_data().files.size() == 2, "unchanged files: nothing to do")
+	rig.free()
 
 
 # ---------------------------------------------------------------- poses, against expected.json
