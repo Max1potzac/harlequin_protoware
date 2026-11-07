@@ -1,5 +1,5 @@
 ﻿using System.Numerics;
-using System.Windows.Input;
+using Animator.Viewer.Tools;
 using Animator.Core.Editing;
 using Animator.Core.Keyframing;
 using SkiaSharp;
@@ -121,14 +121,14 @@ public class TimelinePanel
         int frames = Math.Max(1, _state.FrameCount);
         _frameWidth = Math.Max(4f, (size.X - LabelWidth - LeftPad * 2) / frames);
 
-        canvas.Clear(Themes.Sk("Canvas"));
+        canvas.Clear(CanvasTheme.Sk("Canvas"));
 
         using var font = new SKFont { Size = 12 };
         using var smallFont = new SKFont { Size = 11 };
-        using var text = new SKPaint { Color = Themes.Sk("CanvasText"), IsAntialias = true };
+        using var text = new SKPaint { Color = CanvasTheme.Sk("CanvasText"), IsAntialias = true };
         using var eventText = new SKPaint { Color = new SKColor(140, 230, 160), IsAntialias = true };
-        using var tick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
-        using var divider = new SKPaint { Color = Themes.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
+        using var tick = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
+        using var divider = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
         using var segment = new SKPaint { Color = new SKColor(255, 200, 60, 70), StrokeWidth = 2 };
         using var rowSel = new SKPaint { Color = new SKColor(80, 220, 255, 35) };
         using var key = new SKPaint { Color = new SKColor(255, 200, 60), IsAntialias = true };
@@ -138,8 +138,8 @@ public class TimelinePanel
         using var eventKey = new SKPaint { Color = new SKColor(120, 220, 140), IsAntialias = true, StrokeWidth = 1.5f };
         using var orderKey = new SKPaint { Color = new SKColor(90, 210, 220), IsAntialias = true };
         using var orderText = new SKPaint { Color = new SKColor(130, 215, 225), IsAntialias = true };
-        using var playhead = new SKPaint { Color = Themes.Sk("Playhead"), StrokeWidth = 2 };
-        using var scrollbar = new SKPaint { Color = Themes.SkAlpha("CanvasText", 50), IsAntialias = true };
+        using var playhead = new SKPaint { Color = CanvasTheme.Sk("Playhead"), StrokeWidth = 2 };
+        using var scrollbar = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 50), IsAntialias = true };
 
         DrawWaveform(canvas, size, frames);
 
@@ -257,8 +257,8 @@ public class TimelinePanel
 
         if (_drag == Drag.Box)
         {
-            using var boxFill = new SKPaint { Color = Themes.SkAlpha("CanvasText", 25) };
-            using var boxEdge = new SKPaint { Color = Themes.SkAlpha("CanvasText", 140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
+            using var boxFill = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 25) };
+            using var boxEdge = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 140), Style = SKPaintStyle.Stroke, StrokeWidth = 1 };
             var box = BoxRect();
             canvas.DrawRect(box, boxFill);
             canvas.DrawRect(box, boxEdge);
@@ -354,7 +354,7 @@ public class TimelinePanel
         using var fill = new SKPaint { IsAntialias = true };
         using var outline = new SKPaint
         {
-            Color = Themes.SkAlpha("CanvasText", 60), Style = SKPaintStyle.Stroke, StrokeWidth = 1, IsAntialias = true
+            Color = CanvasTheme.SkAlpha("CanvasText", 60), Style = SKPaintStyle.Stroke, StrokeWidth = 1, IsAntialias = true
         };
         using var label = new SKPaint { Color = new SKColor(240, 240, 240), IsAntialias = true };
         using var faintLabel = new SKPaint { Color = new SKColor(240, 240, 240, 110), IsAntialias = true };
@@ -444,9 +444,9 @@ public class TimelinePanel
 
     // ======================= mouse =======================
 
-    public void MouseDown(Vector2 p, ModifierKeys modifiers)
+    public void MouseDown(Vector2 p, KeyMods modifiers)
     {
-        bool shift = modifiers.HasFlag(ModifierKeys.Shift);
+        bool shift = modifiers.HasFlag(KeyMods.Shift);
 
         // Clicking a row's name picks what that row animates, a bone or a part (Ctrl: picked or
         // not, the other way round; Shift: picked too)
@@ -456,7 +456,7 @@ public class TimelinePanel
             var timelines = Rows();
             if (row >= 0 && row < timelines.Count && Animated(timelines[row]) is { } item)
             {
-                if (modifiers.HasFlag(ModifierKeys.Control)) _state.TogglePick(item);
+                if (modifiers.HasFlag(KeyMods.Control)) _state.TogglePick(item);
                 else if (shift) _state.PickMore(new[] { item });
                 else _state.Pick(new[] { item });
             }
@@ -465,7 +465,7 @@ public class TimelinePanel
 
         if (HitKey(p) is { } hit)
         {
-            if (modifiers.HasFlag(ModifierKeys.Alt))
+            if (modifiers.HasFlag(KeyMods.Alt))
             {
                 // Alt: every key at that frame (Shift: as well as the ones picked)
                 if (!shift) Sel.Clear();
@@ -494,7 +494,7 @@ public class TimelinePanel
         }
 
         // Ctrl: a box over the keys picks the keys in it
-        if (modifiers.HasFlag(ModifierKeys.Control) && IsInKeyArea(p))
+        if (modifiers.HasFlag(KeyMods.Control) && IsInKeyArea(p))
         {
             _drag = Drag.Box;
             _boxFrom = _boxTo = p;

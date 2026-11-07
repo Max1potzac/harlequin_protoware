@@ -21,7 +21,6 @@ public partial class MainWindow
 
 	private void InitViewAids()
 	{
-		ViewAids.Colour = Themes.Sk;   // (looked up as it draws: a theme switch shows at once)
 		_guides = new GuideTool(_session, _camera) { Snap = _snap, SomethingToPickAt = SomethingToPickAt };
 		_tool.Snap = _snap;
 		_objectTool.Snap = _snap;

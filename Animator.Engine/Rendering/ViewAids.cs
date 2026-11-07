@@ -11,10 +11,6 @@ public static class ViewAids
 {
 	public const float RulerSize = 18f;   // the rulers' width, in screen units
 
-	// The theme's colours by name ("Canvas": behind the picture, "CanvasText": over it); the editor
-	// sets it to its theme's
-	public static Func<string, SKColor> Colour { get; set; } =
-		name => name == "Canvas" ? new SKColor(43, 43, 43) : new SKColor(230, 230, 230);
 	private const float MinGridGapPx = 6f;   // grid lines closer than this on screen: only every 2nd, 5th, 10th…
 
 	public static readonly SKColor GuideColor = new(60, 220, 160);
@@ -28,8 +24,8 @@ public static class ViewAids
 		if (size <= 0 || zoom <= 0) return;
 		float step = size * NiceAtLeast(MinGridGapPx / (size * zoom));
 		float px = 1f / zoom;
-		using var minor = new SKPaint { Color = Colour("CanvasText").WithAlpha(20), StrokeWidth = px };
-		using var major = new SKPaint { Color = Colour("CanvasText").WithAlpha(44), StrokeWidth = px };
+		using var minor = new SKPaint { Color = CanvasTheme.Sk("CanvasText").WithAlpha(20), StrokeWidth = px };
+		using var major = new SKPaint { Color = CanvasTheme.Sk("CanvasText").WithAlpha(44), StrokeWidth = px };
 
 		long first = (long)MathF.Floor(area.Left / step), last = (long)MathF.Ceiling(area.Right / step);
 		if (last - first <= 4000)
@@ -82,10 +78,10 @@ public static class ViewAids
 	public static void DrawRulers(SKCanvas canvas, Vector2 view, Func<Vector2, Vector2> toUnits,
 		IEnumerable<float> topMarks, IEnumerable<float> leftMarks, Vector2? mouse)
 	{
-		using var back = new SKPaint { Color = Colour("Canvas").WithAlpha(240) };
-		using var edge = new SKPaint { Color = Colour("CanvasText").WithAlpha(40), StrokeWidth = 1 };
-		using var tick = new SKPaint { Color = Colour("CanvasText").WithAlpha(150), StrokeWidth = 1 };
-		using var text = new SKPaint { Color = Colour("CanvasText"), IsAntialias = true };
+		using var back = new SKPaint { Color = CanvasTheme.Sk("Canvas").WithAlpha(240) };
+		using var edge = new SKPaint { Color = CanvasTheme.Sk("CanvasText").WithAlpha(40), StrokeWidth = 1 };
+		using var tick = new SKPaint { Color = CanvasTheme.Sk("CanvasText").WithAlpha(150), StrokeWidth = 1 };
+		using var text = new SKPaint { Color = CanvasTheme.Sk("CanvasText"), IsAntialias = true };
 		using var font = new SKFont { Size = 9 };
 		using var mark = new SKPaint { Color = GuideColor, IsAntialias = true };
 		using var cursor = new SKPaint { Color = new SKColor(255, 90, 90, 200), StrokeWidth = 1 };

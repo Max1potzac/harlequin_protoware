@@ -26,7 +26,7 @@ public partial class MainWindow
 
 	private void InitPaint()
 	{
-		_paintCanvas = new PaintCanvas(_session.Paint);
+		_paintCanvas = new PaintCanvas(_session.Paint) { Modifiers = HeldKeys };
 		_paint.Changed += SyncPaintUi;
 		_state.Undo.Changed += SyncPaintUi;
 
@@ -141,7 +141,7 @@ public partial class MainWindow
 	private void PaintView_MouseDown(object sender, MouseButtonEventArgs e)
 	{
 		PaintView.Focus();
-		_paintCanvas.MouseDown(PosIn(PaintView, e), e.ChangedButton,
+		_paintCanvas.MouseDown(PosIn(PaintView, e), (PointerButton)e.ChangedButton,
 							   Keyboard.Modifiers.HasFlag(ModifierKeys.Alt), e.ClickCount);
 		PaintView.CaptureMouse();
 	}
@@ -151,7 +151,7 @@ public partial class MainWindow
 
 	private void PaintView_MouseUp(object sender, MouseButtonEventArgs e)
 	{
-		_paintCanvas.MouseUp(e.ChangedButton);
+		_paintCanvas.MouseUp((PointerButton)e.ChangedButton);
 		if (e.LeftButton == MouseButtonState.Released &&
 			e.MiddleButton == MouseButtonState.Released &&
 			e.RightButton == MouseButtonState.Released)

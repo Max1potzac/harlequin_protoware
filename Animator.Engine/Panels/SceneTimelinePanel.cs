@@ -1,5 +1,5 @@
 using System.Numerics;
-using System.Windows.Input;
+using Animator.Viewer.Tools;
 using SkiaSharp;
 
 namespace Animator.Viewer.Panels;
@@ -43,6 +43,8 @@ public sealed class SceneTimelinePanel
 	// Right-click on a row: the object, the clip under the mouse (or null), and the frame there
 	public event Action<SceneObject, SceneClip?, int>? MenuRequested;
 
+	public Func<KeyMods> Modifiers { get; set; } = () => KeyMods.None;   // the keys held (the editor reads the keyboard)
+
 	public SceneTimelinePanel(Func<Scene> scene, SceneState sel, EditorState state)
 	{
 		_scene = scene;
@@ -78,20 +80,20 @@ public sealed class SceneTimelinePanel
 		FollowPlayhead();
 		ClampScroll();
 
-		canvas.Clear(Themes.Sk("Canvas"));
+		canvas.Clear(CanvasTheme.Sk("Canvas"));
 
 		using var font = new SKFont { Size = 12 };
 		using var smallFont = new SKFont { Size = 11 };
-		using var text = new SKPaint { Color = Themes.Sk("CanvasText"), IsAntialias = true };
-		using var dimText = new SKPaint { Color = Themes.SkAlpha("CanvasText", 110), IsAntialias = true };
-		using var hint = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), IsAntialias = true };
-		using var tick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
-		using var divider = new SKPaint { Color = Themes.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
+		using var text = new SKPaint { Color = CanvasTheme.Sk("CanvasText"), IsAntialias = true };
+		using var dimText = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 110), IsAntialias = true };
+		using var hint = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 90), IsAntialias = true };
+		using var tick = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 90), StrokeWidth = 1 };
+		using var divider = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 30), StrokeWidth = 1 };
 		using var rowSel = new SKPaint { Color = new SKColor(110, 220, 120, 30) };
 		using var pastEnd = new SKPaint { Color = new SKColor(0, 0, 0, 90) };
-		using var endLine = new SKPaint { Color = Themes.SkAlpha("CanvasText", 120), StrokeWidth = 1.5f };
-		using var playhead = new SKPaint { Color = Themes.Sk("Playhead"), StrokeWidth = 2 };
-		using var scrollbar = new SKPaint { Color = Themes.SkAlpha("CanvasText", 50), IsAntialias = true };
+		using var endLine = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 120), StrokeWidth = 1.5f };
+		using var playhead = new SKPaint { Color = CanvasTheme.Sk("Playhead"), StrokeWidth = 2 };
+		using var scrollbar = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 50), IsAntialias = true };
 
 		// Ruler, with labels far enough apart to read
 		int labelStep = LabelStep(_frameWidth);
@@ -184,13 +186,13 @@ public sealed class SceneTimelinePanel
 			Color = missing ? new SKColor(160, 60, 60, 200) : SKColor.FromHsl(HueOf(clip.Animation.Name), 45, 38).WithAlpha(210)
 		};
 		using var tail = new SKPaint { Color = new SKColor(0, 0, 0, 70) };
-		using var loopTick = new SKPaint { Color = Themes.SkAlpha("CanvasText", 110), StrokeWidth = 1 };
+		using var loopTick = new SKPaint { Color = CanvasTheme.SkAlpha("CanvasText", 110), StrokeWidth = 1 };
 		using var outline = new SKPaint
 		{
 			IsAntialias = true,
 			Style = SKPaintStyle.Stroke,
 			StrokeWidth = selected ? 2 : 1,
-			Color = selected ? SKColors.White : Themes.SkAlpha("CanvasText", 60)
+			Color = selected ? SKColors.White : CanvasTheme.SkAlpha("CanvasText", 60)
 		};
 		using var label = new SKPaint { Color = new SKColor(245, 245, 245), IsAntialias = true };
 
@@ -254,8 +256,8 @@ public sealed class SceneTimelinePanel
 
 	public void Wheel(Vector2 p, int delta)
 	{
-		var mods = Keyboard.Modifiers;
-		if (mods.HasFlag(ModifierKeys.Control))
+		var mods = Modifiers();
+		if (mods.HasFlag(KeyMods.Control))
 		{
 			// Zoom around the mouse: the frame under it stays under it
 			float frameUnder = XToFrameF(MathF.Max(p.X, LabelWidth));
@@ -263,7 +265,7 @@ public sealed class SceneTimelinePanel
 			_frameWidth = _fit * _zoom;
 			_scrollX = LabelWidth + LeftPad + frameUnder * _frameWidth - MathF.Max(p.X, LabelWidth);
 		}
-		else if (mods.HasFlag(ModifierKeys.Shift))
+		else if (mods.HasFlag(KeyMods.Shift))
 		{
 			_scrollX -= delta / 120f * 80f;
 		}
@@ -319,11 +321,11 @@ public sealed class SceneTimelinePanel
 		return null;
 	}
 
-	public void MouseDown(Vector2 p, MouseButton button, int clickCount)
+	public void MouseDown(Vector2 p, PointerButton button, int clickCount)
 	{
 		var obj = ObjectAt(p);
 
-		if (button == MouseButton.Right)
+		if (button == PointerButton.Right)
 		{
 			if (obj == null || p.X < LabelWidth) return;
 			var hit = HitClip(obj, p.X, out _);
@@ -332,7 +334,7 @@ public sealed class SceneTimelinePanel
 			MenuRequested?.Invoke(obj, hit, Math.Max(0, XToFrame(p.X)));
 			return;
 		}
-		if (button != MouseButton.Left) return;
+		if (button != PointerButton.Left) return;
 
 		if (p.Y <= RulerHeight)
 		{

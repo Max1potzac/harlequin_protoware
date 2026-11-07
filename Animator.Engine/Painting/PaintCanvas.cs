@@ -1,5 +1,5 @@
 ﻿using System.Numerics;
-using System.Windows.Input;
+using Animator.Viewer.Tools;
 using SkiaSharp;
 
 namespace Animator.Viewer.Painting;
@@ -28,6 +28,8 @@ public class PaintCanvas
 	// Busy = mid-drag, or a figure is still being placed. Undo waits until it's done.
 	public bool IsBusy => _active != null || _s.Tool.InProgress;
 
+	public Func<KeyMods> Modifiers { get; set; } = () => KeyMods.None;   // the keys held (the editor reads the keyboard)
+
 	public PaintCanvas(PaintSession session) => _s = session;
 
 	public Vector2 ScreenToImage(Vector2 p) => (p - ViewSize / 2) / Zoom + Pan;
@@ -46,7 +48,7 @@ public class PaintCanvas
 
 	public void Draw(SKCanvas c)
 	{
-		c.Clear(Themes.Sk("Viewport"));
+		c.Clear(CanvasTheme.Sk("Viewport"));
 		if (_s.Asset is not { } asset || _s.Composite is not { } img) return;
 
 		if (_needsFit && ViewSize.X > 0) { Fit(asset); _needsFit = false; }
@@ -222,17 +224,17 @@ public class PaintCanvas
 
 	private void ReadModifiers()
 	{
-		var m = Keyboard.Modifiers;
-		_s.ShiftHeld = m.HasFlag(ModifierKeys.Shift);
-		_s.CtrlHeld = m.HasFlag(ModifierKeys.Control);
-		_s.AltHeld = m.HasFlag(ModifierKeys.Alt);
+		var m = Modifiers();
+		_s.ShiftHeld = m.HasFlag(KeyMods.Shift);
+		_s.CtrlHeld = m.HasFlag(KeyMods.Control);
+		_s.AltHeld = m.HasFlag(KeyMods.Alt);
 	}
 
-	public void MouseDown(Vector2 screen, MouseButton button, bool alt, int clickCount)
+	public void MouseDown(Vector2 screen, PointerButton button, bool alt, int clickCount)
 	{
 		_lastScreen = screen;
-		if (button is MouseButton.Middle or MouseButton.Right) { _panning = true; return; }
-		if (button != MouseButton.Left || _s.Asset == null || _active != null) return;
+		if (button is PointerButton.Middle or PointerButton.Right) { _panning = true; return; }
+		if (button != PointerButton.Left || _s.Asset == null || _active != null) return;
 
 		ReadModifiers();
 		_s.ClickCount = clickCount;
@@ -258,10 +260,10 @@ public class PaintCanvas
 		_lastScreen = screen;
 	}
 
-	public void MouseUp(MouseButton button)
+	public void MouseUp(PointerButton button)
 	{
-		if (button is MouseButton.Middle or MouseButton.Right) _panning = false;
-		else if (button == MouseButton.Left && _active != null)
+		if (button is PointerButton.Middle or PointerButton.Right) _panning = false;
+		else if (button == PointerButton.Left && _active != null)
 		{
 			_active.Up(_s);
 			_active = null;

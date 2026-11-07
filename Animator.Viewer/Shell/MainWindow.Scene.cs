@@ -40,7 +40,7 @@ public partial class MainWindow
 	{
 		_objectTool = new ObjectTool(() => _scene, _sceneState, _camera, _renderer, _state.Undo) { Modifiers = HeldKeys };
 		_objectTool.EnterRequested += EnterObject;
-		_sceneTimeline = new SceneTimelinePanel(() => _scene, _sceneState, _state);
+		_sceneTimeline = new SceneTimelinePanel(() => _scene, _sceneState, _state) { Modifiers = HeldKeys };
 		_sceneTimeline.ClipOpened += (obj, clip) => EnterObject(obj, clip);
 		_sceneTimeline.MenuRequested += ShowClipMenu;
 		// Subscribed before the other panels: an undo can remove the open object, and they
