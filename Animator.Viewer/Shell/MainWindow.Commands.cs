@@ -329,12 +329,12 @@ public partial class MainWindow
 			case "paint.delete" when _paint.Selection != null: _paint.DeleteSelectedPixels(); return true;
 
 			// A figure or selection shape in progress: finish it, take back a point, or cancel it
-			case "paint.finish" when _figure.InProgress: _figure.Finish(_paint); return true;
-			case "paint.finish" when _select.PlacingPoints: _select.Finish(_paint); return true;
-			case "paint.undoPoint" when _figure.InProgress: _figure.RemoveLastPoint(_paint); return true;
-			case "paint.undoPoint" when _select.PlacingPoints: _select.RemoveLastPoint(_paint); return true;
-			case "paint.cancel" when _figure.InProgress: _figure.Cancel(_paint); return true;
-			case "paint.cancel" when _select.PlacingPoints: _select.Cancel(); return true;
+			case "paint.finish" when Tools.Figure.InProgress: Tools.Figure.Finish(_paint); return true;
+			case "paint.finish" when Tools.Select.PlacingPoints: Tools.Select.Finish(_paint); return true;
+			case "paint.undoPoint" when Tools.Figure.InProgress: Tools.Figure.RemoveLastPoint(_paint); return true;
+			case "paint.undoPoint" when Tools.Select.PlacingPoints: Tools.Select.RemoveLastPoint(_paint); return true;
+			case "paint.cancel" when Tools.Figure.InProgress: Tools.Figure.Cancel(_paint); return true;
+			case "paint.cancel" when Tools.Select.PlacingPoints: Tools.Select.Cancel(); return true;
 			case "paint.cancel" when _paint.Selection != null: _paint.Deselect(); return true;
 		}
 		if (PaintToolOf(id) is not { } tool) return false;

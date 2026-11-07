@@ -59,6 +59,7 @@ public sealed partial class EditorSession
 		bool switching = Active != obj;
 		if (switching)
 		{
+			if (_paint != null && Active != null) ClosePaint();   // its drawing belongs to the old object
 			State.Selected = null;
 			State.SelectedSlot = null;
 			State.SelectedKeys.Clear();
@@ -66,6 +67,7 @@ public sealed partial class EditorSession
 		Active = obj;
 		State.Skeleton = obj.Skeleton;
 		State.Animations = obj.Animations;
+		if (_paint != null) _paint.Skeleton = obj.Skeleton;   // (the paint editor keeps pivots in place on its rig)
 		if (switching || !obj.Animations.Contains(State.Animation))
 		{
 			State.Animation = ScenePlayer.Preview(obj) ?? obj.Animations[0];

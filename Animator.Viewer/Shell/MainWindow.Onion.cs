@@ -96,7 +96,7 @@ public partial class MainWindow
 	private IReadOnlyList<LightTableImage> LightTableImages()
 	{
 		var images = new List<LightTableImage>();
-		if (!_onion.Enabled || _state.Playing || _paintSlot is not { } slot || _paint.Asset is not { } open)
+		if (!_onion.Enabled || _state.Playing || _session.PaintSlot is not { } slot || _paint.Asset is not { } open)
 			return images;
 
 		var painted = _skeleton.AllSkins().SelectMany(s => s.AttachmentsFor(slot.Name)).FirstOrDefault(a => a.AssetId == open.Id);

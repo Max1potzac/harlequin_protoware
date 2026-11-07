@@ -62,10 +62,9 @@ public partial class MainWindow
 	// Points the editor at this object's rig and animations
 	private void EditObject(SceneObject obj)
 	{
-		if (_active != obj && _paint is not null) ClosePaintEditor();   // its drawing belongs to the old object
+		if (_active != obj && _paintCanvas is not null) ClosePaintEditor();   // its drawing belongs to the old object
 		_session.Open(obj);
 		_skeleton = obj.Skeleton;
-		if (_paint is not null) _paint.Skeleton = obj.Skeleton;
 		if (_tool is not null) _tool.BonesEnabled = BonesUsable(obj);   // a drawn object's bone is hidden (and View → Bones)
 		UpdateCameraSpace();
 	}
@@ -77,7 +76,7 @@ public partial class MainWindow
 	// keeps playing along with its timeline.
 	private void EnterObject(SceneObject obj, SceneClip? via)
 	{
-		if (_active != obj && _paint is not null) ClosePaintEditor();
+		if (_active != obj && _paintCanvas is not null) ClosePaintEditor();
 		_session.Enter(obj, via);
 		EditObject(obj);   // (the window's side: the paint editor, the tools, the camera)
 		PoseScene(ClockTime);   // the panels show the pose you're about to edit
@@ -395,7 +394,7 @@ public partial class MainWindow
 	private void CopyObject_Click(object sender, RoutedEventArgs e)
 	{
 		if (CurrentObject is not { } source) return;
-		_paint.Tool.Deactivate(_paint);   // a half-placed move or figure lands first, so the copy has it
+		_session.FinishPaintTool();   // a half-placed move or figure lands first, so the copy has it
 		var copy = _session.CopyObject(source);
 		if (_sceneLevel)
 		{

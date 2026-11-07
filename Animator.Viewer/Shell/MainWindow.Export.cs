@@ -19,7 +19,7 @@ public partial class MainWindow
 	private async void ExportProject()
 	{
 		if (_exporting) return;
-		_paint.Tool.Deactivate(_paint);   // a half-placed figure lands first, so it's in the pictures
+		_session.FinishPaintTool();   // a half-placed figure lands first, so it's in the pictures
 
 		var dialog = new ExportDialog(_scene, _active, _state.Fps, _lastExport, _appSettings.FfmpegPath, _renderer.PixelArt)
 		{
