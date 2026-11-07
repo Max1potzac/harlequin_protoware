@@ -13,6 +13,7 @@ public class PaintTests
 	public void A_parts_drawing_is_painted_and_the_editor_closed()
 	{
 		var window = Windows.Show();
+		window.Width = 1600;   // (room for the canvas beside the viewport)
 		Assert.True(window.TryOpen(Windows.LayersProject(), out _));
 		var body = window.State.Skeleton.Slots.First(s => s.Name == "body");
 		window.State.SelectedSlot = body;
@@ -28,6 +29,7 @@ public class PaintTests
 		Assert.False(window.State.Undo.IsDirty);
 		window.MouseMove(middle, RawInputModifiers.None);
 		window.MouseDown(middle, MouseButton.Left, RawInputModifiers.None);
+		Assert.True(window.PaintBusy, $"the press at {middle} didn't reach the canvas ({view.Bounds})");
 		window.MouseMove(middle + new Point(30, 10), RawInputModifiers.LeftMouseButton);
 		window.MouseMove(middle + new Point(60, 20), RawInputModifiers.LeftMouseButton);
 		window.MouseUp(middle + new Point(60, 20), MouseButton.Left, RawInputModifiers.None);

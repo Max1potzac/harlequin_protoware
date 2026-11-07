@@ -17,6 +17,7 @@ public sealed partial class MainWindow
 {
 	private PaintCanvas _paintCanvas = null!;
 	private PaintSession Paint => _session.Paint;
+	internal bool PaintBusy => _paintCanvas.IsBusy;   // a stroke (or a figure) under way
 	private PaintToolbox PaintTools => _session.PaintTools;
 
 	internal readonly SkiaView PaintView = new();
