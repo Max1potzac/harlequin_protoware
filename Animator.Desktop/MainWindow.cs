@@ -281,6 +281,7 @@ public sealed partial class MainWindow : Window
 	internal void LeaveObject()
 	{
 		if (SceneLevel) return;
+		ClosePaintEditor();   // (its drawing belongs to the object)
 		_session.Leave();
 		UpdateCameraSpace();
 		RefreshRigList();

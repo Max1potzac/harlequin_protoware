@@ -137,7 +137,7 @@ public sealed partial class MainWindow
 			c.Margin = new Thickness(0, 0, 12, 4);
 			options.Children.Add(c);
 		}
-		_toolTitle.MaxWidth = 420;
+		_toolTitle.MaxWidth = 230;
 
 		PaintSize.PropertyChanged += (_, e) => { if (e.Property == RangeBase.ValueProperty && !_syncingPaint) Paint.Size = (int)PaintSize.Value; };
 		_tolerance.PropertyChanged += (_, e) => { if (e.Property == RangeBase.ValueProperty && !_syncingPaint) Paint.Tolerance = (int)_tolerance.Value; };
@@ -237,7 +237,7 @@ public sealed partial class MainWindow
 		PaintView.PointerReleased += (_, e) =>
 		{
 			_mods = Input.ModsOf(e.KeyModifiers);
-			if (Input.ButtonOf(e.GetCurrentPoint(PaintView).Properties.PointerUpdateKind) is { } button) _paintCanvas.MouseUp(button);
+			if (Input.ButtonOf(e.InitialPressMouseButton) is { } button) _paintCanvas.MouseUp(button);
 			e.Pointer.Capture(null);
 		};
 		PaintView.PointerExited += (_, _) => _paintCanvas.MouseLeave();
@@ -247,12 +247,21 @@ public sealed partial class MainWindow
 			e.Handled = true;
 		};
 
-		var top = new StackPanel { Margin = new Thickness(6, 4), Children = { title, tools, options, colours } };
+		// The title on top; the tools, their options, the colours and the layers down the side
+		// (scrolling when short), so the canvas has all the height there is
+		layers.Width = double.NaN;
+		layers.Margin = new Thickness(0, 8, 0, 0);
+		var side = new ScrollViewer
+		{
+			Width = 250,
+			Content = new StackPanel { Margin = new Thickness(6, 0, 8, 4), Children = { tools, options, colours, layers } }
+		};
+		title.Margin = new Thickness(6, 4);
 		var body = new DockPanel();
-		DockPanel.SetDock(top, Dock.Top);
-		body.Children.Add(top);
-		DockPanel.SetDock(layers, Dock.Right);
-		body.Children.Add(layers);
+		DockPanel.SetDock(title, Dock.Top);
+		body.Children.Add(title);
+		DockPanel.SetDock(side, Dock.Right);
+		body.Children.Add(side);
 		body.Children.Add(PaintView);
 		PaintPanel = body;
 		PaintPanel.IsVisible = false;

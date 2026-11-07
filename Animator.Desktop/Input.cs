@@ -15,6 +15,17 @@ public static class Input
 		_ => null
 	};
 
+	// The button a press began with (what a release is of)
+	public static PointerButton? ButtonOf(MouseButton button) => button switch
+	{
+		MouseButton.Left => PointerButton.Left,
+		MouseButton.Middle => PointerButton.Middle,
+		MouseButton.Right => PointerButton.Right,
+		MouseButton.XButton1 => PointerButton.XButton1,
+		MouseButton.XButton2 => PointerButton.XButton2,
+		_ => null
+	};
+
 	public static KeyMods ModsOf(KeyModifiers m)
 	{
 		var mods = KeyMods.None;
