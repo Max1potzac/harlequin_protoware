@@ -12,5 +12,6 @@ internal static class TestSetup
 		string folder = Path.Combine(Path.GetTempPath(), "hq-desktop-tests-" + Guid.NewGuid().ToString("N"));
 		AppSettings.FilePath = Path.Combine(folder, "settings.json");
 		Recovery.Folder = Path.Combine(folder, "Recovery");
+		MainWindow.MakeAudio = () => new ListeningAudio();   // (sounds are listened to, not played)
 	}
 }
