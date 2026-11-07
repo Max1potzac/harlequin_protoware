@@ -125,3 +125,41 @@ jobs:
             gh release create $tag --title "$title" --notes "$notes" $pre
           fi
           gh release upload $tag harlequin-linux-x64.tar.gz harlequin-win-x64.zip --clobber
+
+  # The Avalonia editor (Animator.Desktop, docs/porting.md step 4) on Linux: built, its window
+  # tried out on the headless platform (the pictures it took are kept with the run, as
+  # "editor-screenshots"), and published for Linux (kept with the run, as "editor-linux-x64")
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        continue-on-error: true
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build the editor and its tests
+        run: dotnet build Animator.Desktop.Tests/Animator.Desktop.Tests.csproj --configuration Release
+
+      - name: Test (headless)
+        run: |
+          set -o pipefail
+          HQ_SHOTS=$PWD/shots dotnet run --project Animator.Desktop.Tests --configuration Release --no-build 2>&1 | tee desktop-tests.log
+          grep -E "Total:|Failed:" desktop-tests.log | tail -1 | sed 's/^/::notice title=Editor tests::/' || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: editor-screenshots
+          path: shots
+          if-no-files-found: ignore
+
+      - name: Publish for Linux
+        run: |
+          dotnet publish Animator.Desktop/Animator.Desktop.csproj -c Release -r linux-x64 --self-contained -p:DebugType=none -o out/editor-linux-x64
+          tar -czf harlequin-editor-linux-x64.tar.gz -C out editor-linux-x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: editor-linux-x64
+          path: harlequin-editor-linux-x64.tar.gz
