@@ -82,17 +82,14 @@ public sealed partial class MainWindow
 	private List<ListBoxItem> _listed = new();
 	private object? _listedPick;
 
-	private static ListBoxItem Row(string text, object tag, int depth, bool bold, bool part = false) => new()
+	private static readonly IBrush PartColour = new SolidColorBrush(Color.FromRgb(255, 190, 110));
+
+	private static ListBoxItem Row(string text, object tag, int depth, bool bold, bool part = false)
 	{
-		Content = new TextBlock
-		{
-			Text = text,
-			FontWeight = bold ? FontWeight.SemiBold : FontWeight.Normal,
-			Foreground = part ? new SolidColorBrush(Color.FromRgb(255, 190, 110)) : null
-		},
-		Tag = tag,
-		Padding = new Thickness(8 + depth * 14, 3, 8, 3)
-	};
+		var label = new TextBlock { Text = text, FontWeight = bold ? FontWeight.SemiBold : FontWeight.Normal };
+		if (part) label.Foreground = PartColour;   // (bones keep the theme's colour)
+		return new ListBoxItem { Content = label, Tag = tag, Padding = new Thickness(8 + depth * 14, 3, 8, 3) };
+	}
 
 	// Every frame: what's picked in the viewport is picked in the list
 	private void SyncRigSelection()
