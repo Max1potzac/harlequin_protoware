@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -15,50 +16,76 @@ namespace Animator.Desktop;
 // changes and deletes clips. The edits are EditorSession's (EditorSession.Scene.cs).
 public sealed partial class MainWindow
 {
-	// ======================= the objects (the Rig tab at scene level) =======================
+	// ======================= the objects (the top of the left panel) =======================
 
-	private readonly Button _addObject = new() { Content = "+ Object ▾" };
+	private readonly Button _addObject = new() { Content = "+ New ▾" };
 	internal readonly Button CopyObjectButton = new() { Content = "Copy" };
 	internal readonly Button DeleteObjectButton = new() { Content = "Delete" };
 	private readonly Button _objectUp = new() { Content = "▲" }, _objectDown = new() { Content = "▼" };
-	private readonly Button _editObject = new() { Content = "Edit ▸" };
-	private Control _sceneTools = null!;
+	internal readonly ListBox ObjectList = new() { MinHeight = 40, MaxHeight = 110 };
+	internal readonly TextBlock ModeText = new() { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 12, Margin = new Thickness(2, 0, 2, 2) };
+	private bool _syncingObjectList;
 
 	// (the tests answer the blank drawn object's size and the picture this way)
 	internal Func<NewPartWindow, Task<bool>>? AnswerNewDrawnObject { get; set; }
 
 	private SceneObject? PickedObject => _session.SceneState.Selected;
 
-	private Control BuildSceneTools()
+	// The scene's objects, front first, in the scene and inside one alike: at scene level a click
+	// picks one (a double-click opens it); inside one, a click opens another. Over it, the button
+	// back to the scene (or into the picked object); under it, + New, Copy, Delete, ▲ / ▼.
+	private Control BuildObjectsSection()
 	{
 		ToolTip.SetTip(_addObject, "Adds an object to the scene, in the middle of the view");
 		ToolTip.SetTip(CopyObjectButton, "A copy of the object, with its own rig, animations and drawings");
 		ToolTip.SetTip(DeleteObjectButton, "Deletes the object (undoable). A scene always keeps at least one.");
 		ToolTip.SetTip(_objectUp, "Forward: in front of more objects");
 		ToolTip.SetTip(_objectDown, "Backward: behind more objects");
-		ToolTip.SetTip(_editObject, "Opens the object to edit its rig, drawings and animations (or double-click it)");
+		ToolTip.SetTip(ObjectList, "Top = in front. Double-click an object to edit it.");
+		ToolTip.SetTip(_sceneButton, $"Back to the scene, to place whole objects ({_keys.Describe("edit.back")}). At scene level: open the picked object ({_keys.Describe("scene.open")})");
 		_addObject.Click += (_, _) => AddObjectMenu().ShowAt(_addObject);
 		CopyObjectButton.Click += (_, _) => CopyPickedObject();
 		DeleteObjectButton.Click += (_, _) => DeletePickedObject();
-		_objectUp.Click += (_, _) => { if (PickedObject is { } o) _session.MoveObjectInOrder(o, +1); };
-		_objectDown.Click += (_, _) => { if (PickedObject is { } o) _session.MoveObjectInOrder(o, -1); };
-		_editObject.Click += (_, _) => { if (PickedObject is { } o) EnterObject(o); };
-		var buttons = new WrapPanel { Margin = new Thickness(4, 4, 4, 0) };
-		foreach (var b in new Control[] { _addObject, CopyObjectButton, DeleteObjectButton, _objectUp, _objectDown, _editObject })
+		_objectUp.Click += (_, _) => { if (CurrentObject is { } o) _session.MoveObjectInOrder(o, +1); };
+		_objectDown.Click += (_, _) => { if (CurrentObject is { } o) _session.MoveObjectInOrder(o, -1); };
+		_sceneButton.Click += (_, _) =>
 		{
-			b.Margin = new Thickness(0, 0, 4, 4);
+			if (!SceneLevel) LeaveObject();
+			else if (PickedObject is { } o) EnterObject(o);
+		};
+		ObjectList.SelectionChanged += (_, _) =>
+		{
+			if (_syncingObjectList || ObjectList.SelectedItem is not ListBoxItem { Tag: SceneObject obj }) return;
+			if (SceneLevel) _session.SceneState.Selected = obj;
+			else if (obj != _session.Active) Avalonia.Threading.Dispatcher.UIThread.Post(() => EnterObject(obj));   // (not in the middle of the list's own change)
+		};
+		ObjectList.DoubleTapped += (_, _) =>
+		{
+			if (ObjectList.SelectedItem is ListBoxItem { Tag: SceneObject obj }) Avalonia.Threading.Dispatcher.UIThread.Post(() => EnterObject(obj));
+		};
+
+		var header = new DockPanel { Margin = new Thickness(2, 0, 0, 4) };
+		DockPanel.SetDock(_sceneButton, Dock.Right);
+		header.Children.Add(_sceneButton);
+		header.Children.Add(new TextBlock { Text = "Objects", FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center });
+		var buttons = new UniformGrid { Columns = 5, Margin = new Thickness(0, 4, 0, 4) };
+		foreach (var b in new[] { _addObject, CopyObjectButton, DeleteObjectButton, _objectUp, _objectDown })
+		{
+			b.Margin = new Thickness(0, 0, 3, 0);
+			b.Padding = new Thickness(2, 4);
+			b.HorizontalAlignment = HorizontalAlignment.Stretch;
+			b.HorizontalContentAlignment = HorizontalAlignment.Center;
 			buttons.Children.Add(b);
 		}
-		_sceneTools = new StackPanel
+		return new StackPanel
 		{
-			Children =
-			{
-				buttons,
-				new TextBlock { Text = "Top = in front. Double-click an object to edit it.", Foreground = Brushes.Gray, FontSize = 12, Margin = new Thickness(6, 0, 6, 4) }
-			}
+			Margin = new Thickness(6, 6, 6, 0),
+			Children = { header, ObjectList, buttons, ModeText, new Border { Height = 1, Background = Brushes.Gray, Opacity = 0.5, Margin = new Thickness(0, 4, 0, 4) } }
 		};
-		return _sceneTools;
 	}
+
+	// The object the buttons act on: the picked one at scene level, the open one inside
+	private SceneObject? CurrentObject => SceneLevel ? PickedObject : _session.Active;
 
 	private MenuFlyout AddObjectMenu()
 	{
@@ -119,21 +146,25 @@ public sealed partial class MainWindow
 
 	internal void CopyPickedObject()
 	{
-		if (PickedObject is not { } source) return;
+		if (CurrentObject is not { } source) return;
 		_session.FinishPaintTool();   // a half-placed move or figure lands first, so the copy has it
-		_session.SceneState.Selected = _session.CopyObject(source);
-		RefreshRigList();
+		var copy = _session.CopyObject(source);
+		if (SceneLevel) _session.SceneState.Selected = copy;
+		else EnterObject(copy);
 	}
 
 	internal void DeletePickedObject()
 	{
-		if (PickedObject is not { } obj) return;
+		if (CurrentObject is not { } obj) return;
 		if (Scene.Objects.Count < 2)
 		{
 			Hint("A scene keeps at least one object.");
 			return;
 		}
+		bool open = obj == _session.Active && !SceneLevel;
+		if (open) ClosePaintEditor();   // (its drawing goes with it)
 		_session.DeleteObject(obj);
+		if (open) EnterObject(_session.Active!);   // (the window's side of the one the session opened instead)
 	}
 
 	// One row of the list: its name, kind, and whether it's hidden or locked
@@ -142,9 +173,9 @@ public sealed partial class MainWindow
 
 	private void SyncSceneTools()
 	{
-		bool picked = PickedObject != null;
-		CopyObjectButton.IsEnabled = _objectUp.IsEnabled = _objectDown.IsEnabled = _editObject.IsEnabled = picked;
-		DeleteObjectButton.IsEnabled = picked && Scene.Objects.Count > 1;
+		bool any = CurrentObject != null;
+		CopyObjectButton.IsEnabled = _objectUp.IsEnabled = _objectDown.IsEnabled = any;
+		DeleteObjectButton.IsEnabled = any && Scene.Objects.Count > 1;
 	}
 
 	// ======================= the picked object's settings =======================
@@ -448,52 +479,49 @@ public sealed partial class MainWindow
 	internal readonly CheckBox SceneLoop = new() { Content = "Loop" };
 	internal readonly TextBox StageWidth = new() { Width = 64 };
 	internal readonly TextBox StageHeight = new() { Width = 64 };
-	internal readonly TextBox SceneFps = new() { Width = 52 };
 	private readonly TextBlock _sceneHint = new() { Foreground = Brushes.Orange, VerticalAlignment = VerticalAlignment.Center };
-	private Control _sceneBar = null!;
 
 	private void SceneHint(string text) => _sceneHint.Text = text;
 
-	private Control BuildSceneBar()
+	// The bar's scene section (see BuildTimelineBar): the scene's length, loop and stage
+	private List<Control> BuildSceneControls()
 	{
 		_sceneTimeline.MenuRequested += ShowClipMenu;
-		var bar = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 2) };
-		void Add(Control c, string? tip = null)
+		static TextBlock Label(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center };
+		Control Tip(Control c, string tip)
 		{
-			c.Margin = new Thickness(c.Margin.Left, 2, 6, 2);
-			if (tip != null) ToolTip.SetTip(c, tip);
-			bar.Children.Add(c);
+			ToolTip.SetTip(c, tip);
+			return c;
 		}
-		static TextBlock Label(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
-		foreach (var b in BuildTransport()) Add(b);
-		Add(new TextBlock { Text = "Scene", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
-		Add(Label("Frames"));
-		Add(SceneLength, "How long the scene timeline runs");
 		var fit = new Button { Content = "Fit to clips" };
 		fit.Click += (_, _) =>
 		{
 			if (SceneOps.LastClipEnd(Scene) <= 0) SceneHint("There are no clips yet: right-click an object's row in the scene timeline to add one.");
 			else _session.FitSceneToClips();
 		};
-		Add(fit, "Makes the scene end where its last clip ends");
-		Add(SceneLoop, "Plays the scene again from the start when it ends");
-		Add(Label("Stage"), "The picture the scene is made for (its video size), centred on the scene's origin. 0 × 0: none.");
-		Add(StageWidth, "Stage width (0: no stage)");
-		Add(new TextBlock { Text = "×", VerticalAlignment = VerticalAlignment.Center });
-		Add(StageHeight, "Stage height (0: no stage)");
-		Add(Label("FPS"));
-		Add(SceneFps, "Frames per second for the whole project. Timing is kept in seconds.");
-		Add(_sceneHint);
 		SceneLoop.IsCheckedChanged += (_, _) => { if (!_syncingScene) _session.SetSceneLoop(SceneLoop.IsChecked == true); };
-		foreach (var box in new[] { SceneLength, StageWidth, StageHeight, SceneFps })
+		foreach (var box in new[] { SceneLength, StageWidth, StageHeight })
 		{
 			var b = box;
 			b.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { CommitSceneField(b); TimelineView.Focus(); } };
 			b.LostFocus += (_, _) => CommitSceneField(b);
 		}
-		_sceneBar = bar;
-		return bar;
+		_sceneSection = new List<Control>
+		{
+			new TextBlock { Text = "Scene", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold },
+			Label("Length (frames)"),
+			Tip(SceneLength, "How long the scene timeline runs"),
+			Tip(fit, "Makes the scene end where its last clip ends"),
+			Tip(SceneLoop, "Plays the scene again from the start when it ends"),
+			Tip(Label("Stage"), "The picture the scene is made for (its video size), centred on the scene's origin. 0 × 0: none."),
+			Tip(StageWidth, "Stage width (0: no stage)"),
+			new TextBlock { Text = "×", VerticalAlignment = VerticalAlignment.Center },
+			Tip(StageHeight, "Stage height (0: no stage)")
+		};
+		return _sceneSection;
 	}
+
+	private List<Control> _sceneSection = new();
 
 	internal void CommitSceneField(TextBox box)
 	{
@@ -503,7 +531,6 @@ public sealed partial class MainWindow
 		int now = SceneFieldValue(box);
 		if (text == now.ToString()) return;
 		(int min, int max, string problem) = box == SceneLength ? (1, 100000, "The scene's length is a whole number of frames (1 or more).")
-			: box == SceneFps ? (1, 240, "FPS is a whole number from 1 to 240.")
 			: (0, 100000, "The stage size is a whole number of pixels (0: no stage).");
 		if (!int.TryParse(text, out int v) || v < min || v > max)
 		{
@@ -512,23 +539,24 @@ public sealed partial class MainWindow
 			return;
 		}
 		if (box == SceneLength) _session.SetSceneLength(v);
-		else if (box == SceneFps) _session.SetFps(v);
 		else if (box == StageWidth) _session.SetStage(v, Scene.StageHeight);
 		else _session.SetStage(Scene.StageWidth, v);
 	}
 
 	private int SceneFieldValue(TextBox box) =>
-		box == SceneLength ? _session.ToFrames(Scene.Duration) : box == SceneFps ? State.Fps : box == StageWidth ? Scene.StageWidth : Scene.StageHeight;
+		box == SceneLength ? _session.ToFrames(Scene.Duration) : box == StageWidth ? Scene.StageWidth : Scene.StageHeight;
 
 	// Every frame: the bar shows the scene's (after an edit, an undo, another file)
 	private void SyncScene()
 	{
-		_sceneBar.IsVisible = SceneLevel;
+		foreach (var c in _sceneSection) c.IsVisible = SceneLevel;
+		SyncObjectList();
 		if (!SceneLevel) return;
 		_syncingScene = true;
 		try
 		{
-			foreach (var box in new[] { SceneLength, StageWidth, StageHeight, SceneFps })
+			if (!AnimFps.IsFocused && AnimFps.Text != State.Fps.ToString()) AnimFps.Text = State.Fps.ToString();
+			foreach (var box in new[] { SceneLength, StageWidth, StageHeight })
 				if (!box.IsFocused && box.Text != SceneFieldValue(box).ToString()) box.Text = SceneFieldValue(box).ToString();
 			SceneLoop.IsChecked = Scene.Loop;
 		}
@@ -536,18 +564,41 @@ public sealed partial class MainWindow
 		{
 			_syncingScene = false;
 		}
-		SyncSceneTools();
-		SyncObjectRows();
 	}
 
-	// The objects' rows follow renames, flags and the order (an undo, the buttons)
+	// The objects' rows follow renames, flags, the order and which is open (an undo, the buttons);
+	// the picked (or open) one is selected
 	private string? _objectsListed;
+	private List<ListBoxItem> _objectRows = new();
 
-	private void SyncObjectRows()
+	private void SyncObjectList()
 	{
-		string key = string.Join("\n", Scene.Objects.Select(o => RuntimeHelpers.GetHashCode(o) + ObjectRowText(o)));
-		if (key == _objectsListed) return;
-		_objectsListed = key;
-		RefreshRigList();
+		var open = SceneLevel ? null : _session.Active;
+		string key = string.Join("\n", Scene.Objects.Select(o => RuntimeHelpers.GetHashCode(o) + ObjectRowText(o))) + $"|{(open == null ? 0 : RuntimeHelpers.GetHashCode(open))}";
+		_syncingObjectList = true;
+		try
+		{
+			if (key != _objectsListed)
+			{
+				_objectsListed = key;
+				_objectRows = Scene.Objects.AsEnumerable().Reverse()   // (front first, like layers)
+					.Select(o => new ListBoxItem
+					{
+						Tag = o,
+						Padding = new Thickness(8, 3),
+						Content = new TextBlock { Text = ObjectRowText(o), FontWeight = o == open ? FontWeight.Bold : FontWeight.Normal, Opacity = o.Visible ? 1 : 0.55 }
+					}).ToList();
+				ObjectList.ItemsSource = _objectRows;
+			}
+			var current = SceneLevel ? PickedObject : _session.Active;
+			var row = _objectRows.FirstOrDefault(r => r.Tag == current);
+			if (ObjectList.SelectedItem != row) ObjectList.SelectedItem = row;
+		}
+		finally
+		{
+			_syncingObjectList = false;
+		}
+		SyncSceneTools();
+		ObjectNone.IsVisible = SceneLevel && PickedObject == null;
 	}
 }

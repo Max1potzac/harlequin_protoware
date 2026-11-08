@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Harlequin's editor on Avalonia: the same editor for Linux, Windows and macOS, on the engine
-       (Animator.Engine) the Windows editor uses too. Built a panel at a time next to the WPF one
-       (docs/porting.md, step 4). -->
+       (Animator.Engine). docs/porting.md tells how it came to replace the WPF one. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -12,7 +11,28 @@
     <Nullable>enable</Nullable>
     <NoWarn>$(NoWarn);NU1701</NoWarn>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Assets\harlequin.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- Published for a platform (dotnet publish -r win-x64, linux-x64…): one program file, with
+       .NET and the libraries inside it (the native ones unpacked to a cache on the first run).
+       Only what's loaded its own way stays beside it: ANGLE (Avalonia's drawing on Windows) and
+       OpenAL Soft (sound). -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <Target Name="KeepSomeLibrariesBeside" AfterTargets="ComputeResolvedFilesToPublishList" Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Condition="'%(ResolvedFileToPublish.Filename)' == 'av_libglesv2' Or '%(ResolvedFileToPublish.Filename)' == 'soft_oal' Or '%(ResolvedFileToPublish.Filename)' == 'libopenal'">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.4" />
@@ -39,6 +59,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Animator.Desktop.Tests" />
+  </ItemGroup>
+
+  <!-- The window's icon (the program file's is ApplicationIcon) -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\harlequin.ico" />
   </ItemGroup>
 
 </Project>

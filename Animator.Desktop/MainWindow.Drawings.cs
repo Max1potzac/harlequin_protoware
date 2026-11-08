@@ -181,7 +181,7 @@ public sealed partial class MainWindow
 	// ======================= the onion skin =======================
 
 	internal OnionSkin Onion => _painter.Onion;
-	internal readonly CheckBox OnionBox = new() { Content = "Onion" };
+	internal readonly CheckBox OnionBox = new() { Content = "Onion skin (O)" };
 	internal readonly ComboBox OnionBefore = new() { ItemsSource = Enumerable.Range(0, 6).ToList() };
 	internal readonly ComboBox OnionAfter = new() { ItemsSource = Enumerable.Range(0, 6).ToList() };
 	internal readonly ComboBox OnionStep = new() { ItemsSource = Enumerable.Range(1, 4).ToList() };

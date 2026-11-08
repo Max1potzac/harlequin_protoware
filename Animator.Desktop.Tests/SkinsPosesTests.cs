@@ -35,7 +35,7 @@ public class SkinsPosesTests
 		window.HidePickedInSkin(true);
 		Assert.Contains("body", skin.Hides);
 
-		window.LeftTabs.SelectedIndex = 1;
+		window.ShowRigView(MainWindow.RigView.Skins);
 		Windows.Shot(window, "skins-tab");
 
 		// Off, and on again; the hiding undone
@@ -75,7 +75,7 @@ public class SkinsPosesTests
 		window.PasteThePose(mirrored: false);
 		Assert.Equal(rest, root.SetupRotation, 3);
 
-		window.LeftTabs.SelectedIndex = 2;
+		window.ShowRigView(MainWindow.RigView.Poses);
 		Windows.Shot(window, "poses-tab");
 	}
 }

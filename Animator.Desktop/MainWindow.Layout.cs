@@ -18,7 +18,7 @@ public sealed partial class MainWindow
 
 	internal MenuItem MenuItemFor(string id) => _menuItems[id];
 	internal double LeftPanelWidth => _columns[0].Width.Value;
-	internal double RightPanelWidth => _columns[4].Width.Value;
+	internal double RightPanelWidth => _columns[4].Width.Value > 0 ? _columns[4].Width.Value : _propertiesWidth;   // (scene level: put away)
 	internal double TimelineHeight => _rows[3].Height.Value > 0 ? _rows[3].Height.Value : _timelineHeight;   // (Build: put away)
 
 	internal void RestoreLayout()
@@ -41,7 +41,12 @@ public sealed partial class MainWindow
 		}
 		if (s.WindowMaximized) WindowState = WindowState.Maximized;
 		if (s.LeftPanelWidth is { } lw && lw is >= 200 and <= 600) _columns[0].Width = new GridLength(lw);
-		if (s.RightPanelWidth is { } rw && rw is >= 220 and <= 700) _columns[4].Width = new GridLength(rw);
+		if (s.RightPanelWidth is { } rw && rw is >= 220 and <= 700)
+		{
+			_propertiesWidth = rw;
+			_columns[4].Width = new GridLength(rw);
+			_shownSceneLevel = null;   // (put away again at scene level)
+		}
 		if (s.TimelineHeight is { } th && th is >= 80 and <= 900)
 		{
 			_timelineHeight = th;
@@ -53,8 +58,8 @@ public sealed partial class MainWindow
 			case "layers": _layersView = true; break;
 			case "colour": _colourViewOn = true; break;
 			case "boxes": _boxesViewOn = true; break;
-			case "skins": LeftTabs.SelectedIndex = 1; break;
-			case "poses": LeftTabs.SelectedIndex = 2; break;
+			case "skins": _skinsViewOn = true; break;
+			case "poses": _posesViewOn = true; break;
 		}
 	}
 
@@ -70,14 +75,9 @@ public sealed partial class MainWindow
 		}
 		s.WindowMaximized = WindowState == WindowState.Maximized;
 		s.LeftPanelWidth = _columns[0].ActualWidth > 0 ? _columns[0].ActualWidth : _columns[0].Width.Value;
-		s.RightPanelWidth = _columns[4].ActualWidth > 0 ? _columns[4].ActualWidth : _columns[4].Width.Value;
+		s.RightPanelWidth = _columns[4].ActualWidth > 0 ? _columns[4].ActualWidth : _propertiesWidth;
 		s.TimelineHeight = _rows[3].ActualHeight > 0 ? _rows[3].ActualHeight : _timelineHeight;
-		s.RigTab = LeftTabs.SelectedIndex switch
-		{
-			1 => "skins",
-			2 => "poses",
-			_ => _colourViewOn ? "colour" : _boxesViewOn ? "boxes" : _layersView ? "layers" : "bones"
-		};
+		s.RigTab = _colourViewOn ? "colour" : _boxesViewOn ? "boxes" : _skinsViewOn ? "skins" : _posesViewOn ? "poses" : _layersView ? "layers" : "bones";
 		SaveSettingsQuietly();
 	}
 
@@ -96,7 +96,9 @@ public sealed partial class MainWindow
 		view.SubmenuOpened += (_, _) => SyncViewMenu();
 	}
 
-	private Dictionary<string, Func<bool>> ViewChecks => new()
+	private Dictionary<string, Func<bool>>? _viewChecks;
+
+	private Dictionary<string, Func<bool>> ViewChecks => _viewChecks ??= new()
 	{
 		["tool.select"] = () => _tool.Tool == ViewTool.Select,
 		["tool.move"] = () => _tool.Tool == ViewTool.Move,

@@ -9,18 +9,43 @@ using Avalonia.VisualTree;
 
 namespace Animator.Desktop;
 
-// The Rig tab on the left: inside an object, its bones (as a tree, by indent) with the parts on
-// each, or its layers (every part in drawing order, front first: a drawn object always shows
-// these); at scene level, the scene's objects. Picking one there picks it in the viewport, and
-// the other way round; a double-click on an object opens it. Over the list: + Part, Bind (or
-// Give bones, for a drawn object); under it: whether parts stay put when bones move, and
-// whether animations stay as they were. Rows are dragged: a part onto a bone puts it there, a
-// bone onto another hangs it there (Bones), a part up or down changes the order (Layers).
+// The left panel, as the Windows editor has it: the scene's objects on top (see Scene), then at
+// scene level the picked object's settings, and inside an object its rig: whether parts stay put
+// when bones move and animations stay as they were, + Bone, + Part, Bind, Delete (Build only),
+// and six views of it: its bones (as a tree, by indent) with the parts on each, its order (every
+// part in drawing order, front first: a drawn object always shows these), its colour layers,
+// poses, skins, and hitboxes. Picking a row picks it in the viewport, and the other way round.
+// Rows are dragged: a part onto a bone puts it there, a bone onto another hangs it there (Bones),
+// a part up or down changes the order (Order).
 public sealed partial class MainWindow
 {
 	internal readonly ListBox RigList = new();
 	internal readonly ToggleButton BonesView = new() { Content = "Bones" };
-	internal readonly ToggleButton LayersView = new() { Content = "Layers" };
+	internal readonly ToggleButton LayersView = new() { Content = "Order" };
+	internal readonly ToggleButton PosesView = new() { Content = "Poses" };
+	internal readonly ToggleButton SkinsView = new() { Content = "Skins" };
+	internal readonly TextBlock RigTitle = new() { Text = "Rig", FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center };
+	internal readonly Button DeleteButton = new() { Content = "Delete ▾" };
+	private Control _buildButtons = null!, _rigSection = null!, _sceneSection = null!, _posesPanel = null!, _skinsPanel = null!;
+	private bool _posesViewOn, _skinsViewOn;
+	internal readonly TextBlock ObjectNone = new() { Text = "Click an object in the viewport, or pick it in the list.", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray };
+	private readonly TextBlock _objectHint = new() { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Orange };
+
+	// The views of the rig
+	internal enum RigView { Bones, Layers, Colour, Poses, Skins, Boxes }
+
+	internal void ShowRigView(RigView view)
+	{
+		_layersView = view == RigView.Layers;
+		_colourViewOn = view == RigView.Colour;
+		_posesViewOn = view == RigView.Poses;
+		_skinsViewOn = view == RigView.Skins;
+		_boxesViewOn = view == RigView.Boxes;
+		RefreshRigList();
+	}
+
+	internal bool ShowingPoses => _posesViewOn && !SceneLevel;
+	internal bool ShowingSkins => _skinsViewOn && !SceneLevel;
 	internal readonly TextBlock RigHint = new() { TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 12 };
 	private readonly Button _addPart = new() { Content = "+ Part ▾" };
 	private readonly Button _bind = new() { Content = "Bind ▾" };
@@ -33,11 +58,27 @@ public sealed partial class MainWindow
 	private IReadOnlyList<Slot> _listedOrder = Array.Empty<Slot>();   // the order the list was made in
 	private bool _listedAnimating;                                    // ...and in which mode
 
-	internal bool ShowingLayers => !SceneLevel && !_colourViewOn && !_boxesViewOn && (IsDrawn || _layersView);
+	internal bool ShowingLayers => !SceneLevel && !_colourViewOn && !_boxesViewOn && !_posesViewOn && !_skinsViewOn && (IsDrawn || _layersView);
 
 	private bool IsDrawn => _session.Active?.Kind == ObjectKind.Drawn;
 
-	private Control BuildRigList()
+	// The whole left panel: the objects, then the picked object's settings (scene level) or the rig
+	private Control BuildLeftPanel()
+	{
+		var objects = BuildObjectsSection();
+		_rigSection = BuildRigSection();
+		_sceneSection = new ScrollViewer
+		{
+			Content = new StackPanel { Margin = new Thickness(6, 2, 6, 6), Spacing = 4, Children = { ObjectNone, _objectProps, _objectHint } }
+		};
+		var panel = new DockPanel();
+		DockPanel.SetDock(objects, Dock.Top);
+		panel.Children.Add(objects);
+		panel.Children.Add(new Grid { Children = { _sceneSection, _rigSection } });   // (one or the other)
+		return panel;
+	}
+
+	private Control BuildRigSection()
 	{
 		RigList.SelectionMode = SelectionMode.Single;
 		RigList.SelectionChanged += (_, _) =>
@@ -45,21 +86,25 @@ public sealed partial class MainWindow
 			if (_syncingRig || RigList.SelectedItem is not ListBoxItem { Tag: { } picked }) return;
 			Pick(picked);
 		};
-		RigList.DoubleTapped += (_, _) =>
-		{
-			if (SceneLevel && RigList.SelectedItem is ListBoxItem { Tag: SceneObject obj }) EnterObject(obj);
-		};
 		RigList.AddHandler(PointerPressedEvent, RigPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
 		RigList.AddHandler(PointerMovedEvent, RigMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
 		RigList.AddHandler(PointerReleasedEvent, RigReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
 
-		BonesView.Click += (_, _) => { _layersView = _colourViewOn = _boxesViewOn = false; RefreshRigList(); };
-		LayersView.Click += (_, _) => { _layersView = true; _colourViewOn = _boxesViewOn = false; RefreshRigList(); };
+		BonesView.Click += (_, _) => ShowRigView(RigView.Bones);
+		LayersView.Click += (_, _) => ShowRigView(RigView.Layers);
+		PosesView.Click += (_, _) => ShowRigView(RigView.Poses);
+		SkinsView.Click += (_, _) => ShowRigView(RigView.Skins);
 		ToolTip.SetTip(BonesView, "The bones as a tree, with the parts on each: drag a part onto a bone to put it there, a bone onto another to hang it there");
 		ToolTip.SetTip(LayersView, "Every part in the order it's drawn, front first: drag one up or down (in Animate: keys the order at the playhead)");
+		ToolTip.SetTip(PosesView, "Poses kept by name, to put the rig that way again (mirrored too), and mirroring: the pose, copy and paste mirrored, and symmetrizing the rig");
+		ToolTip.SetTip(SkinsView, "Skins: drawings for some parts, shown when the skin is on. Categories of alternatives (one at a time) and overlays that show over the others.");
 		_addPart.Click += (_, _) => ShowAddPartMenu(_addPart);
 		_bind.Click += (_, _) => ShowBindMenu(_bind);
 		_giveBones.Click += (_, _) => ShowGiveBonesMenu(_giveBones);
+		ToolTip.SetTip(_addPart, "A part (blank, or from a picture) on the picked bone");
+		ToolTip.SetTip(_bind, "Puts parts on bones (they stay where they are): on the nearest bones, or see the ways to do it by hand");
+		ToolTip.SetTip(DeleteButton, "Deletes the picked part, or the picked bone: handing what's on it to the bone above, or with everything on it. Undoable.");
+		DeleteButton.Click += (_, _) => DeletePickedInRig(DeleteButton);
 		ToolTip.SetTip(_giveBones, "Make this drawn object a rigged one: every part stays exactly where it is");
 		ToolTip.SetTip(KeepPartsBox, "Moving or turning a bone at rest leaves its parts (and the bones on it) where they are, to fit bones to finished art");
 		ToolTip.SetTip(KeepAnimationsBox, "Changing the rig keeps every animation looking as it did (keys are made up for the change)");
@@ -75,40 +120,56 @@ public sealed partial class MainWindow
 			State.KeepAnimations = _settings.KeepAnimations = KeepAnimationsBox.IsChecked == true;
 			SaveSettingsQuietly();
 		};
-
-		var views = new WrapPanel { Margin = new Thickness(0, 0, 0, 2) };
-		foreach (var view in new Control[] { BonesView, LayersView, ColourView, BoxesView })
-		{
-			view.Margin = new Thickness(0, 0, 2, 2);
-			((Button)view).Padding = new Thickness(7, 4);   // (all four in one row)
-			views.Children.Add(view);
-		}
-		var buttons = new WrapPanel();
 		WireRigBuilding();
-		foreach (var b in new Control[] { AddBoneButton, _addPart, _bind, _giveBones })
+
+		static UniformGrid Buttons(int columns, params Control[] buttons)
 		{
-			b.Margin = new Thickness(0, 0, 4, 4);
-			buttons.Children.Add(b);
+			var grid = new UniformGrid { Columns = columns };
+			foreach (var b in buttons)
+			{
+				b.Margin = new Thickness(0, 0, 3, 3);
+				b.HorizontalAlignment = HorizontalAlignment.Stretch;
+				if (b is Button button)
+				{
+					button.HorizontalContentAlignment = HorizontalAlignment.Center;
+					button.Padding = new Thickness(2, 4);
+				}
+				grid.Children.Add(b);
+			}
+			return grid;
 		}
-		var top = new StackPanel { Margin = new Thickness(4, 4, 4, 0), Children = { _objectSwitchRow, views, SetChips, buttons } };
-		var bottom = new StackPanel { Margin = new Thickness(4), Spacing = 2, Children = { RigHint, SnapJointsBox, KeepPartsBox, KeepAnimationsBox } };
+		var header = new DockPanel { Margin = new Thickness(0, 0, 0, 2) };
+		DockPanel.SetDock(SnapJointsBox, Dock.Right);
+		header.Children.Add(SnapJointsBox);
+		header.Children.Add(RigTitle);
+		_buildButtons = Buttons(4, AddBoneButton, _addPart, _bind, DeleteButton);
+		var views = Buttons(3, BonesView, LayersView, ColourView, PosesView, SkinsView, BoxesView);
+		var top = new StackPanel
+		{
+			Margin = new Thickness(6, 0, 6, 4),
+			Spacing = 2,
+			Children = { header, KeepPartsBox, KeepAnimationsBox, _giveBones, _buildButtons, views, SetChips, RigHint }
+		};
 		_rigTools = top;
 		var panel = new DockPanel();
 		DockPanel.SetDock(top, Dock.Top);
-		DockPanel.SetDock(bottom, Dock.Bottom);
-		var sceneTools = BuildSceneTools();   // (at scene level, instead of the rig's)
-		DockPanel.SetDock(sceneTools, Dock.Top);
-		panel.Children.Add(sceneTools);
 		panel.Children.Add(top);
-		panel.Children.Add(bottom);
 		_colourPanel = BuildColourPanel();
 		_boxesPanel = BuildBoxesPanel();
-		panel.Children.Add(new Grid { Children = { RigList, _colourPanel, _boxesPanel } });   // (one of them)
-		_bottomRigTools = bottom;
+		_posesPanel = BuildPosesTab();
+		_skinsPanel = BuildSkinsTab();
+		panel.Children.Add(new Grid { Margin = new Thickness(6, 0, 6, 6), Children = { RigList, _colourPanel, _boxesPanel, _posesPanel, _skinsPanel } });   // (one of them)
 		return panel;
 	}
 
-	private Control _bottomRigTools = null!;
+	// Delete ▾: the picked part goes at once; for a bone, a menu (keep what's on it, or not)
+	internal void DeletePickedInRig(Control under)
+	{
+		if (SceneLevel || State.AnimateMode) return;
+		if (State.SelectedSlot is { } slot) _session.DeletePart(slot);
+		else if (!IsDrawn && State.Selected is { } bone) DeleteBoneMenu(bone).ShowAt(under);
+	}
+
 
 	private void SaveSettingsQuietly()
 	{
@@ -208,35 +269,40 @@ public sealed partial class MainWindow
 		return RigRow(new ListBoxItem { Content = label, Tag = slot, Padding = new Thickness(8, 3) });
 	}
 
-	// What's over and under the list goes with what it shows
+	// What's over the list goes with what it shows, and with Build or Animate
 	private void SyncRigTools()
 	{
 		bool inside = !SceneLevel;
-		_rigTools.IsVisible = _bottomRigTools.IsVisible = inside;
-		_sceneTools.IsVisible = !inside;
-		bool other = ShowingColour || ShowingBoxes;   // (a panel of its own instead of the list)
-		BonesView.IsVisible = inside && !IsDrawn;
+		_rigSection.IsVisible = inside;
+		_sceneSection.IsVisible = !inside;
+		bool other = ShowingColour || ShowingBoxes || ShowingPoses || ShowingSkins;   // (a panel of its own instead of the list)
+		BonesView.IsEnabled = !IsDrawn;
 		BonesView.IsChecked = !ShowingLayers && !other;
 		LayersView.IsChecked = ShowingLayers;
-		ColourView.IsVisible = BoxesView.IsVisible = inside;
 		ColourView.IsChecked = ShowingColour;
+		PosesView.IsChecked = ShowingPoses;
+		SkinsView.IsChecked = ShowingSkins;
 		BoxesView.IsChecked = ShowingBoxes;
 		RigList.IsVisible = !other;
 		_colourPanel.IsVisible = ShowingColour;
 		_boxesPanel.IsVisible = ShowingBoxes;
+		_posesPanel.IsVisible = ShowingPoses;
+		_skinsPanel.IsVisible = ShowingSkins;
 		bool building = !State.AnimateMode;   // (Animate: what builds the rig is put away)
-		_addPart.IsVisible = inside && !other && building;
-		AddBoneButton.IsVisible = inside && !other && building && !IsDrawn;
+		RigTitle.Text = (IsDrawn ? "Parts" : "Rig") + (building ? "" : " · animating");
+		_buildButtons.IsVisible = building;
+		AddBoneButton.IsEnabled = _bind.IsEnabled = !IsDrawn;
 		SetChips.IsVisible &= !other;
 		if (ShowingColour) FillColourPanel();
 		if (ShowingBoxes) SyncBoxesPanel(force: true);
-		_bind.IsVisible = inside && !IsDrawn && !other && building;
-		_giveBones.IsVisible = inside && IsDrawn && !other && building;
-		KeepPartsBox.IsVisible = KeepAnimationsBox.IsVisible = SnapJointsBox.IsVisible = inside && !IsDrawn && building;
+		_giveBones.IsVisible = inside && IsDrawn && building;
+		KeepPartsBox.IsVisible = SnapJointsBox.IsVisible = !IsDrawn && building;
+		KeepAnimationsBox.IsVisible = building;
 		_boneBuildButtons.IsVisible = _partDelete.IsVisible = building;
 		KeepPartsBox.IsChecked = _tool.KeepPartsInPlace;
 		KeepAnimationsBox.IsChecked = State.KeepAnimations;
 		RigHint.Text = LayersHintText();
+		RigHint.IsVisible = RigHint.Text.Length > 0;
 	}
 
 	// What the line under the list says in the layers: what dragging does now
@@ -258,7 +324,7 @@ public sealed partial class MainWindow
 			RefreshRigList();
 			return;
 		}
-		object? picked = SceneLevel ? _session.SceneState.Selected : (object?)State.SelectedSlot ?? State.Selected;
+		object? picked = SceneLevel ? null : (object?)State.SelectedSlot ?? State.Selected;
 		SyncPickBands();
 		if (picked == _listedPick) return;
 		_listedPick = picked;

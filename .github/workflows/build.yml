@@ -44,6 +44,24 @@ jobs:
             Write-Output "::error title=$($result.testName)::$message"
           }
 
+      # The editor for Windows, built here so its program file gets its icon: one .exe, with ANGLE
+      # (drawing) and OpenAL Soft (sound) beside it, in a Harlequin folder. --check makes sure the
+      # libraries it needs load from there.
+      - name: Publish the editor for Windows
+        shell: pwsh
+        run: |
+          dotnet publish Animator.Desktop/Animator.Desktop.csproj -c Release -r win-x64 -o out/Harlequin
+          Get-ChildItem out/Harlequin | Format-Table Name, Length
+          $check = Start-Process -FilePath out/Harlequin/harlequin-editor.exe -ArgumentList '--check', "$PWD/check.txt" -Wait -PassThru
+          Get-Content check.txt
+          if ($check.ExitCode -ne 0) { Write-Output "::error title=Editor check::A library didn't load (see the log)"; exit 1 }
+          Compress-Archive -Path out/Harlequin -DestinationPath harlequin-editor-win-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: editor-win-x64
+          path: harlequin-editor-win-x64.zip
+
   # The Godot plugin (godot/): its tests, headless, in Godot itself. They check the runtime against
   # tests/expected.json, which the C# tests above check against Harlequin's own code.
   godot:
@@ -128,7 +146,7 @@ jobs:
 
   # The editor (Animator.Desktop, on Avalonia) on Linux: built, its window tried out on the
   # headless platform (the pictures it took are kept with the run, as "editor-screenshots"), and
-  # published for Linux and Windows (kept with the run, and on the Releases page)
+  # published for Linux (kept with the run; Windows' is built by the job above)
   desktop:
     runs-on: ubuntu-latest
     permissions:
@@ -170,34 +188,44 @@ jobs:
           git commit -qm "Editor pictures from $GITHUB_SHA"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "pictures:refs/heads/shots/$GITHUB_REF_NAME"
 
-      - name: Publish for Linux and Windows
+      # The editor for Linux: one program file, with OpenAL Soft (sound) beside it, in a harlequin
+      # folder; --check makes sure the libraries it needs load
+      - name: Publish for Linux
         run: |
-          for rid in linux-x64 win-x64; do
-            dotnet publish Animator.Desktop/Animator.Desktop.csproj -c Release -r $rid --self-contained -p:DebugType=none -o out/editor-$rid
-          done
-          tar -czf harlequin-editor-linux-x64.tar.gz -C out editor-linux-x64
-          (cd out && zip -qr ../harlequin-editor-win-x64.zip editor-win-x64)
+          set -e
+          dotnet publish Animator.Desktop/Animator.Desktop.csproj -c Release -r linux-x64 -o out/harlequin
+          ls -la out/harlequin
+          out/harlequin/harlequin-editor --check
+          tar -czf harlequin-editor-linux-x64.tar.gz -C out harlequin
 
       - uses: actions/upload-artifact@v4
         with:
           name: editor-linux-x64
           path: harlequin-editor-linux-x64.tar.gz
 
-      - uses: actions/upload-artifact@v4
+  # Both editors as a download on the Releases page: "editor-latest" from master, "editor-preview"
+  # from any other branch (the one being tried out)
+  editor-release:
+    needs: [build, desktop]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
         with:
           name: editor-win-x64
-          path: harlequin-editor-win-x64.zip
-
-      # Put up as a download on the Releases page: "editor-latest" from master, "editor-preview"
-      # from any other branch (the one being tried out)
+      - uses: actions/download-artifact@v4
+        with:
+          name: editor-linux-x64
       - name: Put it on the Releases page
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
           if [ "$GITHUB_REF_NAME" = "master" ]; then tag=editor-latest; title="Harlequin editor"; pre=""; else tag=editor-preview; title="Harlequin editor (preview: $GITHUB_REF_NAME)"; pre="--prerelease"; fi
-          notes="Built from $GITHUB_REF_NAME at $GITHUB_SHA. Unpack it and run harlequin-editor (harlequin-editor.exe on Windows)."
+          notes="Built from $GITHUB_REF_NAME at $GITHUB_SHA. Unpack it and run harlequin-editor.exe (Windows) or harlequin-editor (Linux), in the folder it comes in."
           git tag -f $tag && git push -f origin $tag
           if gh release view $tag > /dev/null 2>&1; then
             gh release edit $tag --notes "$notes" --title "$title"

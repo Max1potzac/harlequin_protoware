@@ -53,20 +53,25 @@ Two habits save a lot of reading:
 
 Harlequin's editor runs on 64-bit Windows 10 or 11 and on Linux (x64); it's built on Avalonia, so
 it looks and works the same on both. A ready-made copy for each is on the Releases page
-(**editor-latest**, built from master; **editor-preview**, from the branch being tried out):
-unpack it and run `harlequin-editor` (`harlequin-editor.exe` on Windows).
+(**editor-latest**, built from master; **editor-preview**, from the branch being tried out).
+Unpack it anywhere: you get a **Harlequin** folder (**harlequin** on Linux) with the program,
+`harlequin-editor.exe` (`harlequin-editor` on Linux), and beside it the two libraries it loads
+itself: ANGLE for drawing on Windows (`av_libglesv2.dll`) and OpenAL Soft for sound
+(`soft_oal.dll`, `libopenal.so` on Linux). Everything else is inside the program; the first start
+unpacks a few of its libraries to a cache, so it takes a moment longer than the next ones.
 
 To build one yourself from the source, open a terminal in the folder with `Harlequin.sln` (you
 need the .NET 8 SDK) and run, for Windows or Linux:
 
 ```
-dotnet publish Animator.Desktop -c Release -r win-x64 --self-contained -o publish
-dotnet publish Animator.Desktop -c Release -r linux-x64 --self-contained -o publish
+dotnet publish Animator.Desktop -c Release -r win-x64 -o Harlequin
+dotnet publish Animator.Desktop -c Release -r linux-x64 -o harlequin
 ```
 
-`publish/harlequin-editor` (`.exe` on Windows) is then the program, with what it needs beside it.
-Projects (`.hqnap`), settings, theme files and recovery copies are the same ones the earlier
-Windows-only editor used, so nothing needs converting.
+`harlequin-editor --check` starts nothing, but says whether the libraries it needs load (on
+Windows, give it a file to write to: `harlequin-editor.exe --check check.txt`). Projects
+(`.hqnap`), settings, theme files and recovery copies are the same ones the earlier Windows-only
+editor used, so nothing needs converting.
 
 ### A new project
 

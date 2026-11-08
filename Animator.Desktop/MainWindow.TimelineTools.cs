@@ -22,8 +22,8 @@ public sealed partial class MainWindow
 	private static readonly float[] Speeds = { 0.1f, 0.25f, 0.5f, 1f, 1.5f, 2f };
 
 	internal readonly CheckBox AutoKeyBox = new() { Content = "Auto key" };
-	internal readonly CheckBox OnlyPickedBox = new() { Content = "Picked's rows" };
-	internal readonly ComboBox SpeedBox = new() { MinWidth = 70 };
+	internal readonly CheckBox OnlyPickedBox = new() { Content = "Only the picked's rows" };
+	internal readonly ComboBox SpeedBox = new() { MinWidth = 64 };
 	private readonly TextBlock _eventFlash = new()
 	{
 		HorizontalAlignment = HorizontalAlignment.Center,
@@ -42,7 +42,9 @@ public sealed partial class MainWindow
 	internal string EventFlash => _eventFlash.Text ?? "";
 
 	// The tools on the animation bar: auto key, rows, speed, Playback ▾, Keys ▾
-	private IEnumerable<Control> BuildTimelineTools()
+	// The bar's timeline tools (see BuildTimelineBar): auto key, which rows, speed, playback, Keys ▾,
+	// the curves and onion skin
+	private void BuildTimelineTools()
 	{
 		ToolTip.SetTip(AutoKeyBox, $"On: posing in Animate sets keys. Off: posing changes the pose only, until {_keys.Describe("anim.key")} keys it (or the playhead moves on). {_keys.Describe("anim.autoKey")} switches it.");
 		ToolTip.SetTip(OnlyPickedBox, "The timeline shows just the rows of what's picked");
@@ -61,13 +63,18 @@ public sealed partial class MainWindow
 			State.Speed = _settings.PlaybackSpeed = Speeds[SpeedBox.SelectedIndex];
 			SaveSettingsQuietly();
 		};
-		var playback = new Button { Content = "Playback ▾" };
-		playback.Click += (_, _) => PlaybackMenu().Open(playback);
-		var keys = new Button { Content = "Keys ▾" };
-		ToolTip.SetTip(keys, "The timeline's right-click menu: for the selected keys, or else for the frame at the playhead");
-		keys.Click += (_, _) => KeysMenu(keys);
-		return new Control[] { BuildCurvesBox(), AutoKeyBox, OnlyPickedBox, SpeedBox, playback, keys }.Concat(BuildOnionTools());
+		ToolTip.SetTip(_playbackButton, "Back and forth, the picked frames over and over, and where stopping leaves the playhead");
+		_playbackButton.Click += (_, _) => PlaybackMenu().Open(_playbackButton);
+		ToolTip.SetTip(_keysButton, "The timeline's right-click menu: for the selected keys, or else for the frame at the playhead");
+		_keysButton.Click += (_, _) => KeysMenu(_keysButton);
+		_curvesBox = BuildCurvesBox();
+		_onionTools = BuildOnionTools().ToList();
 	}
+
+	private readonly Button _playbackButton = new() { Content = "Playback ▾" };
+	private readonly Button _keysButton = new() { Content = "Keys ▾" };
+	private Control _curvesBox = null!;
+	private List<Control> _onionTools = new();
 
 	// The settings these go by (at the start)
 	private void InitTimelineTools()

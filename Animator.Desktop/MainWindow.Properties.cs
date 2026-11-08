@@ -186,13 +186,17 @@ public sealed partial class MainWindow
 		ObjectName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { RenameShown(); Viewport.Focus(); } };
 		ObjectName.LostFocus += (_, _) => RenameShown();
 
-		var panel = new StackPanel { Margin = new Thickness(10, 8), Spacing = 4 };
+		var panel = new StackPanel { Margin = new Thickness(10, 4, 10, 8), Spacing = 4 };
 		panel.Children.Add(_propsTitle);
 		panel.Children.Add(_boneProps);
 		panel.Children.Add(_partProps);
-		panel.Children.Add(_objectProps);
-		panel.Children.Add(_propsHint);
-		return new ScrollViewer { Content = panel };
+		panel.Children.Add(_propsHint);   // (an object's settings are in the left panel: see BuildLeftPanel)
+		var heading = new TextBlock { Text = "Properties", FontWeight = FontWeight.Bold, Margin = new Thickness(10, 8, 10, 2) };
+		var whole = new DockPanel();
+		DockPanel.SetDock(heading, Dock.Top);
+		whole.Children.Add(heading);
+		whole.Children.Add(new ScrollViewer { Content = panel });
+		return whole;
 	}
 
 	private static Control Labelled(string label, Control control)
@@ -240,7 +244,7 @@ public sealed partial class MainWindow
 				if (!_session.RenamePart(slot, name)) { _propsHint.Text = $"Can't rename to \"{name}\": part names must be unique and not empty."; PartName.Text = slot.Name; }
 				break;
 			case SceneObject obj when (ObjectName.Text?.Trim() ?? "") is var name && name != obj.Name:
-				if (!_session.RenameObject(obj, name)) { _propsHint.Text = $"Can't rename to \"{name}\": object names must be unique and not empty."; ObjectName.Text = obj.Name; }
+				if (!_session.RenameObject(obj, name)) { _objectHint.Text = $"Can't rename to \"{name}\": object names must be unique and not empty."; ObjectName.Text = obj.Name; }
 				break;
 		}
 	}

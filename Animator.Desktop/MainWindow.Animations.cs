@@ -11,13 +11,12 @@ namespace Animator.Desktop;
 // timeline's right-click menu. The edits are EditorSession's (EditorSession.Animations.cs).
 public sealed partial class MainWindow
 {
-	internal readonly ComboBox AnimList = new() { MinWidth = 140 };
-	internal readonly TextBox AnimName = new() { MinWidth = 100 };
-	internal readonly TextBox AnimLength = new() { Width = 64 };
-	internal readonly TextBox AnimFps = new() { Width = 52 };
+	internal readonly ComboBox AnimList = new() { MinWidth = 160 };
+	internal readonly TextBox AnimName = new() { Width = 130 };
+	internal readonly TextBox AnimLength = new() { Width = 56 };
+	internal readonly TextBox AnimFps = new() { Width = 50 };
 	internal readonly CheckBox AnimLoop = new() { Content = "Loop" };
 	private readonly TextBlock _animHint = new() { Foreground = Brushes.Orange, VerticalAlignment = VerticalAlignment.Center };
-	private Control _animBar = null!;
 	private bool _syncingAnim;
 
 	// An animation in the list, by its name
@@ -26,44 +25,45 @@ public sealed partial class MainWindow
 		public override string ToString() => Animation.Name;
 	}
 
-	private Control BuildAnimationsBar()
+	// The bar's animation section (see BuildTimelineBar): which animation is edited, new, a copy,
+	// deleted; its name, length and looping; auto key and Key; its sound and the mixer; the curves
+	// and which rows the timeline shows
+	private List<Control> BuildAnimationControls()
 	{
-		// Two rows: the animation itself, then playing and seeing it (each wraps when narrow)
-		var first = new WrapPanel { Orientation = Orientation.Horizontal };
-		var second = new WrapPanel { Orientation = Orientation.Horizontal };
-		var bar = new StackPanel { Margin = new Thickness(6, 2), Children = { first, second } };
-		var row = first;
-		void Add(Control c)
+		static TextBlock Label(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center };
+		Button B(string text, string tip, Action click)
 		{
-			c.Margin = new Thickness(c.Margin.Left, 2, 6, 2);
-			row.Children.Add(c);
+			var b = new Button { Content = text };
+			ToolTip.SetTip(b, tip);
+			b.Click += (_, _) => click();
+			return b;
 		}
-		static TextBlock Label(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
-
 		ToolTip.SetTip(AnimList, "The animation being edited");
-		Add(AnimList);
-		ToolTip.SetTip(_animMenu, "A new animation, a copy of this one, or this one deleted");
-		_animMenu.Click += (_, _) => AnimationMenu().ShowAt(_animMenu);
-		Add(_animMenu);
-		Add(Label("Name"));
-		Add(AnimName);
-		Add(Label("Frames"));
-		Add(AnimLength);
-		Add(Label("FPS"));
-		Add(AnimFps);
-		row = second;
-		foreach (var b in BuildTransport()) Add(b);
-		Add(AnimLoop);
-		var mixer = new Button { Content = "Mixer…" };
-		ToolTip.SetTip(mixer, "The animations together: on tracks over each other, and fades from one to another tried out and kept");
-		mixer.Click += (_, _) => OpenMixer();
-		var sound = new Button { Content = "Sound ▾" };
-		ToolTip.SetTip(sound, "The sound track, the sound map, events files, mute");
+		ToolTip.SetTip(KeyButton, $"Keys the pose at the playhead: the changes not keyed yet (auto key off), or else the picked bones' and parts' whole pose ({_keys.Describe("anim.key")})");
+		KeyButton.Click += (_, _) => KeyThePose();
+		var sound = B("Sound ▾", "A sound track along this animation, what events sound like (the sound map), and events and sound map files to and from the game", () => { });
 		sound.Click += (_, _) => ShowSoundMenu(sound);
-		foreach (var tool in BuildTimelineTools()) Add(tool);
-		Add(mixer);
-		Add(sound);
-		Add(_animHint);
+		var controls = new List<Control>
+		{
+			Label("Animation"),
+			AnimList,
+			B("+ New", "A new animation, empty", () => { _session.NewAnimation(); _timeline.ClearRange(); }),
+			B("Duplicate", "A copy of this animation, to change", () => { _session.DuplicateAnimation(); _timeline.ClearRange(); }),
+			_animDelete,
+			Label("Name"),
+			AnimName,
+			Label("Length (frames)"),
+			AnimLength,
+			AnimLoop,
+			AutoKeyBox,
+			KeyButton,
+			sound,
+			B("Mixer…", "This object's animations together: on tracks over each other, and fading from one into another, with the fade times kept for the game", OpenMixer),
+			_curvesBox,
+			OnlyPickedBox
+		};
+		_animDelete.Click += (_, _) => { if (_session.DeleteAnimation()) _timeline.ClearRange(); };
+		ToolTip.SetTip(_animDelete, "Deletes this animation (an object keeps at least one)");
 
 		AnimList.SelectionChanged += (_, _) =>
 		{
@@ -80,30 +80,14 @@ public sealed partial class MainWindow
 			b.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { CommitAnimField(b); TimelineView.Focus(); } };
 			b.LostFocus += (_, _) => CommitAnimField(b);
 		}
-
-		_animBar = bar;
-		return _animBar;
+		_animSection = controls;
+		return controls;
 	}
 
 	private void AnimHint(string text) => _animHint.Text = text;
 
-	private readonly Button _animMenu = new() { Content = "▾", Padding = new Thickness(8, 4) };
-
-	// The ▾ beside the list: new, a copy, deleted
-	internal MenuFlyout AnimationMenu()
-	{
-		var menu = new MenuFlyout();
-		void Item(string header, bool enabled, Action click)
-		{
-			var item = new MenuItem { Header = header, IsEnabled = enabled };
-			item.Click += (_, _) => click();
-			menu.Items.Add(item);
-		}
-		Item("New animation", true, () => { _session.NewAnimation(); _timeline.ClearRange(); });
-		Item($"Duplicate {State.Animation.Name}", true, () => { _session.DuplicateAnimation(); _timeline.ClearRange(); });
-		Item($"Delete {State.Animation.Name}", State.Animations.Count > 1, () => { if (_session.DeleteAnimation()) _timeline.ClearRange(); });
-		return menu;
-	}
+	private readonly Button _animDelete = new() { Content = "Delete" };
+	private List<Control> _animSection = new();
 
 	// (the picked frames belonged to the one before)
 	internal void SwitchAnimation(Animation animation)
@@ -116,7 +100,8 @@ public sealed partial class MainWindow
 	// After an edit or an undo (which may have taken the edited animation away), or another object
 	internal void RefreshAnimationsBar()
 	{
-		_animBar.IsVisible = !SceneLevel && State.AnimateMode;   // (Build: the timeline's put away)
+		foreach (var c in _animSection) c.IsVisible = !SceneLevel;   // (Build puts the whole bar away)
+		if (!AnimFps.IsFocused) AnimFps.Text = State.Fps.ToString();
 		if (SceneLevel) return;
 		if (!State.Animations.Contains(State.Animation) && State.Animations.Count > 0) _session.SwitchAnimation(State.Animations[0]);
 		_syncingAnim = true;
@@ -127,7 +112,7 @@ public sealed partial class MainWindow
 			AnimList.SelectedItem = choices.FirstOrDefault(c => c.Animation == State.Animation);
 			AnimName.Text = State.Animation.Name;
 			AnimLength.Text = State.FrameCount.ToString();
-			AnimFps.Text = State.Fps.ToString();
+			_animDelete.IsEnabled = State.Animations.Count > 1;
 			AnimLoop.IsChecked = State.Animation.Loop;
 		}
 		finally
@@ -138,7 +123,7 @@ public sealed partial class MainWindow
 
 	internal void CommitAnimField(TextBox box)
 	{
-		if (_syncingAnim || SceneLevel) return;
+		if (_syncingAnim || (SceneLevel && box != AnimFps)) return;   // (the frame rate is the project's: the scene's bar has it too)
 		_animHint.Text = "";
 		string text = box.Text?.Trim() ?? "";
 		if (box == AnimName)
