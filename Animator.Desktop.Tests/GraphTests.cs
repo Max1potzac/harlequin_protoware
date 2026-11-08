@@ -32,17 +32,22 @@ public class GraphTests
 		return (window, turn);
 	}
 
-	// Where a key is drawn in the timeline (found by asking the graph, point by point)
-	private static Vector2 KeyPoint(MainWindow window, int index)
+	// Where a key (of this timeline, at this frame) is drawn in the timeline: the middle of the
+	// points the graph says are on it
+	private static Vector2 KeyPoint(MainWindow window, Timeline timeline, int frame)
 	{
 		var size = window.TimelineView.Bounds.Size;
-		var found = new List<Vector2>();
-		for (float y = 0; y < size.Height; y += 2)
-			for (float x = 0; x < size.Width; x += 2)
-				if (window.Graph.SelectForMenu(new Vector2(x, y)) && !found.Any(f => Vector2.Distance(f, new Vector2(x, y)) < 12))
-					found.Add(new Vector2(x, y));
+		var on = new List<Vector2>();
+		for (float y = 0; y < size.Height; y += 1)
+			for (float x = 0; x < size.Width; x += 1)
+			{
+				window.State.SelectedKeys.Clear();
+				if (window.Graph.SelectForMenu(new Vector2(x, y)) && window.State.SelectedKeys.Contains((timeline, frame)))
+					on.Add(new Vector2(x, y));
+			}
 		window.State.SelectedKeys.Clear();
-		return found.OrderBy(f => f.X).ElementAt(index);
+		Assert.NotEmpty(on);
+		return new Vector2(on.Average(v => v.X), on.Average(v => v.Y));
 	}
 
 	private static Point InWindow(MainWindow window, Vector2 p) =>
@@ -60,7 +65,7 @@ public class GraphTests
 
 		// The second key dragged up (Shift: only up and down): a bigger turn, at the same frame
 		float before = turn.Track.Keys[1].Value;
-		var key = KeyPoint(window, 1);
+		var key = KeyPoint(window, turn, 10);
 		var from = InWindow(window, key);
 		window.MouseDown(from, MouseButton.Left);
 		window.MouseMove(new Point(from.X, from.Y - 10), RawInputModifiers.Shift);
@@ -73,7 +78,7 @@ public class GraphTests
 		Assert.Equal(before, turn.Track.Keys[1].Value, 4);
 
 		// The key menu, from the curves: eased in
-		window.Graph.SelectForMenu(KeyPoint(window, 0));
+		window.Graph.SelectForMenu(KeyPoint(window, turn, 0));
 		Assert.NotEmpty(window.State.SelectedKeys);
 		var menu = window.KeyMenu(null);
 		var ease = menu.Items.OfType<MenuItem>().First(i => i.Header as string == "Bézier easing");
