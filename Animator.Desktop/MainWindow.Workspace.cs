@@ -159,6 +159,6 @@ public sealed partial class MainWindow
 			b.Click += (_, _) => { _commands[command].Run(); Viewport.Focus(); };
 			return b;
 		}
-		return new Control[] { B("⏮", "play.restart", "Back to the first frame"), B("◀", "play.back", "A frame back"), B("▶", "play.toggle", "Play / pause"), B("▶|", "play.on", "A frame on") };
+		return new Control[] { B("|◀", "play.restart", "Back to the first frame"), B("◀", "play.back", "A frame back"), B("▶", "play.toggle", "Play / pause"), B("▶|", "play.on", "A frame on") };
 	}
 }
