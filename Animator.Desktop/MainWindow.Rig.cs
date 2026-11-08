@@ -85,7 +85,7 @@ public sealed partial class MainWindow
 			b.Margin = new Thickness(0, 0, 4, 4);
 			buttons.Children.Add(b);
 		}
-		var top = new StackPanel { Margin = new Thickness(4, 4, 4, 0), Children = { views, buttons } };
+		var top = new StackPanel { Margin = new Thickness(4, 4, 4, 0), Children = { views, SetChips, buttons } };
 		var bottom = new StackPanel { Margin = new Thickness(4), Spacing = 2, Children = { RigHint, KeepPartsBox, KeepAnimationsBox } };
 		_rigTools = top;
 		var panel = new DockPanel();
@@ -148,14 +148,16 @@ public sealed partial class MainWindow
 				var rig = State.Skeleton;
 				void AddBone(Bone bone, int depth)
 				{
-					items.Add(Row("🦴 " + bone.Name, bone, depth, bold: false));
+					items.Add(RigRow(Row("🦴 " + bone.Name, bone, depth, bold: false)));
 					foreach (var slot in rig.Slots.Where(s => s.Bone == bone))
-						items.Add(Row("▣ " + slot.Name, slot, depth + 1, bold: false, part: true));
+						items.Add(RigRow(Row("▣ " + slot.Name, slot, depth + 1, bold: false, part: true)));
 					foreach (var child in bone.Children) AddBone(child, depth + 1);
 				}
 				foreach (var root in rig.Roots) AddBone(root, 0);
 			}
 			foreach (var item in items) item.ContextRequested += RowMenu;
+			_shownPicks = new List<object>();   // (the new rows get their bands)
+			RefreshSetChips();
 			RigList.ItemsSource = items;
 			_listed = items;
 			_listedPick = null;   // (picked again in the new rows, below)
@@ -193,7 +195,7 @@ public sealed partial class MainWindow
 		else if (MaskOps.MaskOf(State.Skeleton, slot) is { } mask) Note($"   ↳ clipped by {mask.Name}", MaskColour);
 		if (SkinOps.SkinsWith(State.Skeleton, slot) is { Count: > 0 } skins)
 			Note($"   skin{(skins.Count == 1 ? "" : "s")}: {string.Join(", ", skins.Select(s => s.Name))}");
-		return new ListBoxItem { Content = label, Tag = slot, Padding = new Thickness(8, 3) };
+		return RigRow(new ListBoxItem { Content = label, Tag = slot, Padding = new Thickness(8, 3) });
 	}
 
 	// What's over and under the list goes with what it shows
@@ -232,6 +234,7 @@ public sealed partial class MainWindow
 			return;
 		}
 		object? picked = SceneLevel ? _session.SceneState.Selected : (object?)State.SelectedSlot ?? State.Selected;
+		SyncPickBands();
 		if (picked == _listedPick) return;
 		_listedPick = picked;
 		_syncingRig = true;
@@ -263,9 +266,35 @@ public sealed partial class MainWindow
 		if (SceneLevel || !e.GetCurrentPoint(RigList).Properties.IsLeftButtonPressed) return;
 		var at = e.GetPosition(RigList);
 		if (RowAt(RigList, at)?.Tag is not { } pressed || pressed is not (Slot or Bone)) return;
+
+		// The eye: hidden or shown; the lock: locked or not (neither picks the row)
+		var source = e.Source as Visual;
+		if (OnToggle(source, EyeMark) || OnToggle(source, LockMark))
+		{
+			e.Handled = true;
+			if (OnToggle(source, EyeMark)) _session.ToggleHidden(pressed);
+			else _session.ToggleLocked(pressed);
+			return;
+		}
+
+		// Ctrl+click: picked or not; Shift+click: every row from the selected one to this one
+		// (with Ctrl, added to what's picked)
+		bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+		bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+		if (ctrl || shift)
+		{
+			e.Handled = true;   // (the list mustn't select it the usual way)
+			if (shift) PickRows(pressed, keep: ctrl);
+			else State.TogglePick(pressed);
+			AfterPicking();
+			return;
+		}
 		_rigPress = at;
 		_rigDragged = pressed;
+		_rigClicked = pressed;   // (a plain click: just this is picked, once it's let go of here)
 	}
+
+	private object? _rigClicked;
 
 	private void RigMoved(object? sender, PointerEventArgs e)
 	{
@@ -291,6 +320,14 @@ public sealed partial class MainWindow
 		_rigDragged = null;
 		_rigDragging = false;
 		MarkDrop(null, false);
+		var clicked = _rigClicked;
+		_rigClicked = null;
+		if (!dragging && clicked != null && RowAt(RigList, e.GetPosition(RigList))?.Tag == clicked)
+		{
+			State.Pick(new[] { clicked });
+			AfterPicking();
+			return;
+		}
 		if (!dragging || dragged == null) return;
 		e.Pointer.Capture(null);
 		var row = RowAt(RigList, e.GetPosition(RigList));

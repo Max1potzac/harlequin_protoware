@@ -86,8 +86,12 @@ public sealed partial class MainWindow
 		addBone.Click += (_, _) => { if (!State.AnimateMode && State.Selected is { } b) _session.AddBone(b, _tool.SnapJoints); };
 		var deleteBone = new Button { Content = "Delete bone" };
 		deleteBone.Click += (_, _) => { if (!State.AnimateMode && State.Selected is { } b) _session.DeleteBone(b); };
+		var colour = new Button { Content = "Colour ▾" };
+		ToolTip.SetTip(colour, "The colour the picked bones are drawn in, to tell them apart (left and right, say)");
+		colour.Click += (_, _) => BoneColourMenu().ShowAt(colour);
 		boneButtons.Children.Add(addBone);
 		boneButtons.Children.Add(deleteBone);
+		boneButtons.Children.Add(colour);
 		_boneProps.Children.Add(boneButtons);
 
 		BoneName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { RenameShown(); Viewport.Focus(); } };
