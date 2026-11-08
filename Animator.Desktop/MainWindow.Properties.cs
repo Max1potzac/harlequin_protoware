@@ -67,7 +67,9 @@ public sealed partial class MainWindow
 		{
 			(BoneField.X, "X", 1f, float.NegativeInfinity), (BoneField.Y, "Y", 1f, float.NegativeInfinity),
 			(BoneField.Rotation, "Rotation °", 1f, float.NegativeInfinity), (BoneField.Length, "Length", 1f, 0f),
-			(BoneField.ScaleX, "Scale X", 0.01f, float.NegativeInfinity), (BoneField.ScaleY, "Scale Y", 0.01f, float.NegativeInfinity)
+			(BoneField.ScaleX, "Scale X", 0.01f, float.NegativeInfinity), (BoneField.ScaleY, "Scale Y", 0.01f, float.NegativeInfinity),
+			(BoneField.Turn, "Turn °", 1f, float.NegativeInfinity), (BoneField.Tilt, "Tilt °", 1f, float.NegativeInfinity),
+			(BoneField.Follow, "Look follow", 0.05f, 0f), (BoneField.RangeX, "Look range X", 1f, 0f), (BoneField.RangeY, "Look range Y", 1f, 0f)
 		})
 		{
 			var f = field;
@@ -81,6 +83,7 @@ public sealed partial class MainWindow
 		_boneProps.Children.Add(_connected);
 		_boneProps.Children.Add(_inheritRotation);
 		_boneProps.Children.Add(_inheritScale);
+		foreach (var row in BuildConstraintRows(Labelled)) _boneProps.Children.Add(row);
 		var boneButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 6, 0, 0) };
 		var addBone = new Button { Content = "+ Bone on it" };
 		addBone.Click += (_, _) => { if (!State.AnimateMode && State.Selected is { } b) _session.AddBone(b, _tool.SnapJoints); };
@@ -243,6 +246,7 @@ public sealed partial class MainWindow
 		object? shown = SceneLevel ? _session.SceneState.Selected : (object?)State.SelectedSlot ?? State.Selected;
 		if (shown != _shownInProps) FillProperties(shown);
 		if (shown is Slot) SyncDrawingRows();
+		if (shown is Bone) SyncConstraintRows();
 		SyncMeshPanel();
 		foreach (var n in _numbers)
 			if (n.IsEffectivelyVisible) n.Refresh();
@@ -279,6 +283,7 @@ public sealed partial class MainWindow
 					_connected.IsEnabled = bone.Parent != null;
 					_inheritRotation.IsChecked = bone.InheritRotation;
 					_inheritScale.IsChecked = bone.InheritScale;
+					FillConstraintRows(bone);
 					break;
 				case Slot slot:
 					PartName.Text = slot.Name;
