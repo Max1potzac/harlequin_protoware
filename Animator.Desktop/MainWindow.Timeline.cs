@@ -58,10 +58,15 @@ public sealed partial class MainWindow
 		}
 		if (button == PointerButton.Right)
 		{
-			ShowTimelineMenu(p);   // picked frames: an animation sequence of their own
+			TimelineRightClick(p);   // keys' menu, or the frame's (and the picked frames')
 			return;
 		}
 		if (button != PointerButton.Left) return;
+		if (clicks == 2 && _timeline.EventAt(p) is { } clicked)
+		{
+			_ = EditEventAt(clicked.Events, clicked.Frame);   // a double-click on an event marker
+			return;
+		}
 		_timeline.MouseDown(p, _mods);
 		_timelinePressed = true;
 	}

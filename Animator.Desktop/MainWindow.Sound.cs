@@ -42,7 +42,7 @@ public sealed partial class MainWindow
 		if (State.Animation.Events is not { } events) return;
 		var fired = passed.SelectMany(span => events.Between(span.From, span.To)).ToList();
 		foreach (var e in fired) PlayEventSound(e);
-		if (fired.Count > 0) Hint("⚑ " + string.Join("    ⚑ ", fired.Select(e => e.Data == null ? e.Name : $"{e.Name} ({e.Data})")));
+		if (fired.Count > 0) FlashEvents("⚑ " + string.Join("    ⚑ ", fired.Select(e => e.Data == null ? e.Name : $"{e.Name} ({e.Data})")));
 	}
 
 	// Every frame: the sound track in step with the playhead, and its waveform under the timeline

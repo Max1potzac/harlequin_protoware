@@ -57,6 +57,7 @@ public sealed partial class MainWindow
 		var sound = new Button { Content = "Sound ▾" };
 		ToolTip.SetTip(sound, "The sound track, the sound map, events files, mute");
 		sound.Click += (_, _) => ShowSoundMenu(sound);
+		foreach (var tool in BuildTimelineTools()) Add(tool);
 		Add(sound);
 		Add(_animHint);
 
@@ -155,25 +156,6 @@ public sealed partial class MainWindow
 	// ======================= animation sequences =======================
 
 	// The timeline's right-click: inside picked frames, what can be done with them
-	private void ShowTimelineMenu(Vector2 p)
-	{
-		int frame = _timeline.FrameAt(p.X);
-		if (_timeline.Range is not { } range || frame < range.First || frame > range.Last) return;
-
-		var menu = new ContextMenu();
-		bool all = range.First == 0 && range.Last >= State.FrameCount - 1;
-		var split = new MenuItem { Header = $"Split into an animation sequence (frames {range.First}–{range.Last})…", IsEnabled = !all };
-		split.Click += async (_, _) => await AskForSequence(range, split: true);
-		var copy = new MenuItem { Header = "Copy into a new animation sequence…" };
-		copy.Click += async (_, _) => await AskForSequence(range, split: false);
-		var unpick = new MenuItem { Header = "Let go of the frames" };
-		unpick.Click += (_, _) => _timeline.ClearRange();
-		menu.Items.Add(split);
-		menu.Items.Add(copy);
-		menu.Items.Add(unpick);
-		menu.Open(TimelineView);
-	}
-
 	private async Task AskForSequence((int First, int Last) range, bool split)
 	{
 		State.Playing = false;
