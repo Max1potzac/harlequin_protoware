@@ -82,6 +82,12 @@ public sealed partial class MainWindow
 		Add("tool.select", "_Select", () => SetTool(ViewTool.Select));
 		Add("tool.move", "_Move", () => SetTool(ViewTool.Move));
 		Add("tool.rotate", "_Rotate", () => SetTool(ViewTool.Rotate));
+		Add("tool.paint", "_Paint (one click opens a part)", () => SetTool(ViewTool.Paint));
+		Add("view.pixels", "Pi_xel filtering on / off", () => _renderer.PixelArt = !_renderer.PixelArt);
+		Add("view.snapGrid", "Snap to the gr_id", () => ToggleSetting(s => s.SnapToGrid = !s.SnapToGrid));
+		Add("view.snapGuides", "Snap to the guid_es", () => ToggleSetting(s => s.SnapToGuides = !s.SnapToGuides));
+		Add("view.lockGuides", "_Lock the guides", () => ToggleSetting(s => s.LockGuides = !s.LockGuides));
+		Add("view.clearGuides", "_Clear the guides", () => _session.ClearGuides());
 
 		Add("view.reset", "_Reset the view", ResetView);
 		Add("view.images", "_Pictures on / off", () => _renderer.ShowImages = !_renderer.ShowImages);
@@ -121,8 +127,8 @@ public sealed partial class MainWindow
 				Top("_IK", "ik.toggle", "ik.switch", "ik.snap", "ik.bake", "ik.flip"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
 				Top("_Animation", "anim.mode", "anim.key", "anim.autoKey", "anim.event", "anim.graph", null, "keys.earlier", "keys.later", "keys.reverse", "time.insert", "time.remove", null, "frames.new", "frames.copy", "frames.longer", "frames.shorter", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
-				Top("_View", "tool.select", "tool.move", "tool.rotate", null, "view.reset", "view.images", "view.bones", "view.onion", "view.hitboxes", null,
-					"view.grid", "view.rulers", "view.guides"),
+				Top("_View", "tool.select", "tool.move", "tool.rotate", "tool.paint", null, "view.reset", "view.images", "view.bones", "view.pixels", "view.onion", "view.hitboxes", null,
+					"view.grid", "view.rulers", "view.guides", null, "view.snapGrid", "view.snapGuides", "view.lockGuides", "view.clearGuides"),
 				Top("_Help", "help.keys", null, "help.manual", "help.format", null, "help.about")
 			}
 		};
@@ -130,6 +136,7 @@ public sealed partial class MainWindow
 		var file = (MenuItem)menu.Items[0]!;
 		_menuItems["file.reopen"] = Item("file.reopen");
 		AddRecentMenu(file);
+		AddViewChecks((MenuItem)menu.Items.OfType<MenuItem>().First(m => m.Header as string == "_View"));
 		ShowKeysInMenus();
 		return menu;
 	}
@@ -144,7 +151,7 @@ public sealed partial class MainWindow
 	private Control BuildToolBar()
 	{
 		var bar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(6, 4) };
-		foreach (var (tool, label) in new[] { (ViewTool.Select, "Select"), (ViewTool.Move, "Move"), (ViewTool.Rotate, "Rotate") })
+		foreach (var (tool, label) in new[] { (ViewTool.Select, "Select"), (ViewTool.Move, "Move"), (ViewTool.Rotate, "Rotate"), (ViewTool.Paint, "Paint") })
 		{
 			var button = new ToggleButton { Content = label };
 			button.Click += (_, _) => SetTool(tool);

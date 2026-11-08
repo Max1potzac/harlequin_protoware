@@ -27,7 +27,7 @@ public sealed class SettingsWindow : Window
 		public override string ToString() => Label;
 	}
 
-	private sealed record ThemeChoice(string Name, ThemeVariant Variant)
+	private sealed record ThemeChoice(string Name)
 	{
 		public override string ToString() => Name;
 	}
@@ -41,7 +41,6 @@ public sealed class SettingsWindow : Window
 		new(PointerButton.XButton2, "Side button (forward)")
 	};
 
-	internal static readonly (string Name, ThemeVariant Variant)[] ThemeNames = { ("Dark", ThemeVariant.Dark), ("Light", ThemeVariant.Light) };
 
 	private static readonly int[] AutosaveMinuteChoices = { 0, 1, 2, 5, 10, 15, 30 };
 	private static readonly int[] BackupChoices = { 0, 1, 2, 3, 5, 10, 20 };
@@ -80,6 +79,7 @@ public sealed class SettingsWindow : Window
 	internal readonly ComboBox AutosaveBox = new() { Width = 220 };
 	internal readonly ComboBox BackupBox = new() { Width = 220 };
 	internal readonly ComboBox ThemeBox = new() { Width = 220 };
+	internal readonly TextBlock ThemeProblem = new() { Foreground = Avalonia.Media.Brushes.Orange, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
 	internal readonly ComboBox SizeBox = new() { Width = 220 };
 	private TabItem _mouseTab = null!;
 
@@ -88,7 +88,7 @@ public sealed class SettingsWindow : Window
 	{
 		Keys = keys.Copy();
 		_shown = shown;
-		_themeBefore = ThemeName = ThemeNames.Any(t => t.Name == theme) ? theme! : "Dark";
+		_themeBefore = ThemeName = Themes.All().Any(t => t.Name == theme) ? theme! : "Dark";
 		Title = "Settings";
 		Width = 760;
 		Height = 600;
@@ -176,6 +176,15 @@ public sealed class SettingsWindow : Window
 		// Appearance
 		var look = new StackPanel { Spacing = 8, Margin = new Thickness(12) };
 		look.Children.Add(Row("Theme", ThemeBox));
+		var themeFiles = new Button { Content = "Theme files…" };
+		ToolTip.SetTip(themeFiles, "The folder your own themes go in (JSON files, the Windows editor's too), with an example to copy");
+		themeFiles.Click += (_, _) =>
+		{
+			try { OpenFolder(Themes.PrepareFolder()); }
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { ThemeProblem.Text = $"Couldn't make the themes folder: {ex.Message}"; }
+		};
+		look.Children.Add(themeFiles);
+		look.Children.Add(ThemeProblem);
 		look.Children.Add(Row("Size of the panels and dialogs", SizeBox));
 		look.Children.Add(Note("Both show at once; Cancel puts them back. The viewport and the timeline keep the screen's own size."));
 		ThemeBox.SelectionChanged += (_, _) => { if (ThemeBox.SelectedItem is ThemeChoice t) ApplyTheme(t.Name); };
@@ -383,9 +392,11 @@ public sealed class SettingsWindow : Window
 
 	private void ShowAppearance()
 	{
-		var themes = ThemeNames.Select(t => new ThemeChoice(t.Name, t.Variant)).ToList();
+		var problems = new List<string>();
+		var themes = Themes.All(problems).Select(t => new ThemeChoice(t.Name)).ToList();
 		ThemeBox.ItemsSource = themes;
-		ThemeBox.SelectedItem = themes.First(t => t.Name == ThemeName);
+		ThemeBox.SelectedItem = themes.FirstOrDefault(t => t.Name == ThemeName) ?? themes[0];
+		ThemeProblem.Text = problems.Count > 0 ? "Left out (they couldn't be read):\n" + string.Join("\n", problems) : "";
 		SizeBox.ItemsSource = UiSize.Choices.Select(UiSize.Name).ToList();
 		int at = Array.FindIndex(UiSize.Choices, c => Math.Abs(c - UiSize.Current) < 0.01);
 		SizeBox.SelectedIndex = at >= 0 ? at : Array.IndexOf(UiSize.Choices, 1.0);
@@ -396,11 +407,7 @@ public sealed class SettingsWindow : Window
 	internal void PickSize(double size) => SizeBox.SelectedIndex = Array.FindIndex(UiSize.Choices, c => Math.Abs(c - size) < 0.01);
 
 	// The whole application in this theme (null or unknown: dark)
-	public static void ApplyTheme(string? name)
-	{
-		if (Application.Current is { } app)
-			app.RequestedThemeVariant = ThemeNames.FirstOrDefault(t => t.Name == name).Variant ?? ThemeVariant.Dark;
-	}
+	public static void ApplyTheme(string? name) => Themes.Apply(Themes.Find(name));
 
 	// ======================= OK =======================
 

@@ -72,19 +72,14 @@ public sealed partial class MainWindow
 			return row;
 		}
 		static TextBlock Words(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center };
-		_meshBox.Child = new StackPanel
-		{
-			Spacing = 2,
-			Children =
-			{
-				new TextBlock { Text = "Mesh", FontWeight = FontWeight.SemiBold, Margin = new Thickness(0, 0, 0, 4) },
-				Row(_meshMake, _meshRemove),
-				Row(MeshPoints, MeshWeights, _meshWeightsMenu),
-				Row(Words("Bone"), MeshBone),
-				Row(Words("Brush"), MeshBrush, Words("Strength"), MeshStrength),
-				MeshHint
-			}
-		};
+		_meshBody.Children.Add(Row(_meshMake, _meshRemove));
+		_meshBody.Children.Add(Row(MeshPoints, MeshWeights, _meshWeightsMenu));
+		_meshBody.Children.Add(Row(Words("Bone"), MeshBone));
+		_meshBody.Children.Add(Row(Words("Brush"), MeshBrush, Words("Strength"), MeshStrength));
+		_meshBody.Children.Add(MeshHint);
+		ToolTip.SetTip(_meshFold, "Folded away until a part has a mesh (or this opens it)");
+		_meshFold.Click += (_, _) => { _meshOpen = !_meshOpen; SyncMeshFold(); };
+		_meshBox.Child = new StackPanel { Spacing = 2, Children = { _meshFold, _meshBody } };
 		return _meshBox;
 	}
 
@@ -138,10 +133,24 @@ public sealed partial class MainWindow
 
 	// Every frame: the box shows for a part with a picture, its buttons as the mesh and the mode
 	// allow, the hint saying what there is (filled in again only when that changes)
+	// The Mesh box folded (its title alone) while the part has no mesh, unless opened
+	private readonly Button _meshFold = new() { Background = Brushes.Transparent, Padding = new Thickness(0, 0, 0, 4), FontWeight = FontWeight.SemiBold };
+	private readonly StackPanel _meshBody = new() { Spacing = 2 };
+	private bool _meshOpen;
+
+	private void SyncMeshFold()
+	{
+		bool open = _meshOpen || MeshPart()?.Mesh != null || MeshTool != MeshMode.None;
+		_meshBody.IsVisible = open;
+		string title = open ? "▾ Mesh" : "▸ Mesh";
+		if (_meshFold.Content as string != title) _meshFold.Content = title;
+	}
+
 	private void SyncMeshPanel(bool force = false)
 	{
 		var part = State.SelectedSlot != null && !SceneLevel ? MeshPart() : null;
 		_meshBox.IsVisible = part != null;
+		if (part != null) SyncMeshFold();
 		if (part is not { } p)
 		{
 			if (MeshTool != MeshMode.None) MeshTool = MeshMode.None;
