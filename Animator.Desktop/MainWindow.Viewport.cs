@@ -90,8 +90,17 @@ public sealed partial class MainWindow
 			}
 		}
 
+		// The mesh tools (the part panel's Mesh box): its points, or its weights
+		if (_mesh.MouseDown(pos, button, subtract: _mods.HasFlag(KeyMods.Alt)))
+		{
+			_meshDrag = true;
+			return;
+		}
+
 		_tool.MouseDown(pos, button);
 	}
+
+	private bool _meshDrag;   // the current press went to the mesh tool
 
 	private void Viewport_PointerMoved(object? sender, PointerEventArgs e)
 	{
@@ -107,6 +116,12 @@ public sealed partial class MainWindow
 			_guides.MouseMove(pos);
 			return;
 		}
+		if (_meshDrag || _mesh.Dragging)
+		{
+			_mesh.MouseMove(pos);
+			return;
+		}
+		if (!_viewPressed) _mesh.MouseMove(pos);   // (which point the mouse is over)
 		if (_objectDrag || SceneLevel) _objectTool.MouseMove(pos);
 		else _tool.MouseMove(pos);
 	}
@@ -126,6 +141,12 @@ public sealed partial class MainWindow
 		{
 			_guideDrag = false;
 			_guides.MouseUp(pos);
+			return;
+		}
+		if (_meshDrag)
+		{
+			_meshDrag = false;
+			if (_mesh.MouseUp()) SyncMeshPanel(force: true);
 			return;
 		}
 		if (_objectDrag) _objectTool.MouseUp();
