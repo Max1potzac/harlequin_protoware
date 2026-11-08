@@ -210,6 +210,11 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
 20. **The mixer** (Mixer… on the animation bar): three tracks of animations over each other (weight,
     speed, loop) played in the viewport on the mixer's own clock; a fade from one animation to
     another tried out, kept for the pair or back to the default (undoable); the default fade.
+21. **The shell, part 1**: File > Open recent (the last 10; one that's gone is taken off) and
+    Reopen; Places (undo and redo first go back to where an edit was made: the object, the
+    animation, Build or Animate, painting); Edit > History (Ctrl+Alt+Z: every step, click one to
+    go back or on to it); Help: Keyboard and mouse (F1, following where you are), the user
+    manual, the engine format, About; the status line's mode and last edit.
 
 ### Still to come in step 4
 
@@ -218,12 +223,10 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
-    undo bringing you back to where an edit was made first (Places); Help (the keyboard and mouse
-    window, F1, the engine format, About) and the status bar's mode and last edit; the window's
-    size, panel widths and timeline height remembered (Layout); the Paint tool on the tool bar
-    (4); the view toggles still missing (pixel filtering, snap to grid / guides, lock
-    the guides). The Windows editor's high-contrast theme and theme files.
+1. **The rest of the shell**: the window's size, panel widths and timeline height remembered
+   (Layout); the Paint tool on the tool bar (4); the view toggles still missing (pixel filtering,
+   snap to grid / guides, lock the guides). The Windows editor's high-contrast theme and theme
+   files.
 
 Step 5 can start once these are in: using this editor for real work alongside the Windows one,
 fixing what's different, and then retiring Animator.Viewer.

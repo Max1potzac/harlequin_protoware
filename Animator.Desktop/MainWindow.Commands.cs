@@ -34,6 +34,7 @@ public sealed partial class MainWindow
 	{
 		Add("file.new", "_New project", () => _ = NewProject());
 		Add("file.open", "_Open…", () => _ = OpenProject());
+		Add("file.reopen", "Re_open (back to the last save)", () => _ = Reopen());
 		Add("file.save", "_Save", () => _ = SaveProject());
 		Add("file.saveAs", "Save _as…", () => _ = SaveProjectAs());
 		Add("file.import", "_Import…", () => _ = ImportFile());
@@ -43,6 +44,11 @@ public sealed partial class MainWindow
 
 		Add("edit.undo", "_Undo", () => State.Undo.Undo());
 		Add("edit.redo", "_Redo", () => State.Undo.Redo());
+		Add("edit.history", "_History…", ShowHistory);
+		Add("help.keys", "_Keyboard and mouse", ShowHelp);
+		Add("help.manual", "The user _manual", () => _ = OpenLink(ManualUrl));
+		Add("help.format", "The _engine format", () => _ = OpenLink(EngineFormatUrl));
+		Add("help.about", "_About Harlequin", () => _ = About());
 		Add("edit.copy", "_Copy the selected keys", () => { if (!SceneLevel) _timeline.Copy(); });
 		Add("edit.paste", "_Paste the keys at the playhead", () => { if (!SceneLevel) _timeline.Paste(); });
 		Add("edit.delete", "_Delete the selected keys", DeleteKeys);
@@ -110,15 +116,20 @@ public sealed partial class MainWindow
 			Items =
 			{
 				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.import", "file.export", null, "file.settings", null, "file.quit"),
-				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.bringIn", "edit.batchBringIn", null, "edit.back"),
+				Top("_Edit", "edit.undo", "edit.redo", "edit.history", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.bringIn", "edit.batchBringIn", null, "edit.back"),
 				Top("P_ick", "pick.all", "pick.keys", null, "pick.hide", "pick.hideOthers", "pick.showAll", null, "pick.lock", "pick.lockOthers", "pick.unlockAll"),
 				Top("_IK", "ik.toggle", "ik.switch", "ik.snap", "ik.bake", "ik.flip"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
 				Top("_Animation", "anim.mode", "anim.key", "anim.autoKey", "anim.event", "anim.graph", null, "keys.earlier", "keys.later", "keys.reverse", "time.insert", "time.remove", null, "frames.new", "frames.copy", "frames.longer", "frames.shorter", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
 				Top("_View", "tool.select", "tool.move", "tool.rotate", null, "view.reset", "view.images", "view.bones", "view.onion", "view.hitboxes", null,
-					"view.grid", "view.rulers", "view.guides")
+					"view.grid", "view.rulers", "view.guides"),
+				Top("_Help", "help.keys", null, "help.manual", "help.format", null, "help.about")
 			}
 		};
+		// File > Open recent and Reopen, under Open (Reopen was made for the keys, not listed yet)
+		var file = (MenuItem)menu.Items[0]!;
+		_menuItems["file.reopen"] = Item("file.reopen");
+		AddRecentMenu(file);
 		ShowKeysInMenus();
 		return menu;
 	}

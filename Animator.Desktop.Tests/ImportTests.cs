@@ -46,6 +46,7 @@ public class ImportTests
 	{
 		var window = Windows.Show();
 		int before = window.Session.Scene.Objects.Count;
+		var original = window.Session.Active;
 		window.AnswerPsdImport = dialog =>
 		{
 			dialog.RigBox.IsChecked = true;
@@ -59,6 +60,9 @@ public class ImportTests
 		var made = window.Session.Active!;
 		Assert.Equal(ObjectKind.Rigged, made.Kind);
 		Assert.NotEmpty(made.Skeleton.Slots);
+		window.State.Undo.Undo();   // back to where the import was made first (the object open then)
+		Windows.Settle(window);
+		Assert.Same(original, window.Session.Active);
 		window.State.Undo.Undo();
 		Windows.Settle(window);
 		Assert.Equal(before, window.Session.Scene.Objects.Count);

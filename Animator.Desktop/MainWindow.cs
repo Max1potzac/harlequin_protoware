@@ -76,6 +76,7 @@ public sealed partial class MainWindow : Window
 		ShowPaintToolKeys();
 		InitAutosave();
 		InitTimelineTools();
+		InitPlaces();
 		WireViewport();
 		WireTimeline();
 		WireKeys();
@@ -311,24 +312,6 @@ public sealed partial class MainWindow : Window
 		RefreshAnimationsBar();
 		RefreshSkins();
 		RefreshPoses();
-	}
-
-	// ======================= the status line =======================
-
-	private string _statusText = "";
-
-	private void UpdateStatus()
-	{
-		string where = SceneLevel ? "Scene" : $"{_session.Active?.Name}: {State.Animation.Name}";
-		string mode = SceneLevel ? "" : State.AnimateMode ? "  ·  Animate" : "  ·  Build";
-		string frame = SceneLevel ? $"frame {_sceneTimeline.Frame}" : $"frame {State.Frame} / {State.FrameCount}";
-		string picked = SceneLevel
-			? _session.SceneState.Selected is { } o ? $"  ·  {o.Name}" : ""
-			: State.SelectedSlot is { } slot ? $"  ·  {slot.Name}" : State.Selected is { } bone ? $"  ·  {bone.Name}" : "";
-		string text = $"{where}{mode}  ·  {frame}{picked}";
-		if (text == _statusText) return;
-		_statusText = text;
-		_status.Text = text;
 	}
 
 	internal void Hint(string text) => _hint.Text = text;
