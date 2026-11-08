@@ -132,7 +132,7 @@ public class RiggingTests
 		mask.Items.OfType<MenuItem>().First().RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 		Assert.True(back.IsMask);
 		Windows.Settle(window);
-		Assert.Contains("◐ mask", ((TextBlock)RowOf(window, back).Content!).Inlines!.Text);
+		Assert.Contains("◐ mask", MainWindow.RowLabel(RowOf(window, back)).Inlines!.Text);
 		Windows.Shot(window, "rig-layers");
 
 		// Given bones: a rigged object, every part where it was
@@ -150,6 +150,6 @@ public class RiggingTests
 		window.LayersView.IsChecked = true;
 		window.LayersView.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 		Assert.True(window.ShowingLayers);
-		Assert.Contains("on ", ((TextBlock)window.RigList.Items.OfType<ListBoxItem>().First().Content!).Inlines!.Text);
+		Assert.Contains("on ", MainWindow.RowLabel(window.RigList.Items.OfType<ListBoxItem>().First()).Inlines!.Text);
 	}
 }
