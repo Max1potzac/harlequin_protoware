@@ -70,7 +70,7 @@ public sealed partial class MainWindow
 	}
 
 	// An icon on the 24 × 24 square (its corners marked, so every icon is scaled alike)
-	private static PathIcon Icon(string data, double size = 16) => new()
+	private static PathIcon MakeIcon(string data, double size = 16) => new()
 	{
 		Data = StreamGeometry.Parse("M0,0 L0,0 Z M24,24 L24,24 Z " + data),
 		Width = size,
@@ -81,7 +81,7 @@ public sealed partial class MainWindow
 	{
 		var button = new ToggleButton
 		{
-			Content = Icon(icon),
+			Content = MakeIcon(icon),
 			Width = 32,
 			Height = 30,
 			Padding = new Thickness(0),
@@ -137,7 +137,7 @@ public sealed partial class MainWindow
 		}
 		var reset = new Button
 		{
-			Content = Icon(Icons.Reset),
+			Content = MakeIcon(Icons.Reset),
 			Width = 32,
 			Height = 30,
 			Padding = new Thickness(0),
@@ -165,7 +165,7 @@ public sealed partial class MainWindow
 			{
 				Orientation = Orientation.Horizontal,
 				Spacing = 7,
-				Children = { Icon(icon, 14), new TextBlock { Text = text, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center } }
+				Children = { MakeIcon(icon, 14), new TextBlock { Text = text, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center } }
 			};
 			button.Padding = new Thickness(14, 4);
 			ToolTip.SetTip(button, $"{tip} ({_keys.Describe("anim.mode")} switches)");
@@ -205,7 +205,7 @@ public sealed partial class MainWindow
 		{
 			var b = new Button
 			{
-				Content = Icon(icon, 14),
+				Content = MakeIcon(icon, 14),
 				Width = width,
 				Height = 28,
 				Padding = new Thickness(0),
