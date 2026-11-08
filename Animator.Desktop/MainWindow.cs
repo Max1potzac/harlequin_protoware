@@ -202,7 +202,7 @@ public sealed partial class MainWindow : Window
 		var timelineSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Rows };
 		Grid.SetRow(timelineSplitter, 1);
 		work.Children.Add(timelineSplitter);
-		var animations = UiSize.Scaled(BuildAnimationsBar());
+		var animations = UiSize.Scaled(new Panel { Children = { BuildAnimationsBar(), BuildSceneBar() } });   // (inside an object, or at scene level)
 		Grid.SetRow(animations, 2);
 		work.Children.Add(animations);
 		Grid.SetRow(TimelineView, 3);
@@ -239,6 +239,7 @@ public sealed partial class MainWindow : Window
 		UpdateEventFlash();
 		SyncColourPanels();
 		SyncBoxesPanel();
+		SyncScene();
 		SyncOnionUi();
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();

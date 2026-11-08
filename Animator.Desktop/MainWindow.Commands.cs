@@ -46,6 +46,9 @@ public sealed partial class MainWindow
 		Add("edit.paste", "_Paste the keys at the playhead", () => { if (!SceneLevel) _timeline.Paste(); });
 		Add("edit.delete", "_Delete the selected keys", DeleteKeys);
 		Add("edit.back", "_Back to the scene", LeaveObject);
+		Add("edit.bringIn", "Bring _in from another object…", () => _ = BringIn());
+		Add("edit.batchBringIn", "Bring in from Animate _projects…", () => _ = BatchBringIn());
+		Add("scene.open", "_Open the picked object", () => { if (SceneLevel && PickedObject is { } o) EnterObject(o); });
 
 		Add("play.toggle", "_Play / pause", TogglePlaying);
 		Add("play.restart", "Back to the _first frame", Restart);
@@ -106,7 +109,7 @@ public sealed partial class MainWindow
 			Items =
 			{
 				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.import", "file.export", null, "file.settings", null, "file.quit"),
-				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.back"),
+				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.bringIn", "edit.batchBringIn", null, "edit.back"),
 				Top("P_ick", "pick.all", "pick.keys", null, "pick.hide", "pick.hideOthers", "pick.showAll", null, "pick.lock", "pick.lockOthers", "pick.unlockAll"),
 				Top("_IK", "ik.toggle", "ik.switch", "ik.snap", "ik.bake", "ik.flip"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
@@ -148,7 +151,11 @@ public sealed partial class MainWindow
 		bar.Children.Add(_playButton);
 		bar.Children.Add(new Border { Width = 12 });
 		_sceneButton = new Button { Content = "◀ Scene" };
-		_sceneButton.Click += (_, _) => LeaveObject();
+		_sceneButton.Click += (_, _) =>
+		{
+			if (!SceneLevel) LeaveObject();
+			else if (PickedObject is { } o) EnterObject(o);
+		};
 		bar.Children.Add(_sceneButton);
 		return bar;
 	}
@@ -164,7 +171,8 @@ public sealed partial class MainWindow
 		_animateButton.IsChecked = State.AnimateMode;
 		_animateButton.IsEnabled = !SceneLevel;
 		_playButton.IsChecked = State.Playing;
-		_sceneButton.IsEnabled = !SceneLevel;
+		_sceneButton.Content = SceneLevel ? "Edit ▸" : "◀ Scene";
+		_sceneButton.IsEnabled = !SceneLevel || PickedObject != null;
 	}
 
 	// ======================= the keyboard =======================
@@ -238,7 +246,11 @@ public sealed partial class MainWindow
 
 	private void DeleteKeys()
 	{
-		if (SceneLevel) return;
+		if (SceneLevel)
+		{
+			DeleteAtSceneLevel();   // the picked clip, or object
+			return;
+		}
 		if (!_timeline.DeleteSelected()) _timeline.Keys.DeletePickedKeysHere();
 	}
 

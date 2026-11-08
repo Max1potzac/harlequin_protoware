@@ -95,6 +95,9 @@ public sealed partial class MainWindow
 		var panel = new DockPanel();
 		DockPanel.SetDock(top, Dock.Top);
 		DockPanel.SetDock(bottom, Dock.Bottom);
+		var sceneTools = BuildSceneTools();   // (at scene level, instead of the rig's)
+		DockPanel.SetDock(sceneTools, Dock.Top);
+		panel.Children.Add(sceneTools);
 		panel.Children.Add(top);
 		panel.Children.Add(bottom);
 		_colourPanel = BuildColourPanel();
@@ -140,8 +143,8 @@ public sealed partial class MainWindow
 			var items = new List<ListBoxItem>();
 			if (SceneLevel)
 			{
-				foreach (var obj in Scene.Objects)
-					items.Add(Row(obj.Name + (obj.Visible ? "" : "  (hidden)"), obj, 0, bold: true));
+				foreach (var obj in Scene.Objects.AsEnumerable().Reverse())   // (front first, like layers)
+					items.Add(Row(ObjectRowText(obj), obj, 0, bold: true));
 			}
 			else if (ShowingLayers)
 			{
@@ -209,6 +212,7 @@ public sealed partial class MainWindow
 	{
 		bool inside = !SceneLevel;
 		_rigTools.IsVisible = _bottomRigTools.IsVisible = inside;
+		_sceneTools.IsVisible = !inside;
 		bool other = ShowingColour || ShowingBoxes;   // (a panel of its own instead of the list)
 		BonesView.IsVisible = inside && !IsDrawn;
 		BonesView.IsChecked = !ShowingLayers && !other;

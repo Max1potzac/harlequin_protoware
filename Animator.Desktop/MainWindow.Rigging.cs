@@ -270,9 +270,13 @@ public sealed class NewPartWindow : Window
 	public int PartWidth { get; private set; } = 64;
 	public int PartHeight { get; private set; } = 64;
 
-	public NewPartWindow()
+	public NewPartWindow(string title = "New part", string name = "part", int width = 64, int height = 64,
+		string note = "A see-through picture to paint on (Paint, or double-click it).")
 	{
-		Title = "New part";
+		Title = title;
+		NameBox.Text = name;
+		WidthBox.Text = width.ToString();
+		HeightBox.Text = height.ToString();
 		Width = 340;
 		SizeToContent = SizeToContent.Height;
 		CanResize = false;
@@ -292,7 +296,7 @@ public sealed class NewPartWindow : Window
 			{
 				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { Words("Name"), NameBox } },
 				size,
-				new TextBlock { Text = "A see-through picture to paint on (Paint, or double-click it).", TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 12 },
+				new TextBlock { Text = note, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, FontSize = 12 },
 				ErrorText,
 				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Right, Children = { ok, cancel } }
 			}
