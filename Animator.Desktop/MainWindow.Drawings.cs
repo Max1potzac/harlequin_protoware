@@ -225,7 +225,7 @@ public sealed partial class MainWindow
 			}
 		};
 		SyncOnionUi();
-		return new Control[] { OnionBox, settings };
+		return new Control[] { new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { OnionBox, settings } } };   // (they wrap together)
 	}
 
 	// Every frame (O switches it): the box and the settings as the onion skin has them
