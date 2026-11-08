@@ -38,6 +38,8 @@ public sealed partial class MainWindow
 
 	private object? _shownInProps;   // what the panel was filled in for
 	private bool _syncingProps;
+	private Control _boneBuildButtons = null!;                                       // (Build only)
+	private readonly Button _partDelete = new() { Content = "Delete part" };
 
 	private sealed record BoneChoice(Bone? Bone, string Label)
 	{
@@ -88,13 +90,13 @@ public sealed partial class MainWindow
 		var boneButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 6, 0, 0) };
 		var addBone = new Button { Content = "+ Bone on it" };
 		addBone.Click += (_, _) => { if (!State.AnimateMode && State.Selected is { } b) _session.AddBone(b, _tool.SnapJoints); };
-		var deleteBone = new Button { Content = "Delete bone" };
-		deleteBone.Click += (_, _) => { if (!State.AnimateMode && State.Selected is { } b) _session.DeleteBone(b); };
+		var deleteBone = new Button { Content = "Delete bone ▾" };
+		deleteBone.Click += (_, _) => { if (!State.AnimateMode && State.Selected is { } b) DeleteBoneMenu(b).ShowAt(deleteBone); };
 		var colour = new Button { Content = "Colour ▾" };
 		ToolTip.SetTip(colour, "The colour the picked bones are drawn in, to tell them apart (left and right, say)");
 		colour.Click += (_, _) => BoneColourMenu().ShowAt(colour);
-		boneButtons.Children.Add(addBone);
-		boneButtons.Children.Add(deleteBone);
+		_boneBuildButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { addBone, deleteBone } };
+		boneButtons.Children.Add(_boneBuildButtons);
 		boneButtons.Children.Add(colour);
 		_boneProps.Children.Add(boneButtons);
 
@@ -144,7 +146,7 @@ public sealed partial class MainWindow
 		front.Click += (_, _) => { if (State.SelectedSlot is { } s) _session.Reorder(new[] { s }, +1, toEnd: false); };
 		var back = new Button { Content = "Backward" };
 		back.Click += (_, _) => { if (State.SelectedSlot is { } s) _session.Reorder(new[] { s }, -1, toEnd: false); };
-		var delete = new Button { Content = "Delete part" };
+		var delete = _partDelete;
 		delete.Click += (_, _) => { if (State.SelectedSlot is { } s) _session.DeletePart(s); };
 		var orderMenu = new Button { Content = "Order and mask ▾" };
 		ToolTip.SetTip(orderMenu, "Its place in the draw order (with the other picked parts), and clipping the parts above it");

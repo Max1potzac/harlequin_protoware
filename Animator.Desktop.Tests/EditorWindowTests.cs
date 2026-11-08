@@ -94,6 +94,8 @@ public class EditorWindowTests
 	public void A_click_on_the_timelines_ruler_moves_the_playhead()
 	{
 		var window = Windows.Show();
+		window.State.AnimateMode = true;   // (Build puts the timeline away)
+		Windows.Settle(window);
 		var view = window.TimelineView;
 		Assert.True(view.Bounds.Width > 200);
 

@@ -222,6 +222,12 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     and theme files (the Windows editor's JSON, Settings > Appearance > Theme files…). The
     animation bar in two rows (the animation, then playing it) with New, Duplicate and Delete
     under its ▾; the Mesh box folded until a part has a mesh.
+23. **What a comparison with the Windows editor found missing**: Build puts the timeline away
+    (play goes to Animate; nothing plays while building) and Animate the rig's tools, with the
+    blue or red frame round the viewport; + Bone (a root bone with nothing picked) and Snap to
+    ends; a bone deleted handing what's on it to its parent; the banner while a skin is edited;
+    the play buttons on the bars; the objects to switch to from inside one; the Animation
+    menu's Mixer, Sound map and events.
 
 ### Step 4 is done
 

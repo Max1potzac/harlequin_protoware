@@ -52,6 +52,7 @@ public sealed partial class MainWindow
 		Add(Label("FPS"));
 		Add(AnimFps);
 		row = second;
+		foreach (var b in BuildTransport()) Add(b);
 		Add(AnimLoop);
 		var mixer = new Button { Content = "Mixer…" };
 		ToolTip.SetTip(mixer, "The animations together: on tracks over each other, and fades from one to another tried out and kept");
@@ -115,7 +116,7 @@ public sealed partial class MainWindow
 	// After an edit or an undo (which may have taken the edited animation away), or another object
 	internal void RefreshAnimationsBar()
 	{
-		_animBar.IsVisible = !SceneLevel;
+		_animBar.IsVisible = !SceneLevel && State.AnimateMode;   // (Build: the timeline's put away)
 		if (SceneLevel) return;
 		if (!State.Animations.Contains(State.Animation) && State.Animations.Count > 0) _session.SwitchAnimation(State.Animations[0]);
 		_syncingAnim = true;
