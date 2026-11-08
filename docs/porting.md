@@ -207,6 +207,9 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     menu; Delete and Enter at scene level. File > New asks what kind (a character, from the demo
     one or not; an animation with its stage and length) and the frame rate. Edit > Bring in from
     another object (also + Skin ▾) and from Animate projects.
+20. **The mixer** (Mixer… on the animation bar): three tracks of animations over each other (weight,
+    speed, loop) played in the viewport on the mixer's own clock; a fade from one animation to
+    another tried out, kept for the pair or back to the default (undoable); the default fade.
 
 ### Still to come in step 4
 
@@ -215,8 +218,7 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
-2. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
+1. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
     undo bringing you back to where an edit was made first (Places); Help (the keyboard and mouse
     window, F1, the engine format, About) and the status bar's mode and last edit; the window's
     size, panel widths and timeline height remembered (Layout); the Paint tool on the tool bar
