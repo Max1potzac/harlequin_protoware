@@ -106,6 +106,7 @@ public sealed partial class MainWindow
 		// A lone character opens ready to edit; an animation, or a scene of several objects, at scene level
 		_session.Replace(loaded.Scene, loaded.Store, savesTo);
 		AfterReplace();
+		if (savesTo != null) RememberRecent(savesTo);
 		return true;
 	}
 
@@ -164,6 +165,7 @@ public sealed partial class MainWindow
 			ForgetRecoveryCopy();
 			State.Undo.MarkSaved();   // (after the copy's gone: Unsaved, and so the title, follow)
 			UpdateTitle();
+			RememberRecent(path);
 			return true;
 		}
 		catch (Exception ex)
