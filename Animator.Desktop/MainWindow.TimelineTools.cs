@@ -102,6 +102,7 @@ public sealed partial class MainWindow
 	internal void TogglePlaying()
 	{
 		bool start = !State.Playing;
+		if (start && !SceneLevel && !State.AnimateMode) ToggleAnimate();   // (nothing plays while building)
 		if (start)
 		{
 			_playStartedAt = _session.ClockTime;

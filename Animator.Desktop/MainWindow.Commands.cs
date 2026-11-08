@@ -55,6 +55,10 @@ public sealed partial class MainWindow
 		Add("edit.back", "_Back to the scene", LeaveObject);
 		Add("edit.bringIn", "Bring _in from another object…", () => _ = BringIn());
 		Add("edit.batchBringIn", "Bring in from Animate _projects…", () => _ = BatchBringIn());
+		Add("anim.mixer", "_Mixer…", OpenMixer);
+		Add("anim.soundMap", "_Sound map…", OpenSoundMap);
+		Add("anim.importEvents", "_Import events…", () => { if (SceneLevel) Hint("Open an object first: its animations take the events."); else _ = ImportEvents(); });
+		Add("anim.exportEvents", "E_xport events…", () => { if (SceneLevel) Hint("Open an object first: its animations' events are written."); else _ = ExportEvents(); });
 		Add("scene.open", "_Open the picked object", () => { if (SceneLevel && PickedObject is { } o) EnterObject(o); });
 
 		Add("play.toggle", "_Play / pause", TogglePlaying);
@@ -126,7 +130,7 @@ public sealed partial class MainWindow
 				Top("P_ick", "pick.all", "pick.keys", null, "pick.hide", "pick.hideOthers", "pick.showAll", null, "pick.lock", "pick.lockOthers", "pick.unlockAll"),
 				Top("_IK", "ik.toggle", "ik.switch", "ik.snap", "ik.bake", "ik.flip"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
-				Top("_Animation", "anim.mode", "anim.key", "anim.autoKey", "anim.event", "anim.graph", null, "keys.earlier", "keys.later", "keys.reverse", "time.insert", "time.remove", null, "frames.new", "frames.copy", "frames.longer", "frames.shorter", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
+				Top("_Animation", "anim.mode", "anim.key", "anim.autoKey", "anim.event", "anim.graph", null, "keys.earlier", "keys.later", "keys.reverse", "time.insert", "time.remove", null, "frames.new", "frames.copy", "frames.longer", "frames.shorter", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored", null, "anim.mixer", "anim.soundMap", "anim.importEvents", "anim.exportEvents"),
 				Top("_View", "tool.select", "tool.move", "tool.rotate", "tool.paint", null, "view.reset", "view.images", "view.bones", "view.pixels", "view.onion", "view.hitboxes", null,
 					"view.grid", "view.rulers", "view.guides", null, "view.snapGrid", "view.snapGuides", "view.lockGuides", "view.clearGuides"),
 				Top("_Help", "help.keys", null, "help.manual", "help.format", null, "help.about")
@@ -166,7 +170,7 @@ public sealed partial class MainWindow
 		_keyButton.Click += (_, _) => KeyThePose();
 		bar.Children.Add(_keyButton);
 		_playButton = new ToggleButton { Content = "Play" };
-		_playButton.Click += (_, _) => State.Playing = !State.Playing;
+		_playButton.Click += (_, _) => TogglePlaying();
 		bar.Children.Add(_playButton);
 		bar.Children.Add(new Border { Width = 12 });
 		_sceneButton = new Button { Content = "◀ Scene" };

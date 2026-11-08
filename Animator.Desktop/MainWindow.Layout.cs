@@ -19,7 +19,7 @@ public sealed partial class MainWindow
 	internal MenuItem MenuItemFor(string id) => _menuItems[id];
 	internal double LeftPanelWidth => _columns[0].Width.Value;
 	internal double RightPanelWidth => _columns[4].Width.Value;
-	internal double TimelineHeight => _rows[3].Height.Value;
+	internal double TimelineHeight => _rows[3].Height.Value > 0 ? _rows[3].Height.Value : _timelineHeight;   // (Build: put away)
 
 	internal void RestoreLayout()
 	{
@@ -42,7 +42,12 @@ public sealed partial class MainWindow
 		if (s.WindowMaximized) WindowState = WindowState.Maximized;
 		if (s.LeftPanelWidth is { } lw && lw is >= 200 and <= 600) _columns[0].Width = new GridLength(lw);
 		if (s.RightPanelWidth is { } rw && rw is >= 220 and <= 700) _columns[4].Width = new GridLength(rw);
-		if (s.TimelineHeight is { } th && th is >= 80 and <= 900) _rows[3].Height = new GridLength(th);
+		if (s.TimelineHeight is { } th && th is >= 80 and <= 900)
+		{
+			_timelineHeight = th;
+			_rows[3].Height = new GridLength(th);
+			_shownAnimating = null;   // (Build puts it away again)
+		}
 		switch (s.RigTab)
 		{
 			case "layers": _layersView = true; break;
@@ -66,7 +71,7 @@ public sealed partial class MainWindow
 		s.WindowMaximized = WindowState == WindowState.Maximized;
 		s.LeftPanelWidth = _columns[0].ActualWidth > 0 ? _columns[0].ActualWidth : _columns[0].Width.Value;
 		s.RightPanelWidth = _columns[4].ActualWidth > 0 ? _columns[4].ActualWidth : _columns[4].Width.Value;
-		s.TimelineHeight = _rows[3].ActualHeight > 0 ? _rows[3].ActualHeight : _rows[3].Height.Value;
+		s.TimelineHeight = _rows[3].ActualHeight > 0 ? _rows[3].ActualHeight : _timelineHeight;
 		s.RigTab = LeftTabs.SelectedIndex switch
 		{
 			1 => "skins",

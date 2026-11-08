@@ -195,7 +195,8 @@ public sealed partial class MainWindow : Window
 		var paintColumn = new ColumnDefinition(0, GridUnitType.Pixel);
 		var views = new Grid { ColumnDefinitions = { new ColumnDefinition(1, GridUnitType.Star), new ColumnDefinition(4, GridUnitType.Pixel), paintColumn } };
 		views.Children.Add(Viewport);
-		views.Children.Add(_eventFlash);   // (over it: the events passed while playing)
+		AddWorkspaceOverlays(views);       // (over it: Build's or Animate's frame, the skin being edited)
+		views.Children.Add(_eventFlash);   // (and the events passed while playing)
 		_paintSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns, IsVisible = false };
 		Grid.SetColumn(_paintSplitter, 1);
 		views.Children.Add(_paintSplitter);
@@ -204,9 +205,9 @@ public sealed partial class MainWindow : Window
 		views.Children.Add(paint);
 		Grid.SetRow(views, 0);
 		work.Children.Add(views);
-		var timelineSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Rows };
-		Grid.SetRow(timelineSplitter, 1);
-		work.Children.Add(timelineSplitter);
+		_timelineSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Rows };
+		Grid.SetRow(_timelineSplitter, 1);
+		work.Children.Add(_timelineSplitter);
 		var animations = UiSize.Scaled(new Panel { Children = { BuildAnimationsBar(), BuildSceneBar() } });   // (inside an object, or at scene level)
 		Grid.SetRow(animations, 2);
 		work.Children.Add(animations);
@@ -241,6 +242,7 @@ public sealed partial class MainWindow : Window
 	{
 		if (_exporting) return;   // (the export poses the scene meanwhile)
 		Tick(dt);
+		SyncWorkspace();
 		UpdateEventFlash();
 		SyncColourPanels();
 		SyncBoxesPanel();

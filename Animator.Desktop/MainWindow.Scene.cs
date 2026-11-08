@@ -465,6 +465,7 @@ public sealed partial class MainWindow
 			bar.Children.Add(c);
 		}
 		static TextBlock Label(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
+		foreach (var b in BuildTransport()) Add(b);
 		Add(new TextBlock { Text = "Scene", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
 		Add(Label("Frames"));
 		Add(SceneLength, "How long the scene timeline runs");

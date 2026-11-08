@@ -68,7 +68,8 @@ public class TimelineToolsTests
 		Finish(window.EditEventAt(events, 6));
 		Assert.Contains(events.Track.Keys, k => k.Value.Name == "stomp");
 
-		// Played past: flashed over the viewport
+		// Played past: flashed over the viewport (in Animate: nothing plays while building)
+		window.State.AnimateMode = true;
 		window.State.SetFrame(0);
 		window.State.Playing = true;
 		for (int i = 0; i < 5; i++) window.Frame(0.05f);

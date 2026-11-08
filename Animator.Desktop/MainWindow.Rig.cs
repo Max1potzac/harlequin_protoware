@@ -84,13 +84,14 @@ public sealed partial class MainWindow
 			views.Children.Add(view);
 		}
 		var buttons = new WrapPanel();
-		foreach (var b in new Control[] { _addPart, _bind, _giveBones })
+		WireRigBuilding();
+		foreach (var b in new Control[] { AddBoneButton, _addPart, _bind, _giveBones })
 		{
 			b.Margin = new Thickness(0, 0, 4, 4);
 			buttons.Children.Add(b);
 		}
-		var top = new StackPanel { Margin = new Thickness(4, 4, 4, 0), Children = { views, SetChips, buttons } };
-		var bottom = new StackPanel { Margin = new Thickness(4), Spacing = 2, Children = { RigHint, KeepPartsBox, KeepAnimationsBox } };
+		var top = new StackPanel { Margin = new Thickness(4, 4, 4, 0), Children = { _objectSwitchRow, views, SetChips, buttons } };
+		var bottom = new StackPanel { Margin = new Thickness(4), Spacing = 2, Children = { RigHint, SnapJointsBox, KeepPartsBox, KeepAnimationsBox } };
 		_rigTools = top;
 		var panel = new DockPanel();
 		DockPanel.SetDock(top, Dock.Top);
@@ -223,13 +224,16 @@ public sealed partial class MainWindow
 		RigList.IsVisible = !other;
 		_colourPanel.IsVisible = ShowingColour;
 		_boxesPanel.IsVisible = ShowingBoxes;
-		_addPart.IsVisible = inside && !other;
+		bool building = !State.AnimateMode;   // (Animate: what builds the rig is put away)
+		_addPart.IsVisible = inside && !other && building;
+		AddBoneButton.IsVisible = inside && !other && building && !IsDrawn;
 		SetChips.IsVisible &= !other;
 		if (ShowingColour) FillColourPanel();
 		if (ShowingBoxes) SyncBoxesPanel(force: true);
-		_bind.IsVisible = inside && !IsDrawn && !other;
-		_giveBones.IsVisible = inside && IsDrawn && !other;
-		KeepPartsBox.IsVisible = KeepAnimationsBox.IsVisible = inside && !IsDrawn;
+		_bind.IsVisible = inside && !IsDrawn && !other && building;
+		_giveBones.IsVisible = inside && IsDrawn && !other && building;
+		KeepPartsBox.IsVisible = KeepAnimationsBox.IsVisible = SnapJointsBox.IsVisible = inside && !IsDrawn && building;
+		_boneBuildButtons.IsVisible = _partDelete.IsVisible = building;
 		KeepPartsBox.IsChecked = _tool.KeepPartsInPlace;
 		KeepAnimationsBox.IsChecked = State.KeepAnimations;
 		RigHint.Text = LayersHintText();
