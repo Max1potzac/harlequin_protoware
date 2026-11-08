@@ -174,7 +174,7 @@ public sealed class MixerWindow : Window
 			int row = i + 1;
 			grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 			var label = new TextBlock { Text = $"{row}", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 4, 8, 0) };
-			var pick = new ComboBox { ItemsSource = choices, Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Stretch };
+			var pick = new ComboBox { ItemsSource = choices, Margin = new Thickness(0, 4, 0, 0), HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center };
 			pick.SelectedItem = choices.FirstOrDefault(c => c.Animation == track.Animation) ?? choices[0];
 			if (i == 0 && track.Animation == null && _animations.Count > 0) pick.SelectedIndex = 1;   // (track 1 starts with something)
 			track.Animation = (pick.SelectedItem as Choice)?.Animation;
@@ -182,7 +182,7 @@ public sealed class MixerWindow : Window
 			var weight = new Slider { Minimum = 0, Maximum = 1, Value = track.Weight, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
 			ToolTip.SetTip(weight, "How much of this track: 0 = none, all the way = all of it");
 			weight.PropertyChanged += (_, e) => { if (e.Property == RangeBase.ValueProperty) track.Weight = (float)weight.Value; };
-			var speed = new TextBox { Text = Seconds(track.Speed), Margin = new Thickness(6, 4, 0, 0) };
+			var speed = new TextBox { Text = Seconds(track.Speed), Margin = new Thickness(6, 4, 0, 0), VerticalAlignment = VerticalAlignment.Center };
 			ToolTip.SetTip(speed, "1 = as made; 0.5 = half as fast");
 			void CommitSpeed()
 			{
@@ -191,7 +191,7 @@ public sealed class MixerWindow : Window
 			}
 			speed.LostFocus += (_, _) => CommitSpeed();
 			speed.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) CommitSpeed(); };
-			var loop = new CheckBox { Content = "Loop", IsChecked = track.Loop, Margin = new Thickness(6, 4, 0, 0) };
+			var loop = new CheckBox { Content = "Loop", IsChecked = track.Loop, Margin = new Thickness(6, 4, 0, 0), VerticalAlignment = VerticalAlignment.Center };
 			loop.IsCheckedChanged += (_, _) => track.Loop = loop.IsChecked == true;
 			foreach (var (element, column) in new (Control, int)[] { (label, 0), (pick, 1), (weight, 2), (speed, 3), (loop, 4) })
 			{
