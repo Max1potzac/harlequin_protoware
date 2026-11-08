@@ -59,6 +59,10 @@ public class AnimationsTests
 		window.LeaveObject();
 		Assert.False(window.AnimList.IsEffectivelyVisible);
 		window.EnterObject(window.Session.Scene.Objects[0]);
+		window.Frame(0);
+		Assert.False(window.AnimList.IsEffectivelyVisible);   // (Build: the timeline's put away)
+		window.State.AnimateMode = true;
+		window.Frame(0);
 		Assert.True(window.AnimList.IsEffectivelyVisible);
 	}
 }

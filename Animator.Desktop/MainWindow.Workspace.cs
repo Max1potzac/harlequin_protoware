@@ -34,6 +34,7 @@ public sealed partial class MainWindow
 	private bool? _shownAnimating, _shownSceneLevel;
 	private double _timelineHeight = 190;
 	private bool _syncingObjects;
+	private string? _objectsSwitchable;   // what the object switch was filled in from
 
 	internal bool SkinBannerShown => _skinBanner.IsVisible;
 	internal bool TimelineShown => TimelineView.IsVisible;
@@ -119,6 +120,12 @@ public sealed partial class MainWindow
 		bool scene = SceneLevel, animate = State.AnimateMode;
 		if (!scene && !animate && State.Playing) State.Playing = false;   // building: nothing plays
 		SyncSkinBanner();
+		string objects = $"{scene}|{System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_session.Active!)}|{string.Join("\n", Scene.Objects.Select(o => o.Name))}";
+		if (objects != _objectsSwitchable)
+		{
+			_objectsSwitchable = objects;
+			SyncObjectSwitch();
+		}
 		if (_shownAnimating == animate && _shownSceneLevel == scene) return;
 		_shownAnimating = animate;
 		_shownSceneLevel = scene;
@@ -130,7 +137,6 @@ public sealed partial class MainWindow
 		TimelineView.IsVisible = _timelineSplitter.IsVisible = timeline;
 		RefreshAnimationsBar();
 		SyncRigTools();
-		SyncObjectSwitch();
 	}
 
 	private void SyncSkinBanner()
