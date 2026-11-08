@@ -136,6 +136,7 @@ public sealed partial class MainWindow
 		_partProps.Children.Add(Labelled("Name", PartName));
 		foreach (var n in PartNumbers.Values) _partProps.Children.Add(n);
 		_partProps.Children.Add(PartOpacity);
+		_partProps.Children.Add(Labelled("Tint", BuildPartTint()));
 		_partProps.Children.Add(Labelled("Blend", _partBlend));
 		_partProps.Children.Add(Labelled("On bone", _partBone));
 		var order = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
@@ -246,7 +247,11 @@ public sealed partial class MainWindow
 	{
 		object? shown = SceneLevel ? _session.SceneState.Selected : (object?)State.SelectedSlot ?? State.Selected;
 		if (shown != _shownInProps) FillProperties(shown);
-		if (shown is Slot) SyncDrawingRows();
+		if (shown is Slot shownSlot)
+		{
+			SyncDrawingRows();
+			SyncPartTint(shownSlot);
+		}
 		if (shown is Bone) SyncConstraintRows();
 		SyncMeshPanel();
 		foreach (var n in _numbers)
