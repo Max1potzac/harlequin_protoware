@@ -32,6 +32,10 @@ public sealed partial class MainWindow
 		_snap.GridSize = Scene.GridSize;   // (the project's: it changes with undo, or another file)
 		_snap.Guides = Scene.Guides;
 		_painter.MouseOnView = _mouseOnView;
+		_painter.ShowHitboxes = _showHitboxes;
+		_painter.BoxesView = ShowingBoxes;
+		_painter.BoxPicked = _boxItem;
+		_painter.BoxHover = _boxHover;
 		_painter.Draw(canvas, size, dpi);
 	}
 
@@ -97,6 +101,9 @@ public sealed partial class MainWindow
 			return;
 		}
 
+		// The Boxes view open: a hitbox or point under the mouse is picked and dragged
+		if (BoxMouseDown(pos, button)) return;
+
 		_tool.MouseDown(pos, button);
 	}
 
@@ -121,7 +128,16 @@ public sealed partial class MainWindow
 			_mesh.MouseMove(pos);
 			return;
 		}
-		if (!_viewPressed) _mesh.MouseMove(pos);   // (which point the mouse is over)
+		if (_session.DraggingBox)
+		{
+			_session.DragBoxTo(_camera.ScreenToWorld(pos));
+			return;
+		}
+		if (!_viewPressed)
+		{
+			_mesh.MouseMove(pos);   // (which point the mouse is over)
+			BoxHoverAt(pos);        // (which box)
+		}
 		if (_objectDrag || SceneLevel) _objectTool.MouseMove(pos);
 		else _tool.MouseMove(pos);
 	}
@@ -147,6 +163,12 @@ public sealed partial class MainWindow
 		{
 			_meshDrag = false;
 			if (_mesh.MouseUp()) SyncMeshPanel(force: true);
+			return;
+		}
+		if (_session.DraggingBox)
+		{
+			_session.EndBoxDrag();   // (one undo step, if it moved)
+			SyncBoxesPanel(force: true);
 			return;
 		}
 		if (_objectDrag) _objectTool.MouseUp();

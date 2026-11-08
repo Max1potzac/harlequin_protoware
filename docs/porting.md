@@ -195,6 +195,10 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     tab's Colour view (an object's colour layers: + Colour layer, on / off, order, name, the
     sliders and switches, parts left out); colour layers inside a drawing in the paint editor
     (+ ◐, Replace colour too).
+18. **Hitboxes and points**: the Rig tab's Boxes view (+ Hitbox of a kind, box or circle, round the
+    picked part; + Point; name, bone, kind, shape, on at rest, on / off from the playhead in
+    Animate, fit round the picked part, their numbers); picked, moved and resized in the viewport
+    (a drag one undo step); J shows them without the view.
 
 ### Still to come in step 4
 
@@ -203,14 +207,12 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **Hitboxes and points**: the Boxes view, boxes and circles of a kind on bones, keyed on and
-   off, points facing a way, dragged and resized in the viewport; J shows them.
-2. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
+1. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
    clips placed and edited (the clip panel, the scene timeline's right-click menu). New project
    asks what kind (character or animation) and the stage size. Bring in from another object
    (animations and drawings from another object, also as a skin).
-3. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
-4. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
+2. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
+3. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
     undo bringing you back to where an edit was made first (Places); Help (the keyboard and mouse
     window, F1, the engine format, About) and the status bar's mode and last edit; the window's
     size, panel widths and timeline height remembered (Layout); the Paint tool on the tool bar

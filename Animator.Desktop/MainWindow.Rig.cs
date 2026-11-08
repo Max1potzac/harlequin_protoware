@@ -33,7 +33,7 @@ public sealed partial class MainWindow
 	private IReadOnlyList<Slot> _listedOrder = Array.Empty<Slot>();   // the order the list was made in
 	private bool _listedAnimating;                                    // ...and in which mode
 
-	internal bool ShowingLayers => !SceneLevel && !_colourViewOn && (IsDrawn || _layersView);
+	internal bool ShowingLayers => !SceneLevel && !_colourViewOn && !_boxesViewOn && (IsDrawn || _layersView);
 
 	private bool IsDrawn => _session.Active?.Kind == ObjectKind.Drawn;
 
@@ -53,8 +53,8 @@ public sealed partial class MainWindow
 		RigList.AddHandler(PointerMovedEvent, RigMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
 		RigList.AddHandler(PointerReleasedEvent, RigReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
 
-		BonesView.Click += (_, _) => { _layersView = _colourViewOn = false; RefreshRigList(); };
-		LayersView.Click += (_, _) => { _layersView = true; _colourViewOn = false; RefreshRigList(); };
+		BonesView.Click += (_, _) => { _layersView = _colourViewOn = _boxesViewOn = false; RefreshRigList(); };
+		LayersView.Click += (_, _) => { _layersView = true; _colourViewOn = _boxesViewOn = false; RefreshRigList(); };
 		ToolTip.SetTip(BonesView, "The bones as a tree, with the parts on each: drag a part onto a bone to put it there, a bone onto another to hang it there");
 		ToolTip.SetTip(LayersView, "Every part in the order it's drawn, front first: drag one up or down (in Animate: keys the order at the playhead)");
 		_addPart.Click += (_, _) => ShowAddPartMenu(_addPart);
@@ -76,10 +76,13 @@ public sealed partial class MainWindow
 			SaveSettingsQuietly();
 		};
 
-		var views = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(0, 0, 0, 4) };
-		views.Children.Add(BonesView);
-		views.Children.Add(LayersView);
-		views.Children.Add(ColourView);
+		var views = new WrapPanel { Margin = new Thickness(0, 0, 0, 2) };
+		foreach (var view in new Control[] { BonesView, LayersView, ColourView, BoxesView })
+		{
+			view.Margin = new Thickness(0, 0, 2, 2);
+			((Button)view).Padding = new Thickness(7, 4);   // (all four in one row)
+			views.Children.Add(view);
+		}
 		var buttons = new WrapPanel();
 		foreach (var b in new Control[] { _addPart, _bind, _giveBones })
 		{
@@ -95,7 +98,8 @@ public sealed partial class MainWindow
 		panel.Children.Add(top);
 		panel.Children.Add(bottom);
 		_colourPanel = BuildColourPanel();
-		panel.Children.Add(new Grid { Children = { RigList, _colourPanel } });   // (one or the other)
+		_boxesPanel = BuildBoxesPanel();
+		panel.Children.Add(new Grid { Children = { RigList, _colourPanel, _boxesPanel } });   // (one of them)
 		_bottomRigTools = bottom;
 		return panel;
 	}
@@ -205,20 +209,22 @@ public sealed partial class MainWindow
 	{
 		bool inside = !SceneLevel;
 		_rigTools.IsVisible = _bottomRigTools.IsVisible = inside;
+		bool other = ShowingColour || ShowingBoxes;   // (a panel of its own instead of the list)
 		BonesView.IsVisible = inside && !IsDrawn;
-		BonesView.IsChecked = !ShowingLayers && !ShowingColour;
+		BonesView.IsChecked = !ShowingLayers && !other;
 		LayersView.IsChecked = ShowingLayers;
-		ColourView.IsVisible = inside;
+		ColourView.IsVisible = BoxesView.IsVisible = inside;
 		ColourView.IsChecked = ShowingColour;
-		RigList.IsVisible = !ShowingColour;
+		BoxesView.IsChecked = ShowingBoxes;
+		RigList.IsVisible = !other;
 		_colourPanel.IsVisible = ShowingColour;
-		_bind.IsVisible &= !ShowingColour;
-		_addPart.IsVisible = inside && !ShowingColour;
-		_giveBones.IsVisible &= !ShowingColour;
-		SetChips.IsVisible &= !ShowingColour;
+		_boxesPanel.IsVisible = ShowingBoxes;
+		_addPart.IsVisible = inside && !other;
+		SetChips.IsVisible &= !other;
 		if (ShowingColour) FillColourPanel();
-		_bind.IsVisible = inside && !IsDrawn;
-		_giveBones.IsVisible = inside && IsDrawn;
+		if (ShowingBoxes) SyncBoxesPanel(force: true);
+		_bind.IsVisible = inside && !IsDrawn && !other;
+		_giveBones.IsVisible = inside && IsDrawn && !other;
 		KeepPartsBox.IsVisible = KeepAnimationsBox.IsVisible = inside && !IsDrawn;
 		KeepPartsBox.IsChecked = _tool.KeepPartsInPlace;
 		KeepAnimationsBox.IsChecked = State.KeepAnimations;
