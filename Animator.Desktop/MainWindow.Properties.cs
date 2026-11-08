@@ -153,6 +153,7 @@ public sealed partial class MainWindow
 		}
 		_partProps.Children.Add(order);
 		_partProps.Children.Add(BuildDrawingRows());
+		_partProps.Children.Add(BuildMeshBox());
 
 		PartName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { RenameShown(); Viewport.Focus(); } };
 		PartName.LostFocus += (_, _) => RenameShown();
@@ -242,6 +243,7 @@ public sealed partial class MainWindow
 		object? shown = SceneLevel ? _session.SceneState.Selected : (object?)State.SelectedSlot ?? State.Selected;
 		if (shown != _shownInProps) FillProperties(shown);
 		if (shown is Slot) SyncDrawingRows();
+		SyncMeshPanel();
 		foreach (var n in _numbers)
 			if (n.IsEffectivelyVisible) n.Refresh();
 
