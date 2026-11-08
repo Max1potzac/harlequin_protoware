@@ -58,6 +58,7 @@ public sealed partial class MainWindow
 		Add("anim.key", "_Key the pose here", KeyThePose);
 		DefinePickCommands();
 		DefineTimelineCommands();
+		DefineFrameCommands();
 		Add("order.forward", "Picked parts a step to the _front", () => ReorderPicked(+1, toEnd: false));
 		Add("order.backward", "Picked parts a step to the _back", () => ReorderPicked(-1, toEnd: false));
 		Add("order.front", "Picked parts in front of everything", () => ReorderPicked(+1, toEnd: true));
@@ -106,7 +107,7 @@ public sealed partial class MainWindow
 				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.back"),
 				Top("P_ick", "pick.all", "pick.keys", null, "pick.hide", "pick.hideOthers", "pick.showAll", null, "pick.lock", "pick.lockOthers", "pick.unlockAll"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
-				Top("_Animation", "anim.mode", "anim.key", "anim.autoKey", "anim.event", "anim.graph", null, "keys.earlier", "keys.later", "keys.reverse", "time.insert", "time.remove", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
+				Top("_Animation", "anim.mode", "anim.key", "anim.autoKey", "anim.event", "anim.graph", null, "keys.earlier", "keys.later", "keys.reverse", "time.insert", "time.remove", null, "frames.new", "frames.copy", "frames.longer", "frames.shorter", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
 				Top("_View", "tool.select", "tool.move", "tool.rotate", null, "view.reset", "view.images", "view.bones", "view.onion", null,
 					"view.grid", "view.rulers", "view.guides")
 			}

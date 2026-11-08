@@ -152,6 +152,7 @@ public sealed partial class MainWindow
 			order.Children.Add(b);
 		}
 		_partProps.Children.Add(order);
+		_partProps.Children.Add(BuildDrawingRows());
 
 		PartName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { RenameShown(); Viewport.Focus(); } };
 		PartName.LostFocus += (_, _) => RenameShown();
@@ -240,6 +241,7 @@ public sealed partial class MainWindow
 	{
 		object? shown = SceneLevel ? _session.SceneState.Selected : (object?)State.SelectedSlot ?? State.Selected;
 		if (shown != _shownInProps) FillProperties(shown);
+		if (shown is Slot) SyncDrawingRows();
 		foreach (var n in _numbers)
 			if (n.IsEffectivelyVisible) n.Refresh();
 
@@ -283,6 +285,7 @@ public sealed partial class MainWindow
 					_partBone.SelectedItem = bones.FirstOrDefault(c => c.Bone == slot.Bone);
 					_partBone.IsEnabled = _session.Active?.Kind != ObjectKind.Drawn;
 					_partBlend.SelectedItem = slot.Blend;
+					FillDrawingRows(slot);
 					break;
 				case SceneObject obj:
 					ObjectName.Text = obj.Name;
