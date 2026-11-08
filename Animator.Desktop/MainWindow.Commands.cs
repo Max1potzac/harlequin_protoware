@@ -56,6 +56,10 @@ public sealed partial class MainWindow
 
 		Add("anim.mode", "_Build / Animate", ToggleAnimate);
 		Add("anim.key", "_Key the pose here", KeyThePose);
+		Add("order.forward", "Picked parts a step to the _front", () => ReorderPicked(+1, toEnd: false));
+		Add("order.backward", "Picked parts a step to the _back", () => ReorderPicked(-1, toEnd: false));
+		Add("order.front", "Picked parts in front of everything", () => ReorderPicked(+1, toEnd: true));
+		Add("order.back", "Picked parts behind everything", () => ReorderPicked(-1, toEnd: true));
 		Add("pose.mirror", "_Mirror the pose", MirrorThePose);
 		Add("pose.copy", "_Copy the pose", CopyThePose);
 		Add("pose.paste", "_Paste the pose", () => PasteThePose(false));
@@ -99,7 +103,7 @@ public sealed partial class MainWindow
 				Top("_File", "file.new", "file.open", null, "file.save", "file.saveAs", null, "file.import", "file.export", null, "file.settings", null, "file.quit"),
 				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.back"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
-				Top("_Animation", "anim.mode", "anim.key", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
+				Top("_Animation", "anim.mode", "anim.key", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
 				Top("_View", "tool.select", "tool.move", "tool.rotate", null, "view.reset", "view.images", "view.bones", "view.onion", null,
 					"view.grid", "view.rulers", "view.guides")
 			}

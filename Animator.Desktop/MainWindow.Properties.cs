@@ -130,19 +130,23 @@ public sealed partial class MainWindow
 		_partProps.Children.Add(PartOpacity);
 		_partProps.Children.Add(Labelled("Blend", _partBlend));
 		_partProps.Children.Add(Labelled("On bone", _partBone));
-		var order = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 6, 0, 0) };
+		var order = new WrapPanel { Margin = new Thickness(0, 6, 0, 0) };
 		var front = new Button { Content = "Forward" };
 		front.Click += (_, _) => { if (State.SelectedSlot is { } s) _session.Reorder(new[] { s }, +1, toEnd: false); };
 		var back = new Button { Content = "Backward" };
 		back.Click += (_, _) => { if (State.SelectedSlot is { } s) _session.Reorder(new[] { s }, -1, toEnd: false); };
 		var delete = new Button { Content = "Delete part" };
 		delete.Click += (_, _) => { if (State.SelectedSlot is { } s) _session.DeletePart(s); };
-		order.Children.Add(front);
-		order.Children.Add(back);
-		order.Children.Add(delete);
+		var orderMenu = new Button { Content = "Order and mask ▾" };
+		ToolTip.SetTip(orderMenu, "Its place in the draw order (with the other picked parts), and clipping the parts above it");
+		orderMenu.Click += (_, _) => { if (State.SelectedSlot is { } s) OrderMenu(s).ShowAt(orderMenu); };
 		var paintIt = new Button { Content = "Paint" };
 		paintIt.Click += (_, _) => { if (State.SelectedSlot is { } s) OpenPaintEditorOn(s); };
-		order.Children.Add(paintIt);
+		foreach (var b in new Control[] { front, back, orderMenu, paintIt, delete })
+		{
+			b.Margin = new Thickness(0, 0, 6, 6);
+			order.Children.Add(b);
+		}
 		_partProps.Children.Add(order);
 
 		PartName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { RenameShown(); Viewport.Focus(); } };

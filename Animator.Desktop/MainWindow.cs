@@ -84,6 +84,7 @@ public sealed partial class MainWindow : Window
 		State.Undo.Changed += () =>
 		{
 			_session.KeepToWhatExists();   // an undo can take the open object away
+			_tool.BonesEnabled = _settings.ShowBones && _session.Active?.Kind != ObjectKind.Drawn;   // (given bones, or not any more)
 			RefreshRigList();
 			RefillProperties();   // (a rename, a new parent, an undo)
 			RefreshAnimationsBar();
@@ -128,6 +129,8 @@ public sealed partial class MainWindow : Window
 			_tool.TransformButton = s.TransformButton;
 			_tool.PanButton = s.PanButton;
 		}
+		_tool.KeepPartsInPlace = s.KeepPartsInPlace;
+		State.KeepAnimations = s.KeepAnimations;
 		_snap.ToGrid = s.SnapToGrid;
 		_snap.ToGuides = s.SnapToGuides && s.ShowGuides;
 		_guides.ShowRulers = s.ShowRulers;
