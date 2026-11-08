@@ -80,6 +80,7 @@ public sealed partial class MainWindow
 		foreach (var view in new Control[] { BonesView, LayersView, ColourView, BoxesView })
 		{
 			view.Margin = new Thickness(0, 0, 2, 2);
+			((Button)view).Padding = new Thickness(7, 4);   // (all four in one row)
 			views.Children.Add(view);
 		}
 		var buttons = new WrapPanel();
