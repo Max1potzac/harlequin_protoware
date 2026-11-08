@@ -70,7 +70,7 @@ public class PickingTests
 
 		// Shift: every row from the selected one (leg) up to the root
 		Click(window, On(window, RowOf(window, root)), RawInputModifiers.Shift);
-		Assert.Equal(5, state.Picked.Count);   // root, arm, sleeve, leg, boot... from leg up: root..leg
+		Assert.Equal(4, state.Picked.Count);   // root, arm, sleeve, leg (the rows from the leg up)
 		Assert.Same(leg, state.Primary);
 		Assert.NotNull(RowOf(window, arm).Background);   // (a band on the picked rows)
 

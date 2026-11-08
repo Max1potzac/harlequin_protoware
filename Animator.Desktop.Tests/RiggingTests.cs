@@ -27,9 +27,12 @@ public class RiggingTests
 
 	private static ListBoxItem RowOf(MainWindow window, object tag) => window.RigList.Items.OfType<ListBoxItem>().First(i => i.Tag == tag);
 
-	// The middle of a row, in the window
-	private static Point Middle(MainWindow window, ListBoxItem row) =>
-		row.TranslatePoint(new Point(30, row.Bounds.Height / 2), window) ?? throw new InvalidOperationException("row not shown");
+	// A point on a row's name, in the window
+	private static Point Middle(MainWindow window, ListBoxItem row)
+	{
+		var label = MainWindow.RowLabel(row);   // (not its eye or lock)
+		return label.TranslatePoint(new Point(6, label.Bounds.Height / 2), window) ?? throw new InvalidOperationException("row not shown");
+	}
 
 	[AvaloniaFact]
 	public void Parts_are_made_and_dragged_onto_bones_and_bones_onto_bones()
