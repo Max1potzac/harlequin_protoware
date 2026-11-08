@@ -91,6 +91,7 @@ public sealed partial class MainWindow : Window
 			RefreshAnimationsBar();
 			RefreshSkins();
 			RefreshPoses();
+			_mixerWindow?.RefreshPairs();   // (a fade kept, or undone)
 			UpdateTitle();
 		};
 
@@ -258,7 +259,8 @@ public sealed partial class MainWindow : Window
 		else if (State.Playing) FireEvents(State.Advance(dt));
 		// Unkeyed changes (auto key off) last as long as the playhead stays on their frame
 		State.Hold.KeepOnlyAt(State.Skeleton, State.Animation, State.Frame, Editing && State.AnimateMode && !State.Playing);
-		_session.PoseScene(_session.ClockTime);
+		AdvanceMixer(dt);
+		_session.PoseScene(_session.ClockTime, PoseMix);   // (the mixer playing poses the open object)
 		UpdateCameraSpace();
 		SyncSound();
 	}

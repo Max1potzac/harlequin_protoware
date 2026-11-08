@@ -54,10 +54,14 @@ public sealed partial class MainWindow
 		Add(Label("FPS"));
 		Add(AnimFps);
 		Add(AnimLoop);
+		var mixer = new Button { Content = "Mixer…" };
+		ToolTip.SetTip(mixer, "The animations together: on tracks over each other, and fades from one to another tried out and kept");
+		mixer.Click += (_, _) => OpenMixer();
 		var sound = new Button { Content = "Sound ▾" };
 		ToolTip.SetTip(sound, "The sound track, the sound map, events files, mute");
 		sound.Click += (_, _) => ShowSoundMenu(sound);
 		foreach (var tool in BuildTimelineTools()) Add(tool);
+		Add(mixer);
 		Add(sound);
 		Add(_animHint);
 
