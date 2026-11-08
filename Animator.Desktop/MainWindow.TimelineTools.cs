@@ -66,7 +66,7 @@ public sealed partial class MainWindow
 		var keys = new Button { Content = "Keys ▾" };
 		ToolTip.SetTip(keys, "The timeline's right-click menu: for the selected keys, or else for the frame at the playhead");
 		keys.Click += (_, _) => KeysMenu(keys);
-		return new Control[] { BuildCurvesBox(), AutoKeyBox, OnlyPickedBox, SpeedBox, playback, keys };
+		return new Control[] { BuildCurvesBox(), AutoKeyBox, OnlyPickedBox, SpeedBox, playback, keys }.Concat(BuildOnionTools());
 	}
 
 	// The settings these go by (at the start)

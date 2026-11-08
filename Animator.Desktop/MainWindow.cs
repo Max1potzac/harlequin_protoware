@@ -237,6 +237,7 @@ public sealed partial class MainWindow : Window
 		if (_exporting) return;   // (the export poses the scene meanwhile)
 		Tick(dt);
 		UpdateEventFlash();
+		SyncOnionUi();
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
 		SyncToolBar();
