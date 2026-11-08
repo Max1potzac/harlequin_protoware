@@ -126,9 +126,9 @@ jobs:
           fi
           gh release upload $tag harlequin-linux-x64.tar.gz harlequin-win-x64.zip --clobber
 
-  # The Avalonia editor (Animator.Desktop, docs/porting.md step 4) on Linux: built, its window
-  # tried out on the headless platform (the pictures it took are kept with the run, as
-  # "editor-screenshots"), and published for Linux (kept with the run, as "editor-linux-x64")
+  # The editor (Animator.Desktop, on Avalonia) on Linux: built, its window tried out on the
+  # headless platform (the pictures it took are kept with the run, as "editor-screenshots"), and
+  # published for Linux and Windows (kept with the run, and on the Releases page)
   desktop:
     runs-on: ubuntu-latest
     permissions:
@@ -170,12 +170,38 @@ jobs:
           git commit -qm "Editor pictures from $GITHUB_SHA"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "pictures:refs/heads/shots/$GITHUB_REF_NAME"
 
-      - name: Publish for Linux
+      - name: Publish for Linux and Windows
         run: |
-          dotnet publish Animator.Desktop/Animator.Desktop.csproj -c Release -r linux-x64 --self-contained -p:DebugType=none -o out/editor-linux-x64
+          for rid in linux-x64 win-x64; do
+            dotnet publish Animator.Desktop/Animator.Desktop.csproj -c Release -r $rid --self-contained -p:DebugType=none -o out/editor-$rid
+          done
           tar -czf harlequin-editor-linux-x64.tar.gz -C out editor-linux-x64
+          (cd out && zip -qr ../harlequin-editor-win-x64.zip editor-win-x64)
 
       - uses: actions/upload-artifact@v4
         with:
           name: editor-linux-x64
           path: harlequin-editor-linux-x64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: editor-win-x64
+          path: harlequin-editor-win-x64.zip
+
+      # Put up as a download on the Releases page: "editor-latest" from master, "editor-preview"
+      # from any other branch (the one being tried out)
+      - name: Put it on the Releases page
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          if [ "$GITHUB_REF_NAME" = "master" ]; then tag=editor-latest; title="Harlequin editor"; pre=""; else tag=editor-preview; title="Harlequin editor (preview: $GITHUB_REF_NAME)"; pre="--prerelease"; fi
+          notes="Built from $GITHUB_REF_NAME at $GITHUB_SHA. Unpack it and run harlequin-editor (harlequin-editor.exe on Windows)."
+          git tag -f $tag && git push -f origin $tag
+          if gh release view $tag > /dev/null 2>&1; then
+            gh release edit $tag --notes "$notes" --title "$title"
+          else
+            gh release create $tag --title "$title" --notes "$notes" $pre
+          fi
+          gh release upload $tag harlequin-editor-linux-x64.tar.gz harlequin-editor-win-x64.zip --clobber

@@ -1,4 +1,3 @@
-using System.Windows.Input;
 using Animator.Viewer;
 using Animator.Viewer.Panels;
 using Animator.Viewer.Tools;

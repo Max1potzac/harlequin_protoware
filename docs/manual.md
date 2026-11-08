@@ -51,18 +51,22 @@ Two habits save a lot of reading:
 
 ### Running it
 
-Harlequin runs on 64-bit Windows 10 or 11.
+Harlequin's editor runs on 64-bit Windows 10 or 11 and on Linux (x64); it's built on Avalonia, so
+it looks and works the same on both. A ready-made copy for each is on the Releases page
+(**editor-latest**, built from master; **editor-preview**, from the branch being tried out):
+unpack it and run `harlequin-editor` (`harlequin-editor.exe` on Windows).
 
-To build a standalone copy from the source, open a terminal in the folder with `Harlequin.sln`
-(you need the .NET 8 SDK) and run:
+To build one yourself from the source, open a terminal in the folder with `Harlequin.sln` (you
+need the .NET 8 SDK) and run, for Windows or Linux:
 
 ```
-dotnet publish Animator.Viewer -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet publish Animator.Desktop -c Release -r win-x64 --self-contained -o publish
+dotnet publish Animator.Desktop -c Release -r linux-x64 --self-contained -o publish
 ```
 
-`publish\Animator.Viewer.exe` is then the whole program in one file; rename it if you like.
-For a smaller build, use `--self-contained false`; the computer running it then needs the
-.NET 8 Desktop Runtime installed.
+`publish/harlequin-editor` (`.exe` on Windows) is then the program, with what it needs beside it.
+Projects (`.hqnap`), settings, theme files and recovery copies are the same ones the earlier
+Windows-only editor used, so nothing needs converting.
 
 ### A new project
 

@@ -11,7 +11,7 @@ throughout.
 | 2 | **A command-line Harlequin** (`harlequin`, see [cli.md](cli.md)) on the engine: open and save projects, import Animate and Photoshop files, bring heads (or other parts) in from other Animate projects as skins, render a frame or a sheet of skins to a picture, export. CI builds it for Linux and Windows and publishes it as a release download. | done |
 | 3 | **Editing logic out of the window code** (the session, the tools, the panels and the viewport, see below): the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | done |
 | 4 | **An Avalonia editor** (Animator.Desktop) on the engine, built panel by panel next to the WPF one, with headless UI tests | done |
-| 5 | **Parity**, then the Avalonia editor becomes the one released (for Windows too), and the WPF one is retired | |
+| 5 | **Parity**, then the Avalonia editor becomes the one released (for Windows too), and the WPF one is retired | the WPF editor retired (branch retire-wpf); being tried out on real projects |
 
 ## Why this order
 
@@ -233,5 +233,12 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
 
 Everything the Windows editor's shell has is in Animator.Desktop (the list above).
 
-Step 5 can start: using this editor for real work alongside the Windows one,
-fixing what's different, and then retiring Animator.Viewer.
+## Step 5: parity, and the WPF editor retired
+
+A comparison of the two editors (every command and key, every dialog and import option, every
+label and button) found what's listed under item 23 above; with that in, Animator.Viewer (the WPF
+editor) is gone: its project, and its window tests in Animator.Tests (the key map's moved to
+Animator.Desktop.Tests). Animator.Tests now runs on the engine alone (net8.0, any platform). CI
+publishes the editor for Linux and Windows on the Releases page (editor-latest from master,
+editor-preview from other branches). What's left: trying it on real projects, and fixing what
+they show.
