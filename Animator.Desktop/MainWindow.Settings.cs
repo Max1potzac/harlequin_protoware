@@ -48,7 +48,8 @@ public sealed partial class MainWindow
 	// The colours of this window's own that go with the theme (the controls follow it themselves)
 	private void ShowThemeColours()
 	{
-		Background = new SolidColorBrush(LightTheme ? Color.FromRgb(0xF3, 0xF3, 0xF3) : Color.FromRgb(0x1E, 0x21, 0x27));
+		bool fluent = Themes.Current == Themes.Dark || Themes.Current == Themes.Light;   // (Fluent's own look: its window colour)
+		Background = new SolidColorBrush(!fluent ? Themes.ColorOf("Window") : LightTheme ? Color.FromRgb(0xF3, 0xF3, 0xF3) : Color.FromRgb(0x1E, 0x21, 0x27));
 		if (Content != null) RefreshSkins();   // (their rows' colours, once they're there)
 	}
 

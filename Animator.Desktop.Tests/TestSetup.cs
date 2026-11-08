@@ -13,5 +13,7 @@ internal static class TestSetup
 		AppSettings.FilePath = Path.Combine(folder, "settings.json");
 		Recovery.Folder = Path.Combine(folder, "Recovery");
 		MainWindow.MakeAudio = () => new ListeningAudio();   // (sounds are listened to, not played)
+		MainWindow.RememberLayoutOnClose = false;
+		Themes.UserFolder = Path.Combine(folder, "themes");
 	}
 }

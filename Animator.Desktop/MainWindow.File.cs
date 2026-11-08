@@ -191,6 +191,7 @@ public sealed partial class MainWindow
 
 	private async void Window_Closing(object? sender, WindowClosingEventArgs e)
 	{
+		if (RememberLayoutOnClose) RememberLayout();
 		if (_closingConfirmed || !Unsaved) return;
 		e.Cancel = true;   // (asked first: Closing can't wait for the answer)
 		if (!await ConfirmDiscard()) return;

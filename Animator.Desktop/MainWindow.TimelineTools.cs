@@ -22,7 +22,7 @@ public sealed partial class MainWindow
 	private static readonly float[] Speeds = { 0.1f, 0.25f, 0.5f, 1f, 1.5f, 2f };
 
 	internal readonly CheckBox AutoKeyBox = new() { Content = "Auto key" };
-	internal readonly CheckBox OnlyPickedBox = new() { Content = "Only the picked's rows" };
+	internal readonly CheckBox OnlyPickedBox = new() { Content = "Picked's rows" };
 	internal readonly ComboBox SpeedBox = new() { MinWidth = 70 };
 	private readonly TextBlock _eventFlash = new()
 	{

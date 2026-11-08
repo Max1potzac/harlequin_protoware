@@ -73,6 +73,7 @@ public sealed partial class MainWindow : Window
 		ApplyAppearance();
 
 		Content = BuildLayout();
+		RestoreLayout();
 		ShowPaintToolKeys();
 		InitAutosave();
 		InitTimelineTools();
@@ -170,6 +171,7 @@ public sealed partial class MainWindow : Window
 
 		// Left: the rig (or the scene's objects); right of it, the viewport over the timeline
 		var main = new Grid { ColumnDefinitions = new ColumnDefinitions("280,4,*,4,300") };
+		_columns = main.ColumnDefinitions;
 		// The rig's bones and parts, its skins, its poses
 		LeftTabs = new TabControl
 		{
@@ -188,6 +190,7 @@ public sealed partial class MainWindow : Window
 		main.Children.Add(splitter);
 
 		var work = new Grid { RowDefinitions = new RowDefinitions("*,4,Auto,190") };
+		_rows = work.RowDefinitions;
 		// The viewport, and the paint editor beside it while it's open
 		var paintColumn = new ColumnDefinition(0, GridUnitType.Pixel);
 		var views = new Grid { ColumnDefinitions = { new ColumnDefinition(1, GridUnitType.Star), new ColumnDefinition(4, GridUnitType.Pixel), paintColumn } };

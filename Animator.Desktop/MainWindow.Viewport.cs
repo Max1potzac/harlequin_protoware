@@ -79,7 +79,8 @@ public sealed partial class MainWindow
 		}
 
 		// Inside an object: a double-click on a part paints it; on another object, opens that one
-		if (button == _tool.SelectButton && clicks == 2)
+		// (with the Paint tool, one click does)
+		if (button == _tool.SelectButton && (clicks == 2 || _tool.Tool == ViewTool.Paint))
 		{
 			if (TryOpenPaintAt(pos))
 			{

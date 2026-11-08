@@ -11,12 +11,11 @@ namespace Animator.Desktop;
 // timeline's right-click menu. The edits are EditorSession's (EditorSession.Animations.cs).
 public sealed partial class MainWindow
 {
-	internal readonly ComboBox AnimList = new() { MinWidth = 160 };
-	internal readonly TextBox AnimName = new() { MinWidth = 120 };
+	internal readonly ComboBox AnimList = new() { MinWidth = 140 };
+	internal readonly TextBox AnimName = new() { MinWidth = 100 };
 	internal readonly TextBox AnimLength = new() { Width = 64 };
 	internal readonly TextBox AnimFps = new() { Width = 52 };
 	internal readonly CheckBox AnimLoop = new() { Content = "Loop" };
-	private readonly Button _animDelete = new() { Content = "Delete" };
 	private readonly TextBlock _animHint = new() { Foreground = Brushes.Orange, VerticalAlignment = VerticalAlignment.Center };
 	private Control _animBar = null!;
 	private bool _syncingAnim;
@@ -29,30 +28,30 @@ public sealed partial class MainWindow
 
 	private Control BuildAnimationsBar()
 	{
-		var bar = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 2) };   // (on two lines when narrow)
+		// Two rows: the animation itself, then playing and seeing it (each wraps when narrow)
+		var first = new WrapPanel { Orientation = Orientation.Horizontal };
+		var second = new WrapPanel { Orientation = Orientation.Horizontal };
+		var bar = new StackPanel { Margin = new Thickness(6, 2), Children = { first, second } };
+		var row = first;
 		void Add(Control c)
 		{
 			c.Margin = new Thickness(c.Margin.Left, 2, 6, 2);
-			bar.Children.Add(c);
+			row.Children.Add(c);
 		}
 		static TextBlock Label(string text) => new() { Text = text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
 
-		Add(new TextBlock { Text = "Animation", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold });
+		ToolTip.SetTip(AnimList, "The animation being edited");
 		Add(AnimList);
-		var add = new Button { Content = "+ New" };
-		add.Click += (_, _) => { _session.NewAnimation(); _timeline.ClearRange(); };
-		Add(add);
-		var copy = new Button { Content = "Duplicate" };
-		copy.Click += (_, _) => { _session.DuplicateAnimation(); _timeline.ClearRange(); };
-		Add(copy);
-		_animDelete.Click += (_, _) => { if (_session.DeleteAnimation()) _timeline.ClearRange(); };
-		Add(_animDelete);
+		ToolTip.SetTip(_animMenu, "A new animation, a copy of this one, or this one deleted");
+		_animMenu.Click += (_, _) => AnimationMenu().ShowAt(_animMenu);
+		Add(_animMenu);
 		Add(Label("Name"));
 		Add(AnimName);
 		Add(Label("Frames"));
 		Add(AnimLength);
 		Add(Label("FPS"));
 		Add(AnimFps);
+		row = second;
 		Add(AnimLoop);
 		var mixer = new Button { Content = "Mixer…" };
 		ToolTip.SetTip(mixer, "The animations together: on tracks over each other, and fades from one to another tried out and kept");
@@ -87,6 +86,24 @@ public sealed partial class MainWindow
 
 	private void AnimHint(string text) => _animHint.Text = text;
 
+	private readonly Button _animMenu = new() { Content = "▾", Padding = new Thickness(8, 4) };
+
+	// The ▾ beside the list: new, a copy, deleted
+	internal MenuFlyout AnimationMenu()
+	{
+		var menu = new MenuFlyout();
+		void Item(string header, bool enabled, Action click)
+		{
+			var item = new MenuItem { Header = header, IsEnabled = enabled };
+			item.Click += (_, _) => click();
+			menu.Items.Add(item);
+		}
+		Item("New animation", true, () => { _session.NewAnimation(); _timeline.ClearRange(); });
+		Item($"Duplicate {State.Animation.Name}", true, () => { _session.DuplicateAnimation(); _timeline.ClearRange(); });
+		Item($"Delete {State.Animation.Name}", State.Animations.Count > 1, () => { if (_session.DeleteAnimation()) _timeline.ClearRange(); });
+		return menu;
+	}
+
 	// (the picked frames belonged to the one before)
 	internal void SwitchAnimation(Animation animation)
 	{
@@ -107,7 +124,6 @@ public sealed partial class MainWindow
 			var choices = State.Animations.Select(a => new AnimationChoice(a)).ToList();   // (fresh, so the list notices changes)
 			AnimList.ItemsSource = choices;
 			AnimList.SelectedItem = choices.FirstOrDefault(c => c.Animation == State.Animation);
-			_animDelete.IsEnabled = State.Animations.Count > 1;
 			AnimName.Text = State.Animation.Name;
 			AnimLength.Text = State.FrameCount.ToString();
 			AnimFps.Text = State.Fps.ToString();
