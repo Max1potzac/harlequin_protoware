@@ -27,7 +27,7 @@ public sealed partial class MainWindow
 		CurvesBox.IsChecked = on;
 		_syncingTimelineTools = false;
 		TimelineView.InvalidateVisual();
-		AnimHint(on ? "Curves: the picked's keys as curves. Drag a key, or the handles of the selected one; wheel zooms the values, middle-drag moves them, a double-click fits them." : "");
+		AnimHint(on ? "Curves: drag a key or its handles · wheel: zoom · middle-drag: move · double-click: fit" : "");
 	}
 
 	private Control BuildCurvesBox()
