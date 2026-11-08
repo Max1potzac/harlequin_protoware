@@ -506,7 +506,7 @@ public sealed partial class MainWindow
 			b.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { CommitSceneField(b); TimelineView.Focus(); } };
 			b.LostFocus += (_, _) => CommitSceneField(b);
 		}
-		_sceneSection = new List<Control>
+		_sceneBarControls = new List<Control>
 		{
 			new TextBlock { Text = "Scene", VerticalAlignment = VerticalAlignment.Center, FontWeight = FontWeight.SemiBold },
 			Label("Length (frames)"),
@@ -518,10 +518,10 @@ public sealed partial class MainWindow
 			new TextBlock { Text = "×", VerticalAlignment = VerticalAlignment.Center },
 			Tip(StageHeight, "Stage height (0: no stage)")
 		};
-		return _sceneSection;
+		return _sceneBarControls;
 	}
 
-	private List<Control> _sceneSection = new();
+	private List<Control> _sceneBarControls = new();
 
 	internal void CommitSceneField(TextBox box)
 	{
@@ -549,7 +549,7 @@ public sealed partial class MainWindow
 	// Every frame: the bar shows the scene's (after an edit, an undo, another file)
 	private void SyncScene()
 	{
-		foreach (var c in _sceneSection) c.IsVisible = SceneLevel;
+		foreach (var c in _sceneBarControls) c.IsVisible = SceneLevel;
 		SyncObjectList();
 		if (!SceneLevel) return;
 		_syncingScene = true;
