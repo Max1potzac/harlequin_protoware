@@ -47,7 +47,7 @@ public static class Program
 			canvas.Clear(SKColors.White);
 			using var paint = new SKPaint { Color = SKColors.Black };
 			using var font = new SKFont(SKTypeface.Default, 14);
-			canvas.DrawText("Hq", 2, 20, font, paint);
+			canvas.DrawText("Hq", 2, 20, SKTextAlign.Left, font, paint);
 			return $"a picture drawn, {SKTypeface.Default.FamilyName} for text";
 		});
 		Try("text shaping (HarfBuzz)", () =>

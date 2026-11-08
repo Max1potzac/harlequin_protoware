@@ -160,6 +160,9 @@ public class WorkspaceTests
 			window.Frame(0);
 			Assert.False(window.ToolsShown);
 			Assert.False(window.PropertiesShown);
+			Assert.Same(window.Session.Scene.Objects[0], window.Session.SceneState.Selected);   // (the object left is picked)
+			window.Session.SceneState.Selected = null;
+			window.Frame(0);
 			Assert.True(window.ObjectNone.IsEffectivelyVisible);
 			Windows.Shot(window, "workspace-scene");
 			window.Session.SceneState.Selected = window.Session.Scene.Objects[0];
