@@ -1,3 +1,5 @@
+using Animator.Core.Rigging;
+using Animator.Viewer.Tools;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
