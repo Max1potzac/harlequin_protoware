@@ -64,6 +64,9 @@ public sealed partial class MainWindow
 	{
 		LookShapeBox.ItemsSource = Enum.GetValues<LookShape>();
 		ToolTip.SetTip(LookTarget, "Makes this bone (an iris, say) move toward the chosen bone, inside a boundary");
+		ToolTip.SetTip(BoneNumbers[BoneField.Follow], "Look at: how strongly it follows (0.1 = subtle, 1 = straight to the edge)");
+		ToolTip.SetTip(BoneNumbers[BoneField.RangeX], "Look at: how far it can go across");
+		ToolTip.SetTip(BoneNumbers[BoneField.RangeY], "Look at: how far it can go up and down");
 		ToolTip.SetTip(IkLength, "Make this bone the END of an IK chain (hand, foot, tail tip). 2 bones = arm or leg, 1 = aim.");
 		ToolTip.SetTip(IkOn, $"Off: the chain plays its FK keys ({_keys.Describe("ik.toggle")})");
 		ToolTip.SetTip(IkFlip, $"Which way the middle joint (elbow, knee) bends ({_keys.Describe("ik.flip")})");
@@ -106,6 +109,9 @@ public sealed partial class MainWindow
 		{
 			labelled("Look at", LookTarget),
 			labelled("Its shape", LookShapeBox),
+			BoneNumbers[BoneField.Follow],
+			BoneNumbers[BoneField.RangeX],
+			BoneNumbers[BoneField.RangeY],
 			labelled("IK chain", IkLength),
 			labelled("IK target", IkTarget),
 			new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(78, 2, 0, 2), Children = { IkOn, IkFlip } },

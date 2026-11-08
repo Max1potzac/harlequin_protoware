@@ -69,7 +69,7 @@ public sealed partial class MainWindow
 			(BoneField.Rotation, "Rotation °", 1f, float.NegativeInfinity), (BoneField.Length, "Length", 1f, 0f),
 			(BoneField.ScaleX, "Scale X", 0.01f, float.NegativeInfinity), (BoneField.ScaleY, "Scale Y", 0.01f, float.NegativeInfinity),
 			(BoneField.Turn, "Turn °", 1f, float.NegativeInfinity), (BoneField.Tilt, "Tilt °", 1f, float.NegativeInfinity),
-			(BoneField.Follow, "Look follow", 0.05f, 0f), (BoneField.RangeX, "Look range X", 1f, 0f), (BoneField.RangeY, "Look range Y", 1f, 0f)
+			(BoneField.Follow, "Follow", 0.05f, 0f), (BoneField.RangeX, "Range X", 1f, 0f), (BoneField.RangeY, "Range Y", 1f, 0f)
 		})
 		{
 			var f = field;
@@ -78,7 +78,8 @@ public sealed partial class MainWindow
 				v => { if (State.Selected is { } b) _session.TypeBoneValue(b, f, v, _tool.KeepPartsInPlace); }, min);
 		}
 		_boneProps.Children.Add(Labelled("Name", BoneName));
-		foreach (var n in BoneNumbers.Values) _boneProps.Children.Add(n);
+		foreach (var (f, n) in BoneNumbers)
+			if (f is not (BoneField.Follow or BoneField.RangeX or BoneField.RangeY)) _boneProps.Children.Add(n);   // (those go with Look at)
 		_boneProps.Children.Add(Labelled("Parent", _boneParent));
 		_boneProps.Children.Add(_connected);
 		_boneProps.Children.Add(_inheritRotation);
