@@ -47,7 +47,7 @@ public sealed partial class MainWindow
 		Add("edit.delete", "_Delete the selected keys", DeleteKeys);
 		Add("edit.back", "_Back to the scene", LeaveObject);
 
-		Add("play.toggle", "_Play / pause", () => State.Playing = !State.Playing);
+		Add("play.toggle", "_Play / pause", TogglePlaying);
 		Add("play.restart", "Back to the _first frame", Restart);
 		Add("play.back", "A frame _back", () => StepFrames(-1));
 		Add("play.on", "A frame _on", () => StepFrames(+1));
@@ -57,6 +57,7 @@ public sealed partial class MainWindow
 		Add("anim.mode", "_Build / Animate", ToggleAnimate);
 		Add("anim.key", "_Key the pose here", KeyThePose);
 		DefinePickCommands();
+		DefineTimelineCommands();
 		Add("order.forward", "Picked parts a step to the _front", () => ReorderPicked(+1, toEnd: false));
 		Add("order.backward", "Picked parts a step to the _back", () => ReorderPicked(-1, toEnd: false));
 		Add("order.front", "Picked parts in front of everything", () => ReorderPicked(+1, toEnd: true));
@@ -105,7 +106,7 @@ public sealed partial class MainWindow
 				Top("_Edit", "edit.undo", "edit.redo", null, "edit.copy", "edit.paste", "edit.delete", null, "edit.back"),
 				Top("P_ick", "pick.all", "pick.keys", null, "pick.hide", "pick.hideOthers", "pick.showAll", null, "pick.lock", "pick.lockOthers", "pick.unlockAll"),
 				Top("_Playback", "play.toggle", "play.restart", "play.back", "play.on", "play.prevKey", "play.nextKey"),
-				Top("_Animation", "anim.mode", "anim.key", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
+				Top("_Animation", "anim.mode", "anim.key", "anim.autoKey", "anim.event", null, "keys.earlier", "keys.later", "keys.reverse", "time.insert", "time.remove", null, "order.forward", "order.backward", "order.front", "order.back", null, "pose.mirror", "pose.copy", "pose.paste", "pose.pasteMirrored"),
 				Top("_View", "tool.select", "tool.move", "tool.rotate", null, "view.reset", "view.images", "view.bones", "view.onion", null,
 					"view.grid", "view.rulers", "view.guides")
 			}

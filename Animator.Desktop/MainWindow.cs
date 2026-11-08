@@ -75,6 +75,7 @@ public sealed partial class MainWindow : Window
 		Content = BuildLayout();
 		ShowPaintToolKeys();
 		InitAutosave();
+		InitTimelineTools();
 		WireViewport();
 		WireTimeline();
 		WireKeys();
@@ -189,6 +190,7 @@ public sealed partial class MainWindow : Window
 		var paintColumn = new ColumnDefinition(0, GridUnitType.Pixel);
 		var views = new Grid { ColumnDefinitions = { new ColumnDefinition(1, GridUnitType.Star), new ColumnDefinition(4, GridUnitType.Pixel), paintColumn } };
 		views.Children.Add(Viewport);
+		views.Children.Add(_eventFlash);   // (over it: the events passed while playing)
 		_paintSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns, IsVisible = false };
 		Grid.SetColumn(_paintSplitter, 1);
 		views.Children.Add(_paintSplitter);
@@ -234,6 +236,7 @@ public sealed partial class MainWindow : Window
 	{
 		if (_exporting) return;   // (the export poses the scene meanwhile)
 		Tick(dt);
+		UpdateEventFlash();
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
 		SyncToolBar();
@@ -246,6 +249,7 @@ public sealed partial class MainWindow : Window
 	// The time goes on (when playing), and the scene is posed for it
 	internal void Tick(float dt)
 	{
+		State.PlayRange = _settings.LoopPickedFrames ? _timeline.Range : null;   // (just the picked frames, over and over)
 		if (State.Playing && SceneLevel) _session.AdvanceScene(dt * State.Speed);
 		else if (State.Playing) FireEvents(State.Advance(dt));
 		// Unkeyed changes (auto key off) last as long as the playhead stays on their frame

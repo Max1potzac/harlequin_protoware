@@ -172,6 +172,12 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     band on the picked rows; the eye and the lock on each row; the Pick menu and its keys (Ctrl+A,
     Ctrl+Shift+A, H / Shift+H / Alt+H, L / Shift+L / Alt+L); selection sets (a row of them over
     the list, + Set, each one's right-click menu) and bone colours (Colour ▾ in the bone panel).
+12. **The timeline's tools and events**: auto key (Shift+K), only the picked's rows, playback
+    speed and Playback ▾ (back and forth, the picked frames over and over, stopping goes back);
+    the right-click menus and Keys ▾ (a key's curve and easing, keys a frame earlier or later,
+    stretched, reversed; every key at a frame; frames inserted or removed; the picked frames'
+    sequence items); E, Alt+Left / Alt+Right, Alt+= / Alt+-. Event markers added and edited (the
+    event dialog, a double-click), flashed over the viewport while playing.
 
 ### Still to come in step 4
 
@@ -180,11 +186,8 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **The timeline's tools**: auto key on / off; playback speed, back and forth, the picked frames
-   over and over; only the picked's rows, a box over keys, every key at a frame; keys nudged,
-   stretched, reversed, frames inserted or removed at the playhead; the Keys ▾ menu. Event
-   markers added and edited (the event dialog, E) and their flash in the viewport. The graph
-   editor (Curves, Ctrl+G: GraphPanel, Bézier handles, easing).
+1. **The graph editor**: Curves / keys (Ctrl+G: GraphPanel), Bézier handles dragged, the
+   easing presets from there too.
 2. **Frame by frame**: the Drawings rows of the part panel, F5 / F6 / F7 and the frame keys
    (new, copy, longer, shorter); onion skin settings and the light table under the paint editor.
 3. **Meshes**: the Mesh box (a grid over the picture, weights worked out, all on one bone, or
