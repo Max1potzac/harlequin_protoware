@@ -81,7 +81,7 @@ public sealed partial class MainWindow
 		bool locked = LockOps.IsLocked(item);
 		var brush = locked ? LockOnBrush : LockOffBrush;
 		var icon = new Canvas { Width = 12, Height = 12 };
-		icon.Children.Add(new Path { Data = ShackleShape, Stroke = brush, StrokeThickness = 1.4 });
+		icon.Children.Add(new Avalonia.Controls.Shapes.Path { Data = ShackleShape, Stroke = brush, StrokeThickness = 1.4 });
 		var body = new Rectangle { Width = 8, Height = 6, Stroke = brush, StrokeThickness = 1, Fill = locked ? brush : Brushes.Transparent };
 		Canvas.SetLeft(body, 2);
 		Canvas.SetTop(body, 5);
