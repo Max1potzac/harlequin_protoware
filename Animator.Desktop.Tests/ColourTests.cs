@@ -97,12 +97,12 @@ public class ColourTests
 	{
 		var (window, part) = WithPart();
 		Assert.True(window.OpenPaintEditorOn(part));
-		window.Paint.AddColorLayer(ColorAdjustKind.ReplaceColor);
+		window.Session.Paint.AddColorLayer(ColorAdjustKind.ReplaceColor);
 		window.Frame(0);
 		Assert.NotEmpty(window.PaintColourSettings.Children);
 		var tolerance = SliderIn(window.PaintColourSettings, "Tolerance");
 		tolerance.Value = 40;
-		Assert.Equal(0.4f, window.Paint.Layer!.Adjust!.Setup.Tolerance, 2);
+		Assert.Equal(0.4f, window.Session.Paint.Layer!.Adjust!.Setup.Tolerance, 2);
 		Windows.Settle(window);
 		Windows.Shot(window, "colour-paint");
 	}
