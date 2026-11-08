@@ -6,3 +6,4 @@ global using Animator.Core.Scenes;
 global using Animator.Viewer.Files;
 global using Animator.Viewer.Rendering;
 global using Animator.Viewer.Tools;
+global using Animator.Viewer;
