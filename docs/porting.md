@@ -178,6 +178,9 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     stretched, reversed; every key at a frame; frames inserted or removed; the picked frames'
     sequence items); E, Alt+Left / Alt+Right, Alt+= / Alt+-. Event markers added and edited (the
     event dialog, a double-click), flashed over the viewport while playing.
+13. **The graph editor**: Curves on the animation bar, or Ctrl+G: the picked's keys as curves
+    (GraphPanel), keys dragged in time and value, Bézier handles, zoom and move, a right-click on
+    a key (and Keys ▾) for the key menu.
 
 ### Still to come in step 4
 
@@ -186,27 +189,25 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **The graph editor**: Curves / keys (Ctrl+G: GraphPanel), Bézier handles dragged, the
-   easing presets from there too.
-2. **Frame by frame**: the Drawings rows of the part panel, F5 / F6 / F7 and the frame keys
+1. **Frame by frame**: the Drawings rows of the part panel, F5 / F6 / F7 and the frame keys
    (new, copy, longer, shorter); onion skin settings and the light table under the paint editor.
-3. **Meshes**: the Mesh box (a grid over the picture, weights worked out, all on one bone, or
+2. **Meshes**: the Mesh box (a grid over the picture, weights worked out, all on one bone, or
    painted in the viewport, points dragged: where they sit in Build, deform keys in Animate).
    The tool (MeshEditTool) is already in the viewport; its panel isn't.
-4. **IK and following**: IK / FK, switching at a frame, snapping the target, baking into FK,
+3. **IK and following**: IK / FK, switching at a frame, snapping the target, baking into FK,
    flipping the elbow (the ik.* keys); Follow and jiggle (copy and jiggle constraints);
    Follows / detach and the throw / fall helper (Space, the throw dialog).
-5. **Effects and colour**: a part's tint and keyed opacity (blend mode is there already); colour
+4. **Effects and colour**: a part's tint and keyed opacity (blend mode is there already); colour
    layers on an object (hue / saturation, brightness / contrast, tint, colour balance, parts left
    out) and inside a drawing (those and Replace colour, from the paint editor).
-6. **Hitboxes and points**: the Boxes view, boxes and circles of a kind on bones, keyed on and
+5. **Hitboxes and points**: the Boxes view, boxes and circles of a kind on bones, keyed on and
    off, points facing a way, dragged and resized in the viewport; J shows them.
-7. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
+6. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
    clips placed and edited (the clip panel, the scene timeline's right-click menu). New project
    asks what kind (character or animation) and the stage size. Bring in from another object
    (animations and drawings from another object, also as a skin).
-8. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
-9. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
+7. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
+8. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
     undo bringing you back to where an edit was made first (Places); Help (the keyboard and mouse
     window, F1, the engine format, About) and the status bar's mode and last edit; the window's
     size, panel widths and timeline height remembered (Layout); the Paint tool on the tool bar
