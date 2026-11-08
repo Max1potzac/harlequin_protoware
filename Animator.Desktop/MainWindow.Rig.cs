@@ -33,7 +33,7 @@ public sealed partial class MainWindow
 	private IReadOnlyList<Slot> _listedOrder = Array.Empty<Slot>();   // the order the list was made in
 	private bool _listedAnimating;                                    // ...and in which mode
 
-	internal bool ShowingLayers => !SceneLevel && (IsDrawn || _layersView);
+	internal bool ShowingLayers => !SceneLevel && !_colourViewOn && (IsDrawn || _layersView);
 
 	private bool IsDrawn => _session.Active?.Kind == ObjectKind.Drawn;
 
@@ -53,8 +53,8 @@ public sealed partial class MainWindow
 		RigList.AddHandler(PointerMovedEvent, RigMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
 		RigList.AddHandler(PointerReleasedEvent, RigReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
 
-		BonesView.Click += (_, _) => { _layersView = false; RefreshRigList(); };
-		LayersView.Click += (_, _) => { _layersView = true; RefreshRigList(); };
+		BonesView.Click += (_, _) => { _layersView = _colourViewOn = false; RefreshRigList(); };
+		LayersView.Click += (_, _) => { _layersView = true; _colourViewOn = false; RefreshRigList(); };
 		ToolTip.SetTip(BonesView, "The bones as a tree, with the parts on each: drag a part onto a bone to put it there, a bone onto another to hang it there");
 		ToolTip.SetTip(LayersView, "Every part in the order it's drawn, front first: drag one up or down (in Animate: keys the order at the playhead)");
 		_addPart.Click += (_, _) => ShowAddPartMenu(_addPart);
@@ -79,6 +79,7 @@ public sealed partial class MainWindow
 		var views = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Margin = new Thickness(0, 0, 0, 4) };
 		views.Children.Add(BonesView);
 		views.Children.Add(LayersView);
+		views.Children.Add(ColourView);
 		var buttons = new WrapPanel();
 		foreach (var b in new Control[] { _addPart, _bind, _giveBones })
 		{
@@ -93,7 +94,8 @@ public sealed partial class MainWindow
 		DockPanel.SetDock(bottom, Dock.Bottom);
 		panel.Children.Add(top);
 		panel.Children.Add(bottom);
-		panel.Children.Add(RigList);
+		_colourPanel = BuildColourPanel();
+		panel.Children.Add(new Grid { Children = { RigList, _colourPanel } });   // (one or the other)
 		_bottomRigTools = bottom;
 		return panel;
 	}
@@ -204,8 +206,17 @@ public sealed partial class MainWindow
 		bool inside = !SceneLevel;
 		_rigTools.IsVisible = _bottomRigTools.IsVisible = inside;
 		BonesView.IsVisible = inside && !IsDrawn;
-		BonesView.IsChecked = !ShowingLayers;
+		BonesView.IsChecked = !ShowingLayers && !ShowingColour;
 		LayersView.IsChecked = ShowingLayers;
+		ColourView.IsVisible = inside;
+		ColourView.IsChecked = ShowingColour;
+		RigList.IsVisible = !ShowingColour;
+		_colourPanel.IsVisible = ShowingColour;
+		_bind.IsVisible &= !ShowingColour;
+		_addPart.IsVisible = inside && !ShowingColour;
+		_giveBones.IsVisible &= !ShowingColour;
+		SetChips.IsVisible &= !ShowingColour;
+		if (ShowingColour) FillColourPanel();
 		_bind.IsVisible = inside && !IsDrawn;
 		_giveBones.IsVisible = inside && IsDrawn;
 		KeepPartsBox.IsVisible = KeepAnimationsBox.IsVisible = inside && !IsDrawn;

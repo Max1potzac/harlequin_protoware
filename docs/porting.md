@@ -191,6 +191,10 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     the IK chain (length, target, on, the elbow) and the IK keys and menu (I, Shift+I, T, Shift+T,
     B); Follows (parent, detached, held by another bone, from the playhead on) and the throw /
     fall dialog; Follow and jiggle (copy and jiggle constraints, a slider drag one undo step).
+17. **Effects and colour**: a part's tint (its swatch, keyed in Animate like the opacity); the Rig
+    tab's Colour view (an object's colour layers: + Colour layer, on / off, order, name, the
+    sliders and switches, parts left out); colour layers inside a drawing in the paint editor
+    (+ ◐, Replace colour too).
 
 ### Still to come in step 4
 
@@ -199,17 +203,14 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **Effects and colour**: a part's tint and keyed opacity (blend mode is there already); colour
-   layers on an object (hue / saturation, brightness / contrast, tint, colour balance, parts left
-   out) and inside a drawing (those and Replace colour, from the paint editor).
-2. **Hitboxes and points**: the Boxes view, boxes and circles of a kind on bones, keyed on and
+1. **Hitboxes and points**: the Boxes view, boxes and circles of a kind on bones, keyed on and
    off, points facing a way, dragged and resized in the viewport; J shows them.
-3. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
+2. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
    clips placed and edited (the clip panel, the scene timeline's right-click menu). New project
    asks what kind (character or animation) and the stage size. Bring in from another object
    (animations and drawings from another object, also as a skin).
-4. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
-5. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
+3. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
+4. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
     undo bringing you back to where an edit was made first (Places); Help (the keyboard and mouse
     window, F1, the engine format, About) and the status bar's mode and last edit; the window's
     size, panel widths and timeline height remembered (Layout); the Paint tool on the tool bar

@@ -187,6 +187,7 @@ public sealed partial class MainWindow
 		layerButtons.Children.Add(B("−", () => Paint.DeleteLayer()));
 		layerButtons.Children.Add(B("▲", () => Paint.MoveLayer(+1)));
 		layerButtons.Children.Add(B("▼", () => Paint.MoveLayer(-1)));
+		layerButtons.Children.Add(BuildPaintColourButton());
 		LayerList.SelectionChanged += (_, _) =>
 		{
 			if (_syncingPaint || LayerList.SelectedItem is not ListBoxItem { Tag: AssetLayer layer }) return;
@@ -204,7 +205,7 @@ public sealed partial class MainWindow
 			Width = 190,
 			Margin = new Thickness(6, 0, 0, 0),
 			Spacing = 4,
-			Children = { new TextBlock { Text = "Layers", FontWeight = FontWeight.SemiBold }, LayerList, layerButtons, LayerName, new TextBlock { Text = "Opacity" }, _layerOpacity }
+			Children = { new TextBlock { Text = "Layers", FontWeight = FontWeight.SemiBold }, LayerList, layerButtons, LayerName, new TextBlock { Text = "Opacity" }, _layerOpacity, PaintColourSettings }
 		};
 
 		// The canvas
