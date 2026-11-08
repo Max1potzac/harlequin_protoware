@@ -10,7 +10,7 @@ throughout.
 | 1 | **Animator.Engine**: everything that isn't a window (drawing, painting, imports, exports, the project file, the editing state) moved out of Animator.Viewer into a plain .NET library, built on Linux by CI | done |
 | 2 | **A command-line Harlequin** (`harlequin`, see [cli.md](cli.md)) on the engine: open and save projects, import Animate and Photoshop files, bring heads (or other parts) in from other Animate projects as skins, render a frame or a sheet of skins to a picture, export. CI builds it for Linux and Windows and publishes it as a release download. | done |
 | 3 | **Editing logic out of the window code** (the session, the tools, the panels and the viewport, see below): the work done by MainWindow's partial files (file, scene, rig, skins, timeline, poses…) into engine classes the window calls, a part at a time, each with tests | done |
-| 4 | **An Avalonia editor** (Animator.Desktop) on the engine, built panel by panel next to the WPF one, with headless UI tests | |
+| 4 | **An Avalonia editor** (Animator.Desktop) on the engine, built panel by panel next to the WPF one, with headless UI tests | done |
 | 5 | **Parity**, then the Avalonia editor becomes the one released (for Windows too), and the WPF one is retired | |
 
 ## Why this order
@@ -215,18 +215,17 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     animation, Build or Animate, painting); Edit > History (Ctrl+Alt+Z: every step, click one to
     go back or on to it); Help: Keyboard and mouse (F1, following where you are), the user
     manual, the engine format, About; the status line's mode and last edit.
+22. **The shell, part 2**: the window's place and size, the panels' widths, the timeline's height
+    and the Rig tab's view remembered (Layout); the Paint tool on the tool bar (4: one click on a
+    part paints it); the View menu's check marks, pixel filtering, snapping to the grid and the
+    guides, locking and clearing the guides, the grid's size; themes: Dark, Light, High contrast
+    and theme files (the Windows editor's JSON, Settings > Appearance > Theme files…). The
+    animation bar in two rows (the animation, then playing it) with New, Duplicate and Delete
+    under its ▾; the Mesh box folded until a part has a mesh.
 
-### Still to come in step 4
+### Step 4 is done
 
-What the Windows editor has that this one doesn't yet, panel by panel (Animator.Viewer/Shell,
-checked against Animator.Desktop after the sound). The logic is mostly the engine's already
-(step 3); what's missing is the window side. In the order that would make the editor usable for
-whole jobs soonest:
+Everything the Windows editor's shell has is in Animator.Desktop (the list above).
 
-1. **The rest of the shell**: the window's size, panel widths and timeline height remembered
-   (Layout); the Paint tool on the tool bar (4); the view toggles still missing (pixel filtering,
-   snap to grid / guides, lock the guides). The Windows editor's high-contrast theme and theme
-   files.
-
-Step 5 can start once these are in: using this editor for real work alongside the Windows one,
+Step 5 can start: using this editor for real work alongside the Windows one,
 fixing what's different, and then retiring Animator.Viewer.

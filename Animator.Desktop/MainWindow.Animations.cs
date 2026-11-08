@@ -51,8 +51,8 @@ public sealed partial class MainWindow
 		Add(AnimLength);
 		Add(Label("FPS"));
 		Add(AnimFps);
-		Add(AnimLoop);
 		row = second;
+		Add(AnimLoop);
 		var mixer = new Button { Content = "Mixer…" };
 		ToolTip.SetTip(mixer, "The animations together: on tracks over each other, and fades from one to another tried out and kept");
 		mixer.Click += (_, _) => OpenMixer();
