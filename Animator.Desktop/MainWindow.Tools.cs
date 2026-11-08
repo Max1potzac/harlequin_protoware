@@ -44,7 +44,7 @@ public sealed partial class MainWindow
 		public const string Paint = "M20.5,3.5 C19.9,2.9 19,2.9 18.4,3.5 L10.2,11.7 L12.3,13.8 L20.5,5.6 C21.1,5 21.1,4.1 20.5,3.5 Z M9.2,12.8 C7.2,12.8 5.6,14.4 5.6,16.4 C5.6,17.9 4.6,19.2 3,19.6 C4.3,20.8 6,21.5 7.8,21.5 C10.8,21.5 13.2,19.1 13.2,16.1 C13.2,15.6 13.1,15.2 13,14.8 Z";
 		public const string Build = "M14.5,2.5 L21.5,9.5 L19.5,11.5 L17.5,9.5 L15.8,11.2 L12.8,8.2 L14.5,6.5 L12.5,4.5 Z M11.4,9.6 L14.4,12.6 L5.2,21.8 C4.4,22.6 3.1,22.6 2.2,21.8 C1.4,20.9 1.4,19.6 2.2,18.8 Z";
 		public const string Animate = "M7,4 L20,12 L7,20 Z";
-		public const string Bones = "M6.5,17 L9.5,10.5 L19.5,4.5 L13.5,14.5 Z M2,20 A2,2 0 1 0 6,20 A2,2 0 1 0 2,20 Z";
+		public const string Bones = "F1 M6,10.5 H18 V13.5 H6 Z M2.5,9.5 A2.5,2.5 0 1 1 7.5,9.5 A2.5,2.5 0 1 1 2.5,9.5 Z M2.5,14.5 A2.5,2.5 0 1 1 7.5,14.5 A2.5,2.5 0 1 1 2.5,14.5 Z M16.5,9.5 A2.5,2.5 0 1 1 21.5,9.5 A2.5,2.5 0 1 1 16.5,9.5 Z M16.5,14.5 A2.5,2.5 0 1 1 21.5,14.5 A2.5,2.5 0 1 1 16.5,14.5 Z";   // (F1: overlaps filled, not cut out)
 		public const string Pictures = "M2.5,4.5 H21.5 V19.5 H2.5 Z M4.5,6.5 V17.5 H19.5 V6.5 Z M6,16 L10,10.5 L13,14 L15,12 L18,16 Z M14.5,9 A1.5,1.5 0 1 0 17.5,9 A1.5,1.5 0 1 0 14.5,9 Z";
 		public const string Onion = "M10,8 H21 V20 H10 Z M6,5 H17 V6.5 H7.5 V16 H6 Z M2,2 H13 V3.5 H3.5 V12 H2 Z";
 		public const string Hitboxes = "M3,3 H21 V21 H3 Z M5,5 V19 H19 V5 Z M10,12 A2,2 0 1 0 14,12 A2,2 0 1 0 10,12 Z";
@@ -72,10 +72,16 @@ public sealed partial class MainWindow
 	// An icon on the 24 × 24 square (its corners marked, so every icon is scaled alike)
 	private static PathIcon MakeIcon(string data, double size = 16) => new()
 	{
-		Data = StreamGeometry.Parse("M0,0 L0,0 Z M24,24 L24,24 Z " + data),
+		Data = IconGeometry(data),
 		Width = size,
 		Height = size
 	};
+
+	private static Geometry IconGeometry(string data)
+	{
+		string fill = data.StartsWith("F1 ", StringComparison.Ordinal) ? "F1 " : "";   // (how overlaps fill goes first)
+		return StreamGeometry.Parse(fill + "M0,0 L0,0 Z M24,24 L24,24 Z " + data[fill.Length..]);
+	}
 
 	private static ToggleButton IconToggle(string icon, string tip)
 	{
@@ -242,7 +248,7 @@ public sealed partial class MainWindow
 		if (_shownPlaying != State.Playing)
 		{
 			_shownPlaying = State.Playing;
-			_playIcon.Data = StreamGeometry.Parse("M0,0 L0,0 Z M24,24 L24,24 Z " + (State.Playing ? Icons.Pause : Icons.Play));
+			_playIcon.Data = IconGeometry(State.Playing ? Icons.Pause : Icons.Play);
 		}
 		_sceneButton.Content = scene ? "Edit ▸" : $"◂ Scene ({_keys.Gesture("edit.back")})";
 		_sceneButton.IsEnabled = !scene || PickedObject != null;
