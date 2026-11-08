@@ -106,6 +106,7 @@ public class TimelineToolsTests
 		Assert.Equal(new[] { 1, 11 }, SelectedFrames(window).Distinct());
 		state.Undo.Undo();
 		state.Undo.Undo();
+		Click(window.FrameMenu(0, null), "Select every key from frame 0 on");   // (an undo leaves the selection as it was)
 		Assert.Equal(new[] { 0, 10 }, SelectedFrames(window).Distinct());
 
 		// Alt+=: a frame inserted after the playhead (the keys after it move on), Alt+-: taken out
