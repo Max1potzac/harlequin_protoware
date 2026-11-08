@@ -238,6 +238,7 @@ public sealed partial class MainWindow : Window
 		Tick(dt);
 		UpdateEventFlash();
 		SyncColourPanels();
+		SyncBoxesPanel();
 		SyncOnionUi();
 		Viewport.InvalidateVisual();
 		TimelineView.InvalidateVisual();
