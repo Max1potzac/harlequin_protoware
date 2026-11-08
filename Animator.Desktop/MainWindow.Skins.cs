@@ -102,6 +102,7 @@ public sealed partial class MainWindow
 		});
 		Add($"All the colour layers, as one skin ({rig.ColorLayers.Count})", rig.ColorLayers.Count > 0,
 			() => SelectSkin(_session.MakeSkinFromColours(rig.ColorLayers.ToList()), "The colour layers apply only while it's on."));
+		Add("From another object…", Scene.Objects.Count > 1, () => _ = BringIn());
 		menu.Items.Add(new Separator());
 		Add("A new skin, to edit", true, () =>
 		{

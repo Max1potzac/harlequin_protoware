@@ -199,6 +199,14 @@ pictures with the run and on the branch `shots/<branch>`, and publishes the edit
     picked part; + Point; name, bone, kind, shape, on at rest, on / off from the playhead in
     Animate, fit round the picked part, their numbers); picked, moved and resized in the viewport
     (a drag one undo step); J shows them without the view.
+19. **The scene**: at scene level the Rig tab lists the objects (front first) under + Object (rigged,
+    drawn blank or from a picture, from a file), Copy, Delete, ▲ / ▼ and Edit; the picked object's
+    flags (visible, locked, export, onion), preview animation and what carries it; the picked
+    clip (animation, start, length, first frame, loop, fade in, as mixed, edit in place, delete);
+    the scene's bar (length, fit to clips, loop, stage, FPS); the scene timeline's right-click
+    menu; Delete and Enter at scene level. File > New asks what kind (a character, from the demo
+    one or not; an animation with its stage and length) and the frame rate. Edit > Bring in from
+    another object (also + Skin ▾) and from Animate projects.
 
 ### Still to come in step 4
 
@@ -207,16 +215,12 @@ checked against Animator.Desktop after the sound). The logic is mostly the engin
 (step 3); what's missing is the window side. In the order that would make the editor usable for
 whole jobs soonest:
 
-1. **The scene**: objects added, renamed, deleted; the scene settings bar (stage, length, loop);
-   clips placed and edited (the clip panel, the scene timeline's right-click menu). New project
-   asks what kind (character or animation) and the stage size. Bring in from another object
-   (animations and drawings from another object, also as a skin).
-2. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
-3. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
+1. **The mixer**: animations on tracks, fades tried out and kept (the mixer window).
+2. **The rest of the shell**: Open recent and Reopen; the history window (every step, Ctrl+Alt+Z);
     undo bringing you back to where an edit was made first (Places); Help (the keyboard and mouse
     window, F1, the engine format, About) and the status bar's mode and last edit; the window's
     size, panel widths and timeline height remembered (Layout); the Paint tool on the tool bar
-    (4); the view toggles still missing (pixel filtering, hitboxes, snap to grid / guides, lock
+    (4); the view toggles still missing (pixel filtering, snap to grid / guides, lock
     the guides). The Windows editor's high-contrast theme and theme files.
 
 Step 5 can start once these are in: using this editor for real work alongside the Windows one,

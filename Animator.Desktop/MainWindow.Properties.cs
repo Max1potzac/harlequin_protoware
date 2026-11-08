@@ -180,6 +180,7 @@ public sealed partial class MainWindow
 		}
 		_objectProps.Children.Add(Labelled("Name", ObjectName));
 		foreach (var n in ObjectNumbers.Values) _objectProps.Children.Add(n);
+		_objectProps.Children.Add(BuildObjectSettings());
 		ObjectName.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { RenameShown(); Viewport.Focus(); } };
 		ObjectName.LostFocus += (_, _) => RenameShown();
 
@@ -253,6 +254,7 @@ public sealed partial class MainWindow
 			SyncPartTint(shownSlot);
 		}
 		if (shown is Bone) SyncConstraintRows();
+		if (shown is SceneObject) SyncObjectSettings();
 		SyncMeshPanel();
 		foreach (var n in _numbers)
 			if (n.IsEffectivelyVisible) n.Refresh();

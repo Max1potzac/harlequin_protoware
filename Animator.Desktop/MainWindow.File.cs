@@ -13,14 +13,50 @@ public sealed partial class MainWindow
 
 	private bool _closingConfirmed;
 
-	// A new character: one bone to build on
+	// What the new project dialog is answered with (the tests answer it); null: the user's answer
+	internal Func<NewProjectWindow, Task<bool>>? AnswerNewProject { get; set; }
+
+	// A character (the demo one, or one bone to build on), or an animation (a stage, a length,
+	// and a blank background to paint)
 	internal async Task NewProject()
 	{
 		if (!await ConfirmDiscard()) return;
-		var (skeleton, animation) = NewCharacter();
+		var dialog = new NewProjectWindow(State.Fps);
+		bool ok = AnswerNewProject is { } answer ? await answer(dialog) : await dialog.ShowDialog<bool>(this);
+		if (!ok) return;
+		ClosePaintEditor();
 		_assets.Clear();
-		_session.Replace(CharacterScene(skeleton, animation), null, null, sceneLevel: false);
+		Scene scene;
+		if (dialog.Kind == ProjectKind.Animation) scene = AnimationScene(dialog.StageWidth, dialog.StageHeight, dialog.LengthFrames, dialog.Fps);
+		else
+		{
+			var (skeleton, animation) = dialog.UseDemo ? DemoCharacter.Build(_assets) : NewCharacter();
+			scene = CharacterScene(skeleton, animation);
+		}
+		scene.Fps = dialog.Fps;
+		_session.Replace(scene, null, null, sceneLevel: scene.Kind == ProjectKind.Animation);   // (an animation starts at the scene)
 		AfterReplace();
+	}
+
+	// A scene to play over time: a stage, its length, and a blank background the stage's size
+	// (locked: clicks on the stage go to the objects in front; open it from the list to paint)
+	private Scene AnimationScene(int width, int height, int frames, int fps)
+	{
+		var scene = new Scene
+		{
+			Fps = fps,
+			Kind = ProjectKind.Animation,
+			StageWidth = width,
+			StageHeight = height,
+			Duration = frames / (float)fps,
+			Loop = true
+		};
+		var background = SceneOps.AddDrawn(scene, "background", Vector2.Zero);
+		background.Locked = true;
+		var drawing = new Asset { Name = "background", Width = width, Height = height };
+		_assets.AddLayer(drawing, "Base", null);   // blank, to paint
+		PartOps.CreatePart(background.Skeleton, background.Skeleton.Roots[0], drawing, "background", Vector2.Zero, 0f);
+		return scene;
 	}
 
 	internal async Task OpenProject()
