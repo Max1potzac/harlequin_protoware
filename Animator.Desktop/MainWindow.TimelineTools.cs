@@ -66,7 +66,7 @@ public sealed partial class MainWindow
 		var keys = new Button { Content = "Keys ▾" };
 		ToolTip.SetTip(keys, "The timeline's right-click menu: for the selected keys, or else for the frame at the playhead");
 		keys.Click += (_, _) => KeysMenu(keys);
-		return new Control[] { AutoKeyBox, OnlyPickedBox, SpeedBox, playback, keys };
+		return new Control[] { BuildCurvesBox(), AutoKeyBox, OnlyPickedBox, SpeedBox, playback, keys };
 	}
 
 	// The settings these go by (at the start)
@@ -154,6 +154,12 @@ public sealed partial class MainWindow
 	private void KeysMenu(Control under)
 	{
 		if (SceneLevel) return;
+		if (ShowingGraph)
+		{
+			if (State.SelectedKeys.Count > 0) KeyMenu(null).Open(under);
+			else AnimHint("Select a key in the curves first.");
+			return;
+		}
 		var menu = State.SelectedKeys.Count > 0 ? KeyMenu(_timeline.Range) : FrameMenu(State.Frame, _timeline.Range);
 		menu.Open(under);
 	}
@@ -316,6 +322,7 @@ public sealed partial class MainWindow
 
 	private void DefineTimelineCommands()
 	{
+		Add("anim.graph", "_Curves / keys", () => { if (!SceneLevel) SetGraphMode(!_graphMode); });
 		Add("anim.event", "Add an _event at the playhead…", () => _ = AddEventAt(State.Frame));
 		Add("anim.autoKey", "_Auto key on / off", () => { if (!SceneLevel) SetAutoKey(!State.AutoKey); });
 		Add("keys.earlier", "The selected keys a frame _earlier", () => { if (!SceneLevel) _timeline.Nudge(-1); });
