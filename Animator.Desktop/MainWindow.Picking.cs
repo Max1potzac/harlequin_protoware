@@ -27,7 +27,8 @@ public sealed partial class MainWindow
 	private static readonly IBrush EyeOwnBrush = new ImmutableSolidColorBrush(Color.FromRgb(230, 230, 235));
 	private static readonly IBrush EyeOnBrush = new ImmutableSolidColorBrush(Color.FromRgb(140, 146, 158));
 	private static readonly IBrush EyeUnderBrush = new ImmutableSolidColorBrush(Color.FromRgb(90, 94, 104));
-	private static readonly Geometry ShackleShape = Geometry.Parse("M4,5.5 V3.5 A2,2 0 0 1 8,3.5 V5.5");
+	// (made when drawn: a geometry needs the platform, which isn't there when the class is first touched)
+	private static Geometry ShackleShape => Geometry.Parse("M4,5.5 V3.5 A2,2 0 0 1 8,3.5 V5.5");
 
 	internal readonly WrapPanel SetChips = new() { Margin = new Thickness(0, 0, 0, 2) };
 	private List<object> _shownPicks = new();   // what the rows show as picked
