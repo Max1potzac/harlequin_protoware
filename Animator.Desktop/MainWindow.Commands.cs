@@ -14,6 +14,7 @@ public sealed partial class MainWindow
 	private ToggleButton _animateButton = null!;
 	private ToggleButton _playButton = null!;
 	private Button _sceneButton = null!;
+	private Button _keyButton = null!;
 
 	// One command (by its key map id): its menu text, and what it does
 	private sealed record Command(string Name, string Header, Action Run);
@@ -143,9 +144,9 @@ public sealed partial class MainWindow
 		_animateButton = new ToggleButton { Content = "Animate" };
 		_animateButton.Click += (_, _) => ToggleAnimate();
 		bar.Children.Add(_animateButton);
-		var key = new Button { Content = "Key" };
-		key.Click += (_, _) => KeyThePose();
-		bar.Children.Add(key);
+		_keyButton = new Button { Content = "Key" };
+		_keyButton.Click += (_, _) => KeyThePose();
+		bar.Children.Add(_keyButton);
 		_playButton = new ToggleButton { Content = "Play" };
 		_playButton.Click += (_, _) => State.Playing = !State.Playing;
 		bar.Children.Add(_playButton);
@@ -169,7 +170,7 @@ public sealed partial class MainWindow
 			button.IsEnabled = !SceneLevel;
 		}
 		_animateButton.IsChecked = State.AnimateMode;
-		_animateButton.IsEnabled = !SceneLevel;
+		_animateButton.IsEnabled = _keyButton.IsEnabled = !SceneLevel;
 		_playButton.IsChecked = State.Playing;
 		_sceneButton.Content = SceneLevel ? "Edit ▸" : "◀ Scene";
 		_sceneButton.IsEnabled = !SceneLevel || PickedObject != null;
