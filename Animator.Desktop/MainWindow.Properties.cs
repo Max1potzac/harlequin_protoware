@@ -67,7 +67,9 @@ public sealed partial class MainWindow
 		{
 			(BoneField.X, "X", 1f, float.NegativeInfinity), (BoneField.Y, "Y", 1f, float.NegativeInfinity),
 			(BoneField.Rotation, "Rotation °", 1f, float.NegativeInfinity), (BoneField.Length, "Length", 1f, 0f),
-			(BoneField.ScaleX, "Scale X", 0.01f, float.NegativeInfinity), (BoneField.ScaleY, "Scale Y", 0.01f, float.NegativeInfinity)
+			(BoneField.ScaleX, "Scale X", 0.01f, float.NegativeInfinity), (BoneField.ScaleY, "Scale Y", 0.01f, float.NegativeInfinity),
+			(BoneField.Turn, "Turn °", 1f, float.NegativeInfinity), (BoneField.Tilt, "Tilt °", 1f, float.NegativeInfinity),
+			(BoneField.Follow, "Follow", 0.05f, 0f), (BoneField.RangeX, "Range X", 1f, 0f), (BoneField.RangeY, "Range Y", 1f, 0f)
 		})
 		{
 			var f = field;
@@ -76,11 +78,13 @@ public sealed partial class MainWindow
 				v => { if (State.Selected is { } b) _session.TypeBoneValue(b, f, v, _tool.KeepPartsInPlace); }, min);
 		}
 		_boneProps.Children.Add(Labelled("Name", BoneName));
-		foreach (var n in BoneNumbers.Values) _boneProps.Children.Add(n);
+		foreach (var (f, n) in BoneNumbers)
+			if (f is not (BoneField.Follow or BoneField.RangeX or BoneField.RangeY)) _boneProps.Children.Add(n);   // (those go with Look at)
 		_boneProps.Children.Add(Labelled("Parent", _boneParent));
 		_boneProps.Children.Add(_connected);
 		_boneProps.Children.Add(_inheritRotation);
 		_boneProps.Children.Add(_inheritScale);
+		foreach (var row in BuildConstraintRows(Labelled)) _boneProps.Children.Add(row);
 		var boneButtons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 6, 0, 0) };
 		var addBone = new Button { Content = "+ Bone on it" };
 		addBone.Click += (_, _) => { if (!State.AnimateMode && State.Selected is { } b) _session.AddBone(b, _tool.SnapJoints); };
@@ -243,6 +247,7 @@ public sealed partial class MainWindow
 		object? shown = SceneLevel ? _session.SceneState.Selected : (object?)State.SelectedSlot ?? State.Selected;
 		if (shown != _shownInProps) FillProperties(shown);
 		if (shown is Slot) SyncDrawingRows();
+		if (shown is Bone) SyncConstraintRows();
 		SyncMeshPanel();
 		foreach (var n in _numbers)
 			if (n.IsEffectivelyVisible) n.Refresh();
@@ -279,6 +284,7 @@ public sealed partial class MainWindow
 					_connected.IsEnabled = bone.Parent != null;
 					_inheritRotation.IsChecked = bone.InheritRotation;
 					_inheritScale.IsChecked = bone.InheritScale;
+					FillConstraintRows(bone);
 					break;
 				case Slot slot:
 					PartName.Text = slot.Name;
