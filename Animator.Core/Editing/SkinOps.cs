@@ -1,5 +1,6 @@
 using Animator.Core.Keyframing;
 using Animator.Core.Rigging;
+using Animator.Core.Serialization;
 
 namespace Animator.Core.Editing;
 
@@ -285,6 +286,60 @@ public static class SkinOps
 	}
 
 	// A step earlier (-1) or later (+1) in the list: later ones win where two that are on overlap
+	// A part of the skin's own: its drawings on a part moved onto a copy of that part (on the same
+	// bone, set up and keyed in every animation as the part is, just in front of it), which the
+	// skin shows instead (it hides the part). Then they can be stacked apart from everyone else's:
+	// a skirt in front of the legs, where the other outfits' waist goes behind them. Done already:
+	// that copy. null: the skin has no drawings on the part.
+	public static Slot? OwnPart(Skeleton skeleton, IReadOnlyList<Animation> animations, Skin skin, Slot part)
+	{
+		if (skeleton.FindSlot(OwnPartName(part, skin)) is { } done && skin.Hides.Contains(part.Name)) return done;
+		var drawings = skin.AttachmentsFor(part.Name).ToList();
+		if (drawings.Count == 0) return null;
+		var own = new Slot(PartOps.UniqueSlotName(skeleton, OwnPartName(part, skin)), part.Bone)
+		{
+			SetupAttachment = part.SetupAttachment,
+			Offset = part.Offset,
+			Rotation = part.Rotation,
+			Scale = part.Scale,
+			Blend = part.Blend,
+			SetupColor = part.SetupColor,
+			SetupOpacity = part.SetupOpacity,
+			Hidden = part.Hidden
+		};
+		skeleton.Slots.Insert(skeleton.Slots.IndexOf(part) + 1, own);
+		foreach (var drawing in drawings)
+		{
+			skin.Remove(part.Name, drawing.Name);
+			skin.Set(own.Name, drawing);
+		}
+		skin.Hides.Add(part.Name);
+		foreach (var animation in animations)
+		{
+			if (animation.Timelines.Any(t => PartOps.TargetsPart(t) && t.Target == part.Name))
+				foreach (var copy in ProjectMapper.CloneAnimation(animation, animation.Name).Timelines
+					.Where(t => PartOps.TargetsPart(t) && t.Target == part.Name))
+				{
+					copy.Target = own.Name;
+					animation.Timelines.Add(copy);
+				}
+			if (animation.DrawOrder is not { } order) continue;
+			var keys = order.Track.Keys;
+			for (int i = 0; i < keys.Count; i++)
+			{
+				int at = Array.IndexOf(keys[i].Value, part.Name);
+				if (at < 0 || keys[i].Value.Contains(own.Name)) continue;
+				var names = keys[i].Value.ToList();
+				names.Insert(at + 1, own.Name);
+				keys[i] = keys[i] with { Value = names.ToArray() };
+			}
+		}
+		own.ResetToSetup();
+		return own;
+	}
+
+	public static string OwnPartName(Slot part, Skin skin) => $"{part.Name} {skin.Name}";
+
 	public static bool Move(Skeleton skeleton, Skin skin, int direction)
 	{
 		int i = skeleton.Skins.IndexOf(skin), j = i + direction;

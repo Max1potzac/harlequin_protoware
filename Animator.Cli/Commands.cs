@@ -231,10 +231,18 @@ public static class Commands
 		var animation = a.Get("animation") is { } animationName
 			? obj.Animations.FirstOrDefault(x => x.Name == animationName) ?? throw new UsageException($"{obj.Name} has no animation \"{animationName}\".")
 			: null;
+		var skin = a.Get("skin") is { } skinName ? p.Skin(obj, skinName) : null;
 		a.NothingElse();
 		if (moving.Count == 0) throw new UsageException("--parts is needed: the parts to move.");
 		if ((behind == null) == (front == null)) throw new UsageException("Say where: --behind PART or --in-front-of PART.");
 		var other = Part(behind ?? front!);
+		if (skin != null)
+		{
+			// Just while the skin is on: its drawings on those parts onto parts of its own, moved
+			moving = moving.Select(part => SkinOps.OwnPart(sk, obj.Animations, skin, part)
+				?? throw new UsageException($"The skin {skin.Name} has no drawings on {part.Name}.")).ToList();
+			Console.WriteLine($"{skin.Name} draws on {string.Join(", ", moving.Select(s => s.Name))} (its own, in place of the parts it hides).");
+		}
 		if (moving.Contains(other)) throw new UsageException("A part can't go behind or in front of itself.");
 		List<Slot> Placed(IReadOnlyList<Slot> from)
 		{
@@ -286,8 +294,18 @@ public static class Commands
 		var skin = a.Get("skin") is { } skinName ? p.Skin(obj, skinName) : null;
 		var animation = a.Get("animation") is { } animationName
 			? obj.FindAnimation(animationName) ?? throw new UsageException($"{obj.Name} has no animation \"{animationName}\".") : null;
+		var part = a.Get("part") is { } partName
+			? obj.Skeleton.FindSlot(partName) ?? throw new UsageException($"{obj.Name} has no part \"{partName}\".") : null;
 		a.NothingElse();
 		if (to.Length == 0) throw new UsageException("--to is empty.");
+		if (part != null)
+		{
+			string old = part.Name;
+			if (!PartOps.RenamePart(obj.Skeleton, obj.Animations, part, to)) throw new UsageException($"{obj.Name} has a part called \"{to}\" already.");
+			p.Save();
+			Console.WriteLine($"The part {old} is {to} now.");
+			return 0;
+		}
 		if (animation != null)
 		{
 			if (obj.FindAnimation(to) != null) throw new UsageException($"{obj.Name} has an animation called \"{to}\" already.");

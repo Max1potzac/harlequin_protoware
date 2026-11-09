@@ -231,6 +231,66 @@ public class ObjectMergeTests
 		Assert.Null(pirate.ResolveAttachment(hat));
 	}
 
+	// A new part that hangs from the body there (a coat's collar) rides the body here, though it
+	// sits nearer the head
+	[Fact]
+	public void A_skins_new_part_rides_the_part_on_the_bone_it_hangs_from()
+	{
+		var (coat, walks) = Zombie("ice_", 0.2f, hat: false);
+		var (pirate, pirateAnimations) = Zombie("pirate_", 0.1f, hat: false);
+		var body = coat.FindBone("ice_body")!;
+		var collarBone = new Bone { Name = "ice_collar", Length = 5, SetupPosition = new Vector2(58, 0) };
+		body.AddChild(collarBone);
+		var picture = new Asset { Name = "ice_collar", Width = 20, Height = 20 };
+		picture.Layers.Add(new AssetLayer { Name = "Base" });
+		coat.Assets[picture.Id] = picture;
+		coat.Slots.Add(new Slot("ice_collar", collarBone) { SetupAttachment = "ice_collar" });
+		coat.DefaultSkin.Set("ice_collar", new Attachment { Name = "ice_collar", AssetId = picture.Id, Offset = new Vector2(5, 1) });
+		coat.SetToSetupPose();
+		coat.UpdateWorld();
+		var plan = ObjectMerge.Suggest(coat, walks, pirate);
+		plan.AsPlaced = true;
+		plan.SkinName = "ice";
+		plan.SkinParts.UnionWith(new[] { "ice_body", "ice_head", "ice_collar" });
+		plan.NewParts.Add("ice_collar");
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(coat, walks, pirate, pirateAnimations, plan);
+
+		Assert.Equal("pirate_body", Assert.Single(result.NewParts).Bone.Name);
+	}
+
+	// A new part goes where the parts it's drawn with say: a backpack drawn at the very back,
+	// behind everything but a ground swatch, which here is drawn in front of everything. Behind
+	// the body, as there (not in front of the swatch, in front of all).
+	[Fact]
+	public void A_new_part_goes_where_its_neighbours_say_not_where_a_stray_does()
+	{
+		var (camp, walks) = Zombie("camp_", 0.2f, hat: false);
+		var (pirate, pirateAnimations) = Zombie("pirate_", 0.1f, hat: false);
+		Slot Part(Skeleton s, string name, int at)
+		{
+			var a = new Asset { Name = name, Width = 10, Height = 10 };
+			a.Layers.Add(new AssetLayer { Name = "Base" });
+			s.Assets[a.Id] = a;
+			var slot = new Slot(name, s.Roots[0]) { SetupAttachment = name };
+			s.Slots.Insert(at, slot);
+			s.DefaultSkin.Set(name, new Attachment { Name = name, AssetId = a.Id });
+			return slot;
+		}
+		Part(camp, "camp_ground", 0);
+		Part(camp, "camp_backpack", 1);
+		Part(pirate, "pirate_ground", pirate.Slots.Count);
+		var plan = ObjectMerge.Suggest(camp, walks, pirate);
+		plan.SkinName = "camp";
+		plan.SkinParts.UnionWith(new[] { "camp_body", "camp_backpack" });
+		plan.NewParts.Add("camp_backpack");
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(camp, walks, pirate, pirateAnimations, plan);
+
+		var pack = Assert.Single(result.NewParts);
+		Assert.Equal(new[] { pack.Name, "pirate_body", "pirate_head", "pirate_ground" }, pirate.Slots.Select(s => s.Name));
+	}
+
 	[Fact]
 	public void The_parts_on_a_bone_are_found_with_their_accessories()
 	{

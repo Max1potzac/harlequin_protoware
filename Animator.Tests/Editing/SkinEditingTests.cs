@@ -10,6 +10,64 @@ public class SkinEditingTests
 	private static void AssertNear(Vector2 expected, Vector2 actual, float tolerance = 1e-2f) =>
 		Assert.True(Vector2.Distance(expected, actual) <= tolerance, $"expected {expected}, got {actual}");
 
+	// A skin's own part: a skirt (the skin's waist) in front of the legs, where the object's own
+	// waist stays behind them; keyed as the waist is, and only while the skin is on
+	[Fact]
+	public void A_skin_stacks_its_drawings_apart_on_a_part_of_its_own()
+	{
+		var skeleton = new Skeleton();
+		var root = new Bone { Name = "root", Length = 10 };
+		skeleton.Roots.Add(root);
+		Asset Picture(string name)
+		{
+			var a = new Asset { Name = name, Width = 10, Height = 10 };
+			a.Layers.Add(new AssetLayer { Name = "Base" });
+			skeleton.Assets[a.Id] = a;
+			return a;
+		}
+		Slot Part(string name)
+		{
+			var slot = new Slot(name, root) { SetupAttachment = name };
+			skeleton.Slots.Add(slot);
+			skeleton.DefaultSkin.Set(name, new Attachment { Name = name, AssetId = Picture(name).Id });
+			return slot;
+		}
+		var waist = Part("waist");
+		var leg = Part("leg");
+		var outfit = SkinOps.MakeSkin(skeleton, "skirt", category: "Body");
+		SkinOps.Show(skeleton, outfit, on: false);
+		var skirt = new Attachment { Name = "waist", AssetId = Picture("skirt").Id };
+		outfit.Set("waist", skirt);
+		var walk = new Animation { Name = "walk", Duration = 1 };
+		var swap = new AttachmentTimeline("waist");
+		swap.Add(0.5f, null);   // (gone halfway)
+		walk.Timelines.Add(swap);
+		walk.GetOrCreateDrawOrder().Add(0, new[] { "leg", "waist" });
+		var animations = new List<Animation> { walk };
+
+		var own = SkinOps.OwnPart(skeleton, animations, outfit, waist)!;
+		Assert.Equal("waist skirt", own.Name);
+		Assert.Same(root, own.Bone);
+		Assert.Equal(new[] { "waist", "waist skirt", "leg" }, skeleton.Slots.Select(s => s.Name));
+		Assert.Contains("waist", outfit.Hides);
+		Assert.Same(skirt, outfit.Get("waist skirt", "waist"));
+		Assert.Null(outfit.Get("waist", "waist"));
+		Assert.NotNull(walk.Find<AttachmentTimeline>("waist skirt"));
+		Assert.Equal(new[] { "leg", "waist", "waist skirt" }, walk.DrawOrder!.Track.Keys[0].Value);
+		Assert.Same(own, SkinOps.OwnPart(skeleton, animations, outfit, waist));   // (made once)
+		Assert.Null(SkinOps.OwnPart(skeleton, animations, outfit, leg));          // (no drawings of its own there)
+
+		// Off, the object's own waist; on, the skirt (keyed as the waist is), and no waist
+		skeleton.SetToSetupPose();
+		Assert.Null(skeleton.ResolveAttachment(own));
+		SkinOps.Show(skeleton, outfit);
+		skeleton.SetToSetupPose();
+		Assert.Same(skirt, skeleton.ResolveAttachment(own));
+		Assert.Null(skeleton.ResolveAttachment(waist));
+		walk.Apply(skeleton, 0.75f);
+		Assert.Null(skeleton.ResolveAttachment(own));
+	}
+
 	[Fact]
 	public void A_skins_own_copy_is_made_from_what_shows_and_turns_the_skin_on()
 	{

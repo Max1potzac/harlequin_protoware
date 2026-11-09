@@ -193,18 +193,36 @@ public static class ObjectMerge
 				SetupColor = s.SetupColor,
 				SetupOpacity = s.SetupOpacity
 			};
-			// In the draw order just in front of the part the one below it went to
-			int at = 0;
-			for (int j = i - 1; j >= 0; j--)
-				if (parts.GetValueOrDefault(source.Slots[j].Name) is { } below && target.FindSlot(below) is { } belowSlot)
-				{
-					at = target.Slots.IndexOf(belowSlot) + 1;
-					break;
-				}
-			target.Slots.Insert(at, slot);
+			target.Slots.Insert(PlaceAmong(i), slot);
 			parts[s.Name] = slot.Name;
 			added.Add(slot);
 		}
+
+		// Where a new part goes in the draw order (source.Slots[i]'s): just in front of the part
+		// the one below it there went to, or behind the one above it. Where those two disagree (a
+		// stray drawn behind it there and in front of everything here: a ground swatch, the
+		// particles' picture), wherever fewest of the parts it's drawn with there end up on the
+		// wrong side of it here, the nearest such place to the one below.
+		int PlaceAmong(int i)
+		{
+			var below = new List<int>();   // where they are here, nearest first
+			var above = new List<int>();
+			for (int j = i - 1; j >= 0; j--)
+				if (Here(j) is int k) below.Add(k);
+			for (int j = i + 1; j < source.Slots.Count; j++)
+				if (Here(j) is int k) above.Add(k);
+			if (below.Count > 0 && (above.Count == 0 || below[0] < above[0])) return below[0] + 1;
+			if (below.Count == 0) return above.Count > 0 ? above[0] : 0;
+			int best = 0, fewest = int.MaxValue, near = below[0] + 1;
+			for (int at = 0; at <= target.Slots.Count; at++)
+			{
+				int wrong = below.Count(k => k >= at) + above.Count(k => k < at);
+				if (wrong < fewest || wrong == fewest && Math.Abs(at - near) < Math.Abs(best - near)) (best, fewest) = (at, wrong);
+			}
+			return best;
+		}
+		int? Here(int j) => parts.GetValueOrDefault(source.Slots[j].Name) is { } name && target.FindSlot(name) is { } here
+			? target.Slots.IndexOf(here) : null;
 
 		// ----- drawings: each source drawing's name here -----
 		var drawingNames = new Dictionary<(string Part, string Drawing), string>();
@@ -413,7 +431,10 @@ public static class ObjectMerge
 
 	// A skin's new parts (a hat, a hairflap, gum) ride on the part of the skin they sit nearest as
 	// lined up (the skull, the jaw): on its bone, so they move as it moves in this object's own
-	// animations. Called posed by LineUp, before the drawings are placed (they're placed on these bones).
+	// animations. One that hangs from a bone here (through its own bones there: a coat's collar
+	// on the torso) rides the nearest of the skin's parts on that bone, not one that just happens
+	// to sit nearer (the arm over it). Called posed by LineUp, before the drawings are placed
+	// (they're placed on these bones).
 	private static Dictionary<Slot, Slot> Companions(Skeleton source, Skeleton target, MergePlan plan, Dictionary<string, string?> parts, List<Slot> added)
 	{
 		var result = new Dictionary<Slot, Slot>();
@@ -433,7 +454,8 @@ public static class ObjectMerge
 		if (held.Count == 0) return result;
 		foreach (var (rider, at) in riders)
 		{
-			var nearest = held.MinBy(h => Vector2.DistanceSquared(h.At, at)).Here;
+			var onItsBone = rider.Bone.Parent != null ? held.Where(h => h.Here.Bone == rider.Bone).ToList() : new();
+			var nearest = (onItsBone.Count > 0 ? onItsBone : held).MinBy(h => Vector2.DistanceSquared(h.At, at)).Here;
 			rider.Bone = nearest.Bone;
 			result[rider] = nearest;
 		}

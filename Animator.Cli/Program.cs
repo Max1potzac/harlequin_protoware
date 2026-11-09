@@ -56,14 +56,17 @@ namespace Animator.Cli
 			      Those parts show nothing while the skin is on (legs under a long skirt); --not: again.
 
 			  harlequin order <project> --object NAME --parts P,... (--behind Q | --in-front-of Q) [--animation A]
+			      [--skin SKIN]
 			      Parts moved in the draw order: at rest (and in the animations' keys that drew them as
-			      the rest order did), or with --animation, all through that animation.
+			      the rest order did), or with --animation, all through that animation. --skin: just
+			      while that skin is on (its drawings on them go onto parts of its own, moved instead;
+			      a skirt in front of the legs where the others' waist is behind them).
 
 			  harlequin show <project> --object NAME [--skins A,B] [--hide A,B] [--none]
 			      Which skins are on (as the project opens, and in exports).
 
-			  harlequin rename <project> --object NAME [--skin SKIN | --animation A] --to NEW
-			      The object, or one of its skins or animations.
+			  harlequin rename <project> --object NAME [--skin SKIN | --animation A | --part P] --to NEW
+			      The object, or one of its skins, animations or parts.
 			  harlequin remove <project> --object NAME [--animations A,B] [--skins A,B] [--parts P,Q]
 			      Without any of those, the whole object goes.
 
