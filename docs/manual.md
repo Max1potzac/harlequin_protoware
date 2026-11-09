@@ -1115,6 +1115,13 @@ different button.
 These are the defaults. Change any of them in Settings → Keyboard; F1 always shows the current
 ones.
 
+The shortcuts work wherever you last clicked: after picking from a dropdown (the animation, the
+speed) or clicking a button or a checkbox, Space still plays and the arrows still step frames. The
+one exception is a text field you're typing in, where keys are letters: **Enter** keeps what you
+typed, **Esc** puts back what was there, and clicking anywhere outside the field (the viewport,
+the timeline, an empty bit of a panel) keeps what you typed too. Either way the keyboard goes back
+to the viewport. Up and Down still move through a list or a dropdown that has the keyboard.
+
 ### File and edit
 
 | Keys | Command |

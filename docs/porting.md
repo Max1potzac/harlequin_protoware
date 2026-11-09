@@ -242,3 +242,14 @@ Animator.Desktop.Tests). Animator.Tests now runs on the engine alone (net8.0, an
 publishes the editor for Linux and Windows on the Releases page (editor-latest from master,
 editor-preview from other branches). What's left: trying it on real projects, and fixing what
 they show.
+
+Found on real projects:
+
+- **The keyboard after the panels.** A dropdown, button or checkbox used a moment ago kept Space
+  (it opened the dropdown again instead of playing), and a text field could only be left by
+  clicking into another one. Now the window looks at every key first (a tunnel handler): the
+  editor's shortcuts win unless a text field is being typed in or a menu or a dropdown's list is
+  open. In a text field Enter keeps what's typed, Esc puts back what was there, and a click
+  outside it keeps what's typed; the keyboard then goes back to the viewport (or the paint
+  canvas), as it does after picking from a dropdown, and a click on the viewport, the timeline or
+  the paint canvas gives it the keyboard (FocusTests).

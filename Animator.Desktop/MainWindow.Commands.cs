@@ -2,7 +2,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Avalonia.Layout;
+using Avalonia.Threading;
 
 namespace Animator.Desktop;
 
@@ -149,15 +152,99 @@ public sealed partial class MainWindow
 
 	// ======================= the keyboard =======================
 
+	// The keyboard, wherever the focus is:
+	// - a shortcut goes to the editor first, unless a text field is being typed in or a menu or a
+	//   dropdown's list is open: a dropdown, button or checkbox used a moment ago doesn't keep Space
+	//   (play), the arrows (a frame) and the rest to itself. (Up and Down, which are no shortcut,
+	//   still move in a list.)
+	// - in a text field, Enter keeps what's typed and Esc puts back what was there; either way the
+	//   keyboard goes back to the work. A click anywhere outside the field keeps what's typed too.
+	// - a click on the viewport, the timeline or the paint canvas gives it the keyboard; so does
+	//   picking from a dropdown
 	private void WireKeys()
 	{
-		KeyDown += (_, e) =>
+		AddHandler(KeyDownEvent, (_, e) =>
 		{
 			_mods = Input.ModsOf(e.KeyModifiers);
-			if (e.Handled || FocusManager?.GetFocusedElement() is TextBox) return;   // (typing in a field)
+			if (e.Handled) return;
+			var target = e.Source as Visual;
+			if (FieldOf(target) is { } field)
+			{
+				if (e.Key == Key.Escape)
+				{
+					if (_fieldWhenEntered.Field == field) field.Text = _fieldWhenEntered.Text;   // (as it was)
+					LeaveField(field);
+					e.Handled = true;
+				}
+				else if (e.Key == Key.Enter && !field.AcceptsReturn)
+					Dispatcher.UIThread.Post(() => LeaveField(field));   // (after the field's own Enter, which keeps what's typed)
+				return;   // (typing)
+			}
+			if (InMenuOrList(target) || target is ComboBox { IsDropDownOpen: true }) return;   // (choosing)
+			if (e.Key == Key.Enter && target is Button) return;   // (a button's own Enter)
 			if (HandleKey(e.Key, e.KeyModifiers)) e.Handled = true;
-		};
+		}, RoutingStrategies.Tunnel);
 		KeyUp += (_, e) => _mods = Input.ModsOf(e.KeyModifiers);
+
+		// What a field held when it was entered (for Esc)
+		AddHandler(GotFocusEvent, (_, e) =>
+		{
+			if (e.Source is TextBox field) _fieldWhenEntered = (field, field.Text);
+		}, RoutingStrategies.Bubble, handledEventsToo: true);
+
+		// A click (any button): on the viewport, the timeline or the paint canvas, the keyboard goes
+		// there; anywhere else outside the field being typed in, it leaves the field (unless the click
+		// gave it to something else, or opened a menu)
+		AddHandler(PointerPressedEvent, (_, e) =>
+		{
+			if (e.Source is not Visual source) return;
+			if (source.FindAncestorOfType<SkiaView>(includeSelf: true) is { } view)
+			{
+				if (!view.IsKeyboardFocusWithin) view.Focus(NavigationMethod.Pointer);
+				return;
+			}
+			if (InMenuOrList(source)) return;
+			if (FieldOf(FocusManager?.GetFocusedElement() as Visual) is { } field && FieldOf(source) != field)
+				Dispatcher.UIThread.Post(() => LeaveField(field));
+		}, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+		// Picked from a dropdown: the keyboard back to the work (not when it's set from code)
+		AddHandler(SelectingItemsControl.SelectionChangedEvent, (_, e) =>
+		{
+			if (e.Source is not ComboBox combo || !(combo.IsDropDownOpen || combo.IsKeyboardFocusWithin)) return;
+			Dispatcher.UIThread.Post(() =>
+			{
+				if (combo.IsDropDownOpen) return;
+				var focused = FocusManager?.GetFocusedElement() as Visual;
+				if (focused == null || focused == this || combo.IsKeyboardFocusWithin || InMenuOrList(focused)) BackToWork();   // (not if the click gave it to something else)
+			});
+		}, RoutingStrategies.Bubble, handledEventsToo: true);
+	}
+
+	private (TextBox? Field, string? Text) _fieldWhenEntered;
+
+	// The text field this is (or is in), if any
+	private static TextBox? FieldOf(Visual? visual) => visual?.FindAncestorOfType<TextBox>(includeSelf: true);
+
+	// In a menu, or a dropdown's list (in their own little window, or over this one)
+	private bool InMenuOrList(Visual? visual) => visual != null
+		&& (TopLevel.GetTopLevel(visual) != this
+			|| visual.FindAncestorOfType<Menu>(includeSelf: true) != null
+			|| visual.FindAncestorOfType<MenuItem>(includeSelf: true) != null
+			|| visual.FindAncestorOfType<ComboBoxItem>(includeSelf: true) != null);
+
+	// Out of a field (if it's still in it): it keeps what's typed (its own LostFocus commits it), and
+	// the keys go to the work
+	private void LeaveField(TextBox field)
+	{
+		if (field.IsKeyboardFocusWithin) BackToWork();
+	}
+
+	// The keyboard to where the work is: the paint canvas while painting, else the viewport
+	internal void BackToWork()
+	{
+		if (_session.PaintOpen && PaintView.IsEffectivelyVisible) PaintView.Focus();
+		else Viewport.Focus();
 	}
 
 	// The command a key (with these modifiers) runs. True: there was one.
