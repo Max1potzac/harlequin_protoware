@@ -23,13 +23,14 @@ namespace Animator.Viewer;
 // the source's own drawings, copied (hands: see MergePlan.OwnArt). OpenStill: the files are read
 // with still symbols holding moving pieces opened up (a particles frame as parts, see XflImportPlan.Load).
 // Rigid: with Animations, parts with these words keep their joints (limbs: see MergePlan.Rigid).
+// Still: with Animations, parts with these words keep their rest pose (see MergePlan.Still).
 public sealed record BringInOptions(IReadOnlyCollection<Bone> Bones, string Category = "Head", bool Animations = false,
 	bool AsPlaced = true, bool Accessories = true, IReadOnlyCollection<string>? Except = null,
 	IReadOnlyDictionary<string, string>? Map = null, IReadOnlyCollection<string>? Include = null,
 	bool ByParts = true, int Fps = 30, string? ImportedFrom = null, IReadOnlyList<(string Part, string? Parent)>? Rig = null,
 	IReadOnlyCollection<string>? CopyMissing = null, BringInContext? Context = null, IReadOnlyCollection<string>? FitByJoints = null,
 	IReadOnlyCollection<string>? ByPose = null, IReadOnlyCollection<string>? OwnArt = null, bool OpenStill = false,
-	IReadOnlyCollection<string>? Rigid = null);
+	IReadOnlyCollection<string>? Rigid = null, IReadOnlyCollection<string>? Still = null);
 
 // What the files of one bring-in share: every drawing's symbol (theirs, as each is imported, and
 // the target's, from the project it was imported from)
@@ -162,6 +163,8 @@ public static class AnimateBringIn
 			merge.FitByJoints = part => limbs.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
 		if (options.Animations && options.Rigid is { Count: > 0 } rigid)
 			merge.Rigid = part => rigid.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
+		if (options.Animations && options.Still is { Count: > 0 } still)
+			merge.Still = part => still.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
 		if (options.ByPose is { Count: > 0 } posed)
 			merge.ByPose = part => posed.Any(w => part.Contains(w, StringComparison.OrdinalIgnoreCase));
 		if (options.Animations && options.OwnArt is { Count: > 0 } own)
