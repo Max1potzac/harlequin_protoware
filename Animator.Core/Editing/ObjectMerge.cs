@@ -347,9 +347,11 @@ public static class ObjectMerge
 		// A skin's limbs fitted by their joints (see MotionTransfer.FitSkin)
 		if (skin != null && plan.AsPlaced && plan.FitByJoints != null && plan.Symbols != null && plan.Animations.Count == 0)
 		{
-			int fitted = new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, null,
+			var fitted = new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, null,
 				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints).FitSkin(skin);
-			if (fitted > 0) notes.Add($"{fitted} part(s) fitted by their joints, to stay joined as they move here.");
+			if (fitted.Count > 0)
+				notes.Add($"{fitted.Count} part(s) fitted by their joints, to stay joined as they move here: "
+					+ string.Join(", ", fitted.Select(f => $"{f.Part} (moved {f.Moved:0.#}" + (f.Stretched != 1 ? $", turned {f.Turned:0.#}°, stretched ×{f.Stretched:0.##}" : "") + ")")) + ".");
 		}
 		foreach (var slot in added)
 		{

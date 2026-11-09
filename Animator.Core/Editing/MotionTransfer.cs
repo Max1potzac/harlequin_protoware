@@ -124,10 +124,11 @@ public sealed class MotionTransfer
 	// joined in every animation, not just at rest, though their art is joined elsewhere than
 	// this rig's. The joints come from how each one's parts move in its own animations. A part
 	// with no joint to measure, or one too far from ours to be the same, stays as it is.
-	// Returns how many parts were fitted.
-	public int FitSkin(Skin skin)
+	// Returns what was fitted: each part, how far its joint moved, and its turn and stretch.
+	public List<(string Part, float Moved, float Turned, float Stretched)> FitSkin(Skin skin)
 	{
-		if (_symbols == null || _fits == null) return 0;
+		var fitted = new List<(string, float, float, float)>();
+		if (_symbols == null || _fits == null) return fitted;
 		var ours = new JointFinder(_target, _targetAnimations, this, slack: 8f);   // (near enough to fit a picture to)
 		var theirs = new JointFinder(_source, _sourceAnimations, this, slack: 8f);
 		Slot? PartOf(Bone bone) => _target.Slots.FirstOrDefault(s => s.Bone == bone && s.Name == bone.Name && _sourceOf.ContainsKey(s.Name));
@@ -135,7 +136,6 @@ public sealed class MotionTransfer
 		Matrix3x2? SymbolToBone(Slot slot, Attachment? drawing) =>
 			drawing != null && _symbols.TryGetValue(drawing, out var toSymbol) && Matrix3x2.Invert(toSymbol, out var fromSymbol)
 			&& Size(_target, drawing) is { } size ? fromSymbol * drawing.LocalMatrix(size.X, size.Y) : null;
-		int fitted = 0;
 		foreach (var bone in _target.AllBones())
 		{
 			if (bone.Parent == null || PartOf(bone) is not { } t || !_fits(t.Name) || PartOf(bone.Parent) is not { } pt) continue;
@@ -151,6 +151,7 @@ public sealed class MotionTransfer
 			var js = Vector2.Transform(upS.Child, theirSpace);
 			if (Vector2.Distance(jt, js) > 24) continue;   // (that far apart: not the same joint, really)
 			var fit = Matrix3x2.CreateTranslation(jt - js);
+			float turned = 0, stretched = 1;
 			var next = _target.AllBones().Where(b => b.Parent == bone).Select(PartOf).OfType<Slot>().Where(c => _fits(c.Name)).ToList();
 			if (next.Count == 1 && ours.Joint(t, next[0]) is { } downT && theirs.Joint(s, _source.FindSlot(_sourceOf[next[0].Name])!) is { } downS)
 			{
@@ -160,6 +161,7 @@ public sealed class MotionTransfer
 				if (reachT.Length() > 2 && reachS.Length() > 2 && MathF.Abs(angle) < 30 * MathF.PI / 180)   // (more: not the same limb, really)
 				{
 					float k = Math.Clamp(reachT.Length() / reachS.Length(), 0.7f, 1.4f) - 1;
+					(turned, stretched) = (angle * 180 / MathF.PI, k + 1);
 					var u = Vector2.Normalize(reachT);
 					var along = new Matrix3x2(1 + k * u.X * u.X, k * u.X * u.Y, k * u.X * u.Y, 1 + k * u.Y * u.Y, 0, 0);
 					fit = Matrix3x2.CreateTranslation(-js) * Matrix3x2.CreateRotation(angle) * along * Matrix3x2.CreateTranslation(jt);
@@ -172,7 +174,7 @@ public sealed class MotionTransfer
 				if (Matrix3x2.Invert(before, out var undo))
 					PartOps.PlaceFrame(drawing, undo * drawing.LocalMatrix(size.X, size.Y) * fit, Matrix3x2.Identity);
 			}
-			fitted++;
+			fitted.Add((t.Name, Vector2.Distance(jt, js), turned, stretched));
 		}
 		return fitted;
 	}
