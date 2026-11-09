@@ -126,8 +126,8 @@ public sealed class MotionTransfer
 	public int FitSkin(Skin skin)
 	{
 		if (_symbols == null || _fits == null) return 0;
-		var ours = new JointFinder(_target, _targetAnimations, this);
-		var theirs = new JointFinder(_source, _sourceAnimations, this);
+		var ours = new JointFinder(_target, _targetAnimations, this, slack: 8f);   // (near enough to fit a picture to)
+		var theirs = new JointFinder(_source, _sourceAnimations, this, slack: 8f);
 		Slot? PartOf(Bone bone) => _target.Slots.FirstOrDefault(s => s.Bone == bone && s.Name == bone.Name && _sourceOf.ContainsKey(s.Name));
 		// (a part's symbol space → its bone's, for a drawing on it)
 		Matrix3x2? SymbolToBone(Slot slot, Attachment? drawing) =>
@@ -185,8 +185,13 @@ public sealed class MotionTransfer
 		private readonly MotionTransfer _owner;
 		private readonly Dictionary<(Slot, Slot), (Vector2 Parent, Vector2 Child)?> _found = new();
 
-		public JointFinder(Skeleton skeleton, IReadOnlyList<Animation> animations, MotionTransfer owner)
+		private readonly float _slack;
+
+		// slack: how far apart the two points may come on a frame, at most on average, for a
+		// joint (parts in games slide against each other a little as they turn)
+		public JointFinder(Skeleton skeleton, IReadOnlyList<Animation> animations, MotionTransfer owner, float slack = 2f)
 		{
+			_slack = slack;
 			_skeleton = skeleton;
 			_owner = owner;
 			foreach (var animation in animations.Where(a => !a.Name.StartsWith("die", StringComparison.OrdinalIgnoreCase)))   // (parts come apart)
@@ -241,7 +246,7 @@ public sealed class MotionTransfer
 					// Only a joint they really turn about: the two points stay together on every
 					// frame (parts that slide against each other have none)
 					double miss = pairs.Average(f => Vector2.DistanceSquared(Vector2.Transform(j, f.P), Vector2.Transform(k, f.C)));
-					if (Math.Sqrt(miss) < 2.0) joint = (j, k);
+					if (Math.Sqrt(miss) < _slack) joint = (j, k);
 				}
 			}
 			_found[(parent, child)] = joint;
