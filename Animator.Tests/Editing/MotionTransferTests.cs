@@ -81,6 +81,55 @@ public class MotionTransferTests
 		}
 	}
 
+	// A rigid limb: their forearm slides along the arm as it turns (their art joined elsewhere);
+	// here it keeps its elbow where it hangs from the arm, and only turns as theirs does
+	[Fact]
+	public void A_rigid_limb_keeps_its_joint_and_turns_as_theirs()
+	{
+		Skeleton Arm(string p, out Bone lower)
+		{
+			var s = new Skeleton();
+			var root = new Bone { Name = p + "root", Length = 10 };
+			var upper = new Bone { Name = p + "upper", Length = 30, SetupPosition = new Vector2(0, 40) };
+			lower = new Bone { Name = p + "lower", Length = 30, SetupPosition = new Vector2(30, 0) };
+			s.Roots.Add(root);
+			root.AddChild(upper);
+			upper.AddChild(lower);
+			Part(s, p + "upper", upper, new Vector2(5, 0));
+			Part(s, p + "lower", lower, new Vector2(5, 0));
+			s.SetToSetupPose();
+			s.UpdateWorld();
+			return s;
+		}
+		var theirs = Arm("p_", out _);
+		var swing = new Animation { Name = "eat", Duration = 1f };
+		var turn = new RotateTimeline("p_lower");
+		turn.Track.Add(0, 0f);
+		turn.Track.Add(1, 0.6f);
+		swing.Timelines.Add(turn);
+		var slide = new TranslateTimeline("p_lower");
+		slide.Track.Add(0, Vector2.Zero);
+		slide.Track.Add(1, new Vector2(6, 3));
+		swing.Timelines.Add(slide);
+		var ours = Arm("q_", out var ourLower);
+		var ourAnimations = new List<Animation>();
+
+		var plan = ObjectMerge.Suggest(theirs, new[] { swing }, ours);
+		plan.AsPlaced = true;
+		plan.ByParts = true;
+		plan.Fps = 10;
+		plan.Suffix = "_p";
+		plan.Rigid = part => part.Contains("lower");
+		ObjectMerge.Merge(theirs, new[] { swing }, ours, ourAnimations, plan);
+		var copy = ourAnimations.Single(a => a.Name == "eat_p");
+
+		ours.SetToSetupPose();
+		copy.Apply(ours, 1f);
+		ours.UpdatePose();
+		Assert.Equal(new Vector2(30, 0), ourLower.Position);   // (the elbow where it was)
+		Assert.Equal(0.6f, ourLower.Rotation, 3);              // (turned as theirs)
+	}
+
 	[Fact]
 	public void A_matrix_comes_apart_into_its_move_turn_and_scale()
 	{

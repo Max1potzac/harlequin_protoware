@@ -27,7 +27,7 @@ public sealed class MotionTransfer
 	private readonly Dictionary<Slot, (Matrix3x2 Turn, Vector2 Joint, Vector2 Along, float Stretch)> _fit = new();
 	private readonly IReadOnlyList<Animation> _sourceAnimations, _targetAnimations;
 	private readonly Func<string, bool>? _fits;   // the parts (here) fitted by their joints: limbs
-	private readonly Func<string, bool>? _byPose, _own;   // see MergePlan.ByPose, OwnArt
+	private readonly Func<string, bool>? _byPose, _own, _rigid;   // see MergePlan.ByPose, OwnArt, Rigid
 	// The part here's drawing and the source's, shown posed alike, and our pixels → theirs then
 	private readonly Dictionary<string, (Attachment Ours, Attachment Theirs, Matrix3x2 Registration)> _rest = new();
 	private bool _fitted;
@@ -38,8 +38,9 @@ public sealed class MotionTransfer
 		Func<string, string, string> drawingName, Matrix3x2 space,
 		IDictionary<Attachment, Matrix3x2>? symbols = null, Func<Slot, Slot, Attachment, Attachment?>? supply = null,
 		IReadOnlyList<Animation>? sourceAnimations = null, IReadOnlyList<Animation>? targetAnimations = null,
-		Func<string, bool>? fits = null, Func<string, bool>? byPose = null, Func<string, bool>? own = null)
+		Func<string, bool>? fits = null, Func<string, bool>? byPose = null, Func<string, bool>? own = null, Func<string, bool>? rigid = null)
 	{
+		_rigid = rigid;
 		_fits = fits;
 		_byPose = byPose;
 		_own = own;
@@ -296,7 +297,12 @@ public sealed class MotionTransfer
 				if (leader.TryGetValue(bone, out var lead) && frame.TryGetValue(lead, out var at) && Size(_target, at.Drawing) is { } size
 					&& Matrix3x2.Invert(at.Drawing.LocalMatrix(size.X, size.Y), out var toBone)
 					&& Matrix3x2.Invert(parent, out var fromParent))
+				{
 					local[bone] = toBone * at.Plain * fromParent;   // (else as it was the frame before, on its parent)
+					if (_rigid?.Invoke(lead.Name) == true)   // (its joint kept: just the turn)
+						local[bone] = Matrix3x2.CreateScale(bone.SetupScale) * Matrix3x2.CreateRotation(Decompose(local[bone]).Rotation)
+							* Matrix3x2.CreateTranslation(bone.SetupPosition);
+				}
 				world[bone] = local[bone] * parent;
 				var (position, rotation, scale) = Decompose(local[bone]);
 				var keys = boneKeys[bone];

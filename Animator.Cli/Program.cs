@@ -24,7 +24,7 @@ namespace Animator.Cli
 			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
 			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones] [--imported-from FILE]
 			      [--rig FILE] [--copy-missing WORD,...] [--fit WORD,...] [--by-pose WORD,...]
-			      [--own WORD,...] [--open-still] [--verbose]
+			      [--own WORD,...] [--rigid WORD,...] [--open-still] [--verbose]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
@@ -41,6 +41,9 @@ namespace Animator.Cli
 			      through the symbols (their own art, drawn elsewhere in its symbols: a pirate's boots).
 			      --own hand: the animations show their own drawings on those parts (copied as name_WORD),
 			      even where the object has drawings by those names (hands posed otherwise).
+			      --rigid arm,leg,foot,hand: with --animations, those parts' bones keep their joints (each
+			      stays where it hangs from its parent here, only turning as theirs does), so every skin's
+			      limbs stay joined as at rest.
 			      --verbose: which part went where.
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]

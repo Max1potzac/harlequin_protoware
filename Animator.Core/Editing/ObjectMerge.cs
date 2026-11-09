@@ -51,6 +51,11 @@ public sealed class MergePlan
 	// symbols (a pirate's boots, a cowboy's sleeves). A drawing either swaps to is placed from
 	// that, through the two drawings' symbols. Null: none
 	public Func<string, bool>? ByPose { get; set; }
+	// ByParts: the parts here whose bones keep their joints in the animations (limbs: each stays
+	// where it hangs from its parent here, only turning as the source's does), so the parts of any
+	// skin stay joined as they are at rest; the source's own art, joined elsewhere, then shows
+	// them a little apart instead. Null: none (each bone goes where its part shows there)
+	public Func<string, bool>? Rigid { get; set; }
 	// ByParts: the parts here that show the source's own drawings in its animations (copied, named
 	// with the Suffix), even where they have drawings by the same names: hands, whose poses differ
 	// from character to character. Null: none
@@ -253,7 +258,7 @@ public static class ObjectMerge
 		var companions = skin != null && plan.AsPlaced ? Companions(source, target, plan, parts, added) : new Dictionary<Slot, Slot>();
 		var transfer = plan.ByParts && plan.AsPlaced && plan.Animations.Count > 0
 			? new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, plan.CopyMissing != null || plan.OwnArt != null ? Supply : null,
-				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints, plan.ByPose, plan.OwnArt) : null;   // (posed alike now)
+				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints, plan.ByPose, plan.OwnArt, plan.Rigid) : null;   // (posed alike now)
 		// A drawing placed through its symbol (see MergePlan.Symbols): measured against the part
 		// here it lands on, or the one it rides on (its companion), as Animate draws it there.
 		// False: there's nothing to measure it against that way.
