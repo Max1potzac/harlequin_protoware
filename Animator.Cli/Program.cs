@@ -113,7 +113,7 @@ namespace Animator.Cli
 					"attach" => Commands.Attach(new Args(rest, "ride")),
 					"remove" => Commands.Remove(new Args(rest)),
 					"render" => Commands.Render(new Args(rest)),
-					"pose" => Commands.Pose(new Args(rest)),
+					"pose" => Commands.Pose(new Args(rest, "full")),
 					"export" => Commands.Export(new Args(rest, "bake", "pixel-art", "no-events")),
 					_ => throw new UsageException($"There's no command \"{args[0]}\".")
 				};
