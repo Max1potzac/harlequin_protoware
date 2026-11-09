@@ -3,12 +3,10 @@
   <!-- Automatic checks of the core logic. GitHub runs them after every build;
        in Visual Studio: Test > Run All Tests.
        The tests are in folders by what they check: Animation (keys, sequences, colour layers),
-       Rigging, Editing (picking, locks, undo, keys), Scenes, Painting, Import, Export, and
-       Windows (the windows themselves). Files: what the tests read. -->
+       Rigging, Editing (picking, locks, undo), Scenes, Painting, Import, Export. Files: what
+       the tests read. (The editor's windows have tests of their own: Animator.Desktop.Tests.) -->
   <PropertyGroup>
-    <!-- Windows, because some tests check the paint tools of the (WPF) viewer -->
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net8.0</TargetFramework>
     <NoWarn>$(NoWarn);NU1701</NoWarn>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -31,7 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Animator.Core\Animator.Core.csproj" />
-    <ProjectReference Include="..\Animator.Viewer\Animator.Viewer.csproj" />
+    <ProjectReference Include="..\Animator.Engine\Animator.Engine.csproj" />
   </ItemGroup>
 
 </Project>

@@ -34,7 +34,7 @@ public class LayoutTests
 
 			// Remembered the other way: the view and the widths as they are now
 			window.BonesView.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-			window.LeftTabs.SelectedIndex = 2;
+			window.ShowRigView(MainWindow.RigView.Poses);
 			window.RememberLayout();
 			Assert.Equal("poses", s.RigTab);
 			Assert.Equal(320, s.LeftPanelWidth!.Value, 0);
@@ -42,7 +42,7 @@ public class LayoutTests
 		}
 		finally
 		{
-			window.LeftTabs.SelectedIndex = 0;
+			window.ShowRigView(MainWindow.RigView.Bones);
 			s.RigTab = tab;
 			s.LeftPanelWidth = s.RightPanelWidth = s.TimelineHeight = null;
 			s.Save();

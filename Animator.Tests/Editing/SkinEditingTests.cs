@@ -1,4 +1,3 @@
-using System.Windows.Input;
 using Animator.Viewer.Tools;
 using Rig = Animator.Tests.PickingTests.Rig;
 

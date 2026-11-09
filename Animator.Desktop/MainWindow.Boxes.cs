@@ -66,7 +66,7 @@ public sealed partial class MainWindow
 	private Control BuildBoxesPanel()
 	{
 		ToolTip.SetTip(BoxesView, "Hitboxes and points on bones, for the game: boxes and circles of a kind (hurt, hit, block…), keyed on and off in animations, and points (a muzzle, a hand). Drag them in the viewport while this view is open.");
-		BoxesView.Click += (_, _) => { _boxesViewOn = true; _colourViewOn = false; RefreshRigList(); };
+		BoxesView.Click += (_, _) => ShowRigView(RigView.Boxes);
 		ToolTip.SetTip(_addHitbox, "A box or circle on the picked bone (a part picked: on its bone, round it)");
 		ToolTip.SetTip(_addPoint, "A point at the tip of the picked bone: where the game spawns or holds things");
 		_addHitbox.Click += (_, _) => HitboxMenu().ShowAt(_addHitbox);

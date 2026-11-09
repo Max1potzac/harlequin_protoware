@@ -91,7 +91,7 @@ public class SceneTests
 		window.LeaveObject();
 		session.SceneState.Selected = actor;
 		window.Frame(0);
-		Assert.Equal(2, window.RigList.ItemCount);
+		Assert.Equal(2, window.ObjectList.ItemCount);
 		Assert.True(window.CopyObjectButton.IsEnabled);
 		window.ObjectLocked.IsChecked = true;
 		Assert.True(actor.Locked);

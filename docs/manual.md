@@ -51,18 +51,27 @@ Two habits save a lot of reading:
 
 ### Running it
 
-Harlequin runs on 64-bit Windows 10 or 11.
+Harlequin's editor runs on 64-bit Windows 10 or 11 and on Linux (x64); it's built on Avalonia, so
+it looks and works the same on both. A ready-made copy for each is on the Releases page
+(**editor-latest**, built from master; **editor-preview**, from the branch being tried out).
+Unpack it anywhere: you get a **Harlequin** folder (**harlequin** on Linux) with the program,
+`harlequin-editor.exe` (`harlequin-editor` on Linux), and beside it the two libraries it loads
+itself: ANGLE for drawing on Windows (`av_libglesv2.dll`) and OpenAL Soft for sound
+(`soft_oal.dll`, `libopenal.so` on Linux). Everything else is inside the program; the first start
+unpacks a few of its libraries to a cache, so it takes a moment longer than the next ones.
 
-To build a standalone copy from the source, open a terminal in the folder with `Harlequin.sln`
-(you need the .NET 8 SDK) and run:
+To build one yourself from the source, open a terminal in the folder with `Harlequin.sln` (you
+need the .NET 8 SDK) and run, for Windows or Linux:
 
 ```
-dotnet publish Animator.Viewer -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+dotnet publish Animator.Desktop -c Release -r win-x64 -o Harlequin
+dotnet publish Animator.Desktop -c Release -r linux-x64 -o harlequin
 ```
 
-`publish\Animator.Viewer.exe` is then the whole program in one file; rename it if you like.
-For a smaller build, use `--self-contained false`; the computer running it then needs the
-.NET 8 Desktop Runtime installed.
+`harlequin-editor --check` starts nothing, but says whether the libraries it needs load (on
+Windows, give it a file to write to: `harlequin-editor.exe --check check.txt`). Projects
+(`.hqnap`), settings, theme files and recovery copies are the same ones the earlier Windows-only
+editor used, so nothing needs converting.
 
 ### A new project
 
@@ -1105,6 +1114,13 @@ different button.
 
 These are the defaults. Change any of them in Settings → Keyboard; F1 always shows the current
 ones.
+
+The shortcuts work wherever you last clicked: after picking from a dropdown (the animation, the
+speed) or clicking a button or a checkbox, Space still plays and the arrows still step frames. The
+one exception is a text field you're typing in, where keys are letters: **Enter** keeps what you
+typed, **Esc** puts back what was there, and clicking anywhere outside the field (the viewport,
+the timeline, an empty bit of a panel) keeps what you typed too. Either way the keyboard goes back
+to the viewport. Up and Down still move through a list or a dropdown that has the keyboard.
 
 ### File and edit
 

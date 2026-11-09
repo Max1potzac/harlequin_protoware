@@ -3,7 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35004.147
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Viewer", "Animator.Viewer\Animator.Viewer.csproj", "{D39D75D9-F0BF-4589-8020-8BAE9D038A38}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Animator.Core", "Animator.Core\Animator.Core.csproj", "{38533406-13AD-433D-86B5-E2F668F9C538}"
 EndProject
@@ -43,10 +42,6 @@ Global
 		{B135A41E-050B-4C7E-A025-618BDDB23CDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B135A41E-050B-4C7E-A025-618BDDB23CDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B135A41E-050B-4C7E-A025-618BDDB23CDD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D39D75D9-F0BF-4589-8020-8BAE9D038A38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D39D75D9-F0BF-4589-8020-8BAE9D038A38}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D39D75D9-F0BF-4589-8020-8BAE9D038A38}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D39D75D9-F0BF-4589-8020-8BAE9D038A38}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E6B392DC-6BC9-4B92-A49C-5729CAE8C0E4}.Release|Any CPU.ActiveCfg = Release|Any CPU

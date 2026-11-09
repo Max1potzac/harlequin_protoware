@@ -1,6 +1,5 @@
 using System.IO;
 using System.Text.Json;
-using System.Windows.Input;
 using Animator.Core.Serialization;
 using Animator.Viewer;
 using Animator.Viewer.Files;

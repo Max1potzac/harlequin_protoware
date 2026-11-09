@@ -49,7 +49,10 @@ public sealed partial class MainWindow
 	private void ShowThemeColours()
 	{
 		bool fluent = Themes.Current == Themes.Dark || Themes.Current == Themes.Light;   // (Fluent's own look: its window colour)
-		Background = new SolidColorBrush(!fluent ? Themes.ColorOf("Window") : LightTheme ? Color.FromRgb(0xF3, 0xF3, 0xF3) : Color.FromRgb(0x1E, 0x21, 0x27));
+		var window = !fluent ? Themes.ColorOf("Window") : LightTheme ? Color.FromRgb(0xF3, 0xF3, 0xF3) : Color.FromRgb(0x1E, 0x21, 0x27);
+		Background = new SolidColorBrush(window);
+		ShowOverlayColours(window);   // (the panels over the viewport)
+		_shownAnimating = null;       // (the frame round the viewport: again)
 		if (Content != null) RefreshSkins();   // (their rows' colours, once they're there)
 	}
 

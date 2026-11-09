@@ -121,7 +121,7 @@ public sealed partial class MainWindow
 	private Control BuildColourPanel()
 	{
 		ToolTip.SetTip(ColourView, "The object's colour layers: like adjustment layers, over all its parts (some can be left out)");
-		ColourView.Click += (_, _) => { _colourViewOn = true; _boxesViewOn = false; RefreshRigList(); };
+		ColourView.Click += (_, _) => ShowRigView(RigView.Colour);
 		var add = new Button { Content = "+ Colour layer ▾" };
 		add.Click += (_, _) => KindMenu(ObjectColourKinds, AddObjectColour).ShowAt(add);
 		_colourDelete.Click += (_, _) =>

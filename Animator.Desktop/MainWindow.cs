@@ -40,7 +40,6 @@ public sealed partial class MainWindow : Window
 
 	internal EditorSession Session => _session;
 	internal Camera Camera => _camera;
-	internal TabControl LeftTabs { get; private set; } = null!;
 	internal EditorState State => _session.State;
 	private Scene Scene => _session.Scene;
 	private bool Editing => _session.Editing;
@@ -51,6 +50,8 @@ public sealed partial class MainWindow : Window
 		Title = "Harlequin";
 		Width = 1280;
 		Height = 800;
+		try { Icon = new WindowIcon(Avalonia.Platform.AssetLoader.Open(new Uri("avares://harlequin-editor/Assets/harlequin.ico"))); }
+		catch (Exception) { }   // (no icon is no reason not to start)
 		ShowThemeColours();
 		ActualThemeVariantChanged += (_, _) => ShowThemeColours();
 
@@ -150,52 +151,52 @@ public sealed partial class MainWindow : Window
 
 	// ======================= the layout =======================
 
+	// As the Windows editor has it: the menu; the left panel (the objects, and the rig or the
+	// picked object's settings), the viewport (its tools down the left, Build | Animate over it,
+	// the paint editor beside it while it's open) and the properties; under all three, the
+	// timeline's bar and the timeline; the status line
 	private Control BuildLayout()
 	{
 		var root = new DockPanel();
+		var menu = UiSize.Scaled(BuildMenu());
+		DockPanel.SetDock(menu, Dock.Top);
+		root.Children.Add(menu);
 
-		var top = new StackPanel();
-		top.Children.Add(BuildMenu());
-		top.Children.Add(BuildToolBar());
-		var scaledTop = UiSize.Scaled(top);
-		DockPanel.SetDock(scaledTop, Dock.Top);
-		root.Children.Add(scaledTop);
-
+		var help = new Button
+		{
+			Content = $"Keyboard and mouse ({_keys.Gesture("help.keys")})",
+			Background = Brushes.Transparent,
+			Padding = new Thickness(6, 0),
+			Foreground = new SolidColorBrush(Themes.ColorOf("Accent"))
+		};
+		ToolTip.SetTip(help, "What the clicks, drags and keys do where you are");
+		help.Click += (_, _) => ShowHelp();
 		var statusBar = new DockPanel { Margin = new Thickness(8, 2), Height = 24 };
+		DockPanel.SetDock(help, Dock.Right);
 		DockPanel.SetDock(_hint, Dock.Right);
+		statusBar.Children.Add(help);
 		statusBar.Children.Add(_hint);
 		statusBar.Children.Add(_status);
 		var scaledStatus = UiSize.Scaled(statusBar);
 		DockPanel.SetDock(scaledStatus, Dock.Bottom);
 		root.Children.Add(scaledStatus);
 
-		// Left: the rig (or the scene's objects); right of it, the viewport over the timeline
+		var outer = new Grid { RowDefinitions = new RowDefinitions("*,4,Auto,190") };
+		_rows = outer.RowDefinitions;
 		var main = new Grid { ColumnDefinitions = new ColumnDefinitions("280,4,*,4,300") };
 		_columns = main.ColumnDefinitions;
-		// The rig's bones and parts, its skins, its poses
-		LeftTabs = new TabControl
-		{
-			Items =
-			{
-				new TabItem { Header = "Rig", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildRigList() },
-				new TabItem { Header = "Skins", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildSkinsTab() },
-				new TabItem { Header = "Poses", FontSize = 15, MinHeight = 32, Padding = new Thickness(10, 4), Content = BuildPosesTab() }
-			}
-		};
-		var rig = UiSize.Scaled(LeftTabs);
-		Grid.SetColumn(rig, 0);
-		main.Children.Add(rig);
+		var left = UiSize.Scaled(BuildLeftPanel());
+		Grid.SetColumn(left, 0);
+		main.Children.Add(left);
 		var splitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
 		Grid.SetColumn(splitter, 1);
 		main.Children.Add(splitter);
 
-		var work = new Grid { RowDefinitions = new RowDefinitions("*,4,Auto,190") };
-		_rows = work.RowDefinitions;
 		// The viewport, and the paint editor beside it while it's open
 		var paintColumn = new ColumnDefinition(0, GridUnitType.Pixel);
 		var views = new Grid { ColumnDefinitions = { new ColumnDefinition(1, GridUnitType.Star), new ColumnDefinition(4, GridUnitType.Pixel), paintColumn } };
 		views.Children.Add(Viewport);
-		AddWorkspaceOverlays(views);       // (over it: Build's or Animate's frame, the skin being edited)
+		AddWorkspaceOverlays(views);       // (over it: Build's or Animate's frame and switch, its tools)
 		views.Children.Add(_eventFlash);   // (and the events passed while playing)
 		_paintSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns, IsVisible = false };
 		Grid.SetColumn(_paintSplitter, 1);
@@ -203,26 +204,27 @@ public sealed partial class MainWindow : Window
 		var paint = BuildPaintPanel(paintColumn);
 		Grid.SetColumn(paint, 2);
 		views.Children.Add(paint);
-		Grid.SetRow(views, 0);
-		work.Children.Add(views);
+		Grid.SetColumn(views, 2);
+		main.Children.Add(views);
+		_propsSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
+		Grid.SetColumn(_propsSplitter, 3);
+		main.Children.Add(_propsSplitter);
+		_propsPanel = UiSize.Scaled(BuildProperties());
+		Grid.SetColumn(_propsPanel, 4);
+		main.Children.Add(_propsPanel);
+		outer.Children.Add(main);
+
+		// The timeline, under everything
 		_timelineSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Rows };
 		Grid.SetRow(_timelineSplitter, 1);
-		work.Children.Add(_timelineSplitter);
-		var animations = UiSize.Scaled(new Panel { Children = { BuildAnimationsBar(), BuildSceneBar() } });   // (inside an object, or at scene level)
-		Grid.SetRow(animations, 2);
-		work.Children.Add(animations);
+		outer.Children.Add(_timelineSplitter);
+		var bar = BuildTimelineBar();
+		Grid.SetRow(bar, 2);
+		outer.Children.Add(bar);
 		Grid.SetRow(TimelineView, 3);
-		work.Children.Add(TimelineView);
-		Grid.SetColumn(work, 2);
-		main.Children.Add(work);
-		var propsSplitter = new GridSplitter { ResizeDirection = GridResizeDirection.Columns };
-		Grid.SetColumn(propsSplitter, 3);
-		main.Children.Add(propsSplitter);
-		var props = UiSize.Scaled(BuildProperties());
-		Grid.SetColumn(props, 4);
-		main.Children.Add(props);
+		outer.Children.Add(TimelineView);
 
-		root.Children.Add(main);
+		root.Children.Add(outer);
 		return root;
 	}
 
@@ -296,6 +298,7 @@ public sealed partial class MainWindow : Window
 	// Opens an object in place (at the clip of it playing now, or the one double-clicked)
 	internal void EnterObject(SceneObject obj, SceneClip? via = null)
 	{
+		if (_session.Active != obj && _session.PaintOpen) ClosePaintEditor();   // (its drawing belongs to the other object)
 		_session.Enter(obj, via);
 		_tool.BonesEnabled = _settings.ShowBones && obj.Kind != ObjectKind.Drawn;
 		_session.PoseScene(_session.ClockTime);
