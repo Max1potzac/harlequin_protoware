@@ -25,7 +25,7 @@ namespace Animator.Cli
 			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones] [--imported-from FILE]
 			      [--rig FILE] [--copy-missing WORD,...] [--fit WORD,...] [--by-pose WORD,...]
 			      [--own WORD,...] [--rigid WORD,...] [--still WORD,...] [--open-still]
-			      [--verbose]
+			      [--keep-stacking] [--verbose]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
@@ -46,6 +46,8 @@ namespace Animator.Cli
 			      stays where it hangs from its parent here, only turning as theirs does), so every skin's
 			      limbs stay joined as at rest. --still toe: with --animations, those parts keep their rest
 			      pose on what they hang from (pieces drawn too otherwise to follow: a mummy's toe).
+			      --keep-stacking: the skin's parts stack among themselves as they do there (a boot over
+			      the shin, a skirt over the legs): the fewest that must move go onto parts of its own.
 			      --verbose: which part went where.
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
@@ -109,7 +111,7 @@ namespace Animator.Cli
 					"version" or "--version" => Version(),
 					"info" => Commands.Info(new Args(rest, "tree")),
 					"import" => Commands.Import(new Args(rest, "no-rig", "no-split", "open-still")),
-					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones", "verbose", "open-still")),
+					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones", "verbose", "open-still", "keep-stacking")),
 					"show" => Commands.Show(new Args(rest, "none")),
 					"skin" => Commands.Skin(new Args(rest, "overlay", "on")),
 					"rename" => Commands.Rename(new Args(rest)),

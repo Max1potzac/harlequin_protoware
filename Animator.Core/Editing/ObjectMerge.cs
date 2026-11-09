@@ -56,6 +56,11 @@ public sealed class MergePlan
 	// skin stay joined as they are at rest; the source's own art, joined elsewhere, then shows
 	// them a little apart instead. Null: none (each bone goes where its part shows there)
 	public Func<string, bool>? Rigid { get; set; }
+	// A skin's parts keep the stacking they have there, among themselves: where theirs stack
+	// otherwise than ours (a boot over the shin, a skirt over the legs), the fewest of them that
+	// have to move go onto parts of the skin's own, stacked as there (SkinOps.OwnPart), so only
+	// the skin's drawings move
+	public bool KeepStacking { get; set; }
 	// ByParts: the parts here whose bones keep their rest pose on their parent in the animations
 	// (not turned at all): pieces the source draws too otherwise to follow (a mummy's toe, which
 	// bends where a shoe doesn't). Null: none
@@ -344,6 +349,8 @@ public static class ObjectMerge
 				into.Set(targetPart, made);
 			}
 		}
+		if (skin != null && plan.KeepStacking) KeepStacking(source, target, targetAnimations, skin, parts, plan, notes);
+
 		// A skin's limbs fitted by their joints (see MotionTransfer.FitSkin)
 		if (skin != null && plan.AsPlaced && plan.FitByJoints != null && plan.Symbols != null && plan.Animations.Count == 0)
 		{
@@ -478,6 +485,50 @@ public static class ObjectMerge
 			result[rider] = nearest;
 		}
 		return result;
+	}
+
+	// The skin's parts stacked among themselves as they are there (MergePlan.KeepStacking): the
+	// longest run of them already in their order here stays; each of the rest goes onto a part
+	// of the skin's own, just in front of the one before it there (or behind the one after it)
+	private static void KeepStacking(Skeleton source, Skeleton target, List<Animation> animations, Skin skin,
+		Dictionary<string, string?> parts, MergePlan plan, List<string> notes)
+	{
+		var theirs = new List<Slot>();   // the skin's parts here, in their order there
+		foreach (var s in source.Slots)
+			if (plan.SkinParts.Contains(s.Name) && parts.GetValueOrDefault(s.Name) is { } name && target.FindSlot(name) is { } here
+				&& !theirs.Contains(here) && skin.AttachmentsFor(here.Name).Any())
+				theirs.Add(here);
+		// The longest run already in order here (by where each is here)
+		var at = theirs.Select(s => target.Slots.IndexOf(s)).ToList();
+		var length = new int[at.Count];
+		var from = new int[at.Count];
+		int best = -1;
+		for (int i = 0; i < at.Count; i++)
+		{
+			(length[i], from[i]) = (1, -1);
+			for (int j = 0; j < i; j++)
+				if (at[j] < at[i] && length[j] + 1 > length[i]) (length[i], from[i]) = (length[j] + 1, j);
+			if (best < 0 || length[i] > length[best]) best = i;
+		}
+		var kept = new HashSet<int>();
+		for (int i = best; i >= 0; i = from[i]) kept.Add(i);
+		var placed = new List<Slot>(theirs);   // (each, or its own copy once moved)
+		var moved = new List<string>();
+		for (int i = 0; i < theirs.Count; i++)
+		{
+			if (kept.Contains(i) || SkinOps.OwnPart(target, animations, skin, theirs[i]) is not { } own) continue;
+			placed[i] = own;
+			var before = target.Slots.ToList();
+			var order = before.Where(s => s != own).ToList();
+			int to = i > 0 ? order.IndexOf(placed[i - 1]) + 1
+				: i + 1 < placed.Count ? order.IndexOf(placed[i + 1]) : order.IndexOf(theirs[i]) + 1;
+			order.Insert(to, own);
+			DrawOrderOps.SetSetupOrder(target, order);
+			var passed = DrawOrderOps.Passed(before, order, new[] { own });
+			foreach (var animation in animations) DrawOrderOps.CarryToKeys(animation, passed, 0, all: true);
+			moved.Add(theirs[i].Name);
+		}
+		if (moved.Count > 0) notes.Add($"Stacked as there, on parts of the skin's own: {string.Join(", ", moved)}.");
 	}
 
 	// A new part shows while its companion shows, and hides when it hides (a head falling off in

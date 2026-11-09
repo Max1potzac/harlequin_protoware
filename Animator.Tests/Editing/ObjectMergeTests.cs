@@ -259,6 +259,28 @@ public class ObjectMergeTests
 		Assert.Equal("pirate_body", Assert.Single(result.NewParts).Bone.Name);
 	}
 
+	// Their head is drawn behind their body; ours in front. Keeping the skin's stacking, its body
+	// goes onto a part of its own in front of the head, and only while the skin is on
+	[Fact]
+	public void A_skin_keeps_its_own_stacking_on_parts_of_its_own()
+	{
+		var (camp, walks) = Zombie("camp_", 0.2f, hat: false);
+		var (pirate, pirateAnimations) = Zombie("pirate_", 0.1f, hat: false);
+		var head = camp.FindSlot("camp_head")!;
+		camp.Slots.Remove(head);
+		camp.Slots.Insert(0, head);
+		var plan = ObjectMerge.Suggest(camp, walks, pirate);
+		plan.SkinName = "camp";
+		plan.SkinParts.UnionWith(new[] { "camp_body", "camp_head" });
+		plan.KeepStacking = true;
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(camp, walks, pirate, pirateAnimations, plan);
+
+		Assert.Equal(new[] { "pirate_body", "pirate_head", "pirate_body camp" }, pirate.Slots.Select(s => s.Name));
+		Assert.Contains("pirate_body", result.Skin!.Hides);
+		Assert.Contains(result.Notes, n => n.Contains("Stacked as there"));
+	}
+
 	// A new part goes where the parts it's drawn with say: a backpack drawn at the very back,
 	// behind everything but a ground swatch, which here is drawn in front of everything. Behind
 	// the body, as there (not in front of the swatch, in front of all).
