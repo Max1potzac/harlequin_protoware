@@ -370,16 +370,19 @@ public sealed class XflImportPlan : IDisposable
 		{
 			if (PartToObject(part, f) is { } m)
 			{
-				// A part flipped over (mirrored) on a frame shows the same turned a half turn and
-				// mirrored the other way: the bone takes whichever turn is nearer the frame
-				// before, so it doesn't spin round between the frames as it plays (the part's
-				// own keys take the mirroring)
+				// A part flipped over (mirrored against its rest) on a frame shows the same turned a
+				// half turn and mirrored the other way: the bone takes whichever turn is nearer the
+				// frame before, so it doesn't spin round between the frames as it plays (the part's
+				// own keys take the mirroring). Not mirrored, it turns as the part does: a half
+				// turn kept on after a flip would leave the part's own keys turning it back about
+				// its picture, which is right for its own picture but flings a skin's elsewhere
+				// (another calf, drawn round another point).
 				float turn = TurnOf(part, f, m) + turned;
 				if (before is { } last)
 				{
 					turn = last + MathF.IEEERemainder(turn - last, 2 * MathF.PI);
 					float other = last + MathF.IEEERemainder(turn + MathF.PI - last, 2 * MathF.PI);
-					if (Determinant(m) < 0 && MathF.Abs(other - last) < MathF.Abs(turn - last)) turn = other;
+					if (Determinant(m) * Determinant(setup) < 0 && MathF.Abs(other - last) < MathF.Abs(turn - last)) turn = other;
 				}
 				before = turn;
 				motion[f] = Matrix3x2.CreateRotation(turn) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m));
