@@ -61,6 +61,19 @@ public static class XflMath
 
 	public static float Mod(float x, float m) => x - m * MathF.Floor(x / m);
 
+	// The turn nearest a matrix that skews (bones and parts can only turn and scale): the drawing
+	// keeps its longer way exactly, the line it reaches furthest along from its origin (a forearm,
+	// from its elbow to its wrist, stays on its hand), and its shorter way takes the slant. Its
+	// scales stay Decompose's (each axis keeps its length). min, max: how far the drawing reaches
+	// in its own space. With no skew, the matrix's own turn.
+	public static float NearestTurn(Matrix3x2 m, Vector2 min, Vector2 max)
+	{
+		var (sx, sy, ax, ay) = Decompose(m);
+		float alongX = MathF.Max(MathF.Abs(min.X), MathF.Abs(max.X)) * MathF.Abs(sx);
+		float alongY = MathF.Max(MathF.Abs(min.Y), MathF.Abs(max.Y)) * MathF.Abs(sy);
+		return alongY > alongX ? ax + MathF.IEEERemainder(ay - ax, 2 * MathF.PI) : ax;
+	}
+
 	// A classic tween's progress at a moment t (0..1): its ease, or its own ease curve
 	public static float ClassicProgress(XflFrame frame, float t)
 	{
