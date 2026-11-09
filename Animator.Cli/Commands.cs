@@ -416,6 +416,7 @@ public static class Commands
 		float time = a.Get("time") != null ? a.Float("time", 0f) : a.Int("frame", 0) / (float)p.Scene.Fps;
 		foreach (string s in a.List("skins")) SkinOps.Show(obj.Skeleton, p.Skin(obj, s));
 		int sweep = a.Int("sweep", 0);   // every 1/sweep of a frame through the whole animation, each line led by its time
+		bool full = a.Has("full");       // the bone too, and the whole picture-to-object matrix
 		a.NothingElse();
 		var sk = obj.Skeleton;
 		var ci = System.Globalization.CultureInfo.InvariantCulture;
@@ -434,6 +435,12 @@ public static class Commands
 				var middle = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), m);
 				float turn = MathF.Atan2(m.M12, m.M11) * 180 / MathF.PI;
 				string line = string.Format(ci, "{0}\t{1}\t{2:0.0}\t{3:0.0}\t{4:0.0}\t{5}x{6}", slot.Name, d.Name, middle.X, middle.Y, turn, asset.Width, asset.Height);
+				if (full)
+				{
+					var b = slot.Bone.World;
+					line += string.Format(ci, "\t{0}\t{1:0.###}\t{2:0.###}\t{3:0.#####}\t{4:0.#####}\t{5:0.#####}\t{6:0.#####}\t{7:0.###}\t{8:0.###}",
+						slot.Bone.Name, b.M31, b.M32, m.M11, m.M12, m.M21, m.M22, m.M31, m.M32);
+				}
 				Console.WriteLine(sweep > 0 ? string.Format(ci, "{0:0.0000}\t", at) + line : line);
 			}
 		}

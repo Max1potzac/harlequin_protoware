@@ -75,9 +75,11 @@ namespace Animator.Cli
 			      A picture of an object (at rest, or a frame of an animation). --sheet: one picture of every
 			      skin in the category side by side, named.
 
-			  harlequin pose <project> [--object NAME] [--animation A] [--frame N | --time T] [--skins A,B] [--sweep K]
+			  harlequin pose <project> [--object NAME] [--animation A] [--frame N | --time T] [--skins A,B] [--sweep K] [--full]
 			      Every part shown then, front last: its drawing, its picture's middle, turn and size.
 			      --sweep K: the whole animation, K times a frame (as it plays between keys), each line timed.
+			      --full: then its bone, where that bone is, and the matrix from its picture's pixels to the
+			      object (M11 M12 M21 M22 M31 M32), to work out where parts meet.
 
 			  harlequin export <project> --format engine|png|gif|sheet --out PATH [--object NAME]
 			      [--animations A,B] [--scale S] [--bake] [--pixel-art] [--no-events] [--background RRGGBB]
