@@ -960,6 +960,10 @@ Without a rig, the file comes in as a drawn object.
     other animations show.
 - **Show left-out parts**: untick it to see only what will come in.
 - **Size**: as for Photoshop.
+- **Skewed parts**: bones and parts only move, turn and scale, so a part Animate skews (slants)
+  comes in as close as that allows. It keeps its longer way exactly, the line it reaches
+  furthest along from its joint (a forearm from elbow to wrist, so the hand stays on it), and its
+  shorter way takes the slant. The import's notes say how far parts were skewed.
 
 ### Sprite sheets (.png, .webp, .gif, .bmp, .jpg)
 

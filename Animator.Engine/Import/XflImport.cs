@@ -87,7 +87,7 @@ public sealed class XflImportPlan : IDisposable
 			if (Data.Tracks.Any(t => t.ShortLived))
 				notes.Add("Parts that only show for a moment (crumbs, splashes, sparks…) start as effects: left out of the rig, moving on their own, hidden at rest.");
 			if (WorstSkew > 1f)
-				notes.Add($"Some parts are skewed (up to {WorstSkew:0}°): skew isn't supported yet, so they'll be turned and scaled the nearest way instead.");
+				notes.Add($"Some parts are skewed (up to {WorstSkew:0}°): skew isn't supported yet, so each is turned and scaled the nearest way instead (its longer way kept, its shorter way taking the slant).");
 			return notes.Distinct().ToList();
 		}
 	}
@@ -362,7 +362,8 @@ public sealed class XflImportPlan : IDisposable
 			return motion;
 		}
 		var joint = Vector2.Transform(head, fromPart);   // in the part's own space
-		float turned = angle - AngleOf(setup);
+		int setupFrame = PartToObject(part, SetupFrame) != null ? SetupFrame : Data.Tracks[Parts[part].Track].Shown.First();
+		float turned = angle - TurnOf(part, setupFrame, setup);
 		int first = -1;
 		float? before = null;
 		for (int f = 0; f < frames; f++)
@@ -373,7 +374,7 @@ public sealed class XflImportPlan : IDisposable
 				// mirrored the other way: the bone takes whichever turn is nearer the frame
 				// before, so it doesn't spin round between the frames as it plays (the part's
 				// own keys take the mirroring)
-				float turn = AngleOf(m) + turned;
+				float turn = TurnOf(part, f, m) + turned;
 				if (before is { } last)
 				{
 					turn = last + MathF.IEEERemainder(turn - last, 2 * MathF.PI);
@@ -407,7 +408,16 @@ public sealed class XflImportPlan : IDisposable
 		return at;
 	}
 
-	private static float AngleOf(Matrix3x2 m) => MathF.Atan2(m.M12, m.M11);
+	// How a part's drawing turns at a frame (m: it to the object): skewed, the nearest turn
+	// (XflMath.NearestTurn: its longer way kept)
+	private float TurnOf(int part, int frame, Matrix3x2 m)
+	{
+		if (Placement(part, frame) is not { } p) return MathF.Atan2(m.M12, m.M11);
+		if (!_reach.TryGetValue(p.Drawing, out var box)) _reach[p.Drawing] = box = Painter.Bounds(p.Drawing);
+		return box.IsEmpty ? MathF.Atan2(m.M12, m.M11) : XflMath.NearestTurn(m, new Vector2(box.Left, box.Top), new Vector2(box.Right, box.Bottom));
+	}
+
+	private readonly Dictionary<XflDrawingKey, SKRect> _reach = new();
 
 	private static float Determinant(Matrix3x2 m) => m.M11 * m.M22 - m.M12 * m.M21;
 
@@ -594,7 +604,7 @@ public static class XflImporter
 					var pivot = track.Frames[rest]?.Pivot ?? Vector2.Zero;
 					var drawing = NewDrawing(skeleton, store, ref slot, bone, plan.Parts[part].Name, plan.Painter.Notes, key, data.Evaluator.DrawingName(key), picture, pivot);
 					var (offset, rotation, scale) = Placement(PictureToBone(plan, part, rest, picture, drawing,
-						world.TryGetValue(bone, out var exact) ? exact[rest] : bone.World));
+						world.TryGetValue(bone, out var exact) ? exact[rest] : bone.World), picture, drawing);
 					drawing.Offset = offset;
 					drawing.Rotation = rotation;
 					drawing.Scale = scale;
@@ -702,7 +712,7 @@ public static class XflImporter
 				for (int f = start; f < end; f++)
 				{
 					if (track.Frames[f] is not { } p || !drawings.TryGetValue(p.Drawing, out var d)) continue;
-					var (o, r, s) = Placement(PictureToBone(plan, part, f, d.Picture, d.Drawing, BoneAt(bone, f)));
+					var (o, r, s) = Placement(PictureToBone(plan, part, f, d.Picture, d.Drawing, BoneAt(bone, f)), d.Picture, d.Drawing);
 					float turn = r - d.Drawing.Rotation;
 					turn = previous + XflMath.Mod(turn - previous + MathF.PI, Turn) - MathF.PI;
 					var scale = new Vector2(s.X / NonZero(d.Drawing.Scale.X), s.Y / NonZero(d.Drawing.Scale.Y));
@@ -771,7 +781,15 @@ public static class XflImporter
 		return Matrix3x2.CreateScale(1, -1) * Matrix3x2.CreateTranslation(pivot) * picture.PixelToLocal * toObject * toBone;
 	}
 
-	private static (Vector2 Offset, float Rotation, Vector2 Scale) Placement(Matrix3x2 m) => Local(m);
+	// A drawing's placement on its bone (m: as PictureToBone gives it): where it's skewed, turned
+	// the nearest way for its picture (reaching from its pivot)
+	private static (Vector2 Offset, float Rotation, Vector2 Scale) Placement(Matrix3x2 m, XflPicture picture, Attachment drawing)
+	{
+		var (sx, sy, _, _) = XflMath.Decompose(m);
+		var pivot = new Vector2(drawing.Pivot.X * picture.Width, drawing.Pivot.Y * picture.Height);
+		float turn = XflMath.NearestTurn(m, new Vector2(-pivot.X, pivot.Y - picture.Height), new Vector2(picture.Width - pivot.X, pivot.Y));
+		return (m.Translation, turn, new Vector2(sx, sy));
+	}
 
 	// How big each drawing is ever shown (the larger of its axes' scales)
 	private static Dictionary<XflDrawingKey, float> ShownScales(XflImportPlan plan, List<int> parts)

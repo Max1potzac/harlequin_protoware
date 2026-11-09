@@ -690,6 +690,59 @@ public class XflTests
 		}
 	}
 
+	// A long, narrow part Animate skews (a game's forearm: its long way turns less than its narrow
+	// way): brought in, its long way lies where Animate's does, so its far end (the wrist) is where
+	// Animate puts it and only its narrow way takes the slant; as a part of a drawn object, and on
+	// its own bone in a rig by names
+	[Fact]
+	public void A_skewed_part_keeps_its_long_way()
+	{
+		string folder = TempFolder();
+		try
+		{
+			var project = new XflTestProject { Width = 200, Height = 200, FrameRate = 30 };
+			project.Picture("media/arm", 10, 60, SKColors.Brown);
+			project.Picture("media/body", 40, 40, SKColors.Gray);
+			project.Symbol("forearm", Layer("1", Frame(0, 1, Bitmap("media/arm", Matrix3x2.CreateTranslation(-5, 0)))));
+			project.Symbol("body", Layer("1", Frame(0, 1, Bitmap("media/body", Matrix3x2.CreateTranslation(-20, -20)))));
+			var skewed = XflMath.Compose(1, 1, -0.25f, 0.05f) * Matrix3x2.CreateTranslation(100, 80);   // (its x way 17° past its y way)
+			project.Scene("Scene 1",
+				Layer("forearm",
+					Frame(0, 1, Instance("forearm", Matrix3x2.CreateTranslation(100, 80))),
+					Frame(1, 1, Instance("forearm", skewed))) +
+				Layer("body", Frame(0, 2, Instance("body", Matrix3x2.CreateTranslation(100, 60)))));
+
+			foreach (bool rigged in new[] { false, true })
+			{
+				using var plan = XflImportPlan.Load(project.SaveFolder(Path.Combine(folder, rigged ? "rigged" : "drawn")), "arm");
+				plan.SuggestRig = rigged;
+				if (rigged) plan.NamedRig = new List<(string, string?)> { ("forearm", "body"), ("body", "") };
+				var pictures = new Dictionary<Attachment, (XflDrawingKey Key, Matrix3x2 PixelToDrawing)>();
+				var obj = XflImporter.IntoScene(new Scene(), new AssetStore(), plan, Vector2.Zero, pictures);
+				Assert.Equal(1, MatchesEveryFrame(plan, obj, pictures).Skewed);
+				var skeleton = obj.Skeleton;
+				if (rigged) Assert.Equal("forearm", skeleton.FindSlot("forearm")!.Bone.Name);
+
+				// On the skewed frame: the point straight down the arm from its joint, at its far end
+				skeleton.SetToSetupPose();
+				obj.Animations[0].Apply(skeleton, 1 / 30f);
+				skeleton.UpdatePose();
+				var slot = skeleton.FindSlot("forearm")!;
+				var drawing = skeleton.ResolveAttachment(slot)!;
+				var asset = skeleton.Assets[drawing.AssetId];
+				var actual = SkeletonRenderer.ImageToWorld(slot, drawing, asset.Width, asset.Height);
+				var expected = pictures[drawing].PixelToDrawing * plan.Placement(plan.Parts.FindIndex(p => p.Name == "forearm"), 1)!.Value.Matrix * plan.TimelineToObject;
+				var wrist = new Vector2(drawing.Pivot.X * asset.Width, asset.Height);
+				float off = Vector2.Distance(Vector2.Transform(wrist, expected), Vector2.Transform(wrist, actual));
+				Assert.True(off < 0.5f, $"the wrist is {off:0.##} off ({(rigged ? "rigged" : "drawn")})");
+			}
+		}
+		finally
+		{
+			Remove(folder);
+		}
+	}
+
 	[Fact]
 	public void Animations_where_parts_come_apart_can_be_left_out_of_working_out_the_rig()
 	{
