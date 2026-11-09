@@ -293,7 +293,9 @@ public static class SkinOps
 	// that copy. null: the skin has no drawings on the part.
 	public static Slot? OwnPart(Skeleton skeleton, IReadOnlyList<Animation> animations, Skin skin, Slot part)
 	{
-		if (skeleton.FindSlot(OwnPartName(part, skin)) is { } done && skin.Hides.Contains(part.Name)) return done;
+		if (skin.Hides.Contains(part.Name) && skeleton.Slots.FirstOrDefault(s => s != part && s.Bone == part.Bone
+				&& s.Name.StartsWith(part.Name + " ", StringComparison.Ordinal) && skin.AttachmentsFor(s.Name).Any()) is { } done)
+			return done;   // (made already, perhaps while the skin had another name)
 		var drawings = skin.AttachmentsFor(part.Name).ToList();
 		if (drawings.Count == 0) return null;
 		var own = new Slot(PartOps.UniqueSlotName(skeleton, OwnPartName(part, skin)), part.Bone)
