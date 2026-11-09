@@ -114,6 +114,67 @@ public sealed class MotionTransfer
 		}
 	}
 
+	// A skin's drawings (another character's limbs, brought in posed alike) fitted by their
+	// joints, as FitLimbs fits the parts of an animation: each fitted part's drawings moved so
+	// their joint with the part above lands on this rig's (the bone's own point, which every
+	// animation here turns it about), and a limb turned and stretched along itself so it reaches
+	// this rig's next joint too (a shin from the knee to the ankle). Then the skin's limbs stay
+	// joined in every animation, not just at rest, though their art is joined elsewhere than
+	// this rig's. The joints come from how each one's parts move in its own animations. A part
+	// with no joint to measure, or one too far from ours to be the same, stays as it is.
+	// Returns how many parts were fitted.
+	public int FitSkin(Skin skin)
+	{
+		if (_symbols == null || _fits == null) return 0;
+		var ours = new JointFinder(_target, _targetAnimations, this);
+		var theirs = new JointFinder(_source, _sourceAnimations, this);
+		Slot? PartOf(Bone bone) => _target.Slots.FirstOrDefault(s => s.Bone == bone && s.Name == bone.Name && _sourceOf.ContainsKey(s.Name));
+		// (a part's symbol space → its bone's, for a drawing on it)
+		Matrix3x2? SymbolToBone(Slot slot, Attachment? drawing) =>
+			drawing != null && _symbols.TryGetValue(drawing, out var toSymbol) && Matrix3x2.Invert(toSymbol, out var fromSymbol)
+			&& Size(_target, drawing) is { } size ? fromSymbol * drawing.LocalMatrix(size.X, size.Y) : null;
+		int fitted = 0;
+		foreach (var bone in _target.AllBones())
+		{
+			if (bone.Parent == null || PartOf(bone) is not { } t || !_fits(t.Name) || PartOf(bone.Parent) is not { } pt) continue;
+			var drawings = skin.AttachmentsFor(t.Name).ToList();
+			if (drawings.Count == 0) continue;
+			var s = _source.FindSlot(_sourceOf[t.Name])!;
+			var ps = _source.FindSlot(_sourceOf[pt.Name])!;
+			var mine = (t.SetupAttachment is { } rest ? skin.Get(t.Name, rest) : null) ?? drawings[0];
+			var own = t.SetupAttachment is { } r ? _target.DefaultSkin.Get(t.Name, r) : null;
+			if (SymbolToBone(t, mine) is not { } theirSpace || SymbolToBone(t, own) is not { } ourSpace) continue;
+			if (ours.Joint(pt, t) is not { } upT || theirs.Joint(ps, s) is not { } upS) continue;
+			var jt = Vector2.Transform(upT.Child, ourSpace);    // (in the bone's space)
+			var js = Vector2.Transform(upS.Child, theirSpace);
+			if (Vector2.Distance(jt, js) > 24) continue;   // (that far apart: not the same joint, really)
+			var fit = Matrix3x2.CreateTranslation(jt - js);
+			var next = _target.AllBones().Where(b => b.Parent == bone).Select(PartOf).OfType<Slot>().Where(c => _fits(c.Name)).ToList();
+			if (next.Count == 1 && ours.Joint(t, next[0]) is { } downT && theirs.Joint(s, _source.FindSlot(_sourceOf[next[0].Name])!) is { } downS)
+			{
+				var reachT = Vector2.Transform(downT.Parent, ourSpace) - jt;
+				var reachS = Vector2.Transform(downS.Parent, theirSpace) - js;
+				float angle = MathF.IEEERemainder(MathF.Atan2(reachT.Y, reachT.X) - MathF.Atan2(reachS.Y, reachS.X), 2 * MathF.PI);
+				if (reachT.Length() > 2 && reachS.Length() > 2 && MathF.Abs(angle) < 30 * MathF.PI / 180)   // (more: not the same limb, really)
+				{
+					float k = Math.Clamp(reachT.Length() / reachS.Length(), 0.7f, 1.4f) - 1;
+					var u = Vector2.Normalize(reachT);
+					var along = new Matrix3x2(1 + k * u.X * u.X, k * u.X * u.Y, k * u.X * u.Y, 1 + k * u.Y * u.Y, 0, 0);
+					fit = Matrix3x2.CreateTranslation(-js) * Matrix3x2.CreateRotation(angle) * along * Matrix3x2.CreateTranslation(jt);
+				}
+			}
+			foreach (var drawing in drawings)
+			{
+				if (Size(_target, drawing) is not { } size) continue;
+				var before = Matrix3x2.CreateTranslation(-drawing.Pivot.X * size.X, -drawing.Pivot.Y * size.Y) * Matrix3x2.CreateScale(1, -1);
+				if (Matrix3x2.Invert(before, out var undo))
+					PartOps.PlaceFrame(drawing, undo * drawing.LocalMatrix(size.X, size.Y) * fit, Matrix3x2.Identity);
+			}
+			fitted++;
+		}
+		return fitted;
+	}
+
 	// Where two parts join, from their motion: the point that's the same in both their symbols'
 	// spaces on every frame both show (least squares; nudged towards the child's own origin, so
 	// two parts that never turn against each other get a joint there)

@@ -340,6 +340,13 @@ public static class ObjectMerge
 				into.Set(targetPart, made);
 			}
 		}
+		// A skin's limbs fitted by their joints (see MotionTransfer.FitSkin)
+		if (skin != null && plan.AsPlaced && plan.FitByJoints != null && plan.Symbols != null && plan.Animations.Count == 0)
+		{
+			int fitted = new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, null,
+				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints).FitSkin(skin);
+			if (fitted > 0) notes.Add($"{fitted} part(s) fitted by their joints, to stay joined as they move here.");
+		}
 		foreach (var slot in added)
 		{
 			var s = source.Slots.First(x => parts.GetValueOrDefault(x.Name) == slot.Name);
