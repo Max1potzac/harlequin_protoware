@@ -112,7 +112,7 @@ public static class Commands
 		var options = new BringInOptions(bones, a.Get("category") ?? "Head", a.Has("animations"), !a.Has("loose"), !a.Has("no-accessories"),
 			a.List("except"), Pairs(a.List("map")), include, !a.Has("by-bones"), p.Scene.Fps,
 			a.Get("imported-from"), a.Get("rig") is { } rigFile ? RigFile(rigFile) : null, a.List("copy-missing"), new BringInContext(), a.List("fit"),
-			a.List("by-pose"), a.List("own"), a.Has("open-still"));
+			a.List("by-pose"), a.List("own"), a.Has("open-still"), a.List("rigid"), a.List("still"), a.Has("keep-stacking"));
 		bool verbose = a.Has("verbose");
 		a.NothingElse();
 		if (a.Positional.Count < 2) throw new UsageException("Name the Animate projects to bring in after the project.");
@@ -231,10 +231,18 @@ public static class Commands
 		var animation = a.Get("animation") is { } animationName
 			? obj.Animations.FirstOrDefault(x => x.Name == animationName) ?? throw new UsageException($"{obj.Name} has no animation \"{animationName}\".")
 			: null;
+		var skin = a.Get("skin") is { } skinName ? p.Skin(obj, skinName) : null;
 		a.NothingElse();
 		if (moving.Count == 0) throw new UsageException("--parts is needed: the parts to move.");
 		if ((behind == null) == (front == null)) throw new UsageException("Say where: --behind PART or --in-front-of PART.");
 		var other = Part(behind ?? front!);
+		if (skin != null)
+		{
+			// Just while the skin is on: its drawings on those parts onto parts of its own, moved
+			moving = moving.Select(part => SkinOps.OwnPart(sk, obj.Animations, skin, part)
+				?? throw new UsageException($"The skin {skin.Name} has no drawings on {part.Name}.")).ToList();
+			Console.WriteLine($"{skin.Name} draws on {string.Join(", ", moving.Select(s => s.Name))} (its own, in place of the parts it hides).");
+		}
 		if (moving.Contains(other)) throw new UsageException("A part can't go behind or in front of itself.");
 		List<Slot> Placed(IReadOnlyList<Slot> from)
 		{
@@ -286,8 +294,18 @@ public static class Commands
 		var skin = a.Get("skin") is { } skinName ? p.Skin(obj, skinName) : null;
 		var animation = a.Get("animation") is { } animationName
 			? obj.FindAnimation(animationName) ?? throw new UsageException($"{obj.Name} has no animation \"{animationName}\".") : null;
+		var part = a.Get("part") is { } partName
+			? obj.Skeleton.FindSlot(partName) ?? throw new UsageException($"{obj.Name} has no part \"{partName}\".") : null;
 		a.NothingElse();
 		if (to.Length == 0) throw new UsageException("--to is empty.");
+		if (part != null)
+		{
+			string old = part.Name;
+			if (!PartOps.RenamePart(obj.Skeleton, obj.Animations, part, to)) throw new UsageException($"{obj.Name} has a part called \"{to}\" already.");
+			p.Save();
+			Console.WriteLine($"The part {old} is {to} now.");
+			return 0;
+		}
 		if (animation != null)
 		{
 			if (obj.FindAnimation(to) != null) throw new UsageException($"{obj.Name} has an animation called \"{to}\" already.");
@@ -398,6 +416,7 @@ public static class Commands
 		float time = a.Get("time") != null ? a.Float("time", 0f) : a.Int("frame", 0) / (float)p.Scene.Fps;
 		foreach (string s in a.List("skins")) SkinOps.Show(obj.Skeleton, p.Skin(obj, s));
 		int sweep = a.Int("sweep", 0);   // every 1/sweep of a frame through the whole animation, each line led by its time
+		bool full = a.Has("full");       // the bone too, and the whole picture-to-object matrix
 		a.NothingElse();
 		var sk = obj.Skeleton;
 		var ci = System.Globalization.CultureInfo.InvariantCulture;
@@ -416,6 +435,12 @@ public static class Commands
 				var middle = Vector2.Transform(new Vector2(asset.Width / 2f, asset.Height / 2f), m);
 				float turn = MathF.Atan2(m.M12, m.M11) * 180 / MathF.PI;
 				string line = string.Format(ci, "{0}\t{1}\t{2:0.0}\t{3:0.0}\t{4:0.0}\t{5}x{6}", slot.Name, d.Name, middle.X, middle.Y, turn, asset.Width, asset.Height);
+				if (full)
+				{
+					var b = slot.Bone.World;
+					line += string.Format(ci, "\t{0}\t{1:0.###}\t{2:0.###}\t{3:0.#####}\t{4:0.#####}\t{5:0.#####}\t{6:0.#####}\t{7:0.###}\t{8:0.###}",
+						slot.Bone.Name, b.M31, b.M32, m.M11, m.M12, m.M21, m.M22, m.M31, m.M32);
+				}
 				Console.WriteLine(sweep > 0 ? string.Format(ci, "{0:0.0000}\t", at) + line : line);
 			}
 		}

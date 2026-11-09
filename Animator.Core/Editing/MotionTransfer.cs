@@ -27,7 +27,7 @@ public sealed class MotionTransfer
 	private readonly Dictionary<Slot, (Matrix3x2 Turn, Vector2 Joint, Vector2 Along, float Stretch)> _fit = new();
 	private readonly IReadOnlyList<Animation> _sourceAnimations, _targetAnimations;
 	private readonly Func<string, bool>? _fits;   // the parts (here) fitted by their joints: limbs
-	private readonly Func<string, bool>? _byPose, _own;   // see MergePlan.ByPose, OwnArt
+	private readonly Func<string, bool>? _byPose, _own, _rigid, _still;   // see MergePlan.ByPose, OwnArt, Rigid, Still
 	// The part here's drawing and the source's, shown posed alike, and our pixels → theirs then
 	private readonly Dictionary<string, (Attachment Ours, Attachment Theirs, Matrix3x2 Registration)> _rest = new();
 	private bool _fitted;
@@ -38,8 +38,11 @@ public sealed class MotionTransfer
 		Func<string, string, string> drawingName, Matrix3x2 space,
 		IDictionary<Attachment, Matrix3x2>? symbols = null, Func<Slot, Slot, Attachment, Attachment?>? supply = null,
 		IReadOnlyList<Animation>? sourceAnimations = null, IReadOnlyList<Animation>? targetAnimations = null,
-		Func<string, bool>? fits = null, Func<string, bool>? byPose = null, Func<string, bool>? own = null)
+		Func<string, bool>? fits = null, Func<string, bool>? byPose = null, Func<string, bool>? own = null, Func<string, bool>? rigid = null,
+		Func<string, bool>? still = null)
 	{
+		_rigid = rigid;
+		_still = still;
 		_fits = fits;
 		_byPose = byPose;
 		_own = own;
@@ -113,6 +116,88 @@ public sealed class MotionTransfer
 		}
 	}
 
+	// Where a bone's part joins its parent's part here, in the two bones' spaces: the point they
+	// turn about against each other in this object's own animations, which isn't always the
+	// bone's own point (a game turns a shin about its symbol's origin and slides it back to the
+	// knee). Null: no joint shows (no parts, no symbols, or they slide too much to have one).
+	private (Vector2 OnParent, Vector2 OnChild)? JointOf(Bone bone)
+	{
+		Slot? PartOn(Bone b) => _target.Slots.FirstOrDefault(s => s.Bone == b && s.Name == b.Name);
+		if (_symbols == null || bone.Parent == null || PartOn(bone) is not { } child || PartOn(bone.Parent) is not { } parent) return null;
+		_ourJoints ??= new JointFinder(_target, _targetAnimations, this, slack: 8f);
+		if (_ourJoints.Joint(parent, child) is not { } j) return null;
+		_target.SetToSetupPose();
+		_target.UpdatePose();
+		if (SymbolSpace(_target, parent) is not { } ps || SymbolSpace(_target, child) is not { } cs
+			|| !Matrix3x2.Invert(parent.Bone.World, out var toParent) || !Matrix3x2.Invert(child.Bone.World, out var toChild)) return null;
+		return (Vector2.Transform(j.Parent, ps * toParent), Vector2.Transform(j.Child, cs * toChild));
+	}
+
+	private JointFinder? _ourJoints;
+
+	// A skin's drawings (another character's limbs, brought in posed alike) fitted by their
+	// joints, as FitLimbs fits the parts of an animation: each fitted part's drawings moved so
+	// their joint with the part above lands on this rig's (the bone's own point, which every
+	// animation here turns it about), and a limb turned and stretched along itself so it reaches
+	// this rig's next joint too (a shin from the knee to the ankle). Then the skin's limbs stay
+	// joined in every animation, not just at rest, though their art is joined elsewhere than
+	// this rig's. The joints come from how each one's parts move in its own animations. A part
+	// with no joint to measure, or one too far from ours to be the same, stays as it is.
+	// Returns what was fitted: each part, how far its joint moved, and its turn and stretch.
+	public List<(string Part, float Moved, float Turned, float Stretched)> FitSkin(Skin skin)
+	{
+		var fitted = new List<(string, float, float, float)>();
+		if (_symbols == null || _fits == null) return fitted;
+		var ours = new JointFinder(_target, _targetAnimations, this, slack: 8f);   // (near enough to fit a picture to)
+		var theirs = new JointFinder(_source, _sourceAnimations, this, slack: 8f);
+		Slot? PartOf(Bone bone) => _target.Slots.FirstOrDefault(s => s.Bone == bone && s.Name == bone.Name && _sourceOf.ContainsKey(s.Name));
+		// (a part's symbol space → its bone's, for a drawing on it)
+		Matrix3x2? SymbolToBone(Slot slot, Attachment? drawing) =>
+			drawing != null && _symbols.TryGetValue(drawing, out var toSymbol) && Matrix3x2.Invert(toSymbol, out var fromSymbol)
+			&& Size(_target, drawing) is { } size ? fromSymbol * drawing.LocalMatrix(size.X, size.Y) : null;
+		foreach (var bone in _target.AllBones())
+		{
+			if (bone.Parent == null || PartOf(bone) is not { } t || !_fits(t.Name) || PartOf(bone.Parent) is not { } pt) continue;
+			var drawings = skin.AttachmentsFor(t.Name).ToList();
+			if (drawings.Count == 0) continue;
+			var s = _source.FindSlot(_sourceOf[t.Name])!;
+			var ps = _source.FindSlot(_sourceOf[pt.Name])!;
+			var mine = (t.SetupAttachment is { } rest ? skin.Get(t.Name, rest) : null) ?? drawings[0];
+			var own = t.SetupAttachment is { } r ? _target.DefaultSkin.Get(t.Name, r) : null;
+			if (SymbolToBone(t, mine) is not { } theirSpace || SymbolToBone(t, own) is not { } ourSpace) continue;
+			if (ours.Joint(pt, t) is not { } upT || theirs.Joint(ps, s) is not { } upS) continue;
+			var jt = Vector2.Transform(upT.Child, ourSpace);    // (in the bone's space)
+			var js = Vector2.Transform(upS.Child, theirSpace);
+			if (Vector2.Distance(jt, js) > 24) continue;   // (that far apart: not the same joint, really)
+			var fit = Matrix3x2.CreateTranslation(jt - js);
+			float turned = 0, stretched = 1;
+			var next = _target.AllBones().Where(b => b.Parent == bone).Select(PartOf).OfType<Slot>().Where(c => _fits(c.Name)).ToList();
+			if (next.Count == 1 && ours.Joint(t, next[0]) is { } downT && theirs.Joint(s, _source.FindSlot(_sourceOf[next[0].Name])!) is { } downS)
+			{
+				var reachT = Vector2.Transform(downT.Parent, ourSpace) - jt;
+				var reachS = Vector2.Transform(downS.Parent, theirSpace) - js;
+				float angle = MathF.IEEERemainder(MathF.Atan2(reachT.Y, reachT.X) - MathF.Atan2(reachS.Y, reachS.X), 2 * MathF.PI);
+				if (reachT.Length() > 2 && reachS.Length() > 2 && MathF.Abs(angle) < 30 * MathF.PI / 180)   // (more: not the same limb, really)
+				{
+					float k = Math.Clamp(reachT.Length() / reachS.Length(), 0.7f, 1.4f) - 1;
+					(turned, stretched) = (angle * 180 / MathF.PI, k + 1);
+					var u = Vector2.Normalize(reachT);
+					var along = new Matrix3x2(1 + k * u.X * u.X, k * u.X * u.Y, k * u.X * u.Y, 1 + k * u.Y * u.Y, 0, 0);
+					fit = Matrix3x2.CreateTranslation(-js) * Matrix3x2.CreateRotation(angle) * along * Matrix3x2.CreateTranslation(jt);
+				}
+			}
+			foreach (var drawing in drawings)
+			{
+				if (Size(_target, drawing) is not { } size) continue;
+				var before = Matrix3x2.CreateTranslation(-drawing.Pivot.X * size.X, -drawing.Pivot.Y * size.Y) * Matrix3x2.CreateScale(1, -1);
+				if (Matrix3x2.Invert(before, out var undo))
+					PartOps.PlaceFrame(drawing, undo * drawing.LocalMatrix(size.X, size.Y) * fit, Matrix3x2.Identity);
+			}
+			fitted.Add((t.Name, Vector2.Distance(jt, js), turned, stretched));
+		}
+		return fitted;
+	}
+
 	// Where two parts join, from their motion: the point that's the same in both their symbols'
 	// spaces on every frame both show (least squares; nudged towards the child's own origin, so
 	// two parts that never turn against each other get a joint there)
@@ -123,8 +208,13 @@ public sealed class MotionTransfer
 		private readonly MotionTransfer _owner;
 		private readonly Dictionary<(Slot, Slot), (Vector2 Parent, Vector2 Child)?> _found = new();
 
-		public JointFinder(Skeleton skeleton, IReadOnlyList<Animation> animations, MotionTransfer owner)
+		private readonly float _slack;
+
+		// slack: how far apart the two points may come on a frame, at most on average, for a
+		// joint (parts in games slide against each other a little as they turn)
+		public JointFinder(Skeleton skeleton, IReadOnlyList<Animation> animations, MotionTransfer owner, float slack = 2f)
 		{
+			_slack = slack;
 			_skeleton = skeleton;
 			_owner = owner;
 			foreach (var animation in animations.Where(a => !a.Name.StartsWith("die", StringComparison.OrdinalIgnoreCase)))   // (parts come apart)
@@ -179,7 +269,7 @@ public sealed class MotionTransfer
 					// Only a joint they really turn about: the two points stay together on every
 					// frame (parts that slide against each other have none)
 					double miss = pairs.Average(f => Vector2.DistanceSquared(Vector2.Transform(j, f.P), Vector2.Transform(k, f.C)));
-					if (Math.Sqrt(miss) < 2.0) joint = (j, k);
+					if (Math.Sqrt(miss) < _slack) joint = (j, k);
 				}
 			}
 			_found[(parent, child)] = joint;
@@ -282,6 +372,7 @@ public sealed class MotionTransfer
 				.ThenByDescending(s => Area(s)).First();
 
 		var bones = _target.AllBones().ToList();   // (parents first)
+		var joints = bones.Where(b => leader.TryGetValue(b, out var l) && _rigid?.Invoke(l.Name) == true).ToDictionary(b => b, JointOf);
 		var local = bones.ToDictionary(b => b, Setup);
 		var placement = new Dictionary<Slot, (Vector2 Offset, float Rotation, Vector2 Scale)>();
 		var boneKeys = bones.ToDictionary(b => b, _ => new List<(float, Vector2, float, Vector2)>());
@@ -296,7 +387,16 @@ public sealed class MotionTransfer
 				if (leader.TryGetValue(bone, out var lead) && frame.TryGetValue(lead, out var at) && Size(_target, at.Drawing) is { } size
 					&& Matrix3x2.Invert(at.Drawing.LocalMatrix(size.X, size.Y), out var toBone)
 					&& Matrix3x2.Invert(parent, out var fromParent))
+				{
 					local[bone] = toBone * at.Plain * fromParent;   // (else as it was the frame before, on its parent)
+					if (_still?.Invoke(lead.Name) == true) local[bone] = Setup(bone);   // (at rest on its parent)
+					else if (_rigid?.Invoke(lead.Name) == true)   // (its joint kept: just the turn)
+					{
+						var turned = Matrix3x2.CreateScale(bone.SetupScale) * Matrix3x2.CreateRotation(Decompose(local[bone]).Rotation);
+						var pivot = joints.GetValueOrDefault(bone) is { } knee ? knee.OnParent - Vector2.TransformNormal(knee.OnChild, turned) : bone.SetupPosition;
+						local[bone] = turned * Matrix3x2.CreateTranslation(pivot);
+					}
+				}
 				world[bone] = local[bone] * parent;
 				var (position, rotation, scale) = Decompose(local[bone]);
 				var keys = boneKeys[bone];

@@ -81,6 +81,107 @@ public class MotionTransferTests
 		}
 	}
 
+	// A rigid limb: their forearm slides along the arm as it turns (their art joined elsewhere);
+	// here it keeps its elbow where it hangs from the arm, and only turns as theirs does
+	[Fact]
+	public void A_rigid_limb_keeps_its_joint_and_turns_as_theirs()
+	{
+		Skeleton Arm(string p, out Bone lower)
+		{
+			var s = new Skeleton();
+			var root = new Bone { Name = p + "root", Length = 10 };
+			var upper = new Bone { Name = p + "upper", Length = 30, SetupPosition = new Vector2(0, 40) };
+			lower = new Bone { Name = p + "lower", Length = 30, SetupPosition = new Vector2(30, 0) };
+			s.Roots.Add(root);
+			root.AddChild(upper);
+			upper.AddChild(lower);
+			Part(s, p + "upper", upper, new Vector2(5, 0));
+			Part(s, p + "lower", lower, new Vector2(5, 0));
+			s.SetToSetupPose();
+			s.UpdateWorld();
+			return s;
+		}
+		var theirs = Arm("p_", out _);
+		var swing = new Animation { Name = "eat", Duration = 1f };
+		var turn = new RotateTimeline("p_lower");
+		turn.Track.Add(0, 0f);
+		turn.Track.Add(1, 0.6f);
+		swing.Timelines.Add(turn);
+		var slide = new TranslateTimeline("p_lower");
+		slide.Track.Add(0, Vector2.Zero);
+		slide.Track.Add(1, new Vector2(6, 3));
+		swing.Timelines.Add(slide);
+		var ours = Arm("q_", out var ourLower);
+		var ourAnimations = new List<Animation>();
+
+		var plan = ObjectMerge.Suggest(theirs, new[] { swing }, ours);
+		plan.AsPlaced = true;
+		plan.ByParts = true;
+		plan.Fps = 10;
+		plan.Suffix = "_p";
+		plan.Rigid = part => part.Contains("lower");
+		ObjectMerge.Merge(theirs, new[] { swing }, ours, ourAnimations, plan);
+		var copy = ourAnimations.Single(a => a.Name == "eat_p");
+
+		ours.SetToSetupPose();
+		copy.Apply(ours, 1f);
+		ours.UpdatePose();
+		Assert.Equal(new Vector2(30, 0), ourLower.Position);   // (the elbow where it was)
+		Assert.Equal(0.6f, ourLower.Rotation, 3);              // (turned as theirs)
+	}
+
+	// A skin's forearm, placed as theirs shows next to ours (their upper arm is longer: their
+	// elbow is further out), fitted by its joint: moved back onto our elbow, which our forearm
+	// turns about, so it stays on the arm as it turns
+	[Fact]
+	public void A_skins_limb_is_fitted_onto_our_joint()
+	{
+		Skeleton Arm(string p, float elbow, List<Animation> animations)
+		{
+			var s = new Skeleton();
+			var root = new Bone { Name = p + "root", Length = 10 };
+			var upper = new Bone { Name = p + "upper", Length = elbow, SetupPosition = new Vector2(0, 40) };
+			var lower = new Bone { Name = p + "lower", Length = 30, SetupPosition = new Vector2(elbow, 0) };
+			s.Roots.Add(root);
+			root.AddChild(upper);
+			upper.AddChild(lower);
+			Part(s, p + "upper", upper, new Vector2(5, 0));
+			Part(s, p + "lower", lower, new Vector2(5, 0));
+			s.SetToSetupPose();
+			s.UpdateWorld();
+			var bend = new Animation { Name = "idle", Duration = 1f, Loop = true };
+			var turn = new RotateTimeline(p + "lower");
+			turn.Track.Add(0, 0f);
+			turn.Track.Add(1, 0.9f);
+			bend.Timelines.Add(turn);
+			animations.Add(bend);
+			return s;
+		}
+		var theirAnimations = new List<Animation>();
+		var ourAnimations = new List<Animation>();
+		var theirs = Arm("p_", 36, theirAnimations);
+		var ours = Arm("q_", 30, ourAnimations);
+		var symbols = new Dictionary<Attachment, Matrix3x2>();   // (each drawing's symbol: its bone's space)
+		foreach (var sk in new[] { theirs, ours })
+			foreach (var (_, d) in sk.DefaultSkin.Entries)
+				symbols[d] = d.LocalMatrix(20, 10);
+
+		var plan = ObjectMerge.Suggest(theirs, theirAnimations, ours);
+		plan.AsPlaced = true;
+		plan.Symbols = symbols;
+		plan.SkinName = "long";
+		plan.SkinParts.Add("p_lower");
+		plan.ByPose = part => part.Contains("lower");
+		plan.FitByJoints = part => part.Contains("lower");
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(theirs, theirAnimations, ours, ourAnimations, plan);
+
+		var forearm = result.Skin!.AttachmentsFor("q_lower").Single();
+		Assert.Equal(5f, forearm.Offset.X, 1);   // (as placed: 11, 6 past our elbow)
+		Assert.Equal(0f, forearm.Offset.Y, 1);
+		Assert.Contains(result.Notes, n => n.Contains("fitted by their joints"));
+	}
+
 	[Fact]
 	public void A_matrix_comes_apart_into_its_move_turn_and_scale()
 	{

@@ -51,6 +51,20 @@ public sealed class MergePlan
 	// symbols (a pirate's boots, a cowboy's sleeves). A drawing either swaps to is placed from
 	// that, through the two drawings' symbols. Null: none
 	public Func<string, bool>? ByPose { get; set; }
+	// ByParts: the parts here whose bones keep their joints in the animations (limbs: each stays
+	// where it hangs from its parent here, only turning as the source's does), so the parts of any
+	// skin stay joined as they are at rest; the source's own art, joined elsewhere, then shows
+	// them a little apart instead. Null: none (each bone goes where its part shows there)
+	public Func<string, bool>? Rigid { get; set; }
+	// A skin's parts keep the stacking they have there, among themselves: where theirs stack
+	// otherwise than ours (a boot over the shin, a skirt over the legs), the fewest of them that
+	// have to move go onto parts of the skin's own, stacked as there (SkinOps.OwnPart), so only
+	// the skin's drawings move
+	public bool KeepStacking { get; set; }
+	// ByParts: the parts here whose bones keep their rest pose on their parent in the animations
+	// (not turned at all): pieces the source draws too otherwise to follow (a mummy's toe, which
+	// bends where a shoe doesn't). Null: none
+	public Func<string, bool>? Still { get; set; }
 	// ByParts: the parts here that show the source's own drawings in its animations (copied, named
 	// with the Suffix), even where they have drawings by the same names: hands, whose poses differ
 	// from character to character. Null: none
@@ -193,18 +207,36 @@ public static class ObjectMerge
 				SetupColor = s.SetupColor,
 				SetupOpacity = s.SetupOpacity
 			};
-			// In the draw order just in front of the part the one below it went to
-			int at = 0;
-			for (int j = i - 1; j >= 0; j--)
-				if (parts.GetValueOrDefault(source.Slots[j].Name) is { } below && target.FindSlot(below) is { } belowSlot)
-				{
-					at = target.Slots.IndexOf(belowSlot) + 1;
-					break;
-				}
-			target.Slots.Insert(at, slot);
+			target.Slots.Insert(PlaceAmong(i), slot);
 			parts[s.Name] = slot.Name;
 			added.Add(slot);
 		}
+
+		// Where a new part goes in the draw order (source.Slots[i]'s): just in front of the part
+		// the one below it there went to, or behind the one above it. Where those two disagree (a
+		// stray drawn behind it there and in front of everything here: a ground swatch, the
+		// particles' picture), wherever fewest of the parts it's drawn with there end up on the
+		// wrong side of it here, the nearest such place to the one below.
+		int PlaceAmong(int i)
+		{
+			var below = new List<int>();   // where they are here, nearest first
+			var above = new List<int>();
+			for (int j = i - 1; j >= 0; j--)
+				if (Here(j) is int k) below.Add(k);
+			for (int j = i + 1; j < source.Slots.Count; j++)
+				if (Here(j) is int k) above.Add(k);
+			if (below.Count > 0 && (above.Count == 0 || below[0] < above[0])) return below[0] + 1;
+			if (below.Count == 0) return above.Count > 0 ? above[0] : 0;
+			int best = 0, fewest = int.MaxValue, near = below[0] + 1;
+			for (int at = 0; at <= target.Slots.Count; at++)
+			{
+				int wrong = below.Count(k => k >= at) + above.Count(k => k < at);
+				if (wrong < fewest || wrong == fewest && Math.Abs(at - near) < Math.Abs(best - near)) (best, fewest) = (at, wrong);
+			}
+			return best;
+		}
+		int? Here(int j) => parts.GetValueOrDefault(source.Slots[j].Name) is { } name && target.FindSlot(name) is { } here
+			? target.Slots.IndexOf(here) : null;
 
 		// ----- drawings: each source drawing's name here -----
 		var drawingNames = new Dictionary<(string Part, string Drawing), string>();
@@ -235,7 +267,7 @@ public static class ObjectMerge
 		var companions = skin != null && plan.AsPlaced ? Companions(source, target, plan, parts, added) : new Dictionary<Slot, Slot>();
 		var transfer = plan.ByParts && plan.AsPlaced && plan.Animations.Count > 0
 			? new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, plan.CopyMissing != null || plan.OwnArt != null ? Supply : null,
-				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints, plan.ByPose, plan.OwnArt) : null;   // (posed alike now)
+				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints, plan.ByPose, plan.OwnArt, plan.Rigid, plan.Still) : null;   // (posed alike now)
 		// A drawing placed through its symbol (see MergePlan.Symbols): measured against the part
 		// here it lands on, or the one it rides on (its companion), as Animate draws it there.
 		// False: there's nothing to measure it against that way.
@@ -316,6 +348,17 @@ public static class ObjectMerge
 				if (plan.Symbols != null && plan.Symbols.TryGetValue(drawing, out var symbol)) plan.Symbols[made] = symbol;
 				into.Set(targetPart, made);
 			}
+		}
+		if (skin != null && plan.KeepStacking) KeepStacking(source, target, targetAnimations, skin, parts, plan, notes);
+
+		// A skin's limbs fitted by their joints (see MotionTransfer.FitSkin)
+		if (skin != null && plan.AsPlaced && plan.FitByJoints != null && plan.Symbols != null && plan.Animations.Count == 0)
+		{
+			var fitted = new MotionTransfer(source, target, parts, DrawingName, gap, plan.Symbols, null,
+				sourceAnimations, targetAnimations.ToList(), plan.FitByJoints).FitSkin(skin);
+			if (fitted.Count > 0)
+				notes.Add($"{fitted.Count} part(s) fitted by their joints, to stay joined as they move here: "
+					+ string.Join(", ", fitted.Select(f => $"{f.Part} (moved {f.Moved:0.#}" + (f.Stretched != 1 ? $", turned {f.Turned:0.#}°, stretched ×{f.Stretched:0.##}" : "") + ")")) + ".");
 		}
 		foreach (var slot in added)
 		{
@@ -413,7 +456,10 @@ public static class ObjectMerge
 
 	// A skin's new parts (a hat, a hairflap, gum) ride on the part of the skin they sit nearest as
 	// lined up (the skull, the jaw): on its bone, so they move as it moves in this object's own
-	// animations. Called posed by LineUp, before the drawings are placed (they're placed on these bones).
+	// animations. One that hangs from a bone here (through its own bones there: a coat's collar
+	// on the torso) rides the nearest of the skin's parts on that bone, not one that just happens
+	// to sit nearer (the arm over it). Called posed by LineUp, before the drawings are placed
+	// (they're placed on these bones).
 	private static Dictionary<Slot, Slot> Companions(Skeleton source, Skeleton target, MergePlan plan, Dictionary<string, string?> parts, List<Slot> added)
 	{
 		var result = new Dictionary<Slot, Slot>();
@@ -433,11 +479,56 @@ public static class ObjectMerge
 		if (held.Count == 0) return result;
 		foreach (var (rider, at) in riders)
 		{
-			var nearest = held.MinBy(h => Vector2.DistanceSquared(h.At, at)).Here;
+			var onItsBone = rider.Bone.Parent != null ? held.Where(h => h.Here.Bone == rider.Bone).ToList() : new();
+			var nearest = (onItsBone.Count > 0 ? onItsBone : held).MinBy(h => Vector2.DistanceSquared(h.At, at)).Here;
 			rider.Bone = nearest.Bone;
 			result[rider] = nearest;
 		}
 		return result;
+	}
+
+	// The skin's parts stacked among themselves as they are there (MergePlan.KeepStacking): the
+	// longest run of them already in their order here stays; each of the rest goes onto a part
+	// of the skin's own, just in front of the one before it there (or behind the one after it)
+	private static void KeepStacking(Skeleton source, Skeleton target, List<Animation> animations, Skin skin,
+		Dictionary<string, string?> parts, MergePlan plan, List<string> notes)
+	{
+		var theirs = new List<Slot>();   // the skin's parts here, in their order there
+		foreach (var s in source.Slots)
+			if (plan.SkinParts.Contains(s.Name) && parts.GetValueOrDefault(s.Name) is { } name && target.FindSlot(name) is { } here
+				&& !theirs.Contains(here) && skin.AttachmentsFor(here.Name).Any())
+				theirs.Add(here);
+		// The longest run already in order here (by where each is here)
+		var at = theirs.Select(s => target.Slots.IndexOf(s)).ToList();
+		var length = new int[at.Count];
+		var from = new int[at.Count];
+		int best = -1;
+		for (int i = 0; i < at.Count; i++)
+		{
+			(length[i], from[i]) = (1, -1);
+			for (int j = 0; j < i; j++)
+				if (at[j] < at[i] && length[j] + 1 > length[i]) (length[i], from[i]) = (length[j] + 1, j);
+			if (best < 0 || length[i] > length[best]) best = i;
+		}
+		var kept = new HashSet<int>();
+		for (int i = best; i >= 0; i = from[i]) kept.Add(i);
+		var placed = new List<Slot>(theirs);   // (each, or its own copy once moved)
+		var moved = new List<string>();
+		for (int i = 0; i < theirs.Count; i++)
+		{
+			if (kept.Contains(i) || SkinOps.OwnPart(target, animations, skin, theirs[i]) is not { } own) continue;
+			placed[i] = own;
+			var before = target.Slots.ToList();
+			var order = before.Where(s => s != own).ToList();
+			int to = i > 0 ? order.IndexOf(placed[i - 1]) + 1
+				: i + 1 < placed.Count ? order.IndexOf(placed[i + 1]) : order.IndexOf(theirs[i]) + 1;
+			order.Insert(to, own);
+			DrawOrderOps.SetSetupOrder(target, order);
+			var passed = DrawOrderOps.Passed(before, order, new[] { own });
+			foreach (var animation in animations) DrawOrderOps.CarryToKeys(animation, passed, 0, all: true);
+			moved.Add(theirs[i].Name);
+		}
+		if (moved.Count > 0) notes.Add($"Stacked as there, on parts of the skin's own: {string.Join(", ", moved)}.");
 	}
 
 	// A new part shows while its companion shows, and hides when it hides (a head falling off in

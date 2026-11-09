@@ -24,7 +24,8 @@ namespace Animator.Cli
 			      [--animations] [--loose] [--no-accessories] [--except WORD,...]
 			      [--map THEIRS=OURS,...] [--include PART,...] [--by-bones] [--imported-from FILE]
 			      [--rig FILE] [--copy-missing WORD,...] [--fit WORD,...] [--by-pose WORD,...]
-			      [--own WORD,...] [--open-still] [--verbose]
+			      [--own WORD,...] [--rigid WORD,...] [--still WORD,...] [--open-still]
+			      [--keep-stacking] [--verbose]
 			      The parts on those bones (and below), from each Animate project, as a skin of the object
 			      named after the file (zombie_egypt_basic → egypt). --loose: as their own rest pose has them,
 			      not as they show in their animations. --animations: their animations too. --except: parts
@@ -41,6 +42,12 @@ namespace Animator.Cli
 			      through the symbols (their own art, drawn elsewhere in its symbols: a pirate's boots).
 			      --own hand: the animations show their own drawings on those parts (copied as name_WORD),
 			      even where the object has drawings by those names (hands posed otherwise).
+			      --rigid arm,leg,foot,hand: with --animations, those parts' bones keep their joints (each
+			      stays where it hangs from its parent here, only turning as theirs does), so every skin's
+			      limbs stay joined as at rest. --still toe: with --animations, those parts keep their rest
+			      pose on what they hang from (pieces drawn too otherwise to follow: a mummy's toe).
+			      --keep-stacking: the skin's parts stack among themselves as they do there (a boot over
+			      the shin, a skirt over the legs): the fewest that must move go onto parts of its own.
 			      --verbose: which part went where.
 
 			  harlequin skin <project> --object NAME --name SKIN --parts P,... [--category C] [--overlay] [--on]
@@ -56,14 +63,17 @@ namespace Animator.Cli
 			      Those parts show nothing while the skin is on (legs under a long skirt); --not: again.
 
 			  harlequin order <project> --object NAME --parts P,... (--behind Q | --in-front-of Q) [--animation A]
+			      [--skin SKIN]
 			      Parts moved in the draw order: at rest (and in the animations' keys that drew them as
-			      the rest order did), or with --animation, all through that animation.
+			      the rest order did), or with --animation, all through that animation. --skin: just
+			      while that skin is on (its drawings on them go onto parts of its own, moved instead;
+			      a skirt in front of the legs where the others' waist is behind them).
 
 			  harlequin show <project> --object NAME [--skins A,B] [--hide A,B] [--none]
 			      Which skins are on (as the project opens, and in exports).
 
-			  harlequin rename <project> --object NAME [--skin SKIN | --animation A] --to NEW
-			      The object, or one of its skins or animations.
+			  harlequin rename <project> --object NAME [--skin SKIN | --animation A | --part P] --to NEW
+			      The object, or one of its skins, animations or parts.
 			  harlequin remove <project> --object NAME [--animations A,B] [--skins A,B] [--parts P,Q]
 			      Without any of those, the whole object goes.
 
@@ -72,9 +82,11 @@ namespace Animator.Cli
 			      A picture of an object (at rest, or a frame of an animation). --sheet: one picture of every
 			      skin in the category side by side, named.
 
-			  harlequin pose <project> [--object NAME] [--animation A] [--frame N | --time T] [--skins A,B] [--sweep K]
+			  harlequin pose <project> [--object NAME] [--animation A] [--frame N | --time T] [--skins A,B] [--sweep K] [--full]
 			      Every part shown then, front last: its drawing, its picture's middle, turn and size.
 			      --sweep K: the whole animation, K times a frame (as it plays between keys), each line timed.
+			      --full: then its bone, where that bone is, and the matrix from its picture's pixels to the
+			      object (M11 M12 M21 M22 M31 M32), to work out where parts meet.
 
 			  harlequin export <project> --format engine|png|gif|sheet --out PATH [--object NAME]
 			      [--animations A,B] [--scale S] [--bake] [--pixel-art] [--no-events] [--background RRGGBB]
@@ -99,7 +111,7 @@ namespace Animator.Cli
 					"version" or "--version" => Version(),
 					"info" => Commands.Info(new Args(rest, "tree")),
 					"import" => Commands.Import(new Args(rest, "no-rig", "no-split", "open-still")),
-					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones", "verbose", "open-still")),
+					"bring-in" => Commands.BringIn(new Args(rest, "animations", "loose", "no-accessories", "by-bones", "verbose", "open-still", "keep-stacking")),
 					"show" => Commands.Show(new Args(rest, "none")),
 					"skin" => Commands.Skin(new Args(rest, "overlay", "on")),
 					"rename" => Commands.Rename(new Args(rest)),
@@ -108,7 +120,7 @@ namespace Animator.Cli
 					"attach" => Commands.Attach(new Args(rest, "ride")),
 					"remove" => Commands.Remove(new Args(rest)),
 					"render" => Commands.Render(new Args(rest)),
-					"pose" => Commands.Pose(new Args(rest)),
+					"pose" => Commands.Pose(new Args(rest, "full")),
 					"export" => Commands.Export(new Args(rest, "bake", "pixel-art", "no-events")),
 					_ => throw new UsageException($"There's no command \"{args[0]}\".")
 				};
