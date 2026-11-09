@@ -116,6 +116,25 @@ public sealed class MotionTransfer
 		}
 	}
 
+	// Where a bone's part joins its parent's part here, in the two bones' spaces: the point they
+	// turn about against each other in this object's own animations, which isn't always the
+	// bone's own point (a game turns a shin about its symbol's origin and slides it back to the
+	// knee). Null: no joint shows (no parts, no symbols, or they slide too much to have one).
+	private (Vector2 OnParent, Vector2 OnChild)? JointOf(Bone bone)
+	{
+		Slot? PartOn(Bone b) => _target.Slots.FirstOrDefault(s => s.Bone == b && s.Name == b.Name);
+		if (_symbols == null || bone.Parent == null || PartOn(bone) is not { } child || PartOn(bone.Parent) is not { } parent) return null;
+		_ourJoints ??= new JointFinder(_target, _targetAnimations, this, slack: 8f);
+		if (_ourJoints.Joint(parent, child) is not { } j) return null;
+		_target.SetToSetupPose();
+		_target.UpdatePose();
+		if (SymbolSpace(_target, parent) is not { } ps || SymbolSpace(_target, child) is not { } cs
+			|| !Matrix3x2.Invert(parent.Bone.World, out var toParent) || !Matrix3x2.Invert(child.Bone.World, out var toChild)) return null;
+		return (Vector2.Transform(j.Parent, ps * toParent), Vector2.Transform(j.Child, cs * toChild));
+	}
+
+	private JointFinder? _ourJoints;
+
 	// A skin's drawings (another character's limbs, brought in posed alike) fitted by their
 	// joints, as FitLimbs fits the parts of an animation: each fitted part's drawings moved so
 	// their joint with the part above lands on this rig's (the bone's own point, which every
@@ -353,6 +372,7 @@ public sealed class MotionTransfer
 				.ThenByDescending(s => Area(s)).First();
 
 		var bones = _target.AllBones().ToList();   // (parents first)
+		var joints = bones.Where(b => leader.TryGetValue(b, out var l) && _rigid?.Invoke(l.Name) == true).ToDictionary(b => b, JointOf);
 		var local = bones.ToDictionary(b => b, Setup);
 		var placement = new Dictionary<Slot, (Vector2 Offset, float Rotation, Vector2 Scale)>();
 		var boneKeys = bones.ToDictionary(b => b, _ => new List<(float, Vector2, float, Vector2)>());
@@ -371,8 +391,11 @@ public sealed class MotionTransfer
 					local[bone] = toBone * at.Plain * fromParent;   // (else as it was the frame before, on its parent)
 					if (_still?.Invoke(lead.Name) == true) local[bone] = Setup(bone);   // (at rest on its parent)
 					else if (_rigid?.Invoke(lead.Name) == true)   // (its joint kept: just the turn)
-						local[bone] = Matrix3x2.CreateScale(bone.SetupScale) * Matrix3x2.CreateRotation(Decompose(local[bone]).Rotation)
-							* Matrix3x2.CreateTranslation(bone.SetupPosition);
+					{
+						var turned = Matrix3x2.CreateScale(bone.SetupScale) * Matrix3x2.CreateRotation(Decompose(local[bone]).Rotation);
+						var pivot = joints.GetValueOrDefault(bone) is { } knee ? knee.OnParent - Vector2.TransformNormal(knee.OnChild, turned) : bone.SetupPosition;
+						local[bone] = turned * Matrix3x2.CreateTranslation(pivot);
+					}
 				}
 				world[bone] = local[bone] * parent;
 				var (position, rotation, scale) = Decompose(local[bone]);
