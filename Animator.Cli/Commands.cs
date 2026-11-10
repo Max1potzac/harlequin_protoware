@@ -263,8 +263,8 @@ public static class Commands
 				var keys = animation.DrawOrder.Track.Keys;
 				for (int i = 0; i < keys.Count; i++)
 				{
-					var slots = keys[i].Value.Select(sk.FindSlot).OfType<Slot>().ToList();
-					if (!slots.Contains(other) || !moving.Any(slots.Contains)) continue;
+					// (all the parts, those it leaves out where it draws them)
+					var slots = DrawOrderOps.Complete(keys[i].Value, sk.Slots);
 					var names = Placed(slots).Select(s => s.Name).ToArray();
 					if (names.SequenceEqual(keys[i].Value)) continue;
 					keys[i] = keys[i] with { Value = names };

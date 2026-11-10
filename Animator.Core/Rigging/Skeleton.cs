@@ -108,25 +108,7 @@ public class Skeleton
 	// since) goes just in front of the part it's in front of in the setup order.
 	public void SetDrawOrder(IReadOnlyList<string> names)
 	{
-		var bySlot = new Dictionary<string, Slot>(StringComparer.Ordinal);
-		foreach (var slot in Slots) bySlot.TryAdd(slot.Name, slot);
-		var order = new List<Slot>(Slots.Count);
-		var placed = new HashSet<Slot>();
-		foreach (string name in names)
-			if (bySlot.TryGetValue(name, out var slot) && placed.Add(slot)) order.Add(slot);
-		for (int i = 0; i < Slots.Count && placed.Count < Slots.Count; i++)
-		{
-			if (placed.Contains(Slots[i])) continue;
-			int at = 0;
-			for (int j = i - 1; j >= 0; j--)
-				if (placed.Contains(Slots[j]))
-				{
-					at = order.IndexOf(Slots[j]) + 1;
-					break;
-				}
-			order.Insert(at, Slots[i]);
-			placed.Add(Slots[i]);
-		}
+		var order = Editing.DrawOrderOps.Complete(names, Slots);
 		_drawOrder = order.SequenceEqual(Slots) ? null : order;
 	}
     public void ApplyLimits()
