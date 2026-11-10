@@ -370,22 +370,22 @@ public sealed class XflImportPlan : IDisposable
 		{
 			if (PartToObject(part, f) is { } m)
 			{
-				// A part flipped over (mirrored against its rest) on a frame shows the same turned a
-				// half turn and mirrored the other way: the bone takes whichever turn is nearer the
-				// frame before, so it doesn't spin round between the frames as it plays (the part's
-				// own keys take the mirroring). Not mirrored, it turns as the part does: a half
-				// turn kept on after a flip would leave the part's own keys turning it back about
-				// its picture, which is right for its own picture but flings a skin's elsewhere
-				// (another calf, drawn round another point).
+				// It turns as the part does. A part flipped over (mirrored against its rest) on a
+				// frame flips its bone over with it, across the bone's own length: every picture on
+				// the bone then flips alike, a skin's drawn round another point as much as its own
+				// (with the part's own keys mirroring it back about its picture instead, a skin's
+				// calf jumped). The bone's turn is then where the part's rest on it puts it.
+				bool flipped = Determinant(m) * Determinant(setup) < 0;
 				float turn = TurnOf(part, f, m) + turned;
-				if (before is { } last)
+				if (flipped)
 				{
-					turn = last + MathF.IEEERemainder(turn - last, 2 * MathF.PI);
-					float other = last + MathF.IEEERemainder(turn + MathF.PI - last, 2 * MathF.PI);
-					if (Determinant(m) * Determinant(setup) < 0 && MathF.Abs(other - last) < MathF.Abs(turn - last)) turn = other;
+					var onBone = Matrix3x2.CreateRotation(angle) * Matrix3x2.CreateTranslation(head) * fromPart * m;   // (the bone as the part takes it)
+					turn = MathF.Atan2(onBone.M12, onBone.M11);
 				}
+				if (before is { } last) turn = last + MathF.IEEERemainder(turn - last, 2 * MathF.PI);
 				before = turn;
-				motion[f] = Matrix3x2.CreateRotation(turn) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m));
+				motion[f] = (flipped ? Matrix3x2.CreateScale(1, -1) : Matrix3x2.Identity)
+					* Matrix3x2.CreateRotation(turn) * Matrix3x2.CreateTranslation(Vector2.Transform(joint, m));
 				if (first < 0) first = f;
 			}
 			else if (first >= 0) motion[f] = motion[f - 1];
@@ -550,9 +550,10 @@ public static class XflImporter
 		skeleton.UpdateWorld();
 
 		// Each bone's world over time, held while its part is hidden: it turns as its part turns,
-		// and its joint goes where the part takes that point. Bones only move and turn: a part's
-		// scale and skew stay on the part (on a bone that scaled unevenly, a part turning on it
-		// would be skewed by it), so they're rebuilt the way the editor will from the keys made.
+		// and its joint goes where the part takes that point. Bones only move, turn and flip over
+		// with a mirrored part: a part's scale and skew stay on the part (on a bone that scaled
+		// unevenly, a part turning on it would be skewed by it), so they're rebuilt the way the
+		// editor will from the keys made.
 		var target = new Dictionary<Bone, Matrix3x2[]>();
 		foreach (var (bone, part) in bones)
 			target[bone] = plan.BoneMotion(part, bone.World.Translation, bone.WorldRotation);

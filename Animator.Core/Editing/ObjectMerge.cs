@@ -374,7 +374,8 @@ public static class ObjectMerge
 			target.UpdateWorld();
 		}
 		if (meshesDropped) notes.Add("Meshes weren't brought along: the drawings are flat here (make their meshes again).");
-		foreach (var (accessory, companion) in companions) ShowWith(accessory, companion, targetAnimations);
+		foreach (var (accessory, companion) in companions)
+			ShowWith(accessory, accessory.SetupAttachment ?? skin?.AttachmentsFor(accessory.Name).FirstOrDefault()?.Name, companion, targetAnimations);
 
 		// ----- animations -----
 		var oldToNew = layerSources.ToDictionary(p => p.Value.ToString("N"), p => p.Key.ToString("N"));
@@ -532,15 +533,18 @@ public static class ObjectMerge
 	}
 
 	// A new part shows while its companion shows, and hides when it hides (a head falling off in
-	// die): the companion's drawing keys, copied, in every animation it has them
-	private static void ShowWith(Slot accessory, Slot companion, List<Animation> animations)
+	// die): the companion's drawing keys, copied, in every animation it has them. shows: the
+	// drawing it shows then (its rest one, or the skin's on a part with none at rest: a skirt).
+	// With none, nothing's keyed: hiding it in every key would hide it for good.
+	private static void ShowWith(Slot accessory, string? shows, Slot companion, List<Animation> animations)
 	{
+		if (shows == null) return;
 		foreach (var animation in animations)
 		{
 			if (animation.Timelines.OfType<AttachmentTimeline>().FirstOrDefault(x => x.Target == companion.Name) is not { } keys) continue;
 			if (animation.Timelines.OfType<AttachmentTimeline>().Any(x => x.Target == accessory.Name)) continue;
 			var copy = new AttachmentTimeline(accessory.Name);
-			foreach (var key in keys.Track.Keys) copy.Add(key.Time, key.Value == null ? null : accessory.SetupAttachment);
+			foreach (var key in keys.Track.Keys) copy.Add(key.Time, key.Value == null ? null : shows);
 			animation.Timelines.Add(copy);
 		}
 	}
