@@ -481,6 +481,14 @@ public static class ObjectMerge
 		foreach (var (rider, at) in riders)
 		{
 			var onItsBone = rider.Bone.Parent != null ? held.Where(h => h.Here.Bone == rider.Bone).ToList() : new();
+			// (none of the skin's on it, but the bone's own part: that one, the skin hiding it or
+			// not: a skirt on the waist shows and falls as the waist does)
+			if (onItsBone.Count == 0 && rider.Bone.Parent != null
+				&& target.Slots.FirstOrDefault(x => x.Bone == rider.Bone && x.Name == rider.Bone.Name && !added.Contains(x)) is { } own)
+			{
+				result[rider] = own;
+				continue;
+			}
 			var nearest = (onItsBone.Count > 0 ? onItsBone : held).MinBy(h => Vector2.DistanceSquared(h.At, at)).Here;
 			rider.Bone = nearest.Bone;
 			result[rider] = nearest;
