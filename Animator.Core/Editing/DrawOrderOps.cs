@@ -102,6 +102,32 @@ public static class DrawOrderOps
 		return changed;
 	}
 
+	// A key's order (by name) with every part: the ones it leaves out (added since it was made)
+	// go where the setup order has them, just in front of the nearest part behind them there
+	public static List<Slot> Complete(IReadOnlyList<string> names, IReadOnlyList<Slot> setup)
+	{
+		var bySlot = new Dictionary<string, Slot>(StringComparer.Ordinal);
+		foreach (var slot in setup) bySlot.TryAdd(slot.Name, slot);
+		var order = new List<Slot>(setup.Count);
+		var placed = new HashSet<Slot>();
+		foreach (string name in names)
+			if (bySlot.TryGetValue(name, out var slot) && placed.Add(slot)) order.Add(slot);
+		for (int i = 0; i < setup.Count && placed.Count < setup.Count; i++)
+		{
+			if (placed.Contains(setup[i])) continue;
+			int at = 0;
+			for (int j = i - 1; j >= 0; j--)
+				if (placed.Contains(setup[j]))
+				{
+					at = order.IndexOf(setup[j]) + 1;
+					break;
+				}
+			order.Insert(at, setup[i]);
+			placed.Add(setup[i]);
+		}
+		return order;
+	}
+
 	// All the way to the front or the back
 	public static List<Slot> ToEnd(IReadOnlyList<Slot> order, IReadOnlyCollection<Slot> moving, bool front) =>
 		Moved(order, moving, front ? order.Count : 0);

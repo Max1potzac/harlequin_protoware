@@ -349,7 +349,6 @@ public static class ObjectMerge
 				into.Set(targetPart, made);
 			}
 		}
-		if (skin != null && plan.KeepStacking) KeepStacking(source, target, targetAnimations, skin, parts, plan, notes);
 
 		// A skin's limbs fitted by their joints (see MotionTransfer.FitSkin)
 		if (skin != null && plan.AsPlaced && plan.FitByJoints != null && plan.Symbols != null && plan.Animations.Count == 0)
@@ -374,7 +373,10 @@ public static class ObjectMerge
 			target.UpdateWorld();
 		}
 		if (meshesDropped) notes.Add("Meshes weren't brought along: the drawings are flat here (make their meshes again).");
-		foreach (var (accessory, companion) in companions) ShowWith(accessory, companion, targetAnimations);
+		foreach (var (accessory, companion) in companions)
+			ShowWith(accessory, accessory.SetupAttachment ?? skin?.AttachmentsFor(accessory.Name).FirstOrDefault()?.Name, companion, targetAnimations);
+		// (once the new parts show what they show at rest, and with whom: a copy made then keeps it)
+		if (skin != null && plan.KeepStacking) KeepStacking(source, target, targetAnimations, skin, parts, plan, added, notes);
 
 		// ----- animations -----
 		var oldToNew = layerSources.ToDictionary(p => p.Value.ToString("N"), p => p.Key.ToString("N"));
@@ -480,6 +482,14 @@ public static class ObjectMerge
 		foreach (var (rider, at) in riders)
 		{
 			var onItsBone = rider.Bone.Parent != null ? held.Where(h => h.Here.Bone == rider.Bone).ToList() : new();
+			// (none of the skin's on it, but the bone's own part: that one, the skin hiding it or
+			// not: a skirt on the waist shows and falls as the waist does)
+			if (onItsBone.Count == 0 && rider.Bone.Parent != null
+				&& target.Slots.FirstOrDefault(x => x.Bone == rider.Bone && x.Name == rider.Bone.Name && !added.Contains(x)) is { } own)
+			{
+				result[rider] = own;
+				continue;
+			}
 			var nearest = (onItsBone.Count > 0 ? onItsBone : held).MinBy(h => Vector2.DistanceSquared(h.At, at)).Here;
 			rider.Bone = nearest.Bone;
 			result[rider] = nearest;
@@ -491,7 +501,7 @@ public static class ObjectMerge
 	// longest run of them already in their order here stays; each of the rest goes onto a part
 	// of the skin's own, just in front of the one before it there (or behind the one after it)
 	private static void KeepStacking(Skeleton source, Skeleton target, List<Animation> animations, Skin skin,
-		Dictionary<string, string?> parts, MergePlan plan, List<string> notes)
+		Dictionary<string, string?> parts, MergePlan plan, List<Slot> added, List<string> notes)
 	{
 		var theirs = new List<Slot>();   // the skin's parts here, in their order there
 		foreach (var s in source.Slots)
@@ -516,7 +526,8 @@ public static class ObjectMerge
 		var moved = new List<string>();
 		for (int i = 0; i < theirs.Count; i++)
 		{
-			if (kept.Contains(i) || SkinOps.OwnPart(target, animations, skin, theirs[i]) is not { } own) continue;
+			// (a part new here is the skin's alone already: it moves itself)
+			if (kept.Contains(i) || (added.Contains(theirs[i]) ? theirs[i] : SkinOps.OwnPart(target, animations, skin, theirs[i])) is not { } own) continue;
 			placed[i] = own;
 			var before = target.Slots.ToList();
 			var order = before.Where(s => s != own).ToList();
@@ -532,15 +543,18 @@ public static class ObjectMerge
 	}
 
 	// A new part shows while its companion shows, and hides when it hides (a head falling off in
-	// die): the companion's drawing keys, copied, in every animation it has them
-	private static void ShowWith(Slot accessory, Slot companion, List<Animation> animations)
+	// die): the companion's drawing keys, copied, in every animation it has them. shows: the
+	// drawing it shows then (its rest one, or the skin's on a part with none at rest: a skirt).
+	// With none, nothing's keyed: hiding it in every key would hide it for good.
+	private static void ShowWith(Slot accessory, string? shows, Slot companion, List<Animation> animations)
 	{
+		if (shows == null) return;
 		foreach (var animation in animations)
 		{
 			if (animation.Timelines.OfType<AttachmentTimeline>().FirstOrDefault(x => x.Target == companion.Name) is not { } keys) continue;
 			if (animation.Timelines.OfType<AttachmentTimeline>().Any(x => x.Target == accessory.Name)) continue;
 			var copy = new AttachmentTimeline(accessory.Name);
-			foreach (var key in keys.Track.Keys) copy.Add(key.Time, key.Value == null ? null : accessory.SetupAttachment);
+			foreach (var key in keys.Track.Keys) copy.Add(key.Time, key.Value == null ? null : shows);
 			animation.Timelines.Add(copy);
 		}
 	}

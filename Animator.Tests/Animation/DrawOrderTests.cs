@@ -36,6 +36,16 @@ public class DrawOrderTests
 		return Names(skeleton.DrawOrder);
 	}
 
+	// A key made before a part was added leaves it out: it's drawn where the setup has it, just in
+	// front of the part behind it there (so moving parts past it in that key can find it)
+	[Fact]
+	public void A_key_leaving_a_part_out_draws_it_where_the_setup_does()
+	{
+		var (skeleton, a1, b1, a2, b2) = Rig();
+		Assert.Equal("b1 a1 a2 b2", Names(DrawOrderOps.Complete(new[] { "b1", "a1", "a2" }, skeleton.Slots)));   // b2: just in front of a2, as in the setup
+		Assert.Equal("a1 b1 b2 a2", Names(DrawOrderOps.Complete(new[] { "b2", "a2" }, skeleton.Slots)));         // the rest at the back, as the setup has them
+	}
+
 	[Fact]
 	public void Parts_change_places_whatever_bones_theyre_on()
 	{

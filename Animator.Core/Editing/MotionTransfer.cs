@@ -378,26 +378,37 @@ public sealed class MotionTransfer
 		var boneKeys = bones.ToDictionary(b => b, _ => new List<(float, Vector2, float, Vector2)>());
 		var partKeys = new Dictionary<Slot, List<(float, Vector2, float, Vector2)>>();
 		var world = new Dictionary<Bone, Matrix3x2>();
+		var theirWorld = new Dictionary<Bone, Matrix3x2>();   // (where each would be, following their parts exactly)
 		for (int f = 0; f < times.Count; f++)
 		{
 			var frame = shown[f];
 			foreach (var bone in bones)
 			{
 				var parent = bone.Parent != null ? world[bone.Parent] : Matrix3x2.Identity;
+				var theirParent = bone.Parent != null ? theirWorld[bone.Parent] : Matrix3x2.Identity;
+				Matrix3x2? theirs = null;
 				if (leader.TryGetValue(bone, out var lead) && frame.TryGetValue(lead, out var at) && Size(_target, at.Drawing) is { } size
 					&& Matrix3x2.Invert(at.Drawing.LocalMatrix(size.X, size.Y), out var toBone)
-					&& Matrix3x2.Invert(parent, out var fromParent))
+					&& Matrix3x2.Invert(parent, out var fromParent) && Matrix3x2.Invert(theirParent, out var fromTheirParent))
 				{
-					local[bone] = toBone * at.Plain * fromParent;   // (else as it was the frame before, on its parent)
+					theirs = toBone * at.Plain;
+					local[bone] = theirs.Value * fromParent;   // (else as it was the frame before, on its parent)
 					if (_still?.Invoke(lead.Name) == true) local[bone] = Setup(bone);   // (at rest on its parent)
-					else if (_rigid?.Invoke(lead.Name) == true)   // (its joint kept: just the turn)
+					else if (_rigid?.Invoke(lead.Name) == true)
 					{
-						var turned = Matrix3x2.CreateScale(bone.SetupScale) * Matrix3x2.CreateRotation(Decompose(local[bone]).Rotation);
-						var pivot = joints.GetValueOrDefault(bone) is { } knee ? knee.OnParent - Vector2.TransformNormal(knee.OnChild, turned) : bone.SetupPosition;
-						local[bone] = turned * Matrix3x2.CreateTranslation(pivot);
+						// Its joint kept, just the turn (with no joint showing, where it's at rest on its
+						// parent); a part not shown at rest, so with no rest to keep (a hand only in a
+						// few poses: a fist), on its parent as theirs is on theirs
+						var onTheirParent = theirs.Value * fromTheirParent;
+						var turned = Matrix3x2.CreateScale(bone.SetupScale) * Matrix3x2.CreateRotation(Decompose(onTheirParent).Rotation);
+						local[bone] = joints.GetValueOrDefault(bone) is { } knee
+							? turned * Matrix3x2.CreateTranslation(knee.OnParent - Vector2.TransformNormal(knee.OnChild, turned))
+							: lead.SetupAttachment != null ? turned * Matrix3x2.CreateTranslation(bone.SetupPosition)
+							: onTheirParent;
 					}
 				}
 				world[bone] = local[bone] * parent;
+				theirWorld[bone] = theirs ?? local[bone] * theirParent;
 				var (position, rotation, scale) = Decompose(local[bone]);
 				var keys = boneKeys[bone];
 				(rotation, scale) = Continue(rotation, scale, keys.Count > 0 ? keys[^1].Item3 + bone.SetupRotation : bone.SetupRotation);
