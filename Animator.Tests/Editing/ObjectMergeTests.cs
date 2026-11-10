@@ -281,6 +281,41 @@ public class ObjectMergeTests
 		Assert.Contains(result.Notes, n => n.Contains("Stacked as there"));
 	}
 
+	// A new part stacked out of the order here (a coat's collar between their head and body,
+	// their head behind their body) moves itself, showing its drawing: it's the skin's alone, so
+	// there's no copy of it to make (one made before it showed anything showed nothing)
+	[Fact]
+	public void A_skins_new_part_keeps_its_stacking_by_moving_itself()
+	{
+		var (camp, walks) = Zombie("camp_", 0.2f, hat: false);
+		var (pirate, pirateAnimations) = Zombie("pirate_", 0.1f, hat: false);
+		var head = camp.FindSlot("camp_head")!;
+		camp.Slots.Remove(head);
+		camp.Slots.Insert(0, head);
+		var picture = new Asset { Name = "camp_collar", Width = 10, Height = 10 };
+		picture.Layers.Add(new AssetLayer { Name = "Base" });
+		camp.Assets[picture.Id] = picture;
+		camp.Slots.Insert(1, new Slot("camp_collar", camp.FindBone("camp_body")!) { SetupAttachment = "camp_collar" });
+		camp.DefaultSkin.Set("camp_collar", new Attachment { Name = "camp_collar", AssetId = picture.Id });
+		var plan = ObjectMerge.Suggest(camp, walks, pirate);
+		plan.SkinName = "camp";
+		plan.SkinParts.UnionWith(new[] { "camp_body", "camp_head", "camp_collar" });
+		plan.NewParts.Add("camp_collar");
+		plan.KeepStacking = true;
+		plan.Animations.Clear();
+		var result = ObjectMerge.Merge(camp, walks, pirate, pirateAnimations, plan);
+
+		var collar = Assert.Single(result.NewParts);
+		Assert.NotNull(collar.SetupAttachment);
+		Assert.DoesNotContain(pirate.Slots, s => s.Name.StartsWith(collar.Name + " "));
+		var names = pirate.Slots.Select(s => s.Name).ToList();
+		Assert.True(names.IndexOf("pirate_head") < names.IndexOf(collar.Name), string.Join(", ", names));
+		Assert.True(names.IndexOf(collar.Name) < names.IndexOf("pirate_body camp"), string.Join(", ", names));
+		SkinOps.Show(pirate, result.Skin!);
+		pirate.SetToSetupPose();
+		Assert.NotNull(pirate.ResolveAttachment(collar));
+	}
+
 	// A new part goes where the parts it's drawn with say: a backpack drawn at the very back,
 	// behind everything but a ground swatch, which here is drawn in front of everything. Behind
 	// the body, as there (not in front of the swatch, in front of all).

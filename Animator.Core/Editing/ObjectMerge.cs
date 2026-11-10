@@ -349,7 +349,6 @@ public static class ObjectMerge
 				into.Set(targetPart, made);
 			}
 		}
-		if (skin != null && plan.KeepStacking) KeepStacking(source, target, targetAnimations, skin, parts, plan, notes);
 
 		// A skin's limbs fitted by their joints (see MotionTransfer.FitSkin)
 		if (skin != null && plan.AsPlaced && plan.FitByJoints != null && plan.Symbols != null && plan.Animations.Count == 0)
@@ -376,6 +375,8 @@ public static class ObjectMerge
 		if (meshesDropped) notes.Add("Meshes weren't brought along: the drawings are flat here (make their meshes again).");
 		foreach (var (accessory, companion) in companions)
 			ShowWith(accessory, accessory.SetupAttachment ?? skin?.AttachmentsFor(accessory.Name).FirstOrDefault()?.Name, companion, targetAnimations);
+		// (once the new parts show what they show at rest, and with whom: a copy made then keeps it)
+		if (skin != null && plan.KeepStacking) KeepStacking(source, target, targetAnimations, skin, parts, plan, added, notes);
 
 		// ----- animations -----
 		var oldToNew = layerSources.ToDictionary(p => p.Value.ToString("N"), p => p.Key.ToString("N"));
@@ -500,7 +501,7 @@ public static class ObjectMerge
 	// longest run of them already in their order here stays; each of the rest goes onto a part
 	// of the skin's own, just in front of the one before it there (or behind the one after it)
 	private static void KeepStacking(Skeleton source, Skeleton target, List<Animation> animations, Skin skin,
-		Dictionary<string, string?> parts, MergePlan plan, List<string> notes)
+		Dictionary<string, string?> parts, MergePlan plan, List<Slot> added, List<string> notes)
 	{
 		var theirs = new List<Slot>();   // the skin's parts here, in their order there
 		foreach (var s in source.Slots)
@@ -525,7 +526,8 @@ public static class ObjectMerge
 		var moved = new List<string>();
 		for (int i = 0; i < theirs.Count; i++)
 		{
-			if (kept.Contains(i) || SkinOps.OwnPart(target, animations, skin, theirs[i]) is not { } own) continue;
+			// (a part new here is the skin's alone already: it moves itself)
+			if (kept.Contains(i) || (added.Contains(theirs[i]) ? theirs[i] : SkinOps.OwnPart(target, animations, skin, theirs[i])) is not { } own) continue;
 			placed[i] = own;
 			var before = target.Slots.ToList();
 			var order = before.Where(s => s != own).ToList();
