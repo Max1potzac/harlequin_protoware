@@ -953,6 +953,49 @@ public class XflTests
 		return said;
 	}
 
+	// A PvZ2 converter's data.json says its pictures are cut at 1536 (each drawn at 1200/1536); a
+	// picture cut from a 1200 atlas instead (PvZ2C's) is drawn at the size its name says, one cut
+	// at 1536 as it is
+	[Fact]
+	public void Pictures_cut_at_another_resolution_than_data_json_says_are_drawn_at_their_size()
+	{
+		static byte[] Png(int width, int height)
+		{
+			var bytes = new byte[33];
+			new byte[] { 0x89, (byte)'P', (byte)'N', (byte)'G', 13, 10, 26, 10, 0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R' }.CopyTo(bytes, 0);
+			bytes[16] = (byte)(width >> 24); bytes[17] = (byte)(width >> 16); bytes[18] = (byte)(width >> 8); bytes[19] = (byte)width;
+			bytes[20] = (byte)(height >> 24); bytes[21] = (byte)(height >> 16); bytes[22] = (byte)(height >> 8); bytes[23] = (byte)height;
+			return bytes;
+		}
+		static byte[] Text(string s) => System.Text.Encoding.UTF8.GetBytes(s);
+		const string ns = "xmlns=\"http://ns.adobe.com/xfl/2008/\"";
+		var shrunk = Matrix3x2.CreateScale(0.78125f) * Matrix3x2.CreateTranslation(-2, -3);
+		string Image(string name) =>
+			$"<DOMSymbolItem {ns} name=\"image/{name}\" symbolType=\"graphic\"><timeline><DOMTimeline name=\"{name}\"><layers><DOMLayer><frames>" +
+			XflTestProject.Frame(0, 1, XflTestProject.Bitmap("media/" + name, shrunk)) + "</frames></DOMLayer></layers></DOMTimeline></timeline></DOMSymbolItem>";
+		var files = new XflFiles(new Dictionary<string, byte[]>
+		{
+			["domdocument.xml"] = Text($"<DOMDocument {ns} width=\"390\" height=\"390\"><media>" +
+				"<DOMBitmapItem name=\"media/cone_100x50\" href=\"media/cone_100x50.png\"/><DOMBitmapItem name=\"media/hat_40x20\" href=\"media/hat_40x20.png\"/></media>" +
+				"<symbols><Include href=\"image/cone_100x50.xml\"/><Include href=\"image/hat_40x20.xml\"/></symbols></DOMDocument>"),
+			["library/image/cone_100x50.xml"] = Text(Image("cone_100x50")),
+			["library/image/hat_40x20.xml"] = Text(Image("hat_40x20")),
+			["library/media/cone_100x50.png"] = Png(100, 50),   // from a 1200 atlas
+			["library/media/hat_40x20.png"] = Png(51, 26),      // from a 1536 one
+			["data.json"] = Text("{\"version\": 6, \"resolution\": 1536, \"image\": {" +
+				"\"cone_100x50\": {\"id\": \"IMAGE_CONE\", \"dimension\": {\"width\": 100, \"height\": 50}}," +
+				"\"hat_40x20\": {\"id\": \"IMAGE_HAT\", \"dimension\": {\"width\": 40, \"height\": 20}}}}")
+		});
+		var doc = XflReader.Read(files);
+
+		Matrix3x2 Placed(string name) => ((XflBitmapInstance)doc.Symbols["image/" + name].Timeline.Layers[0].Frames[0].Elements[0]).Matrix;
+		var cone = Placed("cone_100x50");
+		Assert.Equal(1f, cone.M11, 3);                                   // 100 pixels drawn 100 wide
+		Assert.Equal(new Vector2(-2, -3), cone.Translation);             // from the same corner
+		Assert.Equal(shrunk, Placed("hat_40x20"));
+		Assert.Contains(doc.Notes, n => n.Contains("1200") && n.Contains("1536"));
+	}
+
 	[Fact]
 	public void Project_files_are_found_by_paths_going_up_and_in_any_case()
 	{

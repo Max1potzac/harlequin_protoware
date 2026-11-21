@@ -964,6 +964,11 @@ Without a rig, the file comes in as a drawn object.
   comes in as close as that allows. It keeps its longer way exactly, the line it reaches
   furthest along from its joint (a forearm from elbow to wrist, so the hand stays on it), and its
   shorter way takes the slant. The import's notes say how far parts were skewed.
+- **Pictures at another resolution**: a PvZ2 converter's `data.json` says what resolution the
+  pictures were cut at (1536 by default) and how big each picture is. Pictures cut from another
+  resolution's atlas, such as PvZ2C's 1200 pages, would come out the wrong size and pull the
+  parts apart. Each one is drawn at the size its name says instead, and the import's notes say
+  so.
 
 ### Sprite sheets (.png, .webp, .gif, .bmp, .jpg)
 
