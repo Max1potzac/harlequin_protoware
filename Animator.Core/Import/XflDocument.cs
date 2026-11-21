@@ -205,6 +205,10 @@ public sealed class XflDocument
 	public List<string> Notes { get; } = new();          // what didn't come across
 	public XflFiles Files { get; init; } = XflFiles.Empty;
 
+	// Pictures drawn bigger (or smaller) than their instances say, by library name: a PvZ2
+	// converter's pictures at another resolution than its data.json says (see XflReader)
+	public Dictionary<string, float> BitmapScales { get; } = new(StringComparer.Ordinal);
+
 	public XflSymbol? Symbol(string name) => Symbols.TryGetValue(name, out var s) ? s : null;
 
 	// A library picture's file: Animate's copy in bin/, else the file in LIBRARY, else where it came from
@@ -379,6 +383,8 @@ public static class XflReader
 			};
 		}
 
+		ReadResolution(doc);
+
 		int unreadable = 0;
 		foreach (var include in Children(Child(root, "symbols"), "Include"))
 		{
@@ -410,6 +416,55 @@ public static class XflReader
 		foreach (var timeline in Children(Child(root, "timelines"), "DOMTimeline"))
 			doc.Scenes.Add(ReadTimeline(timeline, Name(timeline, "name"), doc));
 		return doc;
+	}
+
+	// PvZ2 animations converted to XFL (Sen and the like) come with a data.json saying the
+	// resolution their pictures are cut at ("resolution": 1536) and each picture's size in the
+	// animation's own units (1200ths, the size in its name: "pinecone_100x92"): each picture is
+	// drawn at 1200 / resolution. Pictures cut from another resolution's atlas (PvZ2C's 1200 or
+	// 768 pages) would come out too small or too big, each about its own corner, pulling the parts
+	// apart; those are drawn at the size their name says instead.
+	private static void ReadResolution(XflDocument doc)
+	{
+		if (doc.Files.Read("data.json") is not { } json) return;
+		try
+		{
+			using var data = System.Text.Json.JsonDocument.Parse(json);
+			var top = data.RootElement;
+			if (top.ValueKind != System.Text.Json.JsonValueKind.Object
+				|| !top.TryGetProperty("resolution", out var r) || !r.TryGetDouble(out double resolution) || resolution <= 0
+				|| !top.TryGetProperty("image", out var images) || images.ValueKind != System.Text.Json.JsonValueKind.Object) return;
+			float expected = (float)(resolution / 1200);
+			var found = new List<float>();
+			foreach (var image in images.EnumerateObject())
+			{
+				if (!image.Value.TryGetProperty("dimension", out var size)
+					|| !size.TryGetProperty("width", out var w) || !w.TryGetDouble(out double width)
+					|| !size.TryGetProperty("height", out var h) || !h.TryGetDouble(out double height)) continue;
+				if (!doc.Bitmaps.TryGetValue("media/" + image.Name, out var item) || PngSize(doc.BitmapBytes(item)) is not { } pixels) continue;
+				// the longer way says it best (a few pixels' rounding counts less)
+				float actual = width >= height ? pixels.Width / (float)width : pixels.Height / (float)height;
+				if (actual <= 0 || Math.Max(width, height) < 1) continue;
+				float scale = expected / actual;
+				if (MathF.Abs(scale - 1) < 0.04f) continue;
+				doc.BitmapScales[item.Name] = scale;
+				found.Add(actual * 1200);
+			}
+			if (found.Count > 0)
+			{
+				int cut = (int)MathF.Round(found.OrderBy(x => x).ElementAt(found.Count / 2) / 8) * 8;
+				doc.Notes.Add($"{found.Count} picture(s) are cut at another resolution ({cut}) than the animation's data.json says ({resolution:0}): each is drawn at the size its name says.");
+			}
+		}
+		catch (System.Text.Json.JsonException) { }
+	}
+
+	// A PNG's size from its header
+	private static (int Width, int Height)? PngSize(byte[]? png)
+	{
+		if (png == null || png.Length < 24 || png[0] != 0x89 || png[1] != (byte)'P' || png[2] != (byte)'N' || png[3] != (byte)'G') return null;
+		int Read(int at) => png[at] << 24 | png[at + 1] << 16 | png[at + 2] << 8 | png[at + 3];
+		return (Read(16), Read(20));
 	}
 
 	private static XElement Load(byte[] xml)
@@ -526,7 +581,10 @@ public static class XflReader
 					Blend = Text(e, "blendMode") ?? "normal"
 				};
 			case "DOMBitmapInstance":
-				return new XflBitmapInstance { Matrix = ReadMatrix(e), Library = Name(e, "libraryItemName") };
+				string picture = Name(e, "libraryItemName");
+				var matrix = ReadMatrix(e);
+				if (doc.BitmapScales.TryGetValue(picture, out float scale)) matrix = Matrix3x2.CreateScale(scale) * matrix;
+				return new XflBitmapInstance { Matrix = matrix, Library = picture };
 			case "DOMShape":
 				return ReadShape(e);
 			case "DOMGroup":
